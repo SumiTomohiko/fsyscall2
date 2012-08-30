@@ -57,8 +57,8 @@ dup_or_die(int old_fd)
 static int
 dup_to_nonstd(int fd)
 {
-	char *path = "/dev/null";
 	int new_fd, tmp, tmp2;
+	char *path = "/dev/null";
 
 	if ((fd != 0) && (fd != 1) && (fd != 2)) {
 		return fd;
@@ -77,10 +77,10 @@ dup_to_nonstd(int fd)
 static void
 start_slave(int mhub2shub, int shub2mhub)
 {
-	char args[6][8], *file = args[0], path[32];
+	pid_t pid;
 	int slave2hub[2], hub2slave[2];
 	int len, rfd, wfd;
-	pid_t pid;
+	char args[6][8], *file = args[0], path[32];
 
 	snprintf(path, sizeof(path), "/tmp/fshub.%d", getpid());
 
@@ -135,9 +135,9 @@ status_is_fail(int status)
 int
 main(int argc, const char *argv[])
 {
+	pid_t master_pid, slave_pid;
 	int master_status, slave_status;
 	int mhub2shub[2], shub2mhub[2];
-	pid_t master_pid, slave_pid;
 
 	pipe_or_die(shub2mhub);
 	pipe_or_die(mhub2shub);
