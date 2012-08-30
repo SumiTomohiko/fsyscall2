@@ -1,3 +1,4 @@
+*.core
 fmaster/fmaster
 fmaster/main.o
 fshub/fshub
