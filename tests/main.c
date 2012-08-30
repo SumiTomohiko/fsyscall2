@@ -40,6 +40,11 @@ pipe_or_die(int fds[2])
 #define	R	0
 #define	W	1
 
+#define	ALLOC_FD(x, fd)	do {			\
+	x = (char*)alloca(sizeof(char) * 16);	\
+	sprintf(x, "%d", (fd));			\
+} while (0)
+
 static void
 start_master(int shub2mhub, int mhub2shub, int argc, char* argv[])
 {
@@ -48,10 +53,8 @@ start_master(int shub2mhub, int mhub2shub, int argc, char* argv[])
 
 	args = (char**)alloca(sizeof(char*) * (argc + 4));
 	args[0] = "fmaster";
-	args[1] = (char*)alloca(sizeof(char) * 16);
-	sprintf(args[1], "%d", shub2mhub);
-	args[2] = (char*)alloca(sizeof(char) * 16);
-	sprintf(args[2], "%d", mhub2shub);
+	ALLOC_FD(args[1], shub2mhub);
+	ALLOC_FD(args[2], mhub2shub);
 	for (i = 0; i < argc; i++) {
 		args[3 + i] = argv[i];
 	}
@@ -93,12 +96,34 @@ dup_to_nonstd(int fd)
 }
 
 static void
-start_slave(int mhub2shub, int shub2mhub)
+exec_fshub(int mhub2shub, int shub2mhub, int slave2hub, int hub2slave, char *path, int argc, char *argv[])
+{
+	int i;
+	char **args;
+
+	args = (char**)alloca(sizeof(char*) * (7 + argc));
+	args[0] = "fshub";
+	ALLOC_FD(args[1], mhub2shub);
+	ALLOC_FD(args[2], shub2mhub);
+	ALLOC_FD(args[3], slave2hub);
+	ALLOC_FD(args[4], hub2slave);
+	args[5] = path;
+	for (i = 0; i < argc; i++) {
+		args[6 + i] = argv[i];
+	}
+	args[i] = NULL;
+	execvp(args[0], args);
+	err(-1, "Cannot execvp %s", args[0]);
+	/* NOTREACHED */
+}
+
+static void
+start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 {
 	pid_t pid;
 	int slave2hub[2], hub2slave[2];
 	int len, rfd, wfd;
-	char args[6][8], *file = args[0], path[32];
+	char **args, path[32];
 
 	snprintf(path, sizeof(path), "/tmp/fshub.%d", getpid());
 
@@ -109,19 +134,14 @@ start_slave(int mhub2shub, int shub2mhub)
 	if (pid == 0) {
 		close_or_die(slave2hub[W]);
 		close_or_die(hub2slave[R]);
-
-		strcpy(args[0], "fshub");
-		sprintf(args[1], "%d", mhub2shub);
-		sprintf(args[2], "%d", shub2mhub);
-		sprintf(args[3], "%d", slave2hub[R]);
-		sprintf(args[4], "%d", hub2slave[W]);
-		execlp(
-			file,
-			args[0], args[1], args[2], args[3], args[4], path,
-			NULL);
-		err(-1, "Cannot execlp %s", file);
+		exec_fshub(
+			mhub2shub, shub2mhub,
+			slave2hub[R], hub2slave[W],
+			path,
+			argc, argv);
 		/* NOTREACHED */
 	}
+
 	close_or_die(mhub2shub);
 	close_or_die(shub2mhub);
 	close_or_die(hub2slave[W]);
@@ -131,8 +151,8 @@ start_slave(int mhub2shub, int shub2mhub)
 	strcpy(args[0], "fslave");
 	sprintf(args[1], "%d", rfd);
 	sprintf(args[2], "%d", wfd);
-	execlp(file, args[0], args[1], args[2], path, NULL);
-	err(-1, "Cannot execlp %s", file);
+	execlp(args[0], args[0], args[1], args[2], path, NULL);
+	err(-1, "Cannot execlp %s", args[0]);
 	/* NOTREACHED */
 }
 
@@ -171,7 +191,7 @@ main(int argc, char *argv[])
 	if (slave_pid == 0) {
 		close_or_die(shub2mhub[R]);
 		close_or_die(mhub2shub[W]);
-		start_slave(mhub2shub[R], shub2mhub[W]);
+		start_slave(mhub2shub[R], shub2mhub[W], argc - 1, args);
 		/* NOTREACHED */
 	}
 
