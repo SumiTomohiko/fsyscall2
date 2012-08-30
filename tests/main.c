@@ -1,7 +1,9 @@
+#include <assert.h>
 #include <err.h>
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/socket.h>
@@ -39,9 +41,25 @@ pipe_or_die(int fds[2])
 #define	W	1
 
 static void
-start_master(int shub2mhub, int mhub2shub)
+start_master(int shub2mhub, int mhub2shub, int argc, char* argv[])
 {
-	/* TODO */
+	int i;
+	char **args;
+
+	args = (char**)alloca(sizeof(char*) * (argc + 4));
+	args[0] = "fmaster";
+	args[1] = (char*)alloca(sizeof(char) * 16);
+	sprintf(args[1], "%d", shub2mhub);
+	args[2] = (char*)alloca(sizeof(char) * 16);
+	sprintf(args[2], "%d", mhub2shub);
+	for (i = 0; i < argc; i++) {
+		args[3 + i] = argv[i];
+	}
+	args[i] = NULL;
+
+	execvp(args[0], args);
+	err(-1, "Cannot execvp %s", args[0]);
+	/* NOTREACHED */
 }
 
 static int
@@ -133,11 +151,18 @@ status_is_fail(int status)
 }
 
 int
-main(int argc, const char *argv[])
+main(int argc, char *argv[])
 {
 	pid_t master_pid, slave_pid;
-	int master_status, slave_status;
+	int i, master_status, slave_status;
 	int mhub2shub[2], shub2mhub[2];
+	char **args;
+
+	assert(1 < argc);
+	args = (char**)alloca(sizeof(char*) * (argc - 1));
+	for (i = 1; i < argc; i++) {
+		args[i - 1] = argv[i];
+	}
 
 	pipe_or_die(shub2mhub);
 	pipe_or_die(mhub2shub);
@@ -154,7 +179,7 @@ main(int argc, const char *argv[])
 	if (master_pid == 0) {
 		close_or_die(mhub2shub[R]);
 		close_or_die(shub2mhub[W]);
-		start_master(shub2mhub[R], mhub2shub[W]);
+		start_master(shub2mhub[R], mhub2shub[W], argc - 1, args);
 		/* NOTREACHED */
 	}
 
