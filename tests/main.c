@@ -92,7 +92,7 @@ start_slave(int mhub2shub, int shub2mhub)
 		close_or_die(slave2hub[W]);
 		close_or_die(hub2slave[R]);
 
-		strcat(args[0], "fshub");
+		strcpy(args[0], "fshub");
 		sprintf(args[1], "%d", mhub2shub);
 		sprintf(args[2], "%d", shub2mhub);
 		sprintf(args[3], "%d", slave2hub[R]);
@@ -110,7 +110,7 @@ start_slave(int mhub2shub, int shub2mhub)
 	close_or_die(slave2hub[R]);
 	rfd = dup_to_nonstd(hub2slave[R]);
 	wfd = dup_to_nonstd(slave2hub[W]);
-	strcat(args[0], "fslave");
+	strcpy(args[0], "fslave");
 	sprintf(args[1], "%d", rfd);
 	sprintf(args[2], "%d", wfd);
 	execlp(file, args[0], args[1], args[2], path, NULL);
