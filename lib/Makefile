@@ -1,4 +1,4 @@
 
-SUBDIR = private master slave
+SUBDIR = private start_master start_slave
 
 .include <bsd.subdir.mk>

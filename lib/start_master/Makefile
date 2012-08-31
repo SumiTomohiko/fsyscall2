@@ -1,5 +1,5 @@
 
-LIB = slave
+LIB = start_master
 SRCS = lib.c
 TOP_DIR = ../..
 CFLAGS = -I${TOP_DIR}/include

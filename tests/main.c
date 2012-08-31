@@ -4,9 +4,9 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#include <fsyscall/master.h>
 #include <fsyscall/private.h>
-#include <fsyscall/slave.h>
+#include <fsyscall/start_master.h>
+#include <fsyscall/start_slave.h>
 
 static bool
 status_is_fail(int status)
