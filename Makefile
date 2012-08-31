@@ -1,4 +1,4 @@
 
-SUBDIR = fmaster fmhub fshub fslave tests
+SUBDIR = lib fmaster fmhub fshub fslave tests
 
 .include <bsd.subdir.mk>

@@ -1,9 +1,8 @@
+*.a
 *.core
+*.o
+*.po
 fmaster/fmaster
-fmaster/main.o
 fshub/fshub
-fshub/main.o
 fslave/fslave
-fslave/main.o
-tests/main.o
 tests/tester
