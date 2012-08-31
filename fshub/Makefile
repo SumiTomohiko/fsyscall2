@@ -1,6 +1,6 @@
 
-PROG = fshub
-SRCS = main.c
-WITHOUT_MAN = yes
+PROG=		fshub
+SRCS=		main.c
+WITHOUT_MAN=	yes
 
 .include <bsd.prog.mk>
