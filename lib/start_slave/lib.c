@@ -65,7 +65,7 @@ fsyscall_start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 	pid_t pid;
 	int slave2hub[2], hub2slave[2];
 	int len, rfd, wfd;
-	char **args, path[32];
+	char args[3][16], path[32];
 
 	snprintf(path, sizeof(path), "/tmp/fshub.%d", getpid());
 
