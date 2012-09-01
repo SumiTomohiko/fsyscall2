@@ -17,7 +17,18 @@ usage()
 }
 
 static void
-negotiate_ver_with_slave(struct shub *shub)
+negotiate_version_with_mhub(struct shub *shub)
+{
+	uint8_t request;
+	uint8_t ver = 0;
+
+	write_or_die(shub->mhub.wfd, &ver, sizeof(ver));
+	read_or_die(shub->mhub.rfd, &request, sizeof(request));
+	assert(request == 0);
+}
+
+static void
+negotiate_version_with_slave(struct shub *shub)
 {
 	uint8_t request;
 	uint8_t ver = 0;
@@ -30,8 +41,8 @@ negotiate_ver_with_slave(struct shub *shub)
 static int
 shub_main(struct shub *shub)
 {
-	negotiate_ver_with_slave(shub);
-	/* TODO: negotiate version with master hub */
+	negotiate_version_with_mhub(shub);
+	negotiate_version_with_slave(shub);
 
 	return (0);
 }

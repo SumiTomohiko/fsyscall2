@@ -2,7 +2,7 @@
 *.core
 *.o
 *.po
-fmaster/fmaster
+fmhub/fmhub
 fshub/fshub
 fslave/fslave
 tests/tester
