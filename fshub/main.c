@@ -64,7 +64,7 @@ main(int argc, char *argv[])
 
 	openlog(argv[0], LOG_PID, LOG_USER);
 
-	while ((opt = getopt_long(argc, argv, "", opts, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "", opts, NULL)) != -1)
 		switch (opt) {
 		case 'h':
 			usage();
@@ -76,7 +76,6 @@ main(int argc, char *argv[])
 			usage();
 			return (-1);
 		}
-	}
 	if (argc - optind < 5) {
 		usage();
 		return (-1);

@@ -15,9 +15,8 @@ fsyscall_start_master(int shub2mhub, int mhub2shub, int argc, char* argv[])
 	args[0] = "fmhub";
 	ALLOC_FD(args[1], shub2mhub);
 	ALLOC_FD(args[2], mhub2shub);
-	for (i = 0; i < argc; i++) {
+	for (i = 0; i < argc; i++)
 		args[3 + i] = argv[i];
-	}
 	args[3 + i] = NULL;
 
 	execvp(args[0], args);

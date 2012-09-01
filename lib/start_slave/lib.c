@@ -11,10 +11,9 @@ static int
 dup_or_die(int old_fd)
 {
 	int new_fd = dup(old_fd);
-	if (new_fd == -1) {
+	if (new_fd == -1)
 		err(-1, "Cannot dup");
-	}
-	return old_fd;
+	return (old_fd);
 }
 
 static int
@@ -23,9 +22,8 @@ dup_to_nonstd(int fd)
 	int new_fd, tmp, tmp2;
 	char *path = "/dev/null";
 
-	if ((fd != 0) && (fd != 1) && (fd != 2)) {
-		return fd;
-	}
+	if ((fd != 0) && (fd != 1) && (fd != 2))
+		return (fd);
 
 	tmp = open(path, O_RDONLY);
 	tmp2 = open(path, O_RDONLY);
@@ -34,7 +32,7 @@ dup_to_nonstd(int fd)
 	close_or_die(tmp2);
 	close_or_die(tmp);
 
-	return new_fd;
+	return (new_fd);
 }
 
 static void
@@ -50,9 +48,8 @@ exec_fshub(int mhub2shub, int shub2mhub, int slave2hub, int hub2slave, char *pat
 	ALLOC_FD(args[3], slave2hub);
 	ALLOC_FD(args[4], hub2slave);
 	args[5] = path;
-	for (i = 0; i < argc; i++) {
+	for (i = 0; i < argc; i++)
 		args[6 + i] = argv[i];
-	}
 	args[6 + i] = NULL;
 	execvp(args[0], args);
 	err(-1, "Cannot execvp %s", args[0]);

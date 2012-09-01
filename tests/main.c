@@ -24,9 +24,8 @@ main(int argc, char *argv[])
 
 	assert(1 < argc);
 	args = (char**)alloca(sizeof(char*) * (argc - 1));
-	for (i = 1; i < argc; i++) {
+	for (i = 1; i < argc; i++)
 		args[i - 1] = argv[i];
-	}
 
 	pipe_or_die(shub2mhub);
 	pipe_or_die(mhub2shub);
@@ -54,9 +53,8 @@ main(int argc, char *argv[])
 	waitpid_or_die(slave_pid, &slave_status);
 	waitpid_or_die(master_pid, &master_status);
 
-	if (status_is_fail(slave_status) || status_is_fail(master_status)) {
+	if (status_is_fail(slave_status) || status_is_fail(master_status))
 		return (-1);
-	}
 
 	return (0);
 }
