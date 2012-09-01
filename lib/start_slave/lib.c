@@ -53,7 +53,7 @@ exec_fshub(int mhub2shub, int shub2mhub, int slave2hub, int hub2slave, char *pat
 	for (i = 0; i < argc; i++) {
 		args[6 + i] = argv[i];
 	}
-	args[i] = NULL;
+	args[6 + i] = NULL;
 	execvp(args[0], args);
 	err(-1, "Cannot execvp %s", args[0]);
 	/* NOTREACHED */
