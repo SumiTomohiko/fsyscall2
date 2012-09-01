@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <getopt.h>
 #include <stdio.h>
+#include <syslog.h>
 
 #include <fsyscall/private.h>
 
@@ -24,6 +25,7 @@ negotiate_version_with_shub(struct mhub *mhub)
 	read_or_die(mhub->rfd, &request, sizeof(request));
 	assert(request == 0);
 	write_or_die(mhub->wfd, &ver, sizeof(ver));
+	syslog(LOG_INFO, "Protocol version for shub is %d.", ver);
 }
 
 static int
@@ -45,6 +47,8 @@ main(int argc, char *argv[])
 	struct mhub mhub;
 	int opt;
 	char **args;
+
+	openlog(argv[0], LOG_PID, LOG_USER);
 
 	while ((opt = getopt_long(argc, argv, "", opts, NULL)) != -1) {
 		switch (opt) {

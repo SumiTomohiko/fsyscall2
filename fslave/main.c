@@ -3,8 +3,10 @@
 #include <assert.h>
 #include <getopt.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <syslog.h>
 #include <unistd.h>
 
 #include <fsyscall/private.h>
@@ -30,6 +32,7 @@ negotiate_version(struct slave *slave)
 	write_or_die(slave->wfd, &request_ver, sizeof(request_ver));
 	read_or_die(slave->rfd, &response, sizeof(response));
 	assert(response == 0);
+	syslog(LOG_INFO, "Protocol version for shub is %d.", response);
 }
 
 static int
@@ -50,6 +53,8 @@ main(int argc, char* argv[])
 	struct slave slave;
 	int opt;
 	char **args;
+
+	openlog(argv[0], LOG_PID, LOG_USER);
 
 	while ((opt = getopt_long(argc, argv, "", opts, NULL)) != -1) {
 		switch (opt) {

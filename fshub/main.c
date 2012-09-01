@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <getopt.h>
 #include <stdio.h>
+#include <syslog.h>
 
 #include <fsyscall/private.h>
 
@@ -25,6 +26,7 @@ negotiate_version_with_mhub(struct shub *shub)
 	write_or_die(shub->mhub.wfd, &ver, sizeof(ver));
 	read_or_die(shub->mhub.rfd, &request, sizeof(request));
 	assert(request == 0);
+	syslog(LOG_INFO, "Protocol version for mhub is %d.", ver);
 }
 
 static void
@@ -36,6 +38,7 @@ negotiate_version_with_slave(struct shub *shub)
 	read_or_die(shub->slave.rfd, &request, sizeof(request));
 	assert(request == 0);
 	write_or_die(shub->slave.wfd, &ver, sizeof(ver));
+	syslog(LOG_INFO, "Protocol version for slave is %d.", ver);
 }
 
 static int
@@ -58,6 +61,8 @@ main(int argc, char *argv[])
 	struct shub shub;
 	int opt;
 	char **args;
+
+	openlog(argv[0], LOG_PID, LOG_USER);
 
 	while ((opt = getopt_long(argc, argv, "", opts, NULL)) != -1) {
 		switch (opt) {
