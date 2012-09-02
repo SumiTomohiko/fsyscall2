@@ -3,6 +3,10 @@
 *.ko
 *.o
 *.po
+fmaster/@
+fmaster/export_syms
+fmaster/machine
+fmaster/x86
 fmhub/fmhub
 fshub/fshub
 fslave/fslave
