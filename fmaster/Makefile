@@ -1,5 +1,5 @@
 
-.PATH: fmaster sys/fmaster sys/kern sys/${MACHINE}/${MACHINE}
+.PATH: /usr/src/sys/kern fmaster sys/fmaster sys/kern sys/${MACHINE}/${MACHINE}
 
 KMOD=		fmaster
 SRCS=		elf_machdep.c fmaster_creat.c fmaster_exit.c fmaster_io.c \
