@@ -36,7 +36,7 @@
 #include <sys/sysproto.h>
 #include <sys/systm.h>
 
-#include <fsyscall/module.h>
+#include <fsyscall/fmaster.h>
 
 MALLOC_DEFINE(M_FMASTER, "fmaster", "fmaster");
 
@@ -65,10 +65,7 @@ struct fmaster_execve_args {
 static int
 fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 {
-#if 0
-	struct fmaster_data *data;
-	struct malloc_type *type;
-#endif
+	struct master_data *data;
 	int i;
 
 	printf("%s:%u rfd: %d\n", __FILE__, __LINE__, uap->rfd);
@@ -81,15 +78,15 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 		printf("%s:%u envp[%d]: %s\n", __FILE__, __LINE__, i, uap->envp[i]);
 	}
 
-#if 0
-	type = M_FMASTER;
-	data = malloc(sizeof(*data), type, M_NOWAIT);
+	data = malloc(sizeof(*data), M_FMASTER, M_ZERO | M_NOWAIT);
+	if (data == NULL)
+		/* TODO: Set errno as ENOMEM */
+		return (-1);
 	data->rfd = uap->rfd;
 	data->wfd = uap->wfd;
 	td->td_proc->p_emuldata = data;
+
 	return (sys_execve(td, (struct execve_args *)(&uap->path)));
-#endif
-	return (0);
 }
 
 /*
