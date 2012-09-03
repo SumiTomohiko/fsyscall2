@@ -40,12 +40,23 @@
 
 MALLOC_DEFINE(M_FMASTER, "fmaster", "fmaster");
 
+/* The following code came from /usr/src/sys/sys/syscall.h */
+#define	PAD_(t)	(sizeof(register_t) <= sizeof(t) ? \
+		0 : sizeof(register_t) - sizeof(t))
+#if BYTE_ORDER == LITTLE_ENDIAN
+#define	PADL_(t)	0
+#define	PADR_(t)	PAD_(t)
+#else
+#define	PADL_(t)	PAD_(t)
+#define	PADR_(t)	0
+#endif
+
 struct fmaster_execve_args {
-	int rfd;
-	int wfd;
-	const char* path;
-	char *const *argv;
-	char *const *envp;
+	char rfd_l[PADL_(int)]; int rfd; char rfd_r[PADR_(int)];
+	char wfd_l[PADL_(int)]; int wfd; char wfd_r[PADR_(int)];
+	char path_l[PADL_(char *)]; char *path; char path_r[PADR_(char *)];
+	char argv_l[PADL_(char **)]; char **argv; char argv_r[PADR_(char **)];
+	char envp_l[PADL_(char **)]; char **envp; char envp_r[PADR_(char **)];
 };
 
 /*
@@ -54,26 +65,31 @@ struct fmaster_execve_args {
 static int
 fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 {
+#if 0
 	struct fmaster_data *data;
 	struct malloc_type *type;
+#endif
 	int i;
 
-	printf("rfd: %d\n", uap->rfd);
-	printf("wfd: %d\n", uap->wfd);
-	printf("path: %s\n", uap->path);
+	printf("%s:%u rfd: %d\n", __FILE__, __LINE__, uap->rfd);
+	printf("%s:%u wfd: %d\n", __FILE__, __LINE__, uap->wfd);
+	printf("%s:%u path: %s\n", __FILE__, __LINE__, uap->path);
 	for (i = 0; uap->argv[i] != NULL; i++) {
-		printf("argv[%d]: %s\n", i, uap->argv[i]);
+		printf("%s:%u argv[%d]: %s\n", __FILE__, __LINE__, i, uap->argv[i]);
 	}
 	for (i = 0; uap->envp[i] != NULL; i++) {
-		printf("envp[%d]: %s\n", i, uap->envp[i]);
+		printf("%s:%u envp[%d]: %s\n", __FILE__, __LINE__, i, uap->envp[i]);
 	}
 
+#if 0
 	type = M_FMASTER;
 	data = malloc(sizeof(*data), type, M_NOWAIT);
 	data->rfd = uap->rfd;
 	data->wfd = uap->wfd;
 	td->td_proc->p_emuldata = data;
 	return (sys_execve(td, (struct execve_args *)(&uap->path)));
+#endif
+	return (0);
 }
 
 /*
