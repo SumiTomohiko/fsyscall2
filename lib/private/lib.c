@@ -2,6 +2,7 @@
 #include <sys/uio.h>
 #include <sys/wait.h>
 #include <err.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,6 +44,8 @@ read_or_die(int fd, const void *buf, size_t nbytes)
 
 	while (n < nbytes) {
 		m = read(fd, (char *)buf + n, nbytes - n);
+		if (m == 0)
+			errc(-1, EBADF, "End-of-file reached");
 		if (m < 0)
 			err(-1, "Cannot read");
 		n -= m;
