@@ -137,5 +137,5 @@ main(int argc, char *argv[])
 	mhub.rfd = atoi_or_die(args[0], "rfd");
 	mhub.wfd = atoi_or_die(args[1], "wfd");
 
-	return (mhub_main(&mhub, argc - optind, args));
+	return (mhub_main(&mhub, argc - optind - 2, args + 2));
 }
