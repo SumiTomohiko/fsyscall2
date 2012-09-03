@@ -126,13 +126,13 @@ fmaster_modevent(struct module *_, int cmd, void *__)
 
 	switch (cmd) {
 	case MOD_LOAD :
-		printf("fmaster loaded.");
+		printf("fmaster loaded.\n");
 #if 0
 		fmaster_exit_tag = EVENTHANDLER_REGISTER(process_exit, process_exit, NULL, EVENTHANDLER_PRI_ANY);
 #endif
 		break;
 	case MOD_UNLOAD :
-		printf("fmaster unloaded.");
+		printf("fmaster unloaded.\n");
 #if 0
 		EVENTHANDLER_DEREGISTER(process_exit, fmaster_exit_tag);
 #endif
