@@ -13,9 +13,18 @@
 
 #include <fsyscall/private.h>
 
-struct mhub {
+struct master {
+	struct master *prev;
+	struct master *next;
 	int rfd;
 	int wfd;
+};
+
+struct mhub {
+	struct connection shub;
+
+	/* The first one and the last one are sentinels. */
+	struct master *masters;
 };
 
 static void
@@ -25,14 +34,36 @@ usage()
 }
 
 static void
+prepend_master(struct mhub *mhub, struct master *master)
+{
+	struct master *head = mhub->masters;
+
+	master->next = head->next;
+	master->prev = head;
+	head->next->prev = master;
+	head->next = master;
+}
+
+static void
+negotiate_version_with_master(struct master *master)
+{
+	uint8_t request, ver = 0;
+
+	read_or_die(master->rfd, &request, sizeof(request));
+	assert(request == 0);
+	write_or_die(master->wfd, &ver, sizeof(ver));
+	syslog(LOG_INFO, "Protocol version for master is %d.", ver);
+}
+
+static void
 negotiate_version_with_shub(struct mhub *mhub)
 {
 	uint8_t request;
 	uint8_t ver = 0;
 
-	read_or_die(mhub->rfd, &request, sizeof(request));
+	read_or_die(mhub->shub.rfd, &request, sizeof(request));
 	assert(request == 0);
-	write_or_die(mhub->wfd, &ver, sizeof(ver));
+	write_or_die(mhub->shub.wfd, &ver, sizeof(ver));
 	syslog(LOG_INFO, "Protocol version for shub is %d.", ver);
 }
 
@@ -75,6 +106,7 @@ exec_master(int syscall_num, int rfd, int wfd, int argc, char *argv[])
 static int
 mhub_main(struct mhub *mhub, int argc, char *argv[])
 {
+	struct master *master;
 	int hub2master[2], master2hub[2], rfd, syscall_num, wfd;
 	pid_t pid;
 
@@ -97,7 +129,15 @@ mhub_main(struct mhub *mhub, int argc, char *argv[])
 	close_or_die(hub2master[R]);
 	close_or_die(master2hub[W]);
 
+	master = malloc_or_die(sizeof(*master));
+	master->rfd = master2hub[R];
+	master->wfd = hub2master[W];
+	prepend_master(mhub, master);
+
 	negotiate_version_with_shub(mhub);
+	negotiate_version_with_master(master);
+
+	/* TODO: Free masters. */
 
 	return (0);
 }
@@ -111,6 +151,7 @@ main(int argc, char *argv[])
 		{ NULL, 0, NULL, 0 }
 	};
 	struct mhub mhub;
+	struct master head, tail;
 	int opt;
 	char **args;
 
@@ -134,8 +175,15 @@ main(int argc, char *argv[])
 	}
 
 	args = &argv[optind];
-	mhub.rfd = atoi_or_die(args[0], "rfd");
-	mhub.wfd = atoi_or_die(args[1], "wfd");
+	mhub.shub.rfd = atoi_or_die(args[0], "rfd");
+	mhub.shub.wfd = atoi_or_die(args[1], "wfd");
+
+	head.rfd = head.wfd = tail.rfd = tail.wfd = -1;
+	head.prev = NULL;
+	head.next = &tail;
+	tail.prev = &head;
+	tail.next = NULL;
+	mhub.masters = &head;
 
 	return (mhub_main(&mhub, argc - optind - 2, args + 2));
 }

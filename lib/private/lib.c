@@ -36,6 +36,15 @@ write_or_die(int fd, const void *buf, size_t nbytes)
 	}
 }
 
+void *
+malloc_or_die(size_t size)
+{
+	void *ptr = malloc(size);
+	if (ptr == NULL)
+		err(-1, "Cannot allocate memory");
+	return (ptr);
+}
+
 void
 read_or_die(int fd, const void *buf, size_t nbytes)
 {
