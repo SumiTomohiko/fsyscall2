@@ -66,7 +66,8 @@ static int
 fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 {
 	struct master_data *data;
-	int i;
+	int i, wfd = uap->wfd;
+	uint8_t ver = 0;
 
 	printf("%s:%u rfd: %d\n", __FILE__, __LINE__, uap->rfd);
 	printf("%s:%u wfd: %d\n", __FILE__, __LINE__, uap->wfd);
@@ -77,6 +78,8 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 	for (i = 0; uap->envp[i] != NULL; i++) {
 		printf("%s:%u envp[%d]: %s\n", __FILE__, __LINE__, i, uap->envp[i]);
 	}
+
+	fmaster_write_or_die(td, wfd, &ver, sizeof(ver));
 
 	data = malloc(sizeof(*data), M_FMASTER, M_ZERO | M_NOWAIT);
 	if (data == NULL)

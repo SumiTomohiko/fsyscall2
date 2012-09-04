@@ -37,4 +37,6 @@ int sys_fsyscall_write_int(struct thread *, int);
 int sys_fsyscall_write_str(struct thread *, const char*);
 int sys_fsyscall_write_syscall(struct thread *, int);
 
+void fmaster_write_or_die(struct thread *, int, void *, size_t);
+
 #endif
