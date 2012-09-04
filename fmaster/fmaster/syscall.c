@@ -66,8 +66,8 @@ static int
 fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 {
 	struct master_data *data;
-	int i, wfd = uap->wfd;
-	uint8_t ver = 0;
+	int i, rfd = uap->rfd, wfd = uap->wfd;
+	uint8_t request_ver = 0, ver;
 
 	printf("%s:%u rfd: %d\n", __FILE__, __LINE__, uap->rfd);
 	printf("%s:%u wfd: %d\n", __FILE__, __LINE__, uap->wfd);
@@ -79,7 +79,10 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 		printf("%s:%u envp[%d]: %s\n", __FILE__, __LINE__, i, uap->envp[i]);
 	}
 
-	fmaster_write_or_die(td, wfd, &ver, sizeof(ver));
+	fmaster_write_or_die(td, wfd, &request_ver, sizeof(request_ver));
+	fmaster_read_or_die(td, rfd, &ver, sizeof(ver));
+	/* TODO: assert version. */
+	printf("Protocol version for fmhub is %d.", ver);
 
 	data = malloc(sizeof(*data), M_FMASTER, M_ZERO | M_NOWAIT);
 	if (data == NULL)
