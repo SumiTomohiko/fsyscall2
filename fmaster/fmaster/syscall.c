@@ -59,6 +59,47 @@ struct fmaster_execve_args {
 	char envp_l[PADL_(char **)]; char **envp; char envp_r[PADR_(char **)];
 };
 
+static void
+negotiate_version(struct thread *td, int rfd, int wfd)
+{
+	uint8_t request_ver, ver;
+
+	request_ver = 0;
+	fmaster_write_or_die(td, wfd, &request_ver, sizeof(request_ver));
+	fmaster_read_or_die(td, rfd, &ver, sizeof(ver));
+	/* TODO: assert version. */
+	printf("Protocol version for fmhub is %d.", ver);
+}
+
+static struct master_data *
+create_data(struct thread *td, int rfd, int wfd)
+{
+	struct master_data *data;
+
+	data = malloc(sizeof(*data), M_FMASTER, M_ZERO | M_NOWAIT);
+	if (data == NULL)
+		return (NULL);
+	data->rfd = rfd;
+	data->wfd = wfd;
+
+	return (data);
+}
+
+static void
+read_fds(struct thread *td, int fd, struct master_data *data)
+{
+	int d, m, nbytes, pos;
+
+	nbytes = fmaster_read_int(td, fd);
+
+	pos = 0;
+	while (pos < nbytes) {
+		d = fmaster_read_int2(td, fd, &m);
+		data->fds[d] = SLAVE_FD2FD(d);
+		pos += m;
+	}
+}
+
 /*
  * The function for implementing the syscall.
  */
@@ -66,8 +107,7 @@ static int
 fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 {
 	struct master_data *data;
-	int i, rfd = uap->rfd, wfd = uap->wfd;
-	uint8_t request_ver = 0, ver;
+	int i, rfd, wfd;
 
 	printf("%s:%u rfd: %d\n", __FILE__, __LINE__, uap->rfd);
 	printf("%s:%u wfd: %d\n", __FILE__, __LINE__, uap->wfd);
@@ -79,17 +119,16 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 		printf("%s:%u envp[%d]: %s\n", __FILE__, __LINE__, i, uap->envp[i]);
 	}
 
-	fmaster_write_or_die(td, wfd, &request_ver, sizeof(request_ver));
-	fmaster_read_or_die(td, rfd, &ver, sizeof(ver));
-	/* TODO: assert version. */
-	printf("Protocol version for fmhub is %d.", ver);
+	rfd = uap->rfd;
+	wfd = uap->wfd;
+	negotiate_version(td, rfd, wfd);
 
-	data = malloc(sizeof(*data), M_FMASTER, M_ZERO | M_NOWAIT);
+	data = create_data(td, rfd, wfd);
 	if (data == NULL)
 		/* TODO: Set errno as ENOMEM */
 		return (-1);
-	data->rfd = uap->rfd;
-	data->wfd = uap->wfd;
+	read_fds(td, rfd, data);
+
 	td->td_proc->p_emuldata = data;
 
 	return (sys_execve(td, (struct execve_args *)(&uap->path)));
