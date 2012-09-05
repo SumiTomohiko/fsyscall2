@@ -88,13 +88,6 @@ fork_or_die()
 }
 
 void
-waitpid_or_die(pid_t pid, int *status)
-{
-	if (waitpid(pid, status, 0) == -1)
-		err(-1, "Cannot waitpid %d", pid);
-}
-
-void
 send_int(int fd, int n)
 {
 	int len;

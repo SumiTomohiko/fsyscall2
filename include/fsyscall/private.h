@@ -13,7 +13,6 @@ void close_or_die(int);
 void pipe_or_die(int[2]);
 void read_or_die(int, const void *, size_t);
 void send_int(int, int);
-void waitpid_or_die(pid_t, int *);
 void write_or_die(int, const void *, size_t);
 void *malloc_or_die(size_t);
 int atoi_or_die(const char *, const char *);
