@@ -71,7 +71,7 @@ negotiate_version(struct thread *td, int rfd, int wfd)
 	if (ver != 0)
 		return (EPROTO);
 
-	printf("Protocol version for fmhub is %d.", ver);
+	printf("Protocol version for fmhub is %d.\n", ver);
 
 	return (0);
 }
