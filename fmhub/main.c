@@ -143,6 +143,7 @@ mhub_main(struct mhub *mhub, int argc, char *argv[])
 
 	negotiate_version_with_shub(mhub);
 	negotiate_version_with_master(master);
+	transport_fds(mhub->shub.rfd, master->wfd);
 
 	/* TODO: Free masters. */
 

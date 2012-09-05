@@ -49,6 +49,7 @@ shub_main(struct shub *shub)
 {
 	negotiate_version_with_mhub(shub);
 	negotiate_version_with_slave(shub);
+	transport_fds(shub->slave.rfd, shub->mhub.wfd);
 
 	return (0);
 }

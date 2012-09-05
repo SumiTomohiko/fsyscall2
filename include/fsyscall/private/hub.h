@@ -6,4 +6,6 @@ struct connection {
 	int wfd;
 };
 
+void transport_fds(int, int);
+
 #endif
