@@ -1,5 +1,5 @@
 
-LIB=		start_master
+LIB=		io
 TOP_DIR=	../..
 CFLAGS=		-I${TOP_DIR}/include
 

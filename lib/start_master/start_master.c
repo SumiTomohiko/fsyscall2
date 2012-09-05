@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <fsyscall/private.h>
+#include <fsyscall/private/start.h>
 
 void
 fsyscall_start_master(int shub2mhub, int mhub2shub, int argc, char* argv[])

@@ -6,6 +6,9 @@
 #include <stdlib.h>
 
 #include <fsyscall/private.h>
+#include <fsyscall/private/close_or_die.h>
+#include <fsyscall/private/fork_or_die.h>
+#include <fsyscall/private/pipe_or_die.h>
 #include <fsyscall/start_master.h>
 #include <fsyscall/start_slave.h>
 

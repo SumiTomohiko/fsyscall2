@@ -12,6 +12,13 @@
 #include <unistd.h>
 
 #include <fsyscall/private.h>
+#include <fsyscall/private/atoi_or_die.h>
+#include <fsyscall/private/close_or_die.h>
+#include <fsyscall/private/fork_or_die.h>
+#include <fsyscall/private/hub.h>
+#include <fsyscall/private/io.h>
+#include <fsyscall/private/malloc_or_die.h>
+#include <fsyscall/private/pipe_or_die.h>
 
 struct master {
 	struct master *prev;

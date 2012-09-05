@@ -1,0 +1,8 @@
+
+SRCS=		${LIB}.c
+
+install:
+
+.include <bsd.lib.mk>
+
+# vim: filetype=make

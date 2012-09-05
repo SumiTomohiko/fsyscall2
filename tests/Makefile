@@ -7,8 +7,9 @@ CFLAGS=		-I${TOP_DIR}/include
 LIB_DIR=	${TOP_DIR}/lib
 LDADD =		${LIB_DIR}/start_slave/libstart_slave.a \
 		${LIB_DIR}/start_master/libstart_master.a \
-		${LIB_DIR}/private/libprivate.a \
-		${LIB_DIR}/encode/libencode.a
+		${LIB_DIR}/close_or_die/libclose_or_die.a \
+		${LIB_DIR}/fork_or_die/libfork_or_die.a \
+		${LIB_DIR}/pipe_or_die/libpipe_or_die.a
 
 install:
 

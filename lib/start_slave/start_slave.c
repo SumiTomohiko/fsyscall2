@@ -5,7 +5,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <fsyscall/private.h>
+#include <fsyscall/private/close_or_die.h>
+#include <fsyscall/private/fork_or_die.h>
+#include <fsyscall/private/pipe_or_die.h>
+#include <fsyscall/private/start.h>
 
 static int
 dup_or_die(int old_fd)

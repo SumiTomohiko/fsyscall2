@@ -1,29 +1,11 @@
 #include <sys/types.h>
 #include <sys/uio.h>
-#include <sys/wait.h>
 #include <err.h>
 #include <errno.h>
-#include <limits.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 
 #include <fsyscall/encode.h>
 #include <fsyscall/private.h>
-
-int
-atoi_or_die(const char *s, const char *name)
-{
-	char *endptr;
-	int base = 10;
-	int n = strtol(s, &endptr, base);
-
-	if (*endptr != '\0') {
-		printf("%s must be an integer.\n", name);
-		exit(-1);
-	}
-	return (n);
-}
 
 void
 write_or_die(int fd, const void *buf, size_t nbytes)
@@ -37,15 +19,6 @@ write_or_die(int fd, const void *buf, size_t nbytes)
 			err(-1, "Cannot write");
 		n -= m;
 	}
-}
-
-void *
-malloc_or_die(size_t size)
-{
-	void *ptr = malloc(size);
-	if (ptr == NULL)
-		err(-1, "Cannot allocate memory");
-	return (ptr);
 }
 
 void
@@ -62,29 +35,6 @@ read_or_die(int fd, const void *buf, size_t nbytes)
 			err(-1, "Cannot read");
 		n -= m;
 	}
-}
-
-void
-pipe_or_die(int fds[2])
-{
-	if (pipe(fds) != 0)
-		err(-1, "Cannot pipe");
-}
-
-void
-close_or_die(int fd)
-{
-	if (close(fd) != 0)
-		err(-1, "Cannot close");
-}
-
-pid_t
-fork_or_die()
-{
-	pid_t pid = fork();
-	if (pid == -1)
-		err(-1, "Cannot fork");
-	return (pid);
 }
 
 void

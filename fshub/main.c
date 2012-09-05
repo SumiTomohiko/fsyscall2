@@ -4,6 +4,9 @@
 #include <syslog.h>
 
 #include <fsyscall/private.h>
+#include <fsyscall/private/atoi_or_die.h>
+#include <fsyscall/private/hub.h>
+#include <fsyscall/private/io.h>
 
 struct shub {
 	struct connection mhub;
