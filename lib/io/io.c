@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <assert.h>
 #include <err.h>
 #include <errno.h>
 #include <unistd.h>
@@ -45,4 +46,22 @@ send_int(int fd, int n)
 
 	len = fsyscall_encode_int(n, buf, array_sizeof(buf));
 	write_or_die(fd, buf, len);
+}
+
+int
+read_int(int fd)
+{
+	int nbytes, pos;
+	char buf[FSYSCALL_BUFSIZE_INT];
+
+	pos = 0;
+	nbytes = sizeof(buf[0]);
+	read_or_die(fd, &buf[pos], nbytes);
+	while ((buf[pos] & 0x80) != 0) {
+		pos++;
+		assert(pos < array_sizeof(buf));
+		read_or_die(fd, &buf[pos], nbytes);
+	}
+
+	return (fsyscall_decode_int(buf, pos + 1));
 }
