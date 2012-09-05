@@ -39,7 +39,7 @@ read_or_die(int fd, const void *buf, size_t nbytes)
 }
 
 void
-send_int(int fd, int n)
+write_int(int fd, int n)
 {
 	int len;
 	char buf[FSYSCALL_BUFSIZE_INT];
