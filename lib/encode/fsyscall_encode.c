@@ -1,3 +1,4 @@
+#include <fsyscall/encode.h>
 
 int
 fsyscall_decode_int(char *buf, int bufsize)

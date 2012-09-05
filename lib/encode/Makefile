@@ -1,6 +1,8 @@
 
-LIB=	encode
-SRCS=	fsyscall_encode.c
+LIB=		encode
+SRCS=		fsyscall_encode.c
+TOP_DIR=	../..
+CFLAGS=		-I${TOP_DIR}/include
 
 install:
 
