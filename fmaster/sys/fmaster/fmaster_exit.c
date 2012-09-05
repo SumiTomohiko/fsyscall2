@@ -2,7 +2,7 @@
 #include <sys/cdefs.h>
 #include <sys/proc.h>
 
-#include <fsyscall/module.h>
+#include <fsyscall/fmaster.h>
 #if 0
 #include <fsyscall/syscall.h>
 #endif
