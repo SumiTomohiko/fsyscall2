@@ -1,4 +1,4 @@
 
-LIB=	io
+LIB=	hub
 
 .include "../Makefile.lib"

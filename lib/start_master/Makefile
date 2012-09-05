@@ -1,6 +1,4 @@
 
-LIB=		start_master
-TOP_DIR=	../..
-CFLAGS=		-I${TOP_DIR}/include
+LIB=	start_master
 
 .include "../Makefile.lib"
