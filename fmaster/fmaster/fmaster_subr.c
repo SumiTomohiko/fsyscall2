@@ -4,6 +4,7 @@
 #include <sys/syscallsubr.h>
 #include <sys/uio.h>
 
+#include <fsyscall/encode.h>
 #include <fsyscall/fmaster.h>
 
 void
@@ -29,6 +30,32 @@ fmaster_read_or_die(struct thread *td, int d, void *buf, size_t nbytes)
 		if (kern_readv(td, d, &auio) != 0)
 			/* TODO: Print a friendly message. */
 			exit1(td, 1);
+}
+
+int
+fmaster_read_int2(struct thread *td, int fd, int *len)
+{
+	int pos, size;
+	char buf[FSYSCALL_BUFSIZE_INT];
+
+	pos = 0;
+	fmaster_read_or_die(td, fd, &buf[pos], sizeof(buf[0]));
+	while ((buf[pos] & 0x80) != 0) {
+		pos++;
+		/* TODO: assert(pos < array_sizeof(buf)) */
+		fmaster_read_or_die(td, fd, &buf[pos], sizeof(buf[0]));
+	}
+	size = pos + 1;
+	if (len != NULL)
+		*len = size;
+
+	return (fsyscall_decode_int(buf, size));
+}
+
+int
+fmaster_read_int(struct thread *td, int fd)
+{
+	return (fmaster_read_int2(td, fd, NULL));
 }
 
 void
