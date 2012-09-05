@@ -1,4 +1,15 @@
 
+int
+fsyscall_decode_int(char *buf, int bufsize)
+{
+	int i, n = 0;
+
+	for (i = 0; i < bufsize; i++)
+		n += (n << 7) + (buf[i] & 0x7f);
+
+	return (n);
+}
+
 static int
 encode_uint_zero(char *buf, int bufsize)
 {

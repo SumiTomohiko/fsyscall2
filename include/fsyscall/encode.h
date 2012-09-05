@@ -1,6 +1,7 @@
 #if !defined(FSYSCALL_ENCODE_H_INCLUDED)
 #define FSYSCALL_ENCODE_H_INCLUDED
 
+int fsyscall_decode_int(char *, int);
 int fsyscall_encode_int(int, char *, int);
 int fsyscall_encode_uint(unsigned int, char *, int);
 
