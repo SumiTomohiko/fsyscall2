@@ -43,8 +43,10 @@ negotiate_version(struct slave *slave)
 }
 
 static bool
-is_alive_fd(int fd)
+is_alive_fd(struct slave *slave, int fd)
 {
+	if ((slave->rfd == fd) || (slave->wfd == fd))
+		return (false);
 	if (fcntl(fd, F_GETFL) != -1)
 		return (true);
 	if (errno != EBADF)
@@ -53,41 +55,43 @@ is_alive_fd(int fd)
 }
 
 static int
-count_alive_fds()
+count_alive_fds(struct slave *slave)
 {
 	int i, n = 0, size;
 
 	size = getdtablesize();
 	for (i = 0; i < size; i++)
-		n += is_alive_fd(i) ? 1 : 0;
+		n += is_alive_fd(slave, i) ? 1 : 0;
 
 	return (n);
 }
 
 static int
-encode_alive_fd(int fd, char *dest, int size)
+encode_alive_fd(struct slave *slave, int fd, char *dest, int size)
 {
-	return (is_alive_fd(fd) ? fsyscall_encode_int(fd, dest, size) : 0);
+	if (is_alive_fd(slave, fd))
+		return (fsyscall_encode_int(fd, dest, size));
+	return (0);
 }
 
 static void
-send_open_fds(struct slave *slave)
+write_open_fds(struct slave *slave)
 {
 	size_t buf_size;
 	int i, nfds, pos, wfd;
 	char *buf;
 
-	buf_size = sizeof(char) * count_alive_fds() * FSYSCALL_BUFSIZE_INT;
+	buf_size = sizeof(char) * count_alive_fds(slave) * FSYSCALL_BUFSIZE_INT;
 	buf = (char *)alloca(buf_size);
 
 	pos = 0;
 	nfds = getdtablesize();
 	for (i = 0; i < nfds; i++)
-		pos += encode_alive_fd(i, buf + pos, buf_size - pos);
+		pos += encode_alive_fd(slave, i, buf + pos, buf_size - pos);
 
 	assert(0 <= pos);
 	wfd = slave->wfd;
-	send_int(wfd, pos);
+	write_int(wfd, pos);
 	write_or_die(wfd, buf, pos);
 }
 
@@ -95,7 +99,7 @@ static int
 slave_main(struct slave *slave)
 {
 	negotiate_version(slave);
-	send_open_fds(slave);
+	write_open_fds(slave);
 
 	return (0);
 }
