@@ -27,6 +27,7 @@
  */
 
 #include <sys/param.h>
+#include <sys/errno.h>
 #include <sys/eventhandler.h>
 #include <sys/kernel.h>
 #include <sys/malloc.h>
@@ -125,8 +126,7 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 
 	data = create_data(td, rfd, wfd);
 	if (data == NULL)
-		/* TODO: Set errno as ENOMEM */
-		return (-1);
+		return (ENOMEM);
 	read_fds(td, rfd, data);
 
 	td->td_proc->p_emuldata = data;
