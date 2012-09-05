@@ -1,6 +1,8 @@
 
-LIB=	private
-SRCS=	lib.c
+LIB=		private
+SRCS=		lib.c
+TOP_DIR=	../..
+CFLAGS=		-I${TOP_DIR}/include
 
 install:
 

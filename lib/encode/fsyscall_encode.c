@@ -9,7 +9,7 @@ encode_uint_zero(char *buf, int bufsize)
 }
 
 int
-encode_uint(unsigned int n, char *buf, int bufsize)
+fsyscall_encode_uint(unsigned int n, char *buf, int bufsize)
 {
 	unsigned int m = n;
 	int pos = 0;
@@ -27,4 +27,10 @@ encode_uint(unsigned int n, char *buf, int bufsize)
 		return (0);
 
 	return (pos);
+}
+
+int
+fsyscall_encode_int(int n, char *buf, int bufsize)
+{
+	return (fsyscall_encode_uint((unsigned int)n, buf, bufsize));
 }

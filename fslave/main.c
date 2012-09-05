@@ -1,14 +1,19 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <assert.h>
+#include <err.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <syslog.h>
 #include <unistd.h>
 
+#include <fsyscall/encode.h>
 #include <fsyscall/private.h>
 
 struct slave {
@@ -35,10 +40,61 @@ negotiate_version(struct slave *slave)
 	syslog(LOG_INFO, "Protocol version for shub is %d.", response);
 }
 
+static bool
+is_alive_fd(int fd)
+{
+	if (fcntl(fd, F_GETFL) != -1)
+		return (true);
+	if (errno != EBADF)
+		err(-1, "Cannot fcntl(%d, F_GETFL)", fd);
+	return (false);
+}
+
+static int
+count_alive_fds()
+{
+	int i, n = 0, size;
+
+	size = getdtablesize();
+	for (i = 0; i < size; i++)
+		n += is_alive_fd(i) ? 1 : 0;
+
+	return (n);
+}
+
+static int
+encode_alive_fd(int fd, char *dest, int size)
+{
+	return (is_alive_fd(fd) ? fsyscall_encode_int(fd, dest, size) : 0);
+}
+
+static void
+send_open_fds(struct slave *slave)
+{
+	size_t buf_size;
+	int i, nfds, pos, wfd;
+	char *buf;
+
+	buf_size = sizeof(char) * count_alive_fds() * FSYSCALL_BUFSIZE_INT;
+	buf = (char *)alloca(buf_size);
+
+	pos = 0;
+	nfds = getdtablesize();
+	for (i = 0; i < nfds; i++)
+		pos += encode_alive_fd(i, buf + pos, buf_size - pos);
+
+	assert(0 <= pos);
+	wfd = slave->wfd;
+	send_int(wfd, pos);
+	write_or_die(wfd, buf, pos);
+}
+
 static int
 slave_main(struct slave *slave)
 {
 	negotiate_version(slave);
+	send_open_fds(slave);
+
 	return (0);
 }
 

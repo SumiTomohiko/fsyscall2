@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <fsyscall/encode.h>
+#include <fsyscall/private.h>
+
 int
 atoi_or_die(const char *s, const char *name)
 {
@@ -89,4 +92,14 @@ waitpid_or_die(pid_t pid, int *status)
 {
 	if (waitpid(pid, status, 0) == -1)
 		err(-1, "Cannot waitpid %d", pid);
+}
+
+void
+send_int(int fd, int n)
+{
+	int len;
+	char buf[FSYSCALL_BUFSIZE_INT];
+
+	len = fsyscall_encode_int(n, buf, array_sizeof(buf));
+	write_or_die(fd, buf, len);
 }
