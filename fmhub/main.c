@@ -17,38 +17,25 @@
 #include <fsyscall/private/fork_or_die.h>
 #include <fsyscall/private/hub.h>
 #include <fsyscall/private/io.h>
+#include <fsyscall/private/list.h>
 #include <fsyscall/private/malloc_or_die.h>
 #include <fsyscall/private/pipe_or_die.h>
 
 struct master {
-	struct master *prev;
-	struct master *next;
+	struct item item;
 	int rfd;
 	int wfd;
 };
 
 struct mhub {
 	struct connection shub;
-
-	/* The first one and the last one are sentinels. */
-	struct master *masters;
+	struct list masters;
 };
 
 static void
 usage()
 {
 	puts("fmhub rfd wfd command...");
-}
-
-static void
-prepend_master(struct mhub *mhub, struct master *master)
-{
-	struct master *head = mhub->masters;
-
-	master->next = head->next;
-	master->prev = head;
-	head->next->prev = master;
-	head->next = master;
 }
 
 static void
@@ -139,7 +126,7 @@ mhub_main(struct mhub *mhub, int argc, char *argv[])
 	master = malloc_or_die(sizeof(*master));
 	master->rfd = master2hub[R];
 	master->wfd = hub2master[W];
-	prepend_master(mhub, master);
+	PREPEND_ITEM(&mhub->masters, master);
 
 	negotiate_version_with_shub(mhub);
 	negotiate_version_with_master(master);
@@ -186,12 +173,7 @@ main(int argc, char *argv[])
 	mhub.shub.rfd = atoi_or_die(args[0], "rfd");
 	mhub.shub.wfd = atoi_or_die(args[1], "wfd");
 
-	head.rfd = head.wfd = tail.rfd = tail.wfd = -1;
-	head.prev = NULL;
-	head.next = &tail;
-	tail.prev = &head;
-	tail.next = NULL;
-	mhub.masters = &head;
+	initialize_list(&mhub.masters);
 
 	return (mhub_main(&mhub, argc - optind - 2, args + 2));
 }
