@@ -15,6 +15,7 @@ struct list {
 void initialize_list(struct list *);
 void prepend_item(struct list *, struct item *);
 
+#define	FIRST_ITEM(list)	(list)->items->next
 #define	PREPEND_ITEM(list, i)	prepend_item((list), (struct item *)(i))
 
 #endif

@@ -7,10 +7,17 @@
 #include <fsyscall/private/atoi_or_die.h>
 #include <fsyscall/private/hub.h>
 #include <fsyscall/private/io.h>
+#include <fsyscall/private/list.h>
+#include <fsyscall/private/malloc_or_die.h>
+
+struct slave {
+	int rfd;
+	int wfd;
+};
 
 struct shub {
 	struct connection mhub;
-	struct connection slave;
+	struct list slaves;
 	const char *path;
 };
 
@@ -33,23 +40,24 @@ negotiate_version_with_mhub(struct shub *shub)
 }
 
 static void
-negotiate_version_with_slave(struct shub *shub)
+negotiate_version_with_slave(struct slave *slave)
 {
-	uint8_t request;
-	uint8_t ver = 0;
+	uint8_t request, ver = 0;
 
-	read_or_die(shub->slave.rfd, &request, sizeof(request));
+	read_or_die(slave->rfd, &request, sizeof(request));
 	assert(request == 0);
-	write_or_die(shub->slave.wfd, &ver, sizeof(ver));
+	write_or_die(slave->wfd, &ver, sizeof(ver));
 	syslog(LOG_INFO, "Protocol version for slave is %d.", ver);
 }
 
 static int
 shub_main(struct shub *shub)
 {
+	struct slave *slave = (struct slave *)FIRST_ITEM(&shub->slaves);
+
 	negotiate_version_with_mhub(shub);
-	negotiate_version_with_slave(shub);
-	transport_fds(shub->slave.rfd, shub->mhub.wfd);
+	negotiate_version_with_slave(slave);
+	transport_fds(slave->rfd, shub->mhub.wfd);
 
 	return (0);
 }
@@ -88,8 +96,13 @@ main(int argc, char *argv[])
 	args = &argv[optind];
 	shub.mhub.rfd = atoi_or_die(args[0], "mhub_rfd");
 	shub.mhub.wfd = atoi_or_die(args[1], "mhub_wfd");
-	shub.slave.rfd = atoi_or_die(args[2], "slave_rfd");
-	shub.slave.wfd = atoi_or_die(args[3], "slave_wfd");
+
+	initialize_list(&shub.slaves);
+	struct slave *slave = (struct slave *)malloc_or_die(sizeof(*slave));
+	slave->rfd = atoi_or_die(args[2], "slave_rfd");
+	slave->wfd = atoi_or_die(args[3], "slave_wfd");
+	PREPEND_ITEM(&shub.slaves, slave);
+
 	shub.path = args[4];
 
 	return (shub_main(&shub));
