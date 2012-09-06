@@ -47,9 +47,11 @@ __FBSDID("$FreeBSD: release/9.0.0/sys/amd64/amd64/elf_machdep.c 219405 2011-03-0
 #include <machine/elf.h>
 #include <machine/md_var.h>
 
+extern struct sysent fmaster_sysent[];
+
 struct sysentvec elf64_freebsd_sysvec = {
 	.sv_size	= SYS_MAXSYSCALL,
-	.sv_table	= sysent,
+	.sv_table	= fmaster_sysent,
 	.sv_mask	= 0,
 	.sv_sigsize	= 0,
 	.sv_sigtbl	= NULL,
