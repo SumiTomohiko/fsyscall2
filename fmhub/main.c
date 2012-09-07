@@ -23,6 +23,7 @@
 
 struct master {
 	struct item item;
+	pid_t pid;
 	int rfd;
 	int wfd;
 };
@@ -124,6 +125,7 @@ mhub_main(struct mhub *mhub, int argc, char *argv[])
 	close_or_die(master2hub[W]);
 
 	master = malloc_or_die(sizeof(*master));
+	master->pid = pid;
 	master->rfd = master2hub[R];
 	master->wfd = hub2master[W];
 	PREPEND_ITEM(&mhub->masters, master);
