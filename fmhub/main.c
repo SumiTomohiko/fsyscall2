@@ -151,6 +151,7 @@ main(int argc, char *argv[])
 	char **args;
 
 	openlog(argv[0], LOG_PID, LOG_USER);
+	syslog(LOG_INFO, "Started.");
 
 	while ((opt = getopt_long(argc, argv, "", opts, NULL)) != -1)
 		switch (opt) {
