@@ -1,3 +1,4 @@
+#include <sys/types.h>
 #include <assert.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -14,6 +15,8 @@ struct slave {
 	struct item item;
 	int rfd;
 	int wfd;
+	pid_t pid;
+	pid_t master_pid;
 };
 
 struct shub {
@@ -51,6 +54,13 @@ negotiate_version_with_slave(struct slave *slave)
 	syslog(LOG_INFO, "Protocol version for slave is %d.", ver);
 }
 
+static void
+read_pids(struct shub *shub, struct slave *slave)
+{
+	slave->pid = read_pid(slave->rfd);
+	slave->master_pid = read_pid(shub->mhub.rfd);
+}
+
 static int
 shub_main(struct shub *shub)
 {
@@ -58,6 +68,7 @@ shub_main(struct shub *shub)
 
 	negotiate_version_with_mhub(shub);
 	negotiate_version_with_slave(slave);
+	read_pids(shub, slave);
 	transport_fds(slave->rfd, shub->mhub.wfd);
 
 	return (0);

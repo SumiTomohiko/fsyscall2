@@ -1,48 +1,78 @@
+#if !defined(KLD_MODULE)
+#include <assert.h>
+#endif
+
 #include <fsyscall/encode.h>
 
-int
-fsyscall_decode_int(char *buf, int bufsize)
-{
-	int i, n = 0;
+#if !defined(KLD_MODULE)
+#define	ASSERT(expr)	assert(expr)
+#else
+/* TODO: Implement here. */
+#define	ASSERT(expr)
+#endif
 
-	for (i = 0; i < bufsize; i++)
-		n += (n << 7) + (buf[i] & 0x7f);
-
-	return (n);
+#define	IMPLEMENT_DECODE_X(type, name)			\
+type							\
+name(char *buf, int bufsize)				\
+{							\
+	type n;						\
+	int i;						\
+							\
+	ASSERT((buf[bufsize - 1] & 0x80) == 0);		\
+							\
+	n = 0;						\
+	for (i = 0; i < bufsize; i++)			\
+		n += (n << 7) + (buf[i] & 0x7f);	\
+							\
+	return (n);					\
 }
 
+IMPLEMENT_DECODE_X(int, fsyscall_decode_int)
+IMPLEMENT_DECODE_X(int32_t, fsyscall_decode_int32)
+
 static int
-encode_uint_zero(char *buf, int bufsize)
+encode_zero(char *buf, int bufsize)
 {
-	if (bufsize < 1)
-		return (0);
+	ASSERT(0 < bufsize);
+
 	*buf = 0;
 	return (1);
 }
 
-int
-fsyscall_encode_uint(unsigned int n, char *buf, int bufsize)
-{
-	unsigned int m = n;
-	int pos = 0;
-
-	if (n == 0)
-		return (encode_uint_zero(buf, bufsize));
-
-	while ((m != 0) && (pos < bufsize)) {
-		buf[pos] = (m & 0x7f) | ((m & ~0x7f) != 0 ? 0x80 : 0);
-
-		m = m >> 7;
-		pos++;
-	}
-	if (m != 0)
-		return (0);
-
-	return (pos);
+#define	IMPLEMENT_ENCODE_X(type, name)					\
+int									\
+name(type n, char *buf, int bufsize)					\
+{									\
+	type m;								\
+	int pos;							\
+									\
+	if (n == 0)							\
+		return (encode_zero(buf, bufsize));			\
+									\
+	m = n;								\
+	pos = 0;							\
+	while ((m != 0) && (pos < bufsize)) {				\
+		buf[pos] = (m & 0x7f) | ((m & ~0x7f) != 0 ? 0x80 : 0);	\
+									\
+		m = m >> 7;						\
+		pos++;							\
+	}								\
+	ASSERT(m == 0);							\
+									\
+	return (pos);							\
 }
+
+IMPLEMENT_ENCODE_X(unsigned int, fsyscall_encode_uint)
+IMPLEMENT_ENCODE_X(uint32_t, fsyscall_encode_uint32)
 
 int
 fsyscall_encode_int(int n, char *buf, int bufsize)
 {
 	return (fsyscall_encode_uint((unsigned int)n, buf, bufsize));
+}
+
+int
+fsyscall_encode_int32(int32_t n, char *buf, int bufsize)
+{
+	return (fsyscall_encode_uint32((uint32_t)n, buf, bufsize));
 }

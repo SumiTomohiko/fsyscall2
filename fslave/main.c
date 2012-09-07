@@ -99,6 +99,7 @@ static int
 slave_main(struct slave *slave)
 {
 	negotiate_version(slave);
+	write_pid(slave->wfd, getpid());
 	write_open_fds(slave);
 
 	return (0);

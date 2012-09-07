@@ -1,12 +1,13 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <assert.h>
-#include <err.h>
 #include <errno.h>
+#include <syslog.h>
 #include <unistd.h>
 
 #include <fsyscall/encode.h>
 #include <fsyscall/private.h>
+#include <fsyscall/private/die.h>
 
 void
 write_or_die(int fd, const void *buf, size_t nbytes)
@@ -17,7 +18,7 @@ write_or_die(int fd, const void *buf, size_t nbytes)
 	while (n < nbytes) {
 		m = write(fd, (char *)buf + n, nbytes - n);
 		if (m < 0)
-			err(-1, "Cannot write");
+			die(-1, "Cannot write to fd %d", fd);
 		n -= m;
 	}
 }
@@ -31,37 +32,79 @@ read_or_die(int fd, const void *buf, size_t nbytes)
 	while (n < nbytes) {
 		m = read(fd, (char *)buf + n, nbytes - n);
 		if (m == 0)
-			errc(-1, EBADF, "End-of-file reached");
+			diec(-1, EBADF, "End-of-file reached");
 		if (m < 0)
-			err(-1, "Cannot read");
+			die(-1, "Cannot read fd %d", fd);
 		n -= m;
 	}
 }
 
-void
-write_int(int fd, int n)
-{
-	int len;
-	char buf[FSYSCALL_BUFSIZE_INT];
-
-	len = fsyscall_encode_int(n, buf, array_sizeof(buf));
-	write_or_die(fd, buf, len);
+#define	IMPLEMENT_WRITE_X(type, name, bufsize, encode)	\
+void							\
+name(int fd, type n)					\
+{							\
+	int len;					\
+	char buf[bufsize];				\
+							\
+	len = encode(n, buf, array_sizeof(buf));	\
+	int i;						\
+	for (i = 0; i < len; i++) {			\
+		syslog(LOG_DEBUG, "buf[%d]=0x%02x", i, 0xff & buf[i]);	\
+	}						\
+	write_or_die(fd, buf, len);			\
 }
 
-int
-read_int(int fd)
+IMPLEMENT_WRITE_X(
+		int32_t,
+		write_int32,
+		FSYSCALL_BUFSIZE_INT32,
+		fsyscall_encode_int32)
+IMPLEMENT_WRITE_X(int, write_int, FSYSCALL_BUFSIZE_INT, fsyscall_encode_int)
+
+static int
+read_numeric_sequence(int fd, char *buf, int bufsize)
 {
 	int nbytes, pos;
-	char buf[FSYSCALL_BUFSIZE_INT];
 
 	pos = 0;
 	nbytes = sizeof(buf[0]);
 	read_or_die(fd, &buf[pos], nbytes);
 	while ((buf[pos] & 0x80) != 0) {
 		pos++;
-		assert(pos < array_sizeof(buf));
+		assert(pos < bufsize);
 		read_or_die(fd, &buf[pos], nbytes);
 	}
 
-	return (fsyscall_decode_int(buf, pos + 1));
+	return (pos + 1);
+}
+
+#define	IMPLEMENT_READ_X(type, name, bufsize, decode)			\
+type									\
+name(int fd)								\
+{									\
+	int len;							\
+	char buf[bufsize];						\
+									\
+	len = read_numeric_sequence(fd, buf, array_sizeof(buf));	\
+									\
+	return (decode(buf, len));					\
+}
+
+IMPLEMENT_READ_X(
+		int32_t,
+		read_int32,
+		FSYSCALL_BUFSIZE_INT32,
+		fsyscall_decode_int32)
+IMPLEMENT_READ_X(int, read_int, FSYSCALL_BUFSIZE_INT, fsyscall_decode_int)
+
+void
+write_pid(int fd, pid_t pid)
+{
+	write_int32(fd, pid);
+}
+
+pid_t
+read_pid(int fd)
+{
+	return (read_int32(fd));
 }
