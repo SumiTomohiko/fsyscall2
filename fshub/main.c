@@ -11,6 +11,7 @@
 #include <fsyscall/private/malloc_or_die.h>
 
 struct slave {
+	struct item item;
 	int rfd;
 	int wfd;
 };
