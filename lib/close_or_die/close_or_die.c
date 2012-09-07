@@ -1,9 +1,10 @@
-#include <err.h>
 #include <unistd.h>
+
+#include <fsyscall/private/die.h>
 
 void
 close_or_die(int fd)
 {
 	if (close(fd) != 0)
-		err(-1, "Cannot close");
+		die(-1, "Cannot close");
 }

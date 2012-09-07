@@ -1,4 +1,3 @@
-#include <err.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +5,7 @@
 #include <unistd.h>
 
 #include <fsyscall/private/close_or_die.h>
+#include <fsyscall/private/die.h>
 #include <fsyscall/private/fork_or_die.h>
 #include <fsyscall/private/pipe_or_die.h>
 #include <fsyscall/private/start.h>
@@ -15,7 +15,7 @@ dup_or_die(int old_fd)
 {
 	int new_fd = dup(old_fd);
 	if (new_fd == -1)
-		err(-1, "Cannot dup");
+		die(-1, "Cannot dup");
 	return (old_fd);
 }
 
@@ -55,7 +55,7 @@ exec_fshub(int mhub2shub, int shub2mhub, int slave2hub, int hub2slave, char *pat
 		args[6 + i] = argv[i];
 	args[6 + i] = NULL;
 	execvp(args[0], args);
-	err(-1, "Cannot execvp %s", args[0]);
+	die(-1, "Cannot execvp %s", args[0]);
 	/* NOTREACHED */
 }
 
@@ -94,6 +94,6 @@ fsyscall_start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 	sprintf(args[1], "%d", rfd);
 	sprintf(args[2], "%d", wfd);
 	execlp(args[0], args[0], args[1], args[2], path, NULL);
-	err(-1, "Cannot execlp %s", args[0]);
+	die(-1, "Cannot execlp %s", args[0]);
 	/* NOTREACHED */
 }

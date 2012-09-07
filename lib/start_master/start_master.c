@@ -1,8 +1,8 @@
-#include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <fsyscall/private/die.h>
 #include <fsyscall/private/start.h>
 
 void
@@ -20,6 +20,6 @@ fsyscall_start_master(int shub2mhub, int mhub2shub, int argc, char* argv[])
 	args[3 + i] = NULL;
 
 	execvp(args[0], args);
-	err(-1, "Cannot execvp %s", args[0]);
+	die(-1, "Cannot execvp %s", args[0]);
 	/* NOTREACHED */
 }

@@ -1,12 +1,12 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <assert.h>
-#include <err.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
 #include <fsyscall/private.h>
 #include <fsyscall/private/close_or_die.h>
+#include <fsyscall/private/die.h>
 #include <fsyscall/private/fork_or_die.h>
 #include <fsyscall/private/pipe_or_die.h>
 #include <fsyscall/start_master.h>
@@ -16,7 +16,7 @@ static void
 waitpid_or_die(pid_t pid, int *status)
 {
 	if (waitpid(pid, status, 0) == -1)
-		err(-1, "Cannot waitpid %d", pid);
+		die(-1, "Cannot waitpid %d", pid);
 }
 
 static bool

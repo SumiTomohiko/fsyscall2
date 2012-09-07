@@ -1,7 +1,6 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <assert.h>
-#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -16,6 +15,7 @@
 #include <fsyscall/encode.h>
 #include <fsyscall/private.h>
 #include <fsyscall/private/atoi_or_die.h>
+#include <fsyscall/private/die.h>
 #include <fsyscall/private/io.h>
 
 struct slave {
@@ -50,7 +50,7 @@ is_alive_fd(struct slave *slave, int fd)
 	if (fcntl(fd, F_GETFL) != -1)
 		return (true);
 	if (errno != EBADF)
-		err(-1, "Cannot fcntl(%d, F_GETFL)", fd);
+		die(-1, "Cannot fcntl(%d, F_GETFL)", fd);
 	return (false);
 }
 

@@ -3,7 +3,6 @@
 #include <sys/param.h>
 #include <sys/syscall.h>
 #include <assert.h>
-#include <err.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +13,7 @@
 #include <fsyscall/private.h>
 #include <fsyscall/private/atoi_or_die.h>
 #include <fsyscall/private/close_or_die.h>
+#include <fsyscall/private/die.h>
 #include <fsyscall/private/fork_or_die.h>
 #include <fsyscall/private/hub.h>
 #include <fsyscall/private/io.h>
@@ -70,11 +70,11 @@ find_syscall()
 
 	modid = modfind(modname);
 	if (modid == -1)
-		err(-1, "Cannot modfind %s", modname);
+		die(-1, "Cannot modfind %s", modname);
 
 	stat.version = sizeof(stat);
 	if (modstat(modid, &stat) != 0)
-		err(-1, "Cannot modstat %s", modname);
+		die(-1, "Cannot modstat %s", modname);
 
 	return (stat.data.intval);
 }
@@ -93,7 +93,7 @@ exec_master(int syscall_num, int rfd, int wfd, int argc, char *argv[])
 	args[i] = NULL;
 
 	syscall(syscall_num, rfd, wfd, args[0], args, envp);
-	err(1, "fmaster_evecve failed");
+	die(1, "fmaster_evecve failed");
 	/* NOTREACHED */
 }
 
