@@ -1,11 +1,11 @@
 
-OBJS=	$(PROG).o
-SRCS=	$(PROG).asm
+OBJS=	${PROG}.o
+SRCS=	${PROG}.asm
 
-all: $(PROG)
+all: ${PROG}
 
-$(PROG): $(OBJS)
-	ld -o ${.TARGET} $(OBJS)
+${PROG}: ${OBJS}
+	ld -o ${.TARGET} ${OBJS}
 
 .include <sys.mk>
 
@@ -15,8 +15,10 @@ FORMAT=	elf64
 FORMAT=	elf
 .endif
 
-$(OBJS): $(SRCS)
-	nasm -f ${FORMAT} -o ${.TARGET} $(SRCS)
+${OBJS}: ${SRCS}
+	nasm -f ${FORMAT} -o ${.TARGET} ${SRCS}
 
 clean:
-	rm -f $(PROG) $(OBJS)
+	rm -f ${PROG} ${OBJS}
+
+# vim: filetype=make
