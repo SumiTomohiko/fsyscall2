@@ -17,7 +17,7 @@ FORMAT=	elf
 .endif
 
 ${OBJS}: ${SRCS} ${ADDITIONAL}
-	nasm -f ${FORMAT} -o ${.TARGET} ${SRCS}
+	nasm -f ${FORMAT} -o ${.TARGET} -l ${PROG}.lst ${SRCS}
 
 clean:
 	rm -f ${PROG} ${OBJS}

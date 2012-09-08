@@ -2,6 +2,7 @@
 *.core
 *.kld
 *.ko
+*.lst
 *.o
 *.po
 fmaster/@
