@@ -1,4 +1,4 @@
-%include '../system.inc'
+%include "../system.inc"
 
 section .text
 global _start
