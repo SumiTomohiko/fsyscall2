@@ -1,6 +1,7 @@
 
-OBJS=	${PROG}.o
-SRCS=	${PROG}.asm
+OBJS=		${PROG}.o
+SRCS=		${PROG}.asm
+INCLUDED=	../system.inc
 
 all: ${PROG}
 
@@ -15,7 +16,7 @@ FORMAT=	elf64
 FORMAT=	elf
 .endif
 
-${OBJS}: ${SRCS}
+${OBJS}: ${SRCS} ${INCLUDED}
 	nasm -f ${FORMAT} -o ${.TARGET} ${SRCS}
 
 clean:
