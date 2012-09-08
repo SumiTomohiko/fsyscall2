@@ -1,7 +1,7 @@
 
 OBJS=		${PROG}.o
 SRCS=		${PROG}.asm
-INCLUDED=	../system.inc
+ADDITIONAL=	../system.inc Makefile ../Makefile.asm
 
 all: ${PROG}
 
@@ -16,7 +16,7 @@ FORMAT=	elf64
 FORMAT=	elf
 .endif
 
-${OBJS}: ${SRCS} ${INCLUDED}
+${OBJS}: ${SRCS} ${ADDITIONAL}
 	nasm -f ${FORMAT} -o ${.TARGET} ${SRCS}
 
 clean:
