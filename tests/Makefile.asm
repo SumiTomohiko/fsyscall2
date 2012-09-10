@@ -1,20 +1,12 @@
 
 OBJS=		${PROG}.o
 SRCS=		${PROG}.asm
-ADDITIONAL=	../system.inc Makefile ../Makefile.asm
+ADDITIONAL+=	Makefile ../Makefile ../Makefile.asm ../../tests.inc
 
 all: ${PROG}
 
 ${PROG}: ${OBJS}
 	ld -o ${.TARGET} ${OBJS}
-
-.include <sys.mk>
-
-.if ${MACHINE_CPUARCH} == "amd64"
-FORMAT=	elf64
-.else
-FORMAT=	elf
-.endif
 
 ${OBJS}: ${SRCS} ${ADDITIONAL}
 	nasm -f ${FORMAT} -o ${.TARGET} -l ${PROG}.lst ${SRCS}

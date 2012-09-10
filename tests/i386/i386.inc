@@ -1,3 +1,5 @@
+%include "../../tests.inc"
+
 section .text
 align 4
 access.the.bsd.kernel:

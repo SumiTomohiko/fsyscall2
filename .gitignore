@@ -17,5 +17,5 @@ fmaster/x86
 fmhub/fmhub
 fshub/fshub
 fslave/fslave
-tests/exit/exit
+tests/*/exit/exit
 tests/tester/tester

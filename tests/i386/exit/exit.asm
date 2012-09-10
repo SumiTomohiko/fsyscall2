@@ -1,4 +1,4 @@
-%include "../system.inc"
+%include "../i386.inc"
 
 ; Usage: exit x x x ...
 ; exit exits with status number that is same as number of command line
