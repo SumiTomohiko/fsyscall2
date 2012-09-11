@@ -1,0 +1,15 @@
+#!/bin/sh
+
+dir="$(dirname $0)/tests"
+find "${dir}" -name "test_*" | sed -e "s%^${dir}/%%" | sort | while read t
+do
+  echo "******** ${t} ********" 
+  cd "${dir}" && "./${t}"
+  if [ "$?" != 0 ]; then
+    echo "NG"
+  else
+    echo "OK"
+  fi
+done
+
+# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2
