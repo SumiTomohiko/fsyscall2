@@ -63,9 +63,8 @@ main(int argc, char *argv[])
 
 	waitpid_or_die(slave_pid, &slave_status);
 	waitpid_or_die(master_pid, &master_status);
-
-	if (status_is_fail(slave_status) || status_is_fail(master_status))
+	if (!WIFEXITED(slave_status) || !WIFEXITED(master_status))
 		return (-1);
 
-	return (0);
+	return (WEXITSTATUS(slave_status));
 }
