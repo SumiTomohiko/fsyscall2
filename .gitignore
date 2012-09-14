@@ -2,6 +2,7 @@
 *.core
 *.kld
 *.ko
+*.log
 *.lst
 *.o
 *.po
