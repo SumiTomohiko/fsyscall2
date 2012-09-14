@@ -61,6 +61,10 @@ main(int argc, char *argv[])
 		/* NOTREACHED */
 	}
 
+	close_or_die(shub2mhub[R]);
+	close_or_die(shub2mhub[W]);
+	close_or_die(mhub2shub[R]);
+	close_or_die(mhub2shub[W]);
 	waitpid_or_die(slave_pid, &slave_status);
 	waitpid_or_die(master_pid, &master_status);
 	if (!WIFEXITED(slave_status) || !WIFEXITED(master_status))
