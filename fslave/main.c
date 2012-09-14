@@ -12,6 +12,7 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#include <fsyscall.h>
 #include <fsyscall/encode.h>
 #include <fsyscall/private.h>
 #include <fsyscall/private/atoi_or_die.h>
@@ -126,7 +127,7 @@ main(int argc, char* argv[])
 			usage();
 			return (0);
 		case 'v':
-			puts("fslave 0.42.0");
+			printf("fslave %s\n", FSYSCALL_VERSION);
 			return (0);
 		default:
 			usage();

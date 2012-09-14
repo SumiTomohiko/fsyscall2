@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <syslog.h>
 
+#include <fsyscall.h>
 #include <fsyscall/private.h>
 #include <fsyscall/private/atoi_or_die.h>
 #include <fsyscall/private/hub.h>
@@ -95,7 +96,7 @@ main(int argc, char *argv[])
 			usage();
 			return (0);
 		case 'v':
-			puts("fshub 0.42.0");
+			printf("fshub %s\n", FSYSCALL_VERSION);
 			return (0);
 		default:
 			usage();

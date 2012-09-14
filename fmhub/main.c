@@ -10,6 +10,7 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#include <fsyscall.h>
 #include <fsyscall/private.h>
 #include <fsyscall/private/atoi_or_die.h>
 #include <fsyscall/private/close_or_die.h>
@@ -162,7 +163,7 @@ main(int argc, char *argv[])
 			usage();
 			return (0);
 		case 'v':
-			puts("fmhub 0.42.0");
+			printf("fmhub %s\n", FSYSCALL_VERSION);
 			return (0);
 		default:
 			usage();
