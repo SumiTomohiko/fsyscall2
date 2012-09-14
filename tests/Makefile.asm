@@ -1,7 +1,7 @@
 
 OBJS=		${PROG}.o
 SRCS=		${PROG}.asm
-ADDITIONAL+=	Makefile ../Makefile ../Makefile.asm ../../tests.inc
+ADDITIONAL+=	Makefile ../Makefile ../Makefile.asm
 
 all: ${PROG}
 
