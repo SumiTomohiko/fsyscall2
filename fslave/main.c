@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <limits.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -106,6 +107,14 @@ slave_main(struct slave *slave)
 	return (0);
 }
 
+static void
+signal_handler(int sig)
+{
+	assert(sig == SIGPIPE);
+	diex(-1, "Signaled SIGPIPE.");
+	/* NOTREACHED */
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -120,6 +129,8 @@ main(int argc, char* argv[])
 
 	openlog(argv[0], LOG_PID, LOG_USER);
 	syslog(LOG_INFO, "Started.");
+
+	signal(SIGPIPE, signal_handler);
 
 	while ((opt = getopt_long(argc, argv, "", opts, NULL)) != -1)
 		switch (opt) {

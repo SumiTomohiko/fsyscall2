@@ -1,12 +1,14 @@
 #include <sys/types.h>
 #include <assert.h>
 #include <getopt.h>
+#include <signal.h>
 #include <stdio.h>
 #include <syslog.h>
 
 #include <fsyscall.h>
 #include <fsyscall/private.h>
 #include <fsyscall/private/atoi_or_die.h>
+#include <fsyscall/private/die.h>
 #include <fsyscall/private/hub.h>
 #include <fsyscall/private/io.h>
 #include <fsyscall/private/list.h>
@@ -75,6 +77,14 @@ shub_main(struct shub *shub)
 	return (0);
 }
 
+static void
+signal_handler(int sig)
+{
+	assert(sig == SIGPIPE);
+	diex(-1, "Signaled SIGPIPE.");
+	/* NOTREACHED */
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -89,6 +99,8 @@ main(int argc, char *argv[])
 
 	openlog(argv[0], LOG_PID, LOG_USER);
 	syslog(LOG_INFO, "Started.");
+
+	signal(SIGPIPE, signal_handler);
 
 	while ((opt = getopt_long(argc, argv, "", opts, NULL)) != -1)
 		switch (opt) {
