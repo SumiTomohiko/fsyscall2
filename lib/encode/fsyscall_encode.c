@@ -2,7 +2,7 @@
 #include <assert.h>
 #endif
 
-#include <fsyscall/encode.h>
+#include <fsyscall/private/encode.h>
 
 #if !defined(KLD_MODULE)
 #define	ASSERT(expr)	assert(expr)

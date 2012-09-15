@@ -4,8 +4,8 @@
 #include <sys/syscallsubr.h>
 #include <sys/uio.h>
 
-#include <fsyscall/encode.h>
 #include <fsyscall/fmaster.h>
+#include <fsyscall/private/encode.h>
 
 void
 fmaster_read_or_die(struct thread *td, int d, void *buf, size_t nbytes)

@@ -5,9 +5,9 @@
 #include <syslog.h>
 #include <unistd.h>
 
-#include <fsyscall/encode.h>
 #include <fsyscall/private.h>
 #include <fsyscall/private/die.h>
+#include <fsyscall/private/encode.h>
 
 void
 write_or_die(int fd, const void *buf, size_t nbytes)

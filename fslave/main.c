@@ -14,10 +14,10 @@
 #include <unistd.h>
 
 #include <fsyscall.h>
-#include <fsyscall/encode.h>
 #include <fsyscall/private.h>
 #include <fsyscall/private/atoi_or_die.h>
 #include <fsyscall/private/die.h>
+#include <fsyscall/private/encode.h>
 #include <fsyscall/private/io.h>
 
 struct slave {

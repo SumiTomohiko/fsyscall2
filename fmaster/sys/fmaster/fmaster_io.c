@@ -8,7 +8,7 @@
 #include <sys/uio.h>
 
 #if 0
-#include <fsyscall/encode.h>
+#include <fsyscall/private/encode.h>
 #endif
 #include <fsyscall/fmaster.h>
 
