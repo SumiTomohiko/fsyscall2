@@ -4,8 +4,9 @@
 #include <sys/syscallsubr.h>
 #include <sys/uio.h>
 
-#include <fsyscall/fmaster.h>
+#include <fsyscall/private/command.h>
 #include <fsyscall/private/encode.h>
+#include <fsyscall/private/fmaster.h>
 
 void
 fmaster_read_or_die(struct thread *td, int d, void *buf, size_t nbytes)
@@ -82,4 +83,27 @@ fmaster_write_or_die(struct thread *td, int d, void *buf, size_t nbytes)
 		if (kern_writev(td, d, &auio) != 0)
 			/* TODO: Print a friendly message. */
 			exit1(td, 1);
+}
+
+static int
+wfd_of_thread(struct thread *td)
+{
+	struct master_data *p;
+
+	p = (struct master_data *)(td->td_proc->p_emuldata);
+
+	return (p->wfd);
+}
+
+
+void
+fmaster_write_command_or_die(struct thread *td, command_t cmd)
+{
+	return (fmaster_write_or_die(td, wfd_of_thread(td), &cmd, sizeof(cmd)));
+}
+
+void
+fmaster_write_int32_or_die(struct thread *td, int32_t n)
+{
+	return (fmaster_write_or_die(td, wfd_of_thread(td), &n, sizeof(n)));
 }

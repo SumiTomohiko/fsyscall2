@@ -10,7 +10,7 @@
 #if 0
 #include <fsyscall/private/encode.h>
 #endif
-#include <fsyscall/fmaster.h>
+#include <fsyscall/private/fmaster.h>
 
 #if 0
 static struct fmaster_data *

@@ -2,23 +2,18 @@
 #include <sys/cdefs.h>
 #include <sys/proc.h>
 
-#include <fsyscall/fmaster.h>
-#if 0
-#include <fsyscall/syscall.h>
-#endif
+#include <fsyscall/private/command.h>
+#include <fsyscall/private/fmaster.h>
 #include <sys/fmaster/fmaster_proto.h>
 
 void
 sys_fmaster_exit(struct thread *td, struct fmaster_exit_args *uap)
 {
-#if 0
-	if (sys_fsyscall_write_syscall(td, SYSCALL_EXIT) != 0)
-		return;
-	int rval = uap->rval;
-	if (sys_fsyscall_write_int(td, rval) != 0)
-		return;
+	int rval;
+
+	fmaster_write_command_or_die(td, CALL_EXIT);
+	rval = uap->rval;
+	fmaster_write_int32_or_die(td, rval);
 	exit1(td, rval);
-#endif
-	exit1(td, 0);
 	/* NOTREACHED */
 }

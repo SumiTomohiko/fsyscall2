@@ -3,7 +3,7 @@
 #include <sys/libkern.h>
 #include <sys/proc.h>
 
-#include <fsyscall/fmaster.h>
+#include <fsyscall/private/fmaster.h>
 #if 0
 #include <fsyscall/syscall.h>
 #endif

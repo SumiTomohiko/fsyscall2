@@ -37,7 +37,7 @@
 #include <sys/sysproto.h>
 #include <sys/systm.h>
 
-#include <fsyscall/fmaster.h>
+#include <fsyscall/private/fmaster.h>
 
 MALLOC_DEFINE(M_FMASTER, "fmaster", "fmaster");
 
@@ -114,6 +114,7 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 	struct master_data *data;
 	int error, i, rfd, wfd;
 
+	/* FIXME: To be kernel.debug. */
 	printf("%s:%u rfd: %d\n", __FILE__, __LINE__, uap->rfd);
 	printf("%s:%u wfd: %d\n", __FILE__, __LINE__, uap->wfd);
 	printf("%s:%u path: %s\n", __FILE__, __LINE__, uap->path);

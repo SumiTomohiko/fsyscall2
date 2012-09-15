@@ -1,9 +1,12 @@
 #if !defined(FSYSCALL_FMASTER_H_INCLUDED)
 #define FSYSCALL_FMASTER_H_INCLUDED
 
+#include <sys/types.h>
 #include <sys/cdefs.h>
 #include <sys/malloc.h>
 #include <sys/proc.h>
+
+#include <fsyscall/private/command.h>
 
 #define	MAX_FD	1024
 
@@ -40,6 +43,8 @@ int sys_fsyscall_write_syscall(struct thread *, int);
 int fmaster_read_int(struct thread *, int);
 int fmaster_read_int2(struct thread *, int, int *);
 void fmaster_read_or_die(struct thread *, int, void *, size_t);
+void fmaster_write_command_or_die(struct thread *, command_t);
+void fmaster_write_int32_or_die(struct thread *, int32_t);
 void fmaster_write_or_die(struct thread *, int, void *, size_t);
 
 #define	SLAVE_FD2FD(fd)		(((fd) << 2) + 0x01)
