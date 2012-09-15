@@ -3,5 +3,6 @@
 
 void die(int, const char *, ...);
 void diec(int, int, const char *, ...);
+void diex(int, const char *, ...);
 
 #endif

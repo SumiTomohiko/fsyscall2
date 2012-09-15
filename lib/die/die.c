@@ -17,18 +17,35 @@ output(const char *msg)
 }
 
 static void
+die_with_message(int eval, const char *dying_message)
+{
+	output(dying_message);
+	output("Died.");
+	exit(eval);
+	/* NOTREACHED */
+}
+
+static void
 vdiec(int eval, int code, const char *fmt, va_list ap)
 {
 	char buf[4096], msg[4096];
 
 	vsnprintf(buf, array_sizeof(buf), fmt, ap);
 	snprintf(msg, array_sizeof(msg), "%s: %s", buf, strerror(code));
-
-	output(msg);
-	output("Died.");
-
-	exit(eval);
+	die_with_message(eval, msg);
 	/* NOTREACHED */
+}
+
+void
+diex(int eval, const char *fmt, ...)
+{
+	va_list ap;
+	char buf[4096];
+
+	va_start(ap, fmt);
+	snprintf(buf, array_sizeof(buf), fmt, ap);
+	va_end(ap);
+	die_with_message(eval, buf);
 }
 
 void
