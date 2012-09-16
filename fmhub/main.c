@@ -125,7 +125,7 @@ process_exit(struct mhub *mhub, struct master *master)
 	pid = master->pid;
 	syslog(LOG_DEBUG, "exit: pid=%d, status=%d", pid, status);
 
-	wfd = master->wfd;
+	wfd = mhub->shub.wfd;
 	write_command(wfd, CALL_EXIT);
 	write_pid(wfd, pid);
 	write_int32(wfd, status);
