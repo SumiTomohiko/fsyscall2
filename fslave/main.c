@@ -98,13 +98,30 @@ write_open_fds(struct slave *slave)
 }
 
 static int
+mainloop(struct slave *slave)
+{
+	command_t cmd;
+	int rfd, status;
+
+	rfd = slave->rfd;
+	cmd = read_command(rfd);
+	switch (cmd) {
+	case CALL_EXIT:
+		return (read_int32(rfd));
+	default:
+		diex(-1, "Unknown command (%d)", cmd);
+		/* NOTREACHED */
+	}
+}
+
+static int
 slave_main(struct slave *slave)
 {
 	negotiate_version(slave);
 	write_pid(slave->wfd, getpid());
 	write_open_fds(slave);
 
-	return (0);
+	return (mainloop(slave));
 }
 
 static void
