@@ -2,6 +2,7 @@
 #include <assert.h>
 #endif
 
+#include <fsyscall/private/command.h>
 #include <fsyscall/private/encode.h>
 
 #if !defined(KLD_MODULE)
@@ -27,6 +28,7 @@ name(char *buf, int bufsize)				\
 	return (n);					\
 }
 
+IMPLEMENT_DECODE_X(command_t, fsyscall_decode_command)
 IMPLEMENT_DECODE_X(int, fsyscall_decode_int)
 IMPLEMENT_DECODE_X(int32_t, fsyscall_decode_int32)
 
@@ -63,6 +65,7 @@ name(type n, char *buf, int bufsize)					\
 }
 
 IMPLEMENT_ENCODE_X(unsigned int, fsyscall_encode_uint)
+IMPLEMENT_ENCODE_X(uint16_t, fsyscall_encode_uint16)
 IMPLEMENT_ENCODE_X(uint32_t, fsyscall_encode_uint32)
 
 int
@@ -75,4 +78,10 @@ int
 fsyscall_encode_int32(int32_t n, char *buf, int bufsize)
 {
 	return (fsyscall_encode_uint32((uint32_t)n, buf, bufsize));
+}
+
+int
+fsyscall_encode_command(command_t n, char *buf, int bufsize)
+{
+	return (fsyscall_encode_uint16(n, buf, bufsize));
 }

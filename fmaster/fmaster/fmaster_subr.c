@@ -8,6 +8,9 @@
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fmaster.h>
 
+/* TODO: The same definition is in fsyscall/private.h. Share. */
+#define	array_sizeof(a)	(sizeof(a) / sizeof(a[0]))
+
 void
 fmaster_read_or_die(struct thread *td, int d, void *buf, size_t nbytes)
 {
@@ -95,15 +98,24 @@ wfd_of_thread(struct thread *td)
 	return (p->wfd);
 }
 
-
-void
-fmaster_write_command_or_die(struct thread *td, command_t cmd)
-{
-	return (fmaster_write_or_die(td, wfd_of_thread(td), &cmd, sizeof(cmd)));
+#define	IMPLEMENT_WRITE_X(type, name, bufsize, encode)			\
+void									\
+name(struct thread *td, type n)						\
+{									\
+	int len;							\
+	char buf[bufsize];						\
+									\
+	len = encode(n, buf, array_sizeof(buf));			\
+	return (fmaster_write_or_die(td, wfd_of_thread(td), buf, len));	\
 }
 
-void
-fmaster_write_int32_or_die(struct thread *td, int32_t n)
-{
-	return (fmaster_write_or_die(td, wfd_of_thread(td), &n, sizeof(n)));
-}
+IMPLEMENT_WRITE_X(
+		command_t,
+		fmaster_write_command_or_die,
+		FSYSCALL_BUFSIZE_COMMAND,
+		fsyscall_encode_command)
+IMPLEMENT_WRITE_X(
+		int32_t,
+		fmaster_write_int32_or_die,
+		FSYSCALL_BUFSIZE_INT32,
+		fsyscall_encode_int32)

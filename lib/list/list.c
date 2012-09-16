@@ -17,6 +17,13 @@ initialize_list(struct list *list)
 }
 
 void
+remove_item(struct item *item)
+{
+	item->prev->next = item->next;
+	item->next->prev = item->prev;
+}
+
+void
 prepend_item(struct list *list, struct item *item)
 {
 	struct item *head = list->items;

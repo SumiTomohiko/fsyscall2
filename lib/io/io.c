@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <fsyscall/private.h>
+#include <fsyscall/private/command.h>
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/encode.h>
 
@@ -47,13 +48,14 @@ name(int fd, type n)					\
 	char buf[bufsize];				\
 							\
 	len = encode(n, buf, array_sizeof(buf));	\
-	int i;						\
-	for (i = 0; i < len; i++) {			\
-		syslog(LOG_DEBUG, "buf[%d]=0x%02x", i, 0xff & buf[i]);	\
-	}						\
 	write_or_die(fd, buf, len);			\
 }
 
+IMPLEMENT_WRITE_X(
+		command_t,
+		write_command,
+		FSYSCALL_BUFSIZE_COMMAND,
+		fsyscall_encode_command)
 IMPLEMENT_WRITE_X(
 		int32_t,
 		write_int32,
@@ -96,6 +98,11 @@ IMPLEMENT_READ_X(
 		FSYSCALL_BUFSIZE_INT32,
 		fsyscall_decode_int32)
 IMPLEMENT_READ_X(int, read_int, FSYSCALL_BUFSIZE_INT, fsyscall_decode_int)
+IMPLEMENT_READ_X(
+		command_t,
+		read_command,
+		FSYSCALL_BUFSIZE_COMMAND,
+		fsyscall_decode_command)
 
 void
 write_pid(int fd, pid_t pid)

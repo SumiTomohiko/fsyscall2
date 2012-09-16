@@ -15,6 +15,7 @@
 #include <fsyscall/private.h>
 #include <fsyscall/private/atoi_or_die.h>
 #include <fsyscall/private/close_or_die.h>
+#include <fsyscall/private/command.h>
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/fork_or_die.h>
 #include <fsyscall/private/hub.h>
@@ -100,6 +101,119 @@ exec_master(int syscall_num, int rfd, int wfd, int argc, char *argv[])
 	/* NOTREACHED */
 }
 
+static void
+process_shub(struct mhub *mhub)
+{
+}
+
+static void
+dispose_master(struct master *master)
+{
+	REMOVE_ITEM(master);
+	close_or_die(master->rfd);
+	close_or_die(master->wfd);
+	free(master);
+}
+
+static void
+process_exit(struct mhub *mhub, struct master *master)
+{
+	int status, wfd;
+	pid_t pid;
+
+	status = read_int32(master->rfd);
+	pid = master->pid;
+	syslog(LOG_DEBUG, "exit: pid=%d, status=%d", pid, status);
+
+	wfd = master->wfd;
+	write_command(wfd, CALL_EXIT);
+	write_pid(wfd, pid);
+	write_int32(wfd, status);
+
+	dispose_master(master);
+}
+
+static void
+process_master(struct mhub *mhub, struct master *master)
+{
+	int rfd;
+	command_t cmd;
+
+	cmd = read_command(master->rfd);
+	switch (cmd) {
+	case CALL_EXIT:
+		process_exit(mhub, master);
+		break;
+	default:
+		die(-1, "Unknown command (%d)", cmd);
+		/* NOTREACHED */
+	}
+}
+
+static struct master *
+find_master_of_rfd(struct mhub *mhub, int rfd)
+{
+	struct master *master;
+
+	master = (struct master *)FIRST_ITEM(&mhub->masters);
+	while ((ITEM_NEXT(master) != NULL) && (master->rfd != rfd))
+		master = (struct master *)ITEM_NEXT(master);
+	assert(ITEM_NEXT(master) != NULL);
+
+	return (master);
+}
+
+static void
+process_fd(struct mhub *mhub, int fd, fd_set *fds)
+{
+	struct master *master;
+
+	if (!FD_ISSET(fd, fds))
+		return;
+	if (fd == mhub->shub.rfd) {
+		process_shub(mhub);
+		return;
+	}
+
+	master = find_master_of_rfd(mhub, fd);
+	process_master(mhub, master);
+}
+
+static void
+process_fds(struct mhub *mhub)
+{
+	struct master *master;
+	int i, max_fd, n, nfds, rfd;
+	fd_set fds;
+
+	FD_ZERO(&fds);
+
+	rfd = mhub->shub.rfd;
+	FD_SET(rfd, &fds);
+	max_fd = rfd;
+
+	master = (struct master *)FIRST_ITEM(&mhub->masters);
+	while (ITEM_NEXT(master) != NULL) {
+		rfd = master->rfd;
+		FD_SET(rfd, &fds);
+		max_fd = max_fd < rfd ? rfd : max_fd;
+		master = (struct master *)ITEM_NEXT(master);
+	}
+	nfds = max_fd + 1;
+	n = select(nfds, &fds, NULL, NULL, NULL);
+	if (n == -1)
+		die(-1, "select failed");
+	for (i = 0; i < nfds; i++)
+		process_fd(mhub, i, &fds);
+}
+
+static void
+mainloop(struct mhub *mhub)
+{
+	while (FIRST_ITEM(&mhub->masters)->next != NULL)
+		process_fds(mhub);
+}
+
 static int
 mhub_main(struct mhub *mhub, int argc, char *argv[])
 {
@@ -137,7 +251,7 @@ mhub_main(struct mhub *mhub, int argc, char *argv[])
 	write_pid(mhub->shub.wfd, pid);
 	transport_fds(mhub->shub.rfd, master->wfd);
 
-	/* TODO: Free masters. */
+	mainloop(mhub);
 
 	return (0);
 }
