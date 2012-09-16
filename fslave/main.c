@@ -19,6 +19,7 @@
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/io.h>
+#include <fsyscall/private/log.h>
 
 struct slave {
 	int rfd;
@@ -141,7 +142,7 @@ main(int argc, char* argv[])
 		{ NULL, 0, NULL, 0 }
 	};
 	struct slave slave;
-	int opt;
+	int opt, status;
 	char **args;
 
 	openlog(argv[0], LOG_PID, LOG_USER);
@@ -171,5 +172,8 @@ main(int argc, char* argv[])
 	slave.wfd = atoi_or_die(args[1], "wfd");
 	slave.path = args[2];
 
-	return (slave_main(&slave));
+	status = slave_main(&slave);
+	log_graceful_exit(status);
+
+	return (status);
 }

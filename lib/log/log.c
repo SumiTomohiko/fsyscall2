@@ -5,6 +5,12 @@
 #include <fsyscall/private.h>
 
 void
+log_graceful_exit(int status)
+{
+	syslog(LOG_INFO, "Exited gracefully with status %d.", status);
+}
+
+void
 log_start_message(int argc, char *argv[])
 {
 	int i;
