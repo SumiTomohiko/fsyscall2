@@ -1,6 +1,6 @@
 
 .include <sys.mk>
 
-SUBDIR=	${MACHINE_CPUARCH} tester
+SUBDIR=	${MACHINE_CPUARCH} encode tester
 
 .include <bsd.subdir.mk>
