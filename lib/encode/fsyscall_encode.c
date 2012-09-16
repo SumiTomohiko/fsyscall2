@@ -23,7 +23,7 @@ name(char *buf, int bufsize)				\
 							\
 	n = 0;						\
 	for (i = 0; i < bufsize; i++)			\
-		n += (n << 7) + (buf[i] & 0x7f);	\
+		n += (buf[i] & 0x7f) << (7 * i);	\
 							\
 	return (n);					\
 }
