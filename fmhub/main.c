@@ -214,6 +214,14 @@ mainloop(struct mhub *mhub)
 		process_fds(mhub);
 }
 
+static void
+log_new_master(struct master *master)
+{
+	const char *fmt = "new master: pid=%d, rfd=%d, wfd=%d";
+
+	syslog(LOG_DEBUG, fmt, master->pid, master->rfd, master->wfd);
+}
+
 static int
 mhub_main(struct mhub *mhub, int argc, char *argv[])
 {
@@ -245,6 +253,7 @@ mhub_main(struct mhub *mhub, int argc, char *argv[])
 	master->rfd = master2hub[R];
 	master->wfd = hub2master[W];
 	PREPEND_ITEM(&mhub->masters, master);
+	log_new_master(master);
 
 	negotiate_version_with_shub(mhub);
 	negotiate_version_with_master(master);
