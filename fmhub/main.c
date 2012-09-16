@@ -196,7 +196,7 @@ process_fds(struct mhub *mhub)
 	while (ITEM_NEXT(master) != NULL) {
 		rfd = master->rfd;
 		FD_SET(rfd, &fds);
-		max_fd = max_fd < rfd ? rfd : max_fd;
+		max_fd = MAX(max_fd, rfd);
 		master = (struct master *)ITEM_NEXT(master);
 	}
 	nfds = max_fd + 1;
