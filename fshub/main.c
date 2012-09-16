@@ -1,4 +1,5 @@
-#include <sys/types.h>
+#include <sys/param.h>
+#include <sys/select.h>
 #include <assert.h>
 #include <getopt.h>
 #include <signal.h>
@@ -8,6 +9,7 @@
 #include <fsyscall.h>
 #include <fsyscall/private.h>
 #include <fsyscall/private/atoi_or_die.h>
+#include <fsyscall/private/close_or_die.h>
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/hub.h>
 #include <fsyscall/private/io.h>
@@ -64,6 +66,142 @@ read_pids(struct shub *shub, struct slave *slave)
 	slave->master_pid = read_pid(shub->mhub.rfd);
 }
 
+static struct slave *
+find_slave_of_rfd(struct shub *shub, int rfd)
+{
+	struct slave *slave;
+
+	slave = (struct slave *)FIRST_ITEM(&shub->slaves);
+	while ((ITEM_NEXT(slave) != NULL) && (slave->rfd != rfd))
+		slave = (struct slave *)ITEM_NEXT(slave);
+	assert(ITEM_NEXT(slave) != NULL);
+
+	return (slave);
+}
+
+static struct slave *
+find_slave_of_master_pid(struct shub *shub, pid_t master_pid)
+{
+	struct slave *slave;
+
+	slave = (struct slave *)FIRST_ITEM(&shub->slaves);
+	while ((ITEM_NEXT(slave) != NULL) && (slave->master_pid != master_pid))
+		slave = (struct slave *)ITEM_NEXT(slave);
+	assert(ITEM_NEXT(slave) != NULL);
+
+	return (slave);
+}
+
+static void
+dispose_slave(struct slave *slave)
+{
+	REMOVE_ITEM(slave);
+	close_or_die(slave->rfd);
+	close_or_die(slave->wfd);
+	free(slave);
+}
+
+static void
+process_exit(struct shub *shub)
+{
+	struct slave *slave;
+	pid_t pid;
+	int rfd, status, wfd;
+
+	rfd = shub->mhub.rfd;
+	pid = read_pid(rfd);
+	slave = find_slave_of_master_pid(shub, pid);
+	status = read_int32(rfd);
+	syslog(LOG_DEBUG, "CALL_EXIT: master_pid=%d, status=%d", pid, status);
+
+	wfd = slave->wfd;
+	write_command(wfd, CALL_EXIT);
+	write_int32(wfd, status);
+
+	dispose_slave(slave);
+}
+
+static void
+process_mhub(struct shub *shub)
+{
+	int rfd;
+	command_t cmd;
+
+	cmd = read_command(shub->mhub.rfd);
+	switch (cmd) {
+	case CALL_EXIT:
+		process_exit(shub);
+		break;
+	default:
+		die(-1, "Unknown command (%d) from the master hub", cmd);
+		/* NOTREACHED */
+	}
+}
+
+static void
+process_slave(struct shub *shub, struct slave *slave)
+{
+}
+
+static void
+process_fd(struct shub *shub, int fd, fd_set *fds)
+{
+	/*
+	 * TODO: This part is almost same as fmhub/main.c (process_fd). Share
+	 * code with it.
+	 */
+	struct slave *slave;
+
+	if (!FD_ISSET(fd, fds))
+		return;
+	if (shub->mhub.rfd == fd) {
+		process_mhub(shub);
+		return;
+	}
+
+	slave = find_slave_of_rfd(shub, fd);
+	process_slave(shub, slave);
+}
+
+static void
+process_fds(struct shub *shub)
+{
+	/*
+	 * TODO: This part is almost same as fmhub/main.c (process_fds). Share
+	 * code with it.
+	 */
+	struct slave *slave;
+	fd_set fds;
+	int i, max_fd, n, nfds, rfd;
+
+	FD_ZERO(&fds);
+
+	rfd = shub->mhub.rfd;
+	FD_SET(rfd, &fds);
+	max_fd = rfd;
+
+	slave = (struct slave *)FIRST_ITEM(&shub->slaves);
+	while (ITEM_NEXT(slave) != NULL) {
+		rfd = slave->rfd;
+		FD_SET(rfd, &fds);
+		max_fd = MAX(max_fd, rfd);
+		slave = (struct slave *)ITEM_NEXT(slave);
+	}
+	nfds = max_fd + 1;
+	n = select(nfds, &fds, NULL, NULL, NULL);
+	if (n == -1)
+		die(-1, "select failed");
+	for (i = 0; i < nfds; i++)
+		process_fd(shub, i, &fds);
+}
+
+static void
+mainloop(struct shub *shub)
+{
+	while (FIRST_ITEM(&shub->slaves)->next != NULL)
+		process_fds(shub);
+}
+
 static int
 shub_main(struct shub *shub)
 {
@@ -73,6 +211,8 @@ shub_main(struct shub *shub)
 	negotiate_version_with_slave(slave);
 	read_pids(shub, slave);
 	transport_fds(slave->rfd, shub->mhub.wfd);
+
+	mainloop(shub);
 
 	return (0);
 }

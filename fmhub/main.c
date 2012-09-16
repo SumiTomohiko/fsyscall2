@@ -124,7 +124,7 @@ process_exit(struct mhub *mhub, struct master *master)
 
 	status = read_int32(master->rfd);
 	pid = master->pid;
-	syslog(LOG_DEBUG, "exit: pid=%d, status=%d", pid, status);
+	syslog(LOG_DEBUG, "CALL_EXIT: pid=%d, status=%d", pid, status);
 
 	wfd = mhub->shub.wfd;
 	write_command(wfd, CALL_EXIT);
@@ -139,6 +139,7 @@ process_master(struct mhub *mhub, struct master *master)
 {
 	int rfd;
 	command_t cmd;
+	pid_t pid;
 
 	cmd = read_command(master->rfd);
 	switch (cmd) {
@@ -146,7 +147,8 @@ process_master(struct mhub *mhub, struct master *master)
 		process_exit(mhub, master);
 		break;
 	default:
-		die(-1, "Unknown command (%d)", cmd);
+		pid = master->pid;
+		die(-1, "Unknown command (%d) from master (%d)", cmd, pid);
 		/* NOTREACHED */
 	}
 }
