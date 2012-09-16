@@ -90,7 +90,7 @@ exec_master(int syscall_num, int rfd, int wfd, int argc, char *argv[])
 
 	args = (char **)alloca(sizeof(char *) * (argc + 1));
 	for (i = 0; i < argc; i++) {
-		args[i] = (char *)alloca(sizeof(char) * strlen(argv[i]) + 1);
+		args[i] = (char *)alloca(sizeof(char) * (strlen(argv[i]) + 1));
 		strcpy(args[i], argv[i]);
 	}
 	args[i] = NULL;
