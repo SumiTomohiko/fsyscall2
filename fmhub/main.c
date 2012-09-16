@@ -21,6 +21,7 @@
 #include <fsyscall/private/hub.h>
 #include <fsyscall/private/io.h>
 #include <fsyscall/private/list.h>
+#include <fsyscall/private/log.h>
 #include <fsyscall/private/malloc_or_die.h>
 #include <fsyscall/private/pipe_or_die.h>
 
@@ -287,7 +288,7 @@ main(int argc, char *argv[])
 	char **args;
 
 	openlog(argv[0], LOG_PID, LOG_USER);
-	syslog(LOG_INFO, "Started.");
+	log_start_message(argc, argv);
 
 	signal(SIGPIPE, signal_handler);
 
