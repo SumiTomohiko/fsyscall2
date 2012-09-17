@@ -162,7 +162,7 @@ main(int argc, char* argv[])
 			usage();
 			return (-1);
 		}
-	if (argc - optind != 3) {
+	if (argc - optind < 3) {
 		usage();
 		return (-1);
 	}

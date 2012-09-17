@@ -39,21 +39,19 @@ dup_to_nonstd(int fd)
 }
 
 static void
-exec_fshub(int mhub2shub, int shub2mhub, int slave2hub, int hub2slave, char *path, int argc, char *argv[])
+exec_fshub(int mhub2shub, int shub2mhub, int slave2hub, int hub2slave, char *path)
 {
 	int i;
 	char **args;
 
-	args = (char**)alloca(sizeof(char*) * (7 + argc));
+	args = (char **)alloca(sizeof(char *) * 7);
 	args[0] = "fshub";
 	ALLOC_FD(args[1], mhub2shub);
 	ALLOC_FD(args[2], shub2mhub);
 	ALLOC_FD(args[3], slave2hub);
 	ALLOC_FD(args[4], hub2slave);
 	args[5] = path;
-	for (i = 0; i < argc; i++)
-		args[6 + i] = argv[i];
-	args[6 + i] = NULL;
+	args[6] = NULL;
 	execvp(args[0], args);
 	die(-1, "Cannot execvp %s", args[0]);
 	/* NOTREACHED */
@@ -64,8 +62,8 @@ fsyscall_start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 {
 	pid_t pid;
 	int slave2hub[2], hub2slave[2];
-	int len, rfd, wfd;
-	char args[3][16], path[32];
+	int digits, i, len, rfd, wfd;
+	char **args, *cmd, path[32];
 
 	snprintf(path, sizeof(path), "/tmp/fshub.%d", getpid());
 
@@ -79,8 +77,7 @@ fsyscall_start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 		exec_fshub(
 			mhub2shub, shub2mhub,
 			slave2hub[R], hub2slave[W],
-			path,
-			argc, argv);
+			path);
 		/* NOTREACHED */
 	}
 
@@ -88,12 +85,26 @@ fsyscall_start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 	close_or_die(shub2mhub);
 	close_or_die(hub2slave[W]);
 	close_or_die(slave2hub[R]);
-	rfd = dup_to_nonstd(hub2slave[R]);
-	wfd = dup_to_nonstd(slave2hub[W]);
-	strcpy(args[0], "fslave");
-	sprintf(args[1], "%d", rfd);
-	sprintf(args[2], "%d", wfd);
-	execlp(args[0], args[0], args[1], args[2], path, NULL);
+
+	args = (char **)alloca(sizeof(char *) * (5 + argc));
+	cmd = "fslave";
+	args[0] = (char *)alloca(sizeof(char) * (strlen(cmd) + 1));
+	strcpy(args[0], cmd);
+	digits = 11;
+	args[1] = (char *)alloca(sizeof(char) * digits);
+	snprintf(args[1], digits, "%d", dup_to_nonstd(hub2slave[R]));
+	args[2] = (char *)alloca(sizeof(char) * digits);
+	snprintf(args[2], digits, "%d", dup_to_nonstd(slave2hub[W]));
+	args[3] = (char *)alloca(sizeof(char) * (strlen(path) + 1));
+	strcpy(args[3], path);
+	for (i = 0; i < argc; i++) {
+		len = strlen(argv[i]);
+		args[4 + i] = (char *)alloca(sizeof(char) * (len + 1));
+		strcpy(args[4 + i], argv[i]);
+	}
+	args[4 + i] = NULL;
+
+	execvp(args[0], args);
 	die(-1, "Cannot execlp %s", args[0]);
 	/* NOTREACHED */
 }
