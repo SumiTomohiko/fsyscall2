@@ -41,7 +41,6 @@ dup_to_nonstd(int fd)
 static void
 exec_fshub(int mhub2shub, int shub2mhub, int slave2hub, int hub2slave, char *path)
 {
-	int i;
 	char **args;
 
 	args = (char **)alloca(sizeof(char *) * 7);
@@ -62,7 +61,7 @@ fsyscall_start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 {
 	pid_t pid;
 	int slave2hub[2], hub2slave[2];
-	int digits, i, len, rfd, wfd;
+	int digits, i;
 	char **args, *cmd, path[32];
 
 	snprintf(path, sizeof(path), "/tmp/fshub.%d", getpid());

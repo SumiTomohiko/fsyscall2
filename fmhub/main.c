@@ -137,7 +137,6 @@ process_exit(struct mhub *mhub, struct master *master)
 static void
 process_master(struct mhub *mhub, struct master *master)
 {
-	int rfd;
 	command_t cmd;
 	pid_t pid;
 
@@ -277,7 +276,6 @@ main(int argc, char *argv[])
 		{ NULL, 0, NULL, 0 }
 	};
 	struct mhub mhub;
-	struct master head, tail;
 	int opt, status;
 	char **args;
 

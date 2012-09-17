@@ -1,10 +1,11 @@
 
 SRCS=		${LIB}.c
 TOP_DIR=	../..
-CFLAGS=		-g -I${TOP_DIR}/include
+CFLAGS=		-I${TOP_DIR}/include
 
 install:
 
+.include "${TOP_DIR}/Makefile.common"
 .include <bsd.lib.mk>
 
 # vim: filetype=make

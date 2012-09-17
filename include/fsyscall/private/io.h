@@ -7,6 +7,7 @@
 
 command_t read_command(int);
 int32_t read_int32(int);
+int read_int(int);
 pid_t read_pid(int);
 void read_or_die(int, const void *, size_t);
 void write_command(int, command_t);

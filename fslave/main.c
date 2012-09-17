@@ -102,7 +102,7 @@ static int
 mainloop(struct slave *slave)
 {
 	command_t cmd;
-	int rfd, status;
+	int rfd;
 
 	rfd = slave->rfd;
 	cmd = read_command(rfd);
@@ -113,6 +113,8 @@ mainloop(struct slave *slave)
 		diex(-1, "Unknown command (%d)", cmd);
 		/* NOTREACHED */
 	}
+
+	return (-1);
 }
 
 static int

@@ -125,7 +125,6 @@ process_exit(struct shub *shub)
 static void
 process_mhub(struct shub *shub)
 {
-	int rfd;
 	command_t cmd;
 
 	cmd = read_command(shub->mhub.rfd);
