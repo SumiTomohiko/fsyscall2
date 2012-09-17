@@ -97,11 +97,8 @@ fsyscall_start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 	snprintf(args[2], digits, "%d", dup_to_nonstd(slave2hub[W]));
 	args[3] = (char *)alloca(sizeof(char) * (strlen(path) + 1));
 	strcpy(args[3], path);
-	for (i = 0; i < argc; i++) {
-		len = strlen(argv[i]);
-		args[4 + i] = (char *)alloca(sizeof(char) * (len + 1));
-		strcpy(args[4 + i], argv[i]);
-	}
+	for (i = 0; i < argc; i++)
+		args[4 + i] = argv[i];
 	args[4 + i] = NULL;
 
 	execvp(args[0], args);
