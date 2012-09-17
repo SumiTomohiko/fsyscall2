@@ -14,6 +14,7 @@
 #include <fsyscall/private/hub.h>
 #include <fsyscall/private/io.h>
 #include <fsyscall/private/list.h>
+#include <fsyscall/private/log.h>
 #include <fsyscall/private/malloc_or_die.h>
 
 struct slave {
@@ -234,11 +235,11 @@ main(int argc, char *argv[])
 		{ NULL, 0, NULL, 0 }
 	};
 	struct shub shub;
-	int opt;
+	int opt, status;
 	char **args;
 
 	openlog(argv[0], LOG_PID, LOG_USER);
-	syslog(LOG_INFO, "Started.");
+	log_start_message(argc, argv);
 
 	signal(SIGPIPE, signal_handler);
 
@@ -271,5 +272,8 @@ main(int argc, char *argv[])
 
 	shub.path = args[4];
 
-	return (shub_main(&shub));
+	status = shub_main(&shub);
+	log_graceful_exit(status);
+
+	return (status);
 }

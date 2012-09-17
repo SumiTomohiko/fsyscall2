@@ -278,7 +278,7 @@ main(int argc, char *argv[])
 	};
 	struct mhub mhub;
 	struct master head, tail;
-	int opt;
+	int opt, status;
 	char **args;
 
 	openlog(argv[0], LOG_PID, LOG_USER);
@@ -309,5 +309,8 @@ main(int argc, char *argv[])
 
 	initialize_list(&mhub.masters);
 
-	return (mhub_main(&mhub, argc - optind - 2, args + 2));
+	status = mhub_main(&mhub, argc - optind - 2, args + 2);
+	log_graceful_exit(status);
+
+	return (status);
 }

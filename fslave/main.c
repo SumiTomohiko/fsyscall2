@@ -146,7 +146,7 @@ main(int argc, char* argv[])
 	char **args;
 
 	openlog(argv[0], LOG_PID, LOG_USER);
-	syslog(LOG_INFO, "Started.");
+	log_start_message(argc, argv);
 
 	signal(SIGPIPE, signal_handler);
 
