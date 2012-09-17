@@ -1,10 +1,12 @@
 #!/bin/sh
 
-tester/tester $(uname -p)/exit/exit
-if [ "$?" = 0 ]; then
-  exit 0
-else
-  exit 1
-fi
+cmd="exit/exit"
 
-# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2
+test_status()
+{
+	if [ "$1" = 0 ]; then
+		return 0
+	else
+		return 1
+	fi
+}

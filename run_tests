@@ -1,16 +1,37 @@
 #!/bin/sh
 
-dir="$(dirname $0)/tests"
-find "${dir}" -name "test_*" | sed -e "s%^${dir}/%%" | sort | while read t
-do
-  echo "******** ${t} ********" 
-  cd "${dir}" && "./${t}"
-  if [ "$?" != 0 ]; then
-    result="NG"
-  else
-    result="OK"
-  fi
-  echo "${t}: ${result}"
-done
+test_result()
+{
+	local result status t
 
-# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2
+	t="${1}"
+	status="${2}"
+	if [ "${status}" = 0 ]; then
+		result="OK"
+	else
+		result="NG"
+	fi
+	echo "${t}: ${result}"
+}
+
+dir="$(dirname $0)/tests"
+arch=$(uname -p)
+find "${dir}" -name "test_*" | sort | while read t
+do
+	echo "******** ${t} ********"
+
+	args=""
+	cmd=""
+	status=""
+	test_status=""
+	. "${t}"
+
+	"${dir}/tester/tester" "${dir}/${arch}/${cmd}" ${args}
+	status="${?}"
+
+	s=$(type test_status | sed -e "s/^.* is a //")
+	if [ "${s}" = "shell function" ]; then
+		test_status "${status}"
+		test_result "${t}" "${?}"
+	fi
+done
