@@ -1,4 +1,3 @@
-#!/bin/sh
 
 cmd="exit/exit"
 args="1"
@@ -11,3 +10,5 @@ test_status()
 		return 1
 	fi
 }
+
+# vim: filetype=sh
