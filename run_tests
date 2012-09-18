@@ -20,18 +20,19 @@ find "${dir}" -name "test_*" | sort | while read t
 do
 	echo "******** ${t} ********"
 
-	args=""
-	cmd=""
-	status=""
-	test_status=""
+	unset args cmd status test_status test_stdout
 	. "${t}"
 
 	"${dir}/tester/tester" "${dir}/${arch}/${cmd}" ${args}
 	status="${?}"
 
-	s=$(type test_status | sed -e "s/^.* is a //")
-	if [ "${s}" = "shell function" ]; then
-		test_status "${status}"
+	for f in test_status test_stdout
+	do
+		s=$(type ${f} 2> /dev/null | sed -e "s/^.* is a //")
+		if [ "${s}" != "shell function" ]; then
+			continue
+		fi
+		${f} "${status}"
 		test_result "${t}" "${?}"
-	fi
+	done
 done
