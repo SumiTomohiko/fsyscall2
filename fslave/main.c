@@ -98,6 +98,30 @@ write_open_fds(struct slave *slave)
 	write_or_die(wfd, buf, pos);
 }
 
+static void
+process_write(struct slave *slave)
+{
+	int data_size, fd, len_fd, len_nbytes, nbytes, payload_size, rfd;
+	char buf_fd[FSYSCALL_BUFSIZE_INT32], buf_nbytes[FSYSCALL_BUFSIZE_INT32];
+	char *data;
+
+	rfd = slave->rfd;
+	payload_size = read_int32(rfd);
+	len_fd = read_numeric_sequence(rfd, buf_fd, array_sizeof(buf_fd));
+	fd = fsyscall_decode_int32(buf_fd, len_fd);
+	len_nbytes = read_numeric_sequence(
+		rfd,
+		buf_nbytes,
+		array_sizeof(buf_nbytes));
+	nbytes = fsyscall_decode_int32(buf_nbytes, len_nbytes);
+	data_size = payload_size - (len_fd + len_nbytes);
+	data = (char *)alloca(sizeof(char) * data_size);
+	read_or_die(rfd, data, data_size);
+	write(fd, data, nbytes);
+
+	/* TODO: Send back RET_WRITE. */
+}
+
 static int
 mainloop(struct slave *slave)
 {
@@ -105,13 +129,18 @@ mainloop(struct slave *slave)
 	int rfd;
 
 	rfd = slave->rfd;
-	cmd = read_command(rfd);
-	switch (cmd) {
-	case CALL_EXIT:
-		return (read_int32(rfd));
-	default:
-		diex(-1, "Unknown command (%d)", cmd);
-		/* NOTREACHED */
+	for (;;) {
+		cmd = read_command(rfd);
+		switch (cmd) {
+		case CALL_EXIT:
+			return (read_int32(rfd));
+		case CALL_WRITE:
+			process_write(slave);
+			break;
+		default:
+			diex(-1, "Unknown command (%d)", cmd);
+			/* NOTREACHED */
+		}
 	}
 
 	return (-1);
