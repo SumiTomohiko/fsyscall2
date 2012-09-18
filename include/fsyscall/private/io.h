@@ -10,6 +10,7 @@ int32_t read_int32(int);
 int read_int(int);
 pid_t read_pid(int);
 void read_or_die(int, const void *, size_t);
+int read_numeric_sequence(int, char *, int);
 void write_command(int, command_t);
 void write_int(int, int);
 void write_int32(int, int32_t);

@@ -63,7 +63,7 @@ IMPLEMENT_WRITE_X(
 		fsyscall_encode_int32)
 IMPLEMENT_WRITE_X(int, write_int, FSYSCALL_BUFSIZE_INT, fsyscall_encode_int)
 
-static int
+int
 read_numeric_sequence(int fd, char *buf, int bufsize)
 {
 	int nbytes, pos;

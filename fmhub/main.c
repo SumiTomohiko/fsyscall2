@@ -17,6 +17,7 @@
 #include <fsyscall/private/close_or_die.h>
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/die.h>
+#include <fsyscall/private/encode.h>
 #include <fsyscall/private/fork_or_die.h>
 #include <fsyscall/private/hub.h>
 #include <fsyscall/private/io.h>
@@ -135,6 +136,38 @@ process_exit(struct mhub *mhub, struct master *master)
 }
 
 static void
+transfer(int rfd, int wfd, int len)
+{
+	int nbytes, rest;
+	char buf[1024];
+
+	rest = len;
+	while (0 < rest) {
+		nbytes = MIN(array_sizeof(buf), rest);
+		read_or_die(rfd, buf, nbytes);
+		write_or_die(wfd, buf, nbytes);
+		rest -= nbytes;
+	}
+}
+
+static void
+transfer_payload(struct mhub *mhub, struct master *master, int cmd)
+{
+	int len, payload_size, rfd, wfd;
+	char buf[FSYSCALL_BUFSIZE_INT32];
+
+	rfd = master->rfd;
+	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
+	payload_size = fsyscall_decode_int32(buf, len);
+
+	wfd = mhub->shub.wfd;
+	write_command(wfd, cmd);
+	write_pid(wfd, master->pid);
+	write_or_die(wfd, buf, len);
+	transfer(rfd, wfd, payload_size);
+}
+
+static void
 process_master(struct mhub *mhub, struct master *master)
 {
 	command_t cmd;
@@ -144,6 +177,9 @@ process_master(struct mhub *mhub, struct master *master)
 	switch (cmd) {
 	case CALL_EXIT:
 		process_exit(mhub, master);
+		break;
+	case CALL_WRITE:
+		transfer_payload(mhub, master, cmd);
 		break;
 	default:
 		pid = master->pid;
