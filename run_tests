@@ -20,7 +20,8 @@ find "${dir}" -name "test_*" | sort | while read t
 do
 	echo "******** ${t} ********"
 
-	unset args cmd status test_status test_stdout
+	unset args cmd status
+	unset -f test_status test_stdout
 	. "${t}"
 
 	stdout_log="/tmp/fsyscall.run_tests.stdout_log"
