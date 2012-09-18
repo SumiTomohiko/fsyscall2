@@ -11,6 +11,7 @@
 #include <fsyscall/private/atoi_or_die.h>
 #include <fsyscall/private/close_or_die.h>
 #include <fsyscall/private/die.h>
+#include <fsyscall/private/encode.h>
 #include <fsyscall/private/hub.h>
 #include <fsyscall/private/io.h>
 #include <fsyscall/private/list.h>
@@ -103,6 +104,24 @@ dispose_slave(struct slave *slave)
 }
 
 static void
+transfer_payload(struct shub *shub, command_t cmd)
+{
+	pid_t pid;
+	int len, payload_size, rfd, wfd;
+	char buf[FSYSCALL_BUFSIZE_INT32];
+
+	rfd = shub->mhub.rfd;
+	pid = read_pid(rfd);
+	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
+	payload_size = fsyscall_decode_int32(buf, len);
+
+	wfd = find_slave_of_master_pid(shub, pid)->wfd;
+	write_command(wfd, cmd);
+	write_or_die(wfd, buf, len);
+	transfer(rfd, wfd, payload_size);
+}
+
+static void
 process_exit(struct shub *shub)
 {
 	struct slave *slave;
@@ -131,6 +150,9 @@ process_mhub(struct shub *shub)
 	switch (cmd) {
 	case CALL_EXIT:
 		process_exit(shub);
+		break;
+	case CALL_WRITE:
+		transfer_payload(shub, cmd);
 		break;
 	default:
 		diex(-1, "Unknown command (%d) from the master hub", cmd);
