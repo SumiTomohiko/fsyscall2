@@ -1,6 +1,7 @@
 #if !defined(FSYSCALL_PRIVATE_H_INCLUDED)
 #define FSYSCALL_PRIVATE_H_INCLUDED
 
+#if !defined(KLD_MODULE)
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +15,7 @@
 	syslog(LOG_DEBUG, fmt, __VA_ARGS__);				\
 } while (0)
 #define	TRACE0(msg)	TRACE("%s", (msg))
+#endif	/* !KLD_MODULE */
 
 #define	array_sizeof(a)	(sizeof(a) / sizeof(a[0]))
 

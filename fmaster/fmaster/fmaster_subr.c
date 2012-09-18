@@ -4,12 +4,10 @@
 #include <sys/syscallsubr.h>
 #include <sys/uio.h>
 
+#include <fsyscall/private.h>
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fmaster.h>
-
-/* TODO: The same definition is in fsyscall/private.h. Share. */
-#define	array_sizeof(a)	(sizeof(a) / sizeof(a[0]))
 
 void
 fmaster_read_or_die(struct thread *td, int d, void *buf, size_t nbytes)
