@@ -28,13 +28,13 @@ do
 	"${dir}/tester/tester" "${dir}/${arch}/${cmd}" ${args} > "${stdout_log}"
 	status="${?}"
 
-	s=$(type test_status 2> /dev/null | sed -e "s/^.* is a //")
-	if [ "${s}" = "shell function" ]; then
+	type test_status > /dev/null 2>&1
+	if [ "${?}" = 0 ]; then
 		test_status "${status}"
 		test_result "${t}" "${?}"
 	fi
-	s=$(type test_stdout 2> /dev/null | sed -e "s/^.* is a //")
-	if [ "${s}" = "shell function" ]; then
+	type test_stdout > /dev/null 2>&1
+	if [ "${?}" = 0 ]; then
 		test_stdout "$(cat "${stdout_log}")"
 		test_result "${t}" "${?}"
 	fi
