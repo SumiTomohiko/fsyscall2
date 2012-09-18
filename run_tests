@@ -23,16 +23,18 @@ do
 	unset args cmd status test_status test_stdout
 	. "${t}"
 
-	"${dir}/tester/tester" "${dir}/${arch}/${cmd}" ${args}
+	stdout_log="/tmp/fsyscall.run_tests.stdout_log"
+	"${dir}/tester/tester" "${dir}/${arch}/${cmd}" ${args} > "${stdout_log}"
 	status="${?}"
 
-	for f in test_status test_stdout
-	do
-		s=$(type ${f} 2> /dev/null | sed -e "s/^.* is a //")
-		if [ "${s}" != "shell function" ]; then
-			continue
-		fi
-		${f} "${status}"
+	s=$(type test_status 2> /dev/null | sed -e "s/^.* is a //")
+	if [ "${s}" = "shell function" ]; then
+		test_status "${status}"
 		test_result "${t}" "${?}"
-	done
+	fi
+	s=$(type test_stdout 2> /dev/null | sed -e "s/^.* is a //")
+	if [ "${s}" = "shell function" ]; then
+		test_stdout "$(cat "${stdout_log}")"
+		test_result "${t}" "${?}"
+	fi
 done
