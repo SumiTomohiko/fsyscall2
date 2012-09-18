@@ -147,7 +147,7 @@ process_master(struct mhub *mhub, struct master *master)
 		break;
 	default:
 		pid = master->pid;
-		die(-1, "Unknown command (%d) from master (%d)", cmd, pid);
+		diex(-1, "Unknown command (%d) from master (%d)", cmd, pid);
 		/* NOTREACHED */
 	}
 }
