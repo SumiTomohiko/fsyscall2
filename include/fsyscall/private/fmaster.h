@@ -45,7 +45,9 @@ int fmaster_read_int2(struct thread *, int, int *);
 void fmaster_read_or_die(struct thread *, int, void *, size_t);
 void fmaster_write_command_or_die(struct thread *, command_t);
 void fmaster_write_int32_or_die(struct thread *, int32_t);
-void fmaster_write_or_die(struct thread *, int, void *, size_t);
+void fmaster_write_or_die(struct thread *, int, const void *, size_t);
+
+int fmaster_wfd_of_thread(struct thread *);
 
 #define	SLAVE_FD2FD(fd)		(((fd) << 2) + 0x01)
 #define	MASTER_FD2FD(fd)	(((fd) << 2) + 0x03)

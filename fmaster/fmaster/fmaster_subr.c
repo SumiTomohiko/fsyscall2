@@ -61,7 +61,7 @@ fmaster_read_int(struct thread *td, int fd)
 }
 
 void
-fmaster_write_or_die(struct thread *td, int d, void *buf, size_t nbytes)
+fmaster_write_or_die(struct thread *td, int d, const void *buf, size_t nbytes)
 {
 	struct uio auio;
 	struct iovec aiov;
@@ -72,7 +72,8 @@ fmaster_write_or_die(struct thread *td, int d, void *buf, size_t nbytes)
 		exit1(td, 1);
 #endif
 
-	aiov.iov_base = buf;
+	/* Casting to uintptr_t is needed to escape the compiler warning. */
+	aiov.iov_base = (void *)(uintptr_t)buf;
 	aiov.iov_len = nbytes;
 
 	auio.uio_iov = &aiov;
@@ -86,8 +87,8 @@ fmaster_write_or_die(struct thread *td, int d, void *buf, size_t nbytes)
 			exit1(td, 1);
 }
 
-static int
-wfd_of_thread(struct thread *td)
+int
+fmaster_wfd_of_thread(struct thread *td)
 {
 	struct master_data *p;
 
@@ -96,15 +97,16 @@ wfd_of_thread(struct thread *td)
 	return (p->wfd);
 }
 
-#define	IMPLEMENT_WRITE_X(type, name, bufsize, encode)			\
-void									\
-name(struct thread *td, type n)						\
-{									\
-	int len;							\
-	char buf[bufsize];						\
-									\
-	len = encode(n, buf, array_sizeof(buf));			\
-	return (fmaster_write_or_die(td, wfd_of_thread(td), buf, len));	\
+#define	IMPLEMENT_WRITE_X(type, name, bufsize, encode)		\
+void								\
+name(struct thread *td, type n)					\
+{								\
+	int len, wfd;						\
+	char buf[bufsize];					\
+								\
+	len = encode(n, buf, array_sizeof(buf));		\
+	wfd = fmaster_wfd_of_thread(td);			\
+	return (fmaster_write_or_die(td, wfd, buf, len));	\
 }
 
 IMPLEMENT_WRITE_X(
