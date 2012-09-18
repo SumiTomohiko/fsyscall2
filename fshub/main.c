@@ -133,7 +133,7 @@ process_mhub(struct shub *shub)
 		process_exit(shub);
 		break;
 	default:
-		die(-1, "Unknown command (%d) from the master hub", cmd);
+		diex(-1, "Unknown command (%d) from the master hub", cmd);
 		/* NOTREACHED */
 	}
 }
