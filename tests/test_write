@@ -3,6 +3,11 @@ msg="foo"
 cmd="write/write"
 args="1 ${msg}"
 
+test_status()
+{
+	return 0
+}
+
 test_stdout()
 {
 	local stdout
