@@ -16,5 +16,6 @@ void write_int(int, int);
 void write_int32(int, int32_t);
 void write_or_die(int, const void *, size_t);
 void write_pid(int, pid_t);
+void transfer(int, int, int);
 
 #endif

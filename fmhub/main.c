@@ -136,21 +136,6 @@ process_exit(struct mhub *mhub, struct master *master)
 }
 
 static void
-transfer(int rfd, int wfd, int len)
-{
-	int nbytes, rest;
-	char buf[1024];
-
-	rest = len;
-	while (0 < rest) {
-		nbytes = MIN(array_sizeof(buf), rest);
-		read_or_die(rfd, buf, nbytes);
-		write_or_die(wfd, buf, nbytes);
-		rest -= nbytes;
-	}
-}
-
-static void
 transfer_payload(struct mhub *mhub, struct master *master, int cmd)
 {
 	int len, payload_size, rfd, wfd;

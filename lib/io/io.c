@@ -1,4 +1,4 @@
-#include <sys/types.h>
+#include <sys/param.h>
 #include <sys/uio.h>
 #include <assert.h>
 #include <errno.h>
@@ -114,4 +114,19 @@ pid_t
 read_pid(int fd)
 {
 	return (read_int32(fd));
+}
+
+void
+transfer(int rfd, int wfd, int len)
+{
+	int nbytes, rest;
+	char buf[1024];
+
+	rest = len;
+	while (0 < rest) {
+		nbytes = MIN(array_sizeof(buf), rest);
+		read_or_die(rfd, buf, nbytes);
+		write_or_die(wfd, buf, nbytes);
+		rest -= nbytes;
+	}
 }
