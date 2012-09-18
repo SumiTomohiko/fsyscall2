@@ -34,6 +34,7 @@
 #include <sys/module.h>
 #include <sys/proc.h>
 #include <sys/sysent.h>
+#include <sys/syslog.h>
 #include <sys/sysproto.h>
 #include <sys/systm.h>
 
@@ -71,7 +72,7 @@ negotiate_version(struct thread *td, int rfd, int wfd)
 	if (ver != 0)
 		return (EPROTO);
 
-	printf("Protocol version for fmhub is %d.\n", ver);
+	log(LOG_DEBUG, "Protocol version for fmhub is %d.\n", ver);
 
 	return (0);
 }
@@ -113,17 +114,14 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 {
 	struct master_data *data;
 	int error, i, rfd, wfd;
+	const char *name = "fmaster_execve";
+	const char *fmt = "%s: rfd=%d, wfd=%d, path=%s\n";
 
-	/* FIXME: To be kernel.debug. */
-	printf("%s:%u rfd: %d\n", __FILE__, __LINE__, uap->rfd);
-	printf("%s:%u wfd: %d\n", __FILE__, __LINE__, uap->wfd);
-	printf("%s:%u path: %s\n", __FILE__, __LINE__, uap->path);
-	for (i = 0; uap->argv[i] != NULL; i++) {
-		printf("%s:%u argv[%d]: %s\n", __FILE__, __LINE__, i, uap->argv[i]);
-	}
-	for (i = 0; uap->envp[i] != NULL; i++) {
-		printf("%s:%u envp[%d]: %s\n", __FILE__, __LINE__, i, uap->envp[i]);
-	}
+	log(LOG_DEBUG, fmt, name, uap->rfd, uap->wfd, uap->path);
+	for (i = 0; uap->argv[i] != NULL; i++)
+		log(LOG_DEBUG, "%s: argv[%d]=%s\n", name, i, uap->argv[i]);
+	for (i = 0; uap->envp[i] != NULL; i++)
+		log(LOG_DEBUG, "%s: envp[%d]=%s\n", name, i, uap->envp[i]);
 
 	rfd = uap->rfd;
 	wfd = uap->wfd;
