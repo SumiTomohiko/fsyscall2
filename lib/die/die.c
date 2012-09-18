@@ -43,7 +43,7 @@ diex(int eval, const char *fmt, ...)
 	char buf[4096];
 
 	va_start(ap, fmt);
-	snprintf(buf, array_sizeof(buf), fmt, ap);
+	vsnprintf(buf, array_sizeof(buf), fmt, ap);
 	va_end(ap);
 	die_with_message(eval, buf);
 }
