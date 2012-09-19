@@ -136,18 +136,27 @@ process_exit(struct mhub *mhub, struct master *master)
 }
 
 static void
-transfer_payload(struct mhub *mhub, struct master *master, int cmd)
+transfer_payload(struct mhub *mhub, struct master *master, command_t cmd)
 {
+	pid_t pid;
 	int len, payload_size, rfd, wfd;
 	char buf[FSYSCALL_BUFSIZE_INT32];
+	const char *fmt = "%s: pid=%d, payload_size=%d";
+	const char *name;
+
+	pid = master->pid;
+	name = get_command_name(cmd);
+	syslog(LOG_DEBUG, "Processing %s from master %d.", name, pid);
 
 	rfd = master->rfd;
 	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
 	payload_size = fsyscall_decode_int32(buf, len);
 
+	syslog(LOG_DEBUG, fmt, name, pid, payload_size);
+
 	wfd = mhub->shub.wfd;
 	write_command(wfd, cmd);
-	write_pid(wfd, master->pid);
+	write_pid(wfd, pid);
 	write_or_die(wfd, buf, len);
 	transfer(rfd, wfd, payload_size);
 }

@@ -11,7 +11,7 @@ LDADD=		${LIB_DIR}/atoi_or_die/libatoi_or_die.a \
 		${LIB_DIR}/malloc_or_die/libmalloc_or_die.a \
 		${LIB_DIR}/pipe_or_die/libpipe_or_die.a \
 		${LIB_DIR}/hub/libhub.a ${LIB_DIR}/encode/libencode.a \
-		${LIB_DIR}/die/libdie.a
+		${LIB_DIR}/die/libdie.a ${LIB_DIR}/command/libcommand.a
 WITHOUT_MAN=	yes
 
 .include "${TOP_DIR}/Makefile.common"
