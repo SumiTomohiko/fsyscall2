@@ -14,9 +14,16 @@ test_result()
 	echo "${t}: ${result}"
 }
 
-dir="$(dirname $0)/tests"
+dir="$(dirname $0)"
+tests_dir="${dir}/tests"
+tester="${tests_dir}/tester/tester"
+tmp_dir="${dir}/tmp.tests"
 arch=$(uname -p)
-find "${dir}" -name "test_*" | sort | while read t
+
+rm -rf "${tmp_dir}" || exit 1
+mkdir -p "${tmp_dir}" || exit 1
+
+find "${tests_dir}" -name "test_*" | sort | while read t
 do
 	echo "******** ${t} ********"
 
@@ -24,8 +31,9 @@ do
 	unset -f test_status test_stdout
 	. "${t}"
 
-	stdout_log="/tmp/fsyscall.run_tests.stdout_log"
-	"${dir}/tester/tester" "${dir}/${arch}/${cmd}" ${args} > "${stdout_log}"
+	exe="${tests_dir}/${arch}/${cmd}"
+	stdout_log="${tmp_dir}/stdout.log"
+	"${tester}" "${exe}" ${args} > "${stdout_log}"
 	status="${?}"
 
 	type test_status > /dev/null 2>&1
@@ -39,3 +47,5 @@ do
 		test_result "${t}" "${?}"
 	fi
 done
+
+rm -rf "${tmp_dir}" || exit 1
