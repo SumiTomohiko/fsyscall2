@@ -98,8 +98,9 @@ static boolean_t __elfN(check_note)(struct image_params *imgp,
 static vm_prot_t __elfN(trans_prot)(Elf_Word);
 static Elf_Word __elfN(untrans_prot)(vm_prot_t);
 
-SYSCTL_NODE(_kern, OID_AUTO, __CONCAT(elf, __ELF_WORD_SIZE), CTLFLAG_RW, 0,
-    "");
+SYSCTL_DECL(_kern_fmaster);
+SYSCTL_NODE(_kern_fmaster, OID_AUTO, __CONCAT(elf, __ELF_WORD_SIZE), CTLFLAG_RW,
+    0, "");
 
 #ifdef COMPRESS_USER_CORES
 static int compress_core(gzFile, char *, char *, unsigned int,
@@ -108,18 +109,19 @@ static int compress_core(gzFile, char *, char *, unsigned int,
 #endif
 
 int __elfN(fallback_brand) = -1;
-SYSCTL_INT(__CONCAT(_kern_elf, __ELF_WORD_SIZE), OID_AUTO,
+SYSCTL_INT(__CONCAT(_kern_fmaster_elf, __ELF_WORD_SIZE), OID_AUTO,
     fallback_brand, CTLFLAG_RW, &__elfN(fallback_brand), 0,
     __XSTRING(__CONCAT(ELF, __ELF_WORD_SIZE)) " brand of last resort");
-TUNABLE_INT("kern.elf" __XSTRING(__ELF_WORD_SIZE) ".fallback_brand",
+TUNABLE_INT("kern.fmaster.elf" __XSTRING(__ELF_WORD_SIZE) ".fallback_brand",
     &__elfN(fallback_brand));
 
 static int elf_legacy_coredump = 0;
-SYSCTL_INT(_debug, OID_AUTO, __elfN(legacy_coredump), CTLFLAG_RW, 
+SYSCTL_DECL(_debug_fmaster);
+SYSCTL_INT(_debug_fmaster, OID_AUTO, __elfN(legacy_coredump), CTLFLAG_RW,
     &elf_legacy_coredump, 0, "");
 
 static int __elfN(nxstack) = 0;
-SYSCTL_INT(__CONCAT(_kern_elf, __ELF_WORD_SIZE), OID_AUTO,
+SYSCTL_INT(__CONCAT(_kern_fmaster_elf, __ELF_WORD_SIZE), OID_AUTO,
     nxstack, CTLFLAG_RW, &__elfN(nxstack), 0,
     __XSTRING(__CONCAT(ELF, __ELF_WORD_SIZE)) ": enable non-executable stack");
 

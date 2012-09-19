@@ -1,8 +1,8 @@
 
 TOP_DIR=	..
 
-.PATH:		${TOP_DIR}/lib/encode /usr/src/sys/kern fmaster sys/fmaster \
-		sys/kern sys/${MACHINE}/${MACHINE}
+.PATH:		${TOP_DIR}/lib/encode fmaster sys/fmaster \
+		sys/kern sys/${MACHINE}/${MACHINE} /usr/src/sys/kern
 
 KMOD=		fmaster
 SRCS=		elf_machdep.c fmaster_exit.c fmaster_io.c fmaster_link.c \
