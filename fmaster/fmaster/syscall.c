@@ -141,7 +141,7 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 /*
  * The `sysent' for the new syscall
  */
-static struct sysent fmaster_sysent = {
+static struct sysent se = {
 	5,				/* sy_narg */
 	(sy_call_t *)fmaster_execve	/* sy_call */
 };
@@ -151,19 +151,17 @@ static struct sysent fmaster_sysent = {
  */
 static int offset = NO_SYSCALL;
 
-#if 0
 static eventhandler_tag fmaster_exit_tag;
 
-extern struct sysentvec elf32_freebsd_sysvec;
+extern struct sysent fmaster_sysent[];
 
 static void
 process_exit(void *_, struct proc *p)
 {
-	if (p->p_sysent != &elf32_freebsd_sysvec)
+	if (p->p_sysent->sv_table != fmaster_sysent)
 		return;
 	free(p->p_emuldata, M_FMASTER);
 }
-#endif
 
 /*
  * The function called at load/unload.
@@ -175,16 +173,16 @@ fmaster_modevent(struct module *_, int cmd, void *__)
 
 	switch (cmd) {
 	case MOD_LOAD :
+		fmaster_exit_tag = EVENTHANDLER_REGISTER(
+			process_exit,
+			process_exit,
+			NULL,
+			EVENTHANDLER_PRI_ANY);
 		log(LOG_INFO, "Loaded fmaster.\n");
-#if 0
-		fmaster_exit_tag = EVENTHANDLER_REGISTER(process_exit, process_exit, NULL, EVENTHANDLER_PRI_ANY);
-#endif
 		break;
 	case MOD_UNLOAD :
-		log(LOG_INFO, "Unnloaded fmaster.\n");
-#if 0
 		EVENTHANDLER_DEREGISTER(process_exit, fmaster_exit_tag);
-#endif
+		log(LOG_INFO, "Unnloaded fmaster.\n");
 		break;
 	default :
 		error = EOPNOTSUPP;
@@ -194,4 +192,4 @@ fmaster_modevent(struct module *_, int cmd, void *__)
 	return (error);
 }
 
-SYSCALL_MODULE(fmaster, &offset, &fmaster_sysent, fmaster_modevent, NULL);
+SYSCALL_MODULE(fmaster, &offset, &se, fmaster_modevent, NULL);
