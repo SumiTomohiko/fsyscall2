@@ -109,11 +109,18 @@ transfer_payload(struct shub *shub, command_t cmd)
 	pid_t pid;
 	int len, payload_size, rfd, wfd;
 	char buf[FSYSCALL_BUFSIZE_INT32];
+	const char *name;
+	const char *fmt = "%s: master_pid=%d, payload_size=%d";
+
+	name = get_command_name(cmd);
+	syslog(LOG_DEBUG, "Processing %s.", name);
 
 	rfd = shub->mhub.rfd;
 	pid = read_pid(rfd);
 	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
 	payload_size = fsyscall_decode_int32(buf, len);
+
+	syslog(LOG_DEBUG, fmt, name, pid, payload_size);
 
 	wfd = find_slave_of_master_pid(shub, pid)->wfd;
 	write_command(wfd, cmd);
