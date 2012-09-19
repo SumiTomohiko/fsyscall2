@@ -105,6 +105,8 @@ process_write(struct slave *slave)
 	char buf_fd[FSYSCALL_BUFSIZE_INT32], buf_nbytes[FSYSCALL_BUFSIZE_INT32];
 	char *data;
 
+	syslog(LOG_DEBUG, "Processing CMD_WRITE.");
+
 	rfd = slave->rfd;
 	payload_size = read_int32(rfd);
 	len_fd = read_numeric_sequence(rfd, buf_fd, array_sizeof(buf_fd));
@@ -114,6 +116,9 @@ process_write(struct slave *slave)
 		buf_nbytes,
 		array_sizeof(buf_nbytes));
 	nbytes = fsyscall_decode_int32(buf_nbytes, len_nbytes);
+
+	syslog(LOG_DEBUG, "CMD_WRITE: fd=%d, nbytes=%d", fd, nbytes);
+
 	data_size = payload_size - (len_fd + len_nbytes);
 	data = (char *)alloca(sizeof(char) * data_size);
 	read_or_die(rfd, data, data_size);
