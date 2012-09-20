@@ -34,20 +34,28 @@ fmaster_read_or_die(struct thread *td, int d, void *buf, size_t nbytes)
 			exit1(td, 1);
 }
 
-int32_t
-fmaster_read_int32_2(struct thread *td, int fd, int *len)
+int
+fmaster_read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize)
 {
-	int pos, size;
-	char buf[FSYSCALL_BUFSIZE_INT32];
+	int pos;
 
 	pos = 0;
 	fmaster_read_or_die(td, fd, &buf[pos], sizeof(buf[0]));
 	while ((buf[pos] & 0x80) != 0) {
 		pos++;
-		/* TODO: assert(pos < array_sizeof(buf)) */
+		/* TODO: assert(pos < bufsize). */
 		fmaster_read_or_die(td, fd, &buf[pos], sizeof(buf[0]));
 	}
-	size = pos + 1;
+	return (pos + 1);
+}
+
+int32_t
+fmaster_read_int32_2(struct thread *td, int fd, int *len)
+{
+	int size;
+	char buf[FSYSCALL_BUFSIZE_INT32];
+
+	size = fmaster_read_numeric_sequence(td, fd, buf, array_sizeof(buf));
 	if (len != NULL)
 		*len = size;
 
@@ -58,6 +66,12 @@ int32_t
 fmaster_read_int32(struct thread *td, int fd)
 {
 	return (fmaster_read_int32_2(td, fd, NULL));
+}
+
+command_t
+fmaster_read_command(struct thread *td, int fd)
+{
+	return (fmaster_read_uint32(td, fd));
 }
 
 void
@@ -87,14 +101,22 @@ fmaster_write_or_die(struct thread *td, int d, const void *buf, size_t nbytes)
 			exit1(td, 1);
 }
 
+static struct master_data *
+data_of_thread(struct thread *td)
+{
+	return ((struct master_data *)(td->td_proc->p_emuldata));
+}
+
+int
+fmaster_rfd_of_thread(struct thread *td)
+{
+	return (data_of_thread(td)->rfd);
+}
+
 int
 fmaster_wfd_of_thread(struct thread *td)
 {
-	struct master_data *p;
-
-	p = (struct master_data *)(td->td_proc->p_emuldata);
-
-	return (p->wfd);
+	return (data_of_thread(td)->wfd);
 }
 
 #define	IMPLEMENT_WRITE_X(type, name, bufsize, encode)		\

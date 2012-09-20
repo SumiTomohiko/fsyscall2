@@ -99,7 +99,7 @@ write_open_fds(struct slave *slave)
 }
 
 static void
-process_write(struct slave *slave)
+execute_write(struct slave *slave, ssize_t *ret, int *errnum)
 {
 	int data_size, fd, len_fd, len_nbytes, nbytes, payload_size, rfd;
 	char buf_fd[FSYSCALL_BUFSIZE_INT32], buf_nbytes[FSYSCALL_BUFSIZE_INT32];
@@ -122,9 +122,38 @@ process_write(struct slave *slave)
 	data_size = payload_size - (len_fd + len_nbytes);
 	data = (char *)alloca(sizeof(char) * data_size);
 	read_or_die(rfd, data, data_size);
-	write(fd, data, nbytes);
+	*ret = write(fd, data, nbytes);
+	*errnum = errno;
+}
 
-	/* TODO: Send back RET_WRITE. */
+static void
+return_write(struct slave *slave, ssize_t ret, int errnum)
+{
+	int errnum_len, ret_len, wfd;
+	char errnum_buf[FSYSCALL_BUFSIZE_INT32];
+	char ret_buf[FSYSCALL_BUFSIZE_INT64];
+
+	ret_len = fsyscall_encode_int64(ret, ret_buf, array_sizeof(ret_buf));
+	errnum_len = (ret != -1) ? fsyscall_encode_int32(
+			errnum,
+			errnum_buf,
+			array_sizeof(errnum_buf)) : 0;
+
+	wfd = slave->wfd;
+	write_command(wfd, RET_WRITE);
+	write_payload_size(wfd, ret_len + errnum_len);
+	write_or_die(wfd, ret_buf, ret_len);
+	write_or_die(wfd, errnum_buf, errnum_len);
+}
+
+static void
+process_write(struct slave *slave)
+{
+	ssize_t ret;
+	int errnum;
+
+	execute_write(slave, &ret, &errnum);
+	return_write(slave, ret, errnum);
 }
 
 static int

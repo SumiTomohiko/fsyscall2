@@ -103,9 +103,63 @@ exec_master(int syscall_num, int rfd, int wfd, int argc, char *argv[])
 	/* NOTREACHED */
 }
 
+static struct master *
+find_master_of_pid(struct mhub *mhub, pid_t pid)
+{
+	struct master *master;
+
+	master = (struct master *)FIRST_ITEM(&mhub->masters);
+	while ((ITEM_NEXT(master) != NULL) && (master->pid != pid))
+		master = (struct master *)ITEM_NEXT(master);
+	assert(ITEM_NEXT(master) != NULL);
+
+	return (master);
+}
+
+static void
+transfer_payload_to_master(struct mhub *mhub, command_t cmd)
+{
+	struct master *master;
+	uint32_t payload_size;
+	pid_t pid;
+	int payload_len, rfd, wfd;
+	char payload_buf[FSYSCALL_BUFSIZE_UINT32];
+	const char *fmt = "%s: pid=%d, payload_size=%u";
+	const char *name;
+
+	name = get_command_name(cmd);
+	syslog(LOG_DEBUG, "Processing %s.", name);
+
+	rfd = mhub->shub.rfd;
+	pid = read_pid(rfd);
+	payload_len = read_numeric_sequence(
+		rfd,
+		payload_buf,
+		array_sizeof(payload_buf));
+	payload_size = fsyscall_decode_uint32(payload_buf, payload_len);
+
+	syslog(LOG_DEBUG, fmt, name, pid, payload_size);
+
+	master = find_master_of_pid(mhub, pid);
+	wfd = master->wfd;
+	write_command(wfd, cmd);
+	write_or_die(wfd, payload_buf, payload_len);
+	transfer(rfd, wfd, payload_size);
+}
+
 static void
 process_shub(struct mhub *mhub)
 {
+	command_t cmd;
+
+	cmd = read_command(mhub->shub.rfd);
+	switch (cmd) {
+	case RET_WRITE:
+		transfer_payload_to_master(mhub, cmd);
+		break;
+	default:
+		diex(-1, "Unknown command (%d) from the slave hub.", cmd);
+	}
 }
 
 static void
@@ -136,7 +190,7 @@ process_exit(struct mhub *mhub, struct master *master)
 }
 
 static void
-transfer_payload(struct mhub *mhub, struct master *master, command_t cmd)
+transfer_payload_from_master(struct mhub *mhub, struct master *master, command_t cmd)
 {
 	pid_t pid;
 	int len, payload_size, rfd, wfd;
@@ -173,7 +227,7 @@ process_master(struct mhub *mhub, struct master *master)
 		process_exit(mhub, master);
 		break;
 	case CALL_WRITE:
-		transfer_payload(mhub, master, cmd);
+		transfer_payload_from_master(mhub, master, cmd);
 		break;
 	default:
 		pid = master->pid;

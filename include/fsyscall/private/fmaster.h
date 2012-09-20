@@ -40,15 +40,21 @@ int	sys_fsyscall_write_int(struct thread *, int);
 int	sys_fsyscall_write_str(struct thread *, const char*);
 int	sys_fsyscall_write_syscall(struct thread *, int);
 
-int32_t	fmaster_read_int32(struct thread *, int);
-int32_t	fmaster_read_int32_2(struct thread *, int, int *);
-void	fmaster_read_or_die(struct thread *, int, void *, size_t);
+command_t	fmaster_read_command(struct thread *, int);
+int32_t		fmaster_read_int32(struct thread *, int);
+int32_t		fmaster_read_int32_2(struct thread *, int, int *);
+void		fmaster_read_or_die(struct thread *, int, void *, size_t);
+#define		fmaster_read_uint32(td, fd) \
+			((uint32_t)fmaster_read_int32((td), (fd)))
 
 void	fmaster_write_command_or_die(struct thread *, command_t);
 void	fmaster_write_int32_or_die(struct thread *, int32_t);
 void	fmaster_write_or_die(struct thread *, int, const void *, size_t);
 
+int	fmaster_rfd_of_thread(struct thread *);
 int	fmaster_wfd_of_thread(struct thread *);
+
+int	fmaster_read_numeric_sequence(struct thread *, int, char *, int);
 
 #define	SLAVE_FD2FD(fd)		(((fd) << 2) + 0x01)
 #define	MASTER_FD2FD(fd)	(((fd) << 2) + 0x03)

@@ -8,14 +8,19 @@
 command_t	read_command(int);
 pid_t		read_pid(int);
 int32_t		read_int32(int);
+int64_t		read_int64(int);
 void		read_or_die(int, const void *, size_t);
 int		read_numeric_sequence(int, char *, int);
 
 void		write_command(int, command_t);
 void		write_pid(int, pid_t);
 void		write_int32(int, int32_t);
+void		write_int64(int, int64_t);
 void		write_or_die(int, const void *, size_t);
 
-void		transfer(int, int, int);
+void		transfer(int, int, uint32_t);
+
+#define	write_uint32(fd, n)	write_int32((fd), (int32_t)(n))
+#define	write_payload_size	write_uint32
 
 #endif

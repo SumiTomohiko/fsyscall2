@@ -1,0 +1,18 @@
+
+msg="foo"
+cmd="write/write"
+args="1 ${msg}"
+
+test_status()
+{
+	local expected status
+
+	status="${1}"
+	expected=$(echo -n "${msg}" | wc -c | sed -e "s/ //g")
+	if [ "${expected}" != "${status}" ]; then
+		return 1
+	fi
+	return 0
+}
+
+# vim: filetype=sh

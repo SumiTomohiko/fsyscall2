@@ -30,6 +30,7 @@ name(char *buf, int bufsize)				\
 
 IMPLEMENT_DECODE_X(command_t, fsyscall_decode_command)
 IMPLEMENT_DECODE_X(int32_t, fsyscall_decode_int32)
+IMPLEMENT_DECODE_X(int64_t, fsyscall_decode_int64)
 
 static int
 encode_zero(char *buf, int bufsize)
@@ -63,8 +64,8 @@ name(type n, char *buf, int bufsize)					\
 	return (pos);							\
 }
 
-static IMPLEMENT_ENCODE_X(uint16_t, fsyscall_encode_uint16)
 IMPLEMENT_ENCODE_X(uint32_t, fsyscall_encode_uint32)
+static IMPLEMENT_ENCODE_X(uint64_t, fsyscall_encode_uint64)
 
 int
 fsyscall_encode_int32(int32_t n, char *buf, int bufsize)
@@ -73,7 +74,7 @@ fsyscall_encode_int32(int32_t n, char *buf, int bufsize)
 }
 
 int
-fsyscall_encode_command(command_t n, char *buf, int bufsize)
+fsyscall_encode_int64(int64_t n, char *buf, int bufsize)
 {
-	return (fsyscall_encode_uint16(n, buf, bufsize));
+	return (fsyscall_encode_uint64((uint64_t)n, buf, bufsize));
 }

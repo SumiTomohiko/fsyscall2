@@ -1,3 +1,4 @@
+#include <sys/stdint.h>
 #include <assert.h>
 
 #include <fsyscall/private.h>
@@ -6,11 +7,18 @@
 const char *
 get_command_name(command_t cmd)
 {
+	int ret;
 	const char *name_of_command[] = {
 		"CALL_EXIT",
 		"CALL_WRITE"
 	};
+	const char *name_of_ret[] = {
+		"INVALID",
+		"RET_WRITE"
+	};
 
-	assert(cmd < array_sizeof(name_of_command));
-	return (name_of_command[cmd]);
+	if (cmd < UINT16_MAX)
+		return (name_of_command[cmd]);
+	ret = cmd >> 16;
+	return (name_of_ret[ret]);
 }

@@ -104,13 +104,14 @@ dispose_slave(struct slave *slave)
 }
 
 static void
-transfer_payload(struct shub *shub, command_t cmd)
+transfer_payload_to_slave(struct shub *shub, command_t cmd)
 {
 	pid_t pid;
-	int len, payload_size, rfd, wfd;
+	uint32_t payload_size;
+	int len, rfd, wfd;
 	char buf[FSYSCALL_BUFSIZE_INT32];
 	const char *name;
-	const char *fmt = "%s: master_pid=%d, payload_size=%d";
+	const char *fmt = "%s: master_pid=%d, payload_size=%u";
 
 	name = get_command_name(cmd);
 	syslog(LOG_DEBUG, "Processing %s.", name);
@@ -118,7 +119,7 @@ transfer_payload(struct shub *shub, command_t cmd)
 	rfd = shub->mhub.rfd;
 	pid = read_pid(rfd);
 	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
-	payload_size = fsyscall_decode_int32(buf, len);
+	payload_size = fsyscall_decode_uint32(buf, len);
 
 	syslog(LOG_DEBUG, fmt, name, pid, payload_size);
 
@@ -159,7 +160,7 @@ process_mhub(struct shub *shub)
 		process_exit(shub);
 		break;
 	case CALL_WRITE:
-		transfer_payload(shub, cmd);
+		transfer_payload_to_slave(shub, cmd);
 		break;
 	default:
 		diex(-1, "Unknown command (%d) from the master hub", cmd);
@@ -168,8 +169,42 @@ process_mhub(struct shub *shub)
 }
 
 static void
+transfer_payload_from_slave(struct shub *shub, struct slave *slave, command_t cmd)
+{
+	uint32_t payload_size;
+	int len, rfd, wfd;
+	char buf[FSYSCALL_BUFSIZE_UINT32];
+	const char *name;
+
+	name = get_command_name(cmd);
+	syslog(LOG_DEBUG, "Processing %s.", name);
+
+	rfd = slave->rfd;
+	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
+	payload_size = fsyscall_decode_uint32(buf, len);
+
+	syslog(LOG_DEBUG, "%s: payload_size=%u", name, payload_size);
+
+	wfd = shub->mhub.wfd;
+	write_command(wfd, cmd);
+	write_pid(wfd, slave->master_pid);
+	write_or_die(wfd, buf, len);
+	transfer(rfd, wfd, payload_size);
+}
+
+static void
 process_slave(struct shub *shub, struct slave *slave)
 {
+	command_t cmd;
+
+	cmd = read_command(slave->rfd);
+	switch (cmd) {
+	case RET_WRITE:
+		transfer_payload_from_slave(shub, slave, cmd);
+		break;
+	default:
+		diex(-1, "Unknown command (%d) from slave %d", cmd, slave->pid);
+	}
 }
 
 static void

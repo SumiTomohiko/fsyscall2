@@ -61,6 +61,11 @@ IMPLEMENT_WRITE_X(
 		write_int32,
 		FSYSCALL_BUFSIZE_INT32,
 		fsyscall_encode_int32)
+IMPLEMENT_WRITE_X(
+		int64_t,
+		write_int64,
+		FSYSCALL_BUFSIZE_INT64,
+		fsyscall_encode_int64)
 
 int
 read_numeric_sequence(int fd, char *buf, int bufsize)
@@ -97,6 +102,11 @@ IMPLEMENT_READ_X(
 		FSYSCALL_BUFSIZE_INT32,
 		fsyscall_decode_int32)
 IMPLEMENT_READ_X(
+		int64_t,
+		read_int64,
+		FSYSCALL_BUFSIZE_INT64,
+		fsyscall_decode_int64)
+IMPLEMENT_READ_X(
 		command_t,
 		read_command,
 		FSYSCALL_BUFSIZE_COMMAND,
@@ -115,9 +125,9 @@ read_pid(int fd)
 }
 
 void
-transfer(int rfd, int wfd, int len)
+transfer(int rfd, int wfd, uint32_t len)
 {
-	int nbytes, rest;
+	uint32_t nbytes, rest;
 	char buf[1024];
 
 	rest = len;

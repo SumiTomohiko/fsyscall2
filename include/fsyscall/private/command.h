@@ -3,10 +3,12 @@
 
 #include <sys/types.h>
 
-typedef uint16_t command_t;
+typedef uint32_t command_t;
 
-#define	CALL_EXIT	0
-#define	CALL_WRITE	1
+#define	CALL_EXIT		0
+#define	CALL_WRITE		1
+#define	RET_OF_CALL(cmd)	((cmd) << 16)
+#define	RET_WRITE		RET_OF_CALL(CALL_WRITE)
 
 const char *get_command_name(command_t);
 
