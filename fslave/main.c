@@ -94,7 +94,7 @@ write_open_fds(struct slave *slave)
 
 	assert(0 <= pos);
 	wfd = slave->wfd;
-	write_int(wfd, pos);
+	write_int32(wfd, pos);
 	write_or_die(wfd, buf, pos);
 }
 

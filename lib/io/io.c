@@ -61,7 +61,6 @@ IMPLEMENT_WRITE_X(
 		write_int32,
 		FSYSCALL_BUFSIZE_INT32,
 		fsyscall_encode_int32)
-IMPLEMENT_WRITE_X(int, write_int, FSYSCALL_BUFSIZE_INT, fsyscall_encode_int)
 
 int
 read_numeric_sequence(int fd, char *buf, int bufsize)
@@ -97,7 +96,6 @@ IMPLEMENT_READ_X(
 		read_int32,
 		FSYSCALL_BUFSIZE_INT32,
 		fsyscall_decode_int32)
-IMPLEMENT_READ_X(int, read_int, FSYSCALL_BUFSIZE_INT, fsyscall_decode_int)
 IMPLEMENT_READ_X(
 		command_t,
 		read_command,
