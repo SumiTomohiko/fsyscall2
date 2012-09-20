@@ -5,15 +5,17 @@
 
 #include <fsyscall/private/command.h>
 
-command_t read_command(int);
-int32_t read_int32(int);
-pid_t read_pid(int);
-void read_or_die(int, const void *, size_t);
-int read_numeric_sequence(int, char *, int);
-void write_command(int, command_t);
-void write_int32(int, int32_t);
-void write_or_die(int, const void *, size_t);
-void write_pid(int, pid_t);
-void transfer(int, int, int);
+command_t	read_command(int);
+pid_t		read_pid(int);
+int32_t		read_int32(int);
+void		read_or_die(int, const void *, size_t);
+int		read_numeric_sequence(int, char *, int);
+
+void		write_command(int, command_t);
+void		write_pid(int, pid_t);
+void		write_int32(int, int32_t);
+void		write_or_die(int, const void *, size_t);
+
+void		transfer(int, int, int);
 
 #endif

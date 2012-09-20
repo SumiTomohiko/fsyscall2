@@ -63,7 +63,7 @@ name(type n, char *buf, int bufsize)					\
 	return (pos);							\
 }
 
-IMPLEMENT_ENCODE_X(uint16_t, fsyscall_encode_uint16)
+static IMPLEMENT_ENCODE_X(uint16_t, fsyscall_encode_uint16)
 IMPLEMENT_ENCODE_X(uint32_t, fsyscall_encode_uint32)
 
 int
