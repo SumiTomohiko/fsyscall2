@@ -29,7 +29,6 @@ name(char *buf, int bufsize)				\
 }
 
 IMPLEMENT_DECODE_X(command_t, fsyscall_decode_command)
-IMPLEMENT_DECODE_X(int, fsyscall_decode_int)
 IMPLEMENT_DECODE_X(int32_t, fsyscall_decode_int32)
 
 static int

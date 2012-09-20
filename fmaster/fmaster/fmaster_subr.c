@@ -34,8 +34,8 @@ fmaster_read_or_die(struct thread *td, int d, void *buf, size_t nbytes)
 			exit1(td, 1);
 }
 
-int
-fmaster_read_int2(struct thread *td, int fd, int *len)
+int32_t
+fmaster_read_int32_2(struct thread *td, int fd, int *len)
 {
 	int pos, size;
 	char buf[FSYSCALL_BUFSIZE_INT];
@@ -51,13 +51,13 @@ fmaster_read_int2(struct thread *td, int fd, int *len)
 	if (len != NULL)
 		*len = size;
 
-	return (fsyscall_decode_int(buf, size));
+	return (fsyscall_decode_int32(buf, size));
 }
 
-int
-fmaster_read_int(struct thread *td, int fd)
+int32_t
+fmaster_read_int32(struct thread *td, int fd)
 {
-	return (fmaster_read_int2(td, fd, NULL));
+	return (fmaster_read_int32_2(td, fd, NULL));
 }
 
 void

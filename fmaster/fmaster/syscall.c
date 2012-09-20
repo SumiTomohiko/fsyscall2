@@ -73,11 +73,11 @@ read_fds(struct thread *td, int fd, struct master_data *data)
 {
 	int d, m, nbytes, pos;
 
-	nbytes = fmaster_read_int(td, fd);
+	nbytes = fmaster_read_int32(td, fd);
 
 	pos = 0;
 	while (pos < nbytes) {
-		d = fmaster_read_int2(td, fd, &m);
+		d = fmaster_read_int32_2(td, fd, &m);
 		data->fds[d] = SLAVE_FD2FD(d);
 		pos += m;
 	}

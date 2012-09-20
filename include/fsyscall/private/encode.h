@@ -6,7 +6,6 @@
 #include <fsyscall/private/command.h>
 
 command_t fsyscall_decode_command(char *, int);
-int fsyscall_decode_int(char *, int);
 int32_t fsyscall_decode_int32(char *, int);
 int fsyscall_encode_command(command_t, char *, int);
 int fsyscall_encode_int(int, char *, int);
