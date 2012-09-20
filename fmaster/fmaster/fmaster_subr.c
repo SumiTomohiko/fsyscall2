@@ -38,7 +38,7 @@ int32_t
 fmaster_read_int32_2(struct thread *td, int fd, int *len)
 {
 	int pos, size;
-	char buf[FSYSCALL_BUFSIZE_INT];
+	char buf[FSYSCALL_BUFSIZE_INT32];
 
 	pos = 0;
 	fmaster_read_or_die(td, fd, &buf[pos], sizeof(buf[0]));

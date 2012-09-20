@@ -63,15 +63,8 @@ name(type n, char *buf, int bufsize)					\
 	return (pos);							\
 }
 
-IMPLEMENT_ENCODE_X(unsigned int, fsyscall_encode_uint)
 IMPLEMENT_ENCODE_X(uint16_t, fsyscall_encode_uint16)
 IMPLEMENT_ENCODE_X(uint32_t, fsyscall_encode_uint32)
-
-int
-fsyscall_encode_int(int n, char *buf, int bufsize)
-{
-	return (fsyscall_encode_uint((unsigned int)n, buf, bufsize));
-}
 
 int
 fsyscall_encode_int32(int32_t n, char *buf, int bufsize)

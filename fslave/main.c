@@ -73,7 +73,7 @@ static int
 encode_alive_fd(struct slave *slave, int fd, char *dest, int size)
 {
 	if (is_alive_fd(slave, fd))
-		return (fsyscall_encode_int(fd, dest, size));
+		return (fsyscall_encode_int32(fd, dest, size));
 	return (0);
 }
 
@@ -84,7 +84,7 @@ write_open_fds(struct slave *slave)
 	int i, nfds, pos, wfd;
 	char *buf;
 
-	buf_size = sizeof(char) * count_alive_fds(slave) * FSYSCALL_BUFSIZE_INT;
+	buf_size = count_alive_fds(slave) * FSYSCALL_BUFSIZE_INT32;
 	buf = (char *)alloca(buf_size);
 
 	pos = 0;
