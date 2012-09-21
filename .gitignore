@@ -19,6 +19,7 @@ fmhub/fmhub
 fshub/fshub
 fslave/fslave
 tests/*/exit/exit
+tests/*/open/open
 tests/*/write/write
 tests/encode/pid/pid
 tests/tester/tester
