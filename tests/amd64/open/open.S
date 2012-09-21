@@ -6,14 +6,8 @@
 global _start
 _start:
 	mov	rbp, rsp
+	test_argc	4
 
-	cmp	qword [rdi], 4
-	je	.main
-	mov	rdi, 127
-	call	exit
-	; NOTREACHED
-
-.main:
 	sub	rsp, 4 * 8
 %define	path	qword [rbp - 8]
 %define	flags	qword [rbp - 2 * 8]
