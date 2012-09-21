@@ -1,0 +1,21 @@
+
+filename="foo"
+cmd="open/open"
+args="${filename} 601 644"
+
+precmd()
+{
+	rm -f "${filename}"
+}
+
+testcmd()
+{
+	test -f "${filename}"
+}
+
+postcmd()
+{
+	rm -f "${filename}"
+}
+
+# vim: filetype=sh
