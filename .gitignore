@@ -18,6 +18,7 @@ fmaster/x86
 fmhub/fmhub
 fshub/fshub
 fslave/fslave
+tests/*/close/close
 tests/*/exit/exit
 tests/*/open/open
 tests/*/write/write

@@ -4,6 +4,14 @@
 %define	sys.open	5
 %define	sys.close	6
 
+%macro test_argc 1
+	cmp	qword [rdi], %1
+	je	.__main__
+	mov	rdi, 127
+	call	exit
+.__main__:
+%endmacro
+
 ; ******************************************************************************
 ; Usage: rdi=string
 strlen:
