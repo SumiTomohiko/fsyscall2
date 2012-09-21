@@ -1,3 +1,4 @@
+%include "../amd64.inc"
 
 ; Usage: exit x x x ...
 ; exit exits with status number that is same as number of command line
@@ -8,7 +9,8 @@
 
 global _start
 _start:
-	mov	rax, 1
 	mov	rdi, [rdi]
 	dec	rdi
-	syscall
+	call	exit
+
+# vim: filetype=nasm
