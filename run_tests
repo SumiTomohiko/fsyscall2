@@ -1,5 +1,33 @@
 #!/bin/sh
 
+typename()
+{
+	local name
+
+	name="${1}"
+
+	type "${name}" 2>/dev/null | sed -e "s/^.* is a //"
+}
+
+print_result()
+{
+	echo "${1}: ${2}"
+}
+
+test_result()
+{
+	local status
+	local result
+	status="${1}"
+
+	if [ "${status}" = "0" ]; then
+		result="OK"
+	else
+		result="NG"
+	fi
+	echo "${result}"
+}
+
 dir="$(dirname $0)"
 tests_dir="${dir}/tests"
 tester="${tests_dir}/tester/tester"
@@ -14,10 +42,10 @@ do
 	echo "******** ${t} ********"
 
 	unset args cmd expected_status expected_stdout status
+	unset -f test_status
 	. "${t}"
 
-	type precmd >/dev/null 2>&1
-	if [ "${?}" = 0 ]; then
+	if [ "$(typename precmd)" = "shell function" ]; then
 		precmd
 	fi
 
@@ -38,18 +66,16 @@ do
 		else
 			result="NG"
 		fi
+	elif [ "$(typename test_status)" = "shell function" ]; then
+		test_status "${status}"
+		result=$(test_result "${?}")
 	else
 		testcmd
-		if [ "${?}" = "0" ]; then
-			result="OK"
-		else
-			result="NG"
-		fi
+		result=$(test_result "${?}")
 	fi
-	echo "${t}: ${result}"
+	print_result "${t}" "${result}"
 
-	type postcmd >/dev/null 2>&1
-	if [ "${?}" = 0 ]; then
+	if [ "$(typename postcmd)" = "shell function" ]; then
 		postcmd
 	fi
 done
