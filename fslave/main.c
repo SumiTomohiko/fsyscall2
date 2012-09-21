@@ -127,23 +127,55 @@ execute_write(struct slave *slave, ssize_t *ret, int *errnum)
 }
 
 static void
-return_write(struct slave *slave, ssize_t ret, int errnum)
+return_generic(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 {
 	int errnum_len, ret_len, wfd;
 	char errnum_buf[FSYSCALL_BUFSIZE_INT32];
 	char ret_buf[FSYSCALL_BUFSIZE_INT64];
 
 	ret_len = fsyscall_encode_int64(ret, ret_buf, array_sizeof(ret_buf));
-	errnum_len = (ret != -1) ? fsyscall_encode_int32(
+	errnum_len = (ret == -1) ? fsyscall_encode_int32(
 			errnum,
 			errnum_buf,
 			array_sizeof(errnum_buf)) : 0;
 
 	wfd = slave->wfd;
-	write_command(wfd, RET_WRITE);
+	write_command(wfd, cmd);
 	write_payload_size(wfd, ret_len + errnum_len);
 	write_or_die(wfd, ret_buf, ret_len);
 	write_or_die(wfd, errnum_buf, errnum_len);
+}
+
+static void
+execute_open(struct slave *slave, int *ret, int *errnum)
+{
+	uint64_t path_len;
+	uint32_t payload_size;
+	int32_t flags, mode;
+	int rfd;
+	char *path;
+
+	rfd = slave->rfd;
+	payload_size = read_payload_size(rfd);
+	path_len = read_uint64(rfd);
+	path = (char *)alloca(sizeof(char) * (path_len + 1));
+	read_or_die(rfd, path, path_len);
+	path[path_len] = '\0';
+	flags = read_int32(rfd);
+	mode = (flags & O_CREAT) != 0 ? read_int32(rfd) : 0;
+
+	*ret = open(path, flags, mode);
+	if (*ret == -1)
+		*errnum = errno;
+}
+
+static void
+process_open(struct slave *slave)
+{
+	int errnum, ret;
+
+	execute_open(slave, &ret, &errnum);
+	return_generic(slave, RET_OPEN, ret, errnum);
 }
 
 static void
@@ -153,7 +185,7 @@ process_write(struct slave *slave)
 	int errnum;
 
 	execute_write(slave, &ret, &errnum);
-	return_write(slave, ret, errnum);
+	return_generic(slave, RET_WRITE, ret, errnum);
 }
 
 static int
@@ -168,6 +200,9 @@ mainloop(struct slave *slave)
 		switch (cmd) {
 		case CALL_EXIT:
 			return (read_int32(rfd));
+		case CALL_OPEN:
+			process_open(slave);
+			break;
 		case CALL_WRITE:
 			process_write(slave);
 			break;

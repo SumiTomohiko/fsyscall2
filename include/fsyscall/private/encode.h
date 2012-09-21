@@ -17,11 +17,13 @@ uint32_t	fsyscall_decode_uint32(char *, int);
 int		fsyscall_encode_int32(int32_t, char *, int);
 int		fsyscall_encode_int64(int64_t, char *, int);
 int		fsyscall_encode_uint32(uint32_t, char *, int);
+int		fsyscall_encode_uint64(uint64_t, char *, int);
 
 #define	FSYSCALL_BUFSIZE(type)		(sizeof(type) * 8 / 7 + 1)
 #define	FSYSCALL_BUFSIZE_COMMAND	FSYSCALL_BUFSIZE(command_t)
 #define	FSYSCALL_BUFSIZE_INT32		FSYSCALL_BUFSIZE(int32_t)
 #define	FSYSCALL_BUFSIZE_INT64		FSYSCALL_BUFSIZE(int64_t)
 #define	FSYSCALL_BUFSIZE_UINT32		FSYSCALL_BUFSIZE(uint32_t)
+#define	FSYSCALL_BUFSIZE_UINT64		FSYSCALL_BUFSIZE(uint64_t)
 
 #endif

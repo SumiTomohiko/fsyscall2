@@ -50,6 +50,9 @@ void		fmaster_read_or_die(struct thread *, int, void *, size_t);
 void	fmaster_write_command_or_die(struct thread *, command_t);
 void	fmaster_write_int32_or_die(struct thread *, int32_t);
 void	fmaster_write_or_die(struct thread *, int, const void *, size_t);
+#define	fmaster_write_uint32_or_die(td, n) \
+		fmaster_write_int32_or_die((td), (int32_t)(n))
+#define	fmaster_write_payload_size_or_die	fmaster_write_uint32_or_die
 
 int	fmaster_rfd_of_thread(struct thread *);
 int	fmaster_wfd_of_thread(struct thread *);
@@ -58,5 +61,7 @@ int	fmaster_read_numeric_sequence(struct thread *, int, char *, int);
 
 #define	SLAVE_FD2FD(fd)		(((fd) << 2) + 0x01)
 #define	MASTER_FD2FD(fd)	(((fd) << 2) + 0x03)
+
+int	fmaster_execute_return_generic(struct thread *, command_t);
 
 #endif

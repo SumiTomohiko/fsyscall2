@@ -60,7 +60,7 @@
 				    size_t nbyte); }
 4	AUE_NULL	STD	{ ssize_t fmaster_write(int fd, \
 				    const void *buf, size_t nbytes); }
-5	AUE_OPEN_RWTC	UNIMPL	{ int fmaster_open(char *path, int flags, \
+5	AUE_OPEN_RWTC	STD	{ int fmaster_open(char *path, int flags, \
 				    int mode); }
 6	AUE_CLOSE	UNIMPL	{ int fmaster_close(int fd); }
 7	AUE_WAIT4	UNIMPL	{ int fmaster_wait4(int pid, int *status, \
