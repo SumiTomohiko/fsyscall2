@@ -1,19 +1,5 @@
 #!/bin/sh
 
-test_result()
-{
-	local result status t
-
-	t="${1}"
-	status="${2}"
-	if [ "${status}" = 0 ]; then
-		result="OK"
-	else
-		result="NG"
-	fi
-	echo "${t}: ${result}"
-}
-
 dir="$(dirname $0)"
 tests_dir="${dir}/tests"
 tester="${tests_dir}/tester/tester"
@@ -27,8 +13,7 @@ find "${tests_dir}" -name "test_*" | sort | while read t
 do
 	echo "******** ${t} ********"
 
-	unset args cmd status
-	unset -f test_status test_stdout
+	unset args cmd expected_status expected_stdout status
 	. "${t}"
 
 	exe="${tests_dir}/${arch}/${cmd}"
@@ -36,16 +21,20 @@ do
 	"${tester}" "${exe}" ${args} > "${stdout_log}"
 	status="${?}"
 
-	type test_status > /dev/null 2>&1
-	if [ "${?}" = 0 ]; then
-		test_status "${status}"
-		test_result "${t}" "${?}"
+	if [ -n "${expected_status}" ]; then
+		if [ "${expected_status}" = "${status}" ]; then
+			result="OK"
+		else
+			result="NG"
+		fi
+	elif [ -n "${expected_stdout}" ]; then
+		if [ "${expected_stdout}" = "$(cat ${stdout_log})" ]; then
+			result="OK"
+		else
+			result="NG"
+		fi
 	fi
-	type test_stdout > /dev/null 2>&1
-	if [ "${?}" = 0 ]; then
-		test_stdout "$(cat "${stdout_log}")"
-		test_result "${t}" "${?}"
-	fi
+	echo "${t}: ${result}"
 done
 
 rm -rf "${tmp_dir}" || exit 1

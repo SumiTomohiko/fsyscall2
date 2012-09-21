@@ -2,16 +2,6 @@
 msg="foo"
 cmd="write/write"
 args="1 ${msg}"
-
-test_stdout()
-{
-	local stdout
-
-	stdout="${1}"
-	if [ "${stdout}" = "${msg}" ]; then
-		return 0
-	fi
-	return 1
-}
+expected_stdout="${msg}"
 
 # vim: filetype=sh

@@ -1,13 +1,5 @@
 
 cmd="exit/exit"
-
-test_status()
-{
-	if [ "$1" = 0 ]; then
-		return 0
-	else
-		return 1
-	fi
-}
+expected_status="0"
 
 # vim: filetype=sh
