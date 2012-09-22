@@ -41,7 +41,7 @@ find "${tests_dir}" -name "test_*" | sort | while read t
 do
 	echo "******** ${t} ********"
 
-	unset args cmd expected_status expected_stdout status
+	unset args cmd expected_status expected_stdout status unexpected_status
 	unset -f test_status
 	. "${t}"
 
@@ -62,6 +62,12 @@ do
 		fi
 	elif [ -n "${expected_stdout}" ]; then
 		if [ "${expected_stdout}" = "$(cat ${stdout_log})" ]; then
+			result="OK"
+		else
+			result="NG"
+		fi
+	elif [ -n "${unexpected_status}" ]; then
+		if [ "${unexpected_status}" != "${status}" ]; then
 			result="OK"
 		else
 			result="NG"

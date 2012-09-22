@@ -1,14 +1,6 @@
 
 cmd="close/close"
 args="42"
-
-test_status()
-{
-	local status
-	status="${1}"
-
-	[ "${status}" != "0" ] && return 0
-	return 1
-}
+unexpected_status="0"
 
 # vim: filetype=sh
