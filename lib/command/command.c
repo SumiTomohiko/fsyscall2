@@ -11,11 +11,13 @@ get_command_name(command_t cmd)
 	const char *name_of_command[] = {
 		"CALL_EXIT",
 		"CALL_OPEN",
+		"CALL_CLOSE",
 		"CALL_WRITE"
 	};
 	const char *name_of_ret[] = {
 		"INVALID",
 		"RET_OPEN",
+		"RET_CLOSE",
 		"RET_WRITE"
 	};
 

@@ -147,6 +147,20 @@ return_generic(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 }
 
 static void
+execute_close(struct slave *slave, int *ret, int *errnum)
+{
+	int fd, rfd;
+
+	rfd = slave->rfd;
+	read_payload_size(rfd);
+	/* TODO: Check declared payload size and actual payload size. */
+	fd = read_int32(rfd);
+	*ret = close(fd);
+	if (*ret != 0)
+		*errnum = errno;
+}
+
+static void
 execute_open(struct slave *slave, int *ret, int *errnum)
 {
 	uint64_t path_len;
@@ -167,6 +181,15 @@ execute_open(struct slave *slave, int *ret, int *errnum)
 	*ret = open(path, flags, mode);
 	if (*ret == -1)
 		*errnum = errno;
+}
+
+static void
+process_close(struct slave *slave)
+{
+	int errnum, ret;
+
+	execute_close(slave, &ret, &errnum);
+	return_generic(slave, RET_CLOSE, ret, errnum);
 }
 
 static void
@@ -198,6 +221,9 @@ mainloop(struct slave *slave)
 	for (;;) {
 		cmd = read_command(rfd);
 		switch (cmd) {
+		case CALL_CLOSE:
+			process_close(slave);
+			break;
 		case CALL_EXIT:
 			return (read_int32(rfd));
 		case CALL_OPEN:
