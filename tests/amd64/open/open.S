@@ -37,10 +37,15 @@ _start:
 	mov	rsi, flags
 	mov	rdx, mode
 	syscall
+	jc	.error
 	mov	fd, rax
 
 	; exit
 	mov	rdi, fd
+	call	exit
+
+.error:
+	mov	rdi, -1
 	call	exit
 
 # vim: filetype=nasm

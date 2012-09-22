@@ -25,9 +25,14 @@ _start:
 	mov	rsi, r8
 	mov	rdx, r9
 	syscall
+	jc	.error
 
 	; exit
 	mov	rdi, rax
+	call	exit
+
+.error:
+	mov	rdi, -1
 	call	exit
 
 # vim: filetype=nasm
