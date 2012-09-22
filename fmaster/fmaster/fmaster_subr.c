@@ -147,7 +147,7 @@ fmaster_execute_return_generic(struct thread *td, command_t expected_cmd)
 {
 	command_t cmd;
 	uint32_t payload_size;
-	int errnum_len, ret, ret_len, rfd;
+	int errnum, errnum_len, ret, ret_len, rfd;
 	char errnum_buf[FSYSCALL_BUFSIZE_INT32];
 	char ret_buf[FSYSCALL_BUFSIZE_INT32];
 
@@ -163,15 +163,16 @@ fmaster_execute_return_generic(struct thread *td, command_t expected_cmd)
 		ret_buf,
 		array_sizeof(ret_buf));
 	ret = fsyscall_decode_uint32(ret_buf, ret_len);
-	if (ret != -1)
-		return (ret);
+	if (ret != -1) {
+		td->td_retval[0] = ret;
+		return (0);
+	}
 	errnum_len = fmaster_read_numeric_sequence(
 		td,
 		rfd,
 		errnum_buf,
 		array_sizeof(errnum_buf));
-	errnum_len = fsyscall_decode_int32(errnum_buf, errnum_len);
+	errnum = fsyscall_decode_int32(errnum_buf, errnum_len);
 	/* TODO: Assert (payload_size == ret_len + errnum_len). */
-	/* TODO: Set errno. */
-	return (ret);
+	return (errnum);
 }
