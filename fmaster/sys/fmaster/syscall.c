@@ -69,15 +69,15 @@ create_data(struct thread *td, int rfd, int wfd)
 }
 
 static void
-read_fds(struct thread *td, int fd, struct master_data *data)
+read_fds(struct thread *td, struct master_data *data)
 {
 	int d, m, nbytes, pos;
 
-	nbytes = fmaster_read_int32(td, fd, NULL);
+	nbytes = fmaster_read_int32(td, NULL);
 
 	pos = 0;
 	while (pos < nbytes) {
-		d = fmaster_read_int32(td, fd, &m);
+		d = fmaster_read_int32(td, &m);
 		data->fds[d] = SLAVE_FD2FD(d);
 		pos += m;
 	}
@@ -108,9 +108,8 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 	data = create_data(td, rfd, wfd);
 	if (data == NULL)
 		return (ENOMEM);
-	read_fds(td, rfd, data);
-
 	td->td_proc->p_emuldata = data;
+	read_fds(td, data);
 
 	return (sys_execve(td, (struct execve_args *)(&uap->path)));
 }
