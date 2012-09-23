@@ -36,10 +36,6 @@ struct master_data {
 	int fds[MAX_FD];
 };
 
-int	sys_fsyscall_write_int(struct thread *, int);
-int	sys_fsyscall_write_str(struct thread *, const char*);
-int	sys_fsyscall_write_syscall(struct thread *, int);
-
 command_t	fmaster_read_command(struct thread *, int);
 int32_t		fmaster_read_int32(struct thread *, int);
 int32_t		fmaster_read_int32_2(struct thread *, int, int *);
