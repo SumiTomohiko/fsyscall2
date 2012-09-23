@@ -39,6 +39,8 @@ struct master_data {
 command_t	fmaster_read_command(struct thread *, int);
 int32_t		fmaster_read_int32(struct thread *, int, int *);
 void		fmaster_read_or_die(struct thread *, int, void *, size_t);
+#define		fmaster_read_payload_size(td, fd) \
+			fmaster_read_uint32((td), (fd), NULL)
 #define		fmaster_read_uint32(td, fd, psize) \
 			((uint32_t)fmaster_read_int32((td), (fd), (psize)))
 

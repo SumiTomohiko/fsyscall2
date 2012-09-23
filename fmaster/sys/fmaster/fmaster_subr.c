@@ -148,7 +148,7 @@ fmaster_execute_return_generic(struct thread *td, command_t expected_cmd)
 	/* TODO: Assert. */
 	if (cmd != expected_cmd)
 		return (-1);
-	payload_size = fmaster_read_uint32(td, rfd, NULL);
+	payload_size = fmaster_read_payload_size(td, rfd);
 	ret = fmaster_read_uint32(td, rfd, &ret_len);
 	if (ret != -1) {
 		td->td_retval[0] = ret;
