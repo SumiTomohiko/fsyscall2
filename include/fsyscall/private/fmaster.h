@@ -52,8 +52,6 @@ void	fmaster_write_or_die(struct thread *, int, const void *, size_t);
 int	fmaster_rfd_of_thread(struct thread *);
 int	fmaster_wfd_of_thread(struct thread *);
 
-int	fmaster_read_numeric_sequence(struct thread *, int, char *, int);
-
 #define	SLAVE_FD2FD(fd)		(((fd) << 2) + 0x01)
 #define	MASTER_FD2FD(fd)	(((fd) << 2) + 0x03)
 

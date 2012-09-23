@@ -34,8 +34,8 @@ fmaster_read_or_die(struct thread *td, int d, void *buf, size_t nbytes)
 			exit1(td, 1);
 }
 
-int
-fmaster_read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize)
+static int
+read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize)
 {
 	int pos;
 
@@ -56,7 +56,7 @@ fmaster_read_int32(struct thread *td, int *len)
 	char buf[FSYSCALL_BUFSIZE_INT32];
 
 	fd = fmaster_rfd_of_thread(td);
-	size = fmaster_read_numeric_sequence(td, fd, buf, array_sizeof(buf));
+	size = read_numeric_sequence(td, fd, buf, array_sizeof(buf));
 	if (len != NULL)
 		*len = size;
 
