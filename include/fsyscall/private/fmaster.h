@@ -37,11 +37,10 @@ struct master_data {
 };
 
 command_t	fmaster_read_command(struct thread *, int);
-int32_t		fmaster_read_int32(struct thread *, int);
-int32_t		fmaster_read_int32_2(struct thread *, int, int *);
+int32_t		fmaster_read_int32(struct thread *, int, int *);
 void		fmaster_read_or_die(struct thread *, int, void *, size_t);
-#define		fmaster_read_uint32(td, fd) \
-			((uint32_t)fmaster_read_int32((td), (fd)))
+#define		fmaster_read_uint32(td, fd, psize) \
+			((uint32_t)fmaster_read_int32((td), (fd), (psize)))
 
 void	fmaster_write_command(struct thread *, command_t);
 void	fmaster_write_int32(struct thread *, int32_t);

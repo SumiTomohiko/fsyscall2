@@ -50,7 +50,7 @@ fmaster_read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize)
 }
 
 int32_t
-fmaster_read_int32_2(struct thread *td, int fd, int *len)
+fmaster_read_int32(struct thread *td, int fd, int *len)
 {
 	int size;
 	char buf[FSYSCALL_BUFSIZE_INT32];
@@ -62,16 +62,10 @@ fmaster_read_int32_2(struct thread *td, int fd, int *len)
 	return (fsyscall_decode_int32(buf, size));
 }
 
-int32_t
-fmaster_read_int32(struct thread *td, int fd)
-{
-	return (fmaster_read_int32_2(td, fd, NULL));
-}
-
 command_t
 fmaster_read_command(struct thread *td, int fd)
 {
-	return (fmaster_read_uint32(td, fd));
+	return (fmaster_read_uint32(td, fd, NULL));
 }
 
 void
@@ -148,31 +142,19 @@ fmaster_execute_return_generic(struct thread *td, command_t expected_cmd)
 	command_t cmd;
 	uint32_t payload_size;
 	int errnum, errnum_len, ret, ret_len, rfd;
-	char errnum_buf[FSYSCALL_BUFSIZE_INT32];
-	char ret_buf[FSYSCALL_BUFSIZE_INT32];
 
 	rfd = fmaster_rfd_of_thread(td);
 	cmd = fmaster_read_command(td, rfd);
 	/* TODO: Assert. */
 	if (cmd != expected_cmd)
 		return (-1);
-	payload_size = fmaster_read_uint32(td, rfd);
-	ret_len = fmaster_read_numeric_sequence(
-		td,
-		rfd,
-		ret_buf,
-		array_sizeof(ret_buf));
-	ret = fsyscall_decode_uint32(ret_buf, ret_len);
+	payload_size = fmaster_read_uint32(td, rfd, NULL);
+	ret = fmaster_read_uint32(td, rfd, &ret_len);
 	if (ret != -1) {
 		td->td_retval[0] = ret;
 		return (0);
 	}
-	errnum_len = fmaster_read_numeric_sequence(
-		td,
-		rfd,
-		errnum_buf,
-		array_sizeof(errnum_buf));
-	errnum = fsyscall_decode_int32(errnum_buf, errnum_len);
+	errnum = fmaster_read_int32(td, rfd, &errnum_len);
 	/* TODO: Assert (payload_size == ret_len + errnum_len). */
 	return (errnum);
 }
