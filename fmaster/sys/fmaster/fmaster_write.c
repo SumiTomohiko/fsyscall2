@@ -20,8 +20,8 @@ execute_call(struct thread *td, struct fmaster_write_args *uap)
 		array_sizeof(nbytes));
 	payload_size = fd_len + nbytes_len + uap->nbytes;
 
-	fmaster_write_command_or_die(td, CALL_WRITE);
-	fmaster_write_int32_or_die(td, payload_size);
+	fmaster_write_command(td, CALL_WRITE);
+	fmaster_write_int32(td, payload_size);
 
 	wfd = fmaster_wfd_of_thread(td);
 	fmaster_write_or_die(td, wfd, fd, fd_len);

@@ -30,8 +30,8 @@ execute_call(struct thread *td, struct fmaster_open_args *uap)
 		array_sizeof(mode_buf)) : 0;
 	payload_size = path_len_len + path_len + fd_len + mode_len;
 
-	fmaster_write_command_or_die(td, CALL_OPEN);
-	fmaster_write_payload_size_or_die(td, payload_size);
+	fmaster_write_command(td, CALL_OPEN);
+	fmaster_write_payload_size(td, payload_size);
 	wfd = fmaster_wfd_of_thread(td);
 	fmaster_write_or_die(td, wfd, path_len_buf, path_len_len);
 	fmaster_write_or_die(td, wfd, path, path_len);

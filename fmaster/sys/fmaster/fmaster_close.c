@@ -19,8 +19,8 @@ execute_close(struct thread *td, struct fmaster_close_args *uap)
 		array_sizeof(fd_buf));
 
 	wfd = fmaster_wfd_of_thread(td);
-	fmaster_write_command_or_die(td, CALL_CLOSE);
-	fmaster_write_payload_size_or_die(td, fd_buf_len);
+	fmaster_write_command(td, CALL_CLOSE);
+	fmaster_write_payload_size(td, fd_buf_len);
 	fmaster_write_or_die(td, wfd, fd_buf, fd_buf_len);
 }
 

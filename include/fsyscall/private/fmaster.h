@@ -43,12 +43,11 @@ void		fmaster_read_or_die(struct thread *, int, void *, size_t);
 #define		fmaster_read_uint32(td, fd) \
 			((uint32_t)fmaster_read_int32((td), (fd)))
 
-void	fmaster_write_command_or_die(struct thread *, command_t);
-void	fmaster_write_int32_or_die(struct thread *, int32_t);
+void	fmaster_write_command(struct thread *, command_t);
+void	fmaster_write_int32(struct thread *, int32_t);
 void	fmaster_write_or_die(struct thread *, int, const void *, size_t);
-#define	fmaster_write_uint32_or_die(td, n) \
-		fmaster_write_int32_or_die((td), (int32_t)(n))
-#define	fmaster_write_payload_size_or_die	fmaster_write_uint32_or_die
+#define	fmaster_write_uint32(td, n)	fmaster_write_int32((td), (int32_t)(n))
+#define	fmaster_write_payload_size	fmaster_write_uint32
 
 int	fmaster_rfd_of_thread(struct thread *);
 int	fmaster_wfd_of_thread(struct thread *);
