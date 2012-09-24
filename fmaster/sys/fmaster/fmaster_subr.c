@@ -1,6 +1,7 @@
 #include <sys/cdefs.h>
 #include <sys/param.h>
 #include <sys/errno.h>
+#include <sys/limits.h>
 #include <sys/proc.h>
 #include <sys/syscallsubr.h>
 #include <sys/syslog.h>
@@ -19,11 +20,9 @@ fmaster_read(struct thread *td, int d, void *buf, size_t nbytes)
 	struct iovec aiov;
 	int error;
 
-	/* TODO: Enable here. */
-#if 0
 	if (INT_MAX < nbytes)
-		exit1(td, 1);
-#endif
+		return (EINVAL);
+
 	aiov.iov_base = buf;
 	aiov.iov_len = nbytes;
 
@@ -96,11 +95,8 @@ fmaster_write(struct thread *td, int d, const void *buf, size_t nbytes)
 	struct iovec aiov;
 	int error;
 
-	/* TODO: Enable here. */
-#if 0
 	if (INT_MAX < nbytes)
-		exit1(td, 1);
-#endif
+		return (EINVAL);
 
 	/* Casting to uintptr_t is needed to escape the compiler warning. */
 	aiov.iov_base = (void *)(uintptr_t)buf;
