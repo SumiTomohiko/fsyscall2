@@ -41,11 +41,14 @@ struct fmaster_execve_args {
 static int
 negotiate_version(struct thread *td, int rfd, int wfd)
 {
+	int error;
 	uint8_t request_ver, ver;
 
 	request_ver = 0;
 	fmaster_write_or_die(td, wfd, &request_ver, sizeof(request_ver));
-	fmaster_read_or_die(td, rfd, &ver, sizeof(ver));
+	error = fmaster_read(td, rfd, &ver, sizeof(ver));
+	if (error != 0)
+		return (error);
 	if (ver != 0)
 		return (EPROTO);
 
@@ -68,19 +71,25 @@ create_data(struct thread *td, int rfd, int wfd)
 	return (data);
 }
 
-static void
+static int
 read_fds(struct thread *td, struct master_data *data)
 {
-	int d, m, nbytes, pos;
+	int _, d, error, m, nbytes, pos;
 
-	nbytes = fmaster_read_int32(td, NULL);
+	error = fmaster_read_int32(td, &nbytes, &_);
+	if (error != 0)
+		return (error);
 
 	pos = 0;
 	while (pos < nbytes) {
-		d = fmaster_read_int32(td, &m);
+		error = fmaster_read_int32(td, &d, &m);
+		if (error != 0)
+			return (error);
 		data->fds[d] = SLAVE_FD2FD(d);
 		pos += m;
 	}
+
+	return (0);
 }
 
 /*
@@ -109,7 +118,11 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 	if (data == NULL)
 		return (ENOMEM);
 	td->td_proc->p_emuldata = data;
-	read_fds(td, data);
+	error = read_fds(td, data);
+	if (error != 0) {
+		free(data, M_FMASTER);
+		return (error);
+	}
 
 	return (sys_execve(td, (struct execve_args *)(&uap->path)));
 }

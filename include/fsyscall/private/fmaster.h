@@ -36,12 +36,12 @@ struct master_data {
 	int fds[MAX_FD];
 };
 
-command_t	fmaster_read_command(struct thread *);
-int32_t		fmaster_read_int32(struct thread *, int *);
-void		fmaster_read_or_die(struct thread *, int, void *, size_t);
-#define		fmaster_read_payload_size(td)	fmaster_read_uint32((td), NULL)
-#define		fmaster_read_uint32(td, psize) 	\
-			((uint32_t)fmaster_read_int32((td), (psize)))
+int	fmaster_read_command(struct thread *, command_t *);
+int	fmaster_read_int32(struct thread *, int32_t *, int *);
+int	fmaster_read_payload_size(struct thread *, payload_size_t *);
+int	fmaster_read(struct thread *, int, void *, size_t);
+#define	fmaster_read_uint32(td, dest, size) \
+			fmaster_read_int32((td), (int32_t *)(dest), (size))
 
 void	fmaster_write_command(struct thread *, command_t);
 void	fmaster_write_int32(struct thread *, int32_t);

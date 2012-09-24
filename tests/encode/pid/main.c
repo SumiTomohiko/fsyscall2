@@ -17,7 +17,7 @@ test_pid(pid_t pid)
 	const char *fmt = "expected=%d (0x%x), actual=%d (0x%x)\n";
 
 	size = fsyscall_encode_int32(pid, buf, array_sizeof(buf));
-	actual = fsyscall_decode_int32(buf, size);
+	actual = decode_int32(buf, size);
 	printf(fmt, pid, pid, actual, actual);
 	for (i = 0; i < size; i++)
 		printf("buf[%d]=0x%02x (%d)\n", i, 0xff & buf[i], buf[i]);

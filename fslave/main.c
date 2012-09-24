@@ -110,12 +110,12 @@ execute_write(struct slave *slave, ssize_t *ret, int *errnum)
 	rfd = slave->rfd;
 	payload_size = read_int32(rfd);
 	len_fd = read_numeric_sequence(rfd, buf_fd, array_sizeof(buf_fd));
-	fd = fsyscall_decode_int32(buf_fd, len_fd);
+	fd = decode_int32(buf_fd, len_fd);
 	len_nbytes = read_numeric_sequence(
 		rfd,
 		buf_nbytes,
 		array_sizeof(buf_nbytes));
-	nbytes = fsyscall_decode_int32(buf_nbytes, len_nbytes);
+	nbytes = decode_int32(buf_nbytes, len_nbytes);
 
 	syslog(LOG_DEBUG, "CMD_WRITE: fd=%d, nbytes=%d", fd, nbytes);
 

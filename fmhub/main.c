@@ -136,7 +136,7 @@ transfer_payload_to_master(struct mhub *mhub, command_t cmd)
 		rfd,
 		payload_buf,
 		array_sizeof(payload_buf));
-	payload_size = fsyscall_decode_uint32(payload_buf, payload_len);
+	payload_size = decode_uint32(payload_buf, payload_len);
 
 	syslog(LOG_DEBUG, fmt, name, pid, payload_size);
 
@@ -206,7 +206,7 @@ transfer_payload_from_master(struct mhub *mhub, struct master *master, command_t
 
 	rfd = master->rfd;
 	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
-	payload_size = fsyscall_decode_int32(buf, len);
+	payload_size = decode_int32(buf, len);
 
 	syslog(LOG_DEBUG, fmt, name, pid, payload_size);
 

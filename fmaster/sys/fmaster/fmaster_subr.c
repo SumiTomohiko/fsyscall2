@@ -1,7 +1,10 @@
 #include <sys/cdefs.h>
 #include <sys/param.h>
+#include <sys/errno.h>
 #include <sys/proc.h>
 #include <sys/syscallsubr.h>
+#include <sys/syslog.h>
+#include <sys/systm.h>
 #include <sys/uio.h>
 
 #include <fsyscall/private.h>
@@ -9,11 +12,12 @@
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fmaster.h>
 
-void
-fmaster_read_or_die(struct thread *td, int d, void *buf, size_t nbytes)
+int
+fmaster_read(struct thread *td, int d, void *buf, size_t nbytes)
 {
 	struct uio auio;
 	struct iovec aiov;
+	int error;
 
 	/* TODO: Enable here. */
 #if 0
@@ -28,45 +32,61 @@ fmaster_read_or_die(struct thread *td, int d, void *buf, size_t nbytes)
 	auio.uio_resid = nbytes;
 	auio.uio_segflg = UIO_SYSSPACE;
 
-	while (0 < auio.uio_resid)
-		if (kern_readv(td, d, &auio) != 0)
-			/* TODO: Print a friendly message. */
-			exit1(td, 1);
+	error = 0;
+	while ((0 < auio.uio_resid) && (error == 0))
+		error = kern_readv(td, d, &auio);
+	return (error);
 }
 
 static int
-read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize)
+read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize, int *size)
 {
-	int pos;
+	int error;
+	char *p, *pend;
 
-	pos = 0;
-	fmaster_read_or_die(td, fd, &buf[pos], sizeof(buf[0]));
-	while ((buf[pos] & 0x80) != 0) {
-		pos++;
-		/* TODO: assert(pos < bufsize). */
-		fmaster_read_or_die(td, fd, &buf[pos], sizeof(buf[0]));
+	pend = buf + bufsize;
+	p = buf;
+	error = fmaster_read(td, fd, p, sizeof(buf[0]));
+	while ((error == 0) && ((*p & 0x80) != 0) && (p + 1 < pend)) {
+		p++;
+		error = fmaster_read(td, fd, p, sizeof(buf[0]));
 	}
-	return (pos + 1);
+	if (error != 0)
+		return (error);
+	if (pend <= p + 1)
+		return (EMSGSIZE);
+	*size = (uintptr_t)p - (uintptr_t)buf + 1;
+	return (0);
 }
 
-int32_t
-fmaster_read_int32(struct thread *td, int *len)
+int
+fmaster_read_int32(struct thread *td, int32_t *dest, int *size)
 {
-	int fd, size;
+	int error, fd;
 	char buf[FSYSCALL_BUFSIZE_INT32];
 
 	fd = fmaster_rfd_of_thread(td);
-	size = read_numeric_sequence(td, fd, buf, array_sizeof(buf));
-	if (len != NULL)
-		*len = size;
+	error = read_numeric_sequence(td, fd, buf, array_sizeof(buf), size);
+	if (error != 0)
+		return (error);
 
-	return (fsyscall_decode_int32(buf, size));
+	return (fsyscall_decode_int32(buf, *size, dest) != 0 ? EPROTO : 0);
 }
 
-command_t
-fmaster_read_command(struct thread *td)
+int
+fmaster_read_payload_size(struct thread *td, payload_size_t *dest)
 {
-	return (fmaster_read_uint32(td, NULL));
+	int _;
+
+	return (fmaster_read_uint32(td, dest, &_));
+}
+
+int
+fmaster_read_command(struct thread *td, command_t *dest)
+{
+	int _;
+
+	return (fmaster_read_uint32(td, dest, &_));
 }
 
 void
@@ -142,19 +162,32 @@ fmaster_execute_return_generic(struct thread *td, command_t expected_cmd)
 {
 	command_t cmd;
 	uint32_t payload_size;
-	int errnum, errnum_len, ret, ret_len;
+	int errnum, errnum_len, error, ret, ret_len;
 
-	cmd = fmaster_read_command(td);
-	/* TODO: Assert. */
+	error = fmaster_read_command(td, &cmd);
+	if (error != 0)
+		return (error);
 	if (cmd != expected_cmd)
-		return (-1);
-	payload_size = fmaster_read_payload_size(td);
-	ret = fmaster_read_int32(td, &ret_len);
+		return (EPROTO);
+
+	error = fmaster_read_payload_size(td, &payload_size);
+	if (error != 0)
+		return (error);
+
+	error = fmaster_read_int32(td, &ret, &ret_len);
+	if (error != 0)
+		return (error);
 	if (ret != -1) {
+		if (payload_size != ret_len)
+			return (EPROTO);
 		td->td_retval[0] = ret;
 		return (0);
 	}
-	errnum = fmaster_read_int32(td, &errnum_len);
-	/* TODO: Assert (payload_size == ret_len + errnum_len). */
+
+	error = fmaster_read_int32(td, &errnum, &errnum_len);
+	if (error != 0)
+		return (error);
+	if (payload_size != ret_len + errnum_len)
+		return (EPROTO);
 	return (errnum);
 }

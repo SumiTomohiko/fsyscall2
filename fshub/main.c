@@ -119,7 +119,7 @@ transfer_payload_to_slave(struct shub *shub, command_t cmd)
 	rfd = shub->mhub.rfd;
 	pid = read_pid(rfd);
 	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
-	payload_size = fsyscall_decode_uint32(buf, len);
+	payload_size = decode_uint32(buf, len);
 
 	syslog(LOG_DEBUG, fmt, name, pid, payload_size);
 
@@ -183,7 +183,7 @@ transfer_payload_from_slave(struct shub *shub, struct slave *slave, command_t cm
 
 	rfd = slave->rfd;
 	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
-	payload_size = fsyscall_decode_uint32(buf, len);
+	payload_size = decode_uint32(buf, len);
 
 	syslog(LOG_DEBUG, "%s: payload_size=%u", name, payload_size);
 

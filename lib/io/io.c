@@ -88,12 +88,15 @@ read_numeric_sequence(int fd, char *buf, int bufsize)
 type									\
 name(int fd)								\
 {									\
+	type dest;							\
 	int len;							\
 	char buf[bufsize];						\
 									\
 	len = read_numeric_sequence(fd, buf, array_sizeof(buf));	\
 									\
-	return (decode(buf, len));					\
+	if (decode(buf, len, &dest) != 0)				\
+		diex(-1, "Invalid numeric sequence");			\
+	return (dest);							\
 }
 
 IMPLEMENT_READ_X(

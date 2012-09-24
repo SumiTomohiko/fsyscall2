@@ -4,6 +4,9 @@
 
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/encode.h>
+#if !defined(KLD_MODULE)
+#include <fsyscall/private/die.h>
+#endif
 
 #if !defined(KLD_MODULE)
 #define	ASSERT(expr)	assert(expr)
@@ -13,24 +16,42 @@
 #endif
 
 #define	IMPLEMENT_DECODE_X(type, name)			\
-type							\
-name(char *buf, int bufsize)				\
+int							\
+name(char *buf, int bufsize, type *dest)		\
 {							\
 	type n;						\
 	int i;						\
 							\
-	ASSERT((buf[bufsize - 1] & 0x80) == 0);		\
+	if ((buf[bufsize - 1] & 0x80) != 0)		\
+		return (-1);				\
 							\
 	n = 0;						\
 	for (i = 0; i < bufsize; i++)			\
 		n += (buf[i] & 0x7f) << (7 * i);	\
+	*dest = n;					\
 							\
-	return (n);					\
+	return (0);					\
 }
 
 IMPLEMENT_DECODE_X(command_t, fsyscall_decode_command)
 IMPLEMENT_DECODE_X(int32_t, fsyscall_decode_int32)
 IMPLEMENT_DECODE_X(int64_t, fsyscall_decode_int64)
+
+#if !defined(KLD_MODULE)
+#define	IMPLEMENT_DECODE_OR_DIE_X(type, name, decoder)	\
+type							\
+name(char *buf, int bufsize)				\
+{							\
+	type dest;					\
+							\
+	if (decoder(buf, bufsize, &dest) != 0)		\
+		diex(-1, "Invalid numeric sequence");	\
+	return (dest);					\
+}
+IMPLEMENT_DECODE_OR_DIE_X(command_t, decode_command, fsyscall_decode_command)
+IMPLEMENT_DECODE_OR_DIE_X(int32_t, decode_int32, fsyscall_decode_int32)
+IMPLEMENT_DECODE_OR_DIE_X(int64_t, decode_int64, fsyscall_decode_int64)
+#endif
 
 static int
 encode_zero(char *buf, int bufsize)
