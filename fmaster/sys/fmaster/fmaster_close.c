@@ -10,7 +10,7 @@
 static int
 execute_close(struct thread *td, struct fmaster_close_args *uap)
 {
-	int fd_buf_len, wfd;
+	int error, fd_buf_len, wfd;
 	char fd_buf[FSYSCALL_BUFSIZE_INT32];
 
 	fd_buf_len = fsyscall_encode_int32(
@@ -21,9 +21,15 @@ execute_close(struct thread *td, struct fmaster_close_args *uap)
 		return (EMSGSIZE);
 
 	wfd = fmaster_wfd_of_thread(td);
-	fmaster_write_command(td, CALL_CLOSE);
-	fmaster_write_payload_size(td, fd_buf_len);
-	fmaster_write(td, wfd, fd_buf, fd_buf_len);
+	error = fmaster_write_command(td, CALL_CLOSE);
+	if (error != 0)
+		return (error);
+	error = fmaster_write_payload_size(td, fd_buf_len);
+	if (error != 0)
+		return (error);
+	error = fmaster_write(td, wfd, fd_buf, fd_buf_len);
+	if (error != 0)
+		return (error);
 
 	return (0);
 }

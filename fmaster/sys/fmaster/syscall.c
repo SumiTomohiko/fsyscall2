@@ -45,7 +45,9 @@ negotiate_version(struct thread *td, int rfd, int wfd)
 	uint8_t request_ver, ver;
 
 	request_ver = 0;
-	fmaster_write(td, wfd, &request_ver, sizeof(request_ver));
+	error = fmaster_write(td, wfd, &request_ver, sizeof(request_ver));
+	if (error != 0)
+		return (error);
 	error = fmaster_read(td, rfd, &ver, sizeof(ver));
 	if (error != 0)
 		return (error);

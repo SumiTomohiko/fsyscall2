@@ -10,7 +10,7 @@
 static int
 execute_call(struct thread *td, struct fmaster_write_args *uap)
 {
-	int fd_len, nbytes_len, payload_size, wfd;
+	int error, fd_len, nbytes_len, payload_size, wfd;
 	char fd[FSYSCALL_BUFSIZE_INT32], nbytes[FSYSCALL_BUFSIZE_INT32];
 
 	fd_len = fsyscall_encode_int32(uap->fd, fd, array_sizeof(fd));
@@ -24,13 +24,23 @@ execute_call(struct thread *td, struct fmaster_write_args *uap)
 		return (EMSGSIZE);
 	payload_size = fd_len + nbytes_len + uap->nbytes;
 
-	fmaster_write_command(td, CALL_WRITE);
-	fmaster_write_int32(td, payload_size);
+	error = fmaster_write_command(td, CALL_WRITE);
+	if (error != 0)
+		return (error);
+	error = fmaster_write_int32(td, payload_size);
+	if (error != 0)
+		return (error);
 
 	wfd = fmaster_wfd_of_thread(td);
-	fmaster_write(td, wfd, fd, fd_len);
-	fmaster_write(td, wfd, nbytes, nbytes_len);
-	fmaster_write(td, wfd, uap->buf, uap->nbytes);
+	error = fmaster_write(td, wfd, fd, fd_len);
+	if (error != 0)
+		return (error);
+	error = fmaster_write(td, wfd, nbytes, nbytes_len);
+	if (error != 0)
+		return (error);
+	error = fmaster_write(td, wfd, uap->buf, uap->nbytes);
+	if (error != 0)
+		return (error);
 
 	return (0);
 }

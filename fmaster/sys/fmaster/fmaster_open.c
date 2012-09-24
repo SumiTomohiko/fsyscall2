@@ -12,7 +12,7 @@ static int
 execute_call(struct thread *td, struct fmaster_open_args *uap)
 {
 	uint64_t path_len, path_len_len;
-	int fd_len, flags, mode_len, payload_size, wfd;
+	int error, fd_len, flags, mode_len, payload_size, wfd;
 	char fd_buf[FSYSCALL_BUFSIZE_INT32], mode_buf[FSYSCALL_BUFSIZE_INT32];
 	char *path, path_len_buf[FSYSCALL_BUFSIZE_UINT64];
 
@@ -36,14 +36,28 @@ execute_call(struct thread *td, struct fmaster_open_args *uap)
 		return (EMSGSIZE);
 	payload_size = path_len_len + path_len + fd_len + mode_len;
 
-	fmaster_write_command(td, CALL_OPEN);
-	fmaster_write_payload_size(td, payload_size);
+	error = fmaster_write_command(td, CALL_OPEN);
+	if (error != 0)
+		return (error);
+	error = fmaster_write_payload_size(td, payload_size);
+	if (error != 0)
+		return (error);
 	wfd = fmaster_wfd_of_thread(td);
-	fmaster_write(td, wfd, path_len_buf, path_len_len);
-	fmaster_write(td, wfd, path, path_len);
-	fmaster_write(td, wfd, fd_buf, fd_len);
-	if ((flags & O_CREAT) != 0)
-		fmaster_write(td, wfd, mode_buf, mode_len);
+	error = fmaster_write(td, wfd, path_len_buf, path_len_len);
+	if (error != 0)
+		return (error);
+	error = fmaster_write(td, wfd, path, path_len);
+	if (error != 0)
+		return (error);
+	error = fmaster_write(td, wfd, fd_buf, fd_len);
+	if (error != 0)
+		return (error);
+	if ((flags & O_CREAT) == 0)
+		return (0);
+
+	error = fmaster_write(td, wfd, mode_buf, mode_len);
+	if (error != 0)
+		return (error);
 
 	return (0);
 }
