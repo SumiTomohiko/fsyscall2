@@ -43,9 +43,9 @@ int	fmaster_read(struct thread *, int, void *, size_t);
 #define	fmaster_read_uint32(td, dest, size) \
 			fmaster_read_int32((td), (int32_t *)(dest), (size))
 
-void	fmaster_write_command(struct thread *, command_t);
-void	fmaster_write_int32(struct thread *, int32_t);
-void	fmaster_write_or_die(struct thread *, int, const void *, size_t);
+int	fmaster_write(struct thread *, int, const void *, size_t);
+int	fmaster_write_command(struct thread *, command_t);
+int	fmaster_write_int32(struct thread *, int32_t);
 #define	fmaster_write_uint32(td, n)	fmaster_write_int32((td), (int32_t)(n))
 #define	fmaster_write_payload_size	fmaster_write_uint32
 

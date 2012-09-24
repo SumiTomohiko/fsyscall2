@@ -73,7 +73,7 @@ static int
 encode_alive_fd(struct slave *slave, int fd, char *dest, int size)
 {
 	if (is_alive_fd(slave, fd))
-		return (fsyscall_encode_int32(fd, dest, size));
+		return (encode_int32(fd, dest, size));
 	return (0);
 }
 
@@ -133,8 +133,8 @@ return_generic(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 	char errnum_buf[FSYSCALL_BUFSIZE_INT32];
 	char ret_buf[FSYSCALL_BUFSIZE_INT64];
 
-	ret_len = fsyscall_encode_int64(ret, ret_buf, array_sizeof(ret_buf));
-	errnum_len = (ret == -1) ? fsyscall_encode_int32(
+	ret_len = encode_int64(ret, ret_buf, array_sizeof(ret_buf));
+	errnum_len = (ret == -1) ? encode_int32(
 			errnum,
 			errnum_buf,
 			array_sizeof(errnum_buf)) : 0;

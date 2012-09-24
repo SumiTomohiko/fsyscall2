@@ -7,7 +7,7 @@
 #include <fsyscall/private/fmaster.h>
 #include <sys/fmaster/fmaster_proto.h>
 
-static void
+static int
 execute_close(struct thread *td, struct fmaster_close_args *uap)
 {
 	int fd_buf_len, wfd;
@@ -17,16 +17,24 @@ execute_close(struct thread *td, struct fmaster_close_args *uap)
 		uap->fd,
 		fd_buf,
 		array_sizeof(fd_buf));
+	if (fd_buf_len < 0)
+		return (EMSGSIZE);
 
 	wfd = fmaster_wfd_of_thread(td);
 	fmaster_write_command(td, CALL_CLOSE);
 	fmaster_write_payload_size(td, fd_buf_len);
-	fmaster_write_or_die(td, wfd, fd_buf, fd_buf_len);
+	fmaster_write(td, wfd, fd_buf, fd_buf_len);
+
+	return (0);
 }
 
 int
 sys_fmaster_close(struct thread *td, struct fmaster_close_args *uap)
 {
-	execute_close(td, uap);
+	int error;
+
+	error = execute_close(td, uap);
+	if (error != 0)
+		return (error);
 	return (fmaster_execute_return_generic(td, RET_CLOSE));
 }

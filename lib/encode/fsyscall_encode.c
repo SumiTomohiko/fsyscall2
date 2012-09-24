@@ -1,18 +1,7 @@
-#if !defined(KLD_MODULE)
-#include <assert.h>
-#endif
-
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/encode.h>
 #if !defined(KLD_MODULE)
 #include <fsyscall/private/die.h>
-#endif
-
-#if !defined(KLD_MODULE)
-#define	ASSERT(expr)	assert(expr)
-#else
-/* TODO: Implement here. */
-#define	ASSERT(expr)
 #endif
 
 #define	IMPLEMENT_DECODE_X(type, name)			\
@@ -56,7 +45,8 @@ IMPLEMENT_DECODE_OR_DIE_X(int64_t, decode_int64, fsyscall_decode_int64)
 static int
 encode_zero(char *buf, int bufsize)
 {
-	ASSERT(0 < bufsize);
+	if (bufsize <= 0)
+		return (-1);
 
 	*buf = 0;
 	return (1);
@@ -80,9 +70,7 @@ name(type n, char *buf, int bufsize)					\
 		m = m >> 7;						\
 		pos++;							\
 	}								\
-	ASSERT(m == 0);							\
-									\
-	return (pos);							\
+	return (m == 0 ? pos : -1);					\
 }
 
 IMPLEMENT_ENCODE_X(uint32_t, fsyscall_encode_uint32)
@@ -99,3 +87,19 @@ fsyscall_encode_int64(int64_t n, char *buf, int bufsize)
 {
 	return (fsyscall_encode_uint64((uint64_t)n, buf, bufsize));
 }
+
+#if !defined(KLD_MODULE)
+#define	IMPLEMENT_ENCODE_OR_DIE_X(type, name, encoder)	\
+int							\
+name(type n, char *dest, int dest_size)			\
+{							\
+	int size = encoder(n, dest, dest_size);		\
+	if (size < 0)					\
+		diex(-1, "Cannot encode");		\
+	return (size);					\
+}
+IMPLEMENT_ENCODE_OR_DIE_X(int32_t, encode_int32, fsyscall_encode_int32)
+IMPLEMENT_ENCODE_OR_DIE_X(int64_t, encode_int64, fsyscall_encode_int64)
+IMPLEMENT_ENCODE_OR_DIE_X(uint32_t, encode_uint32, fsyscall_encode_uint32)
+IMPLEMENT_ENCODE_OR_DIE_X(uint64_t, encode_uint64, fsyscall_encode_uint64)
+#endif

@@ -55,17 +55,9 @@ IMPLEMENT_WRITE_X(
 		command_t,
 		write_command,
 		FSYSCALL_BUFSIZE_COMMAND,
-		fsyscall_encode_command)
-IMPLEMENT_WRITE_X(
-		int32_t,
-		write_int32,
-		FSYSCALL_BUFSIZE_INT32,
-		fsyscall_encode_int32)
-IMPLEMENT_WRITE_X(
-		int64_t,
-		write_int64,
-		FSYSCALL_BUFSIZE_INT64,
-		fsyscall_encode_int64)
+		encode_command)
+IMPLEMENT_WRITE_X(int32_t, write_int32, FSYSCALL_BUFSIZE_INT32, encode_int32)
+IMPLEMENT_WRITE_X(int64_t, write_int64, FSYSCALL_BUFSIZE_INT64, encode_int64)
 
 int
 read_numeric_sequence(int fd, char *buf, int bufsize)

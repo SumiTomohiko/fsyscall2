@@ -89,11 +89,12 @@ fmaster_read_command(struct thread *td, command_t *dest)
 	return (fmaster_read_uint32(td, dest, &_));
 }
 
-void
-fmaster_write_or_die(struct thread *td, int d, const void *buf, size_t nbytes)
+int
+fmaster_write(struct thread *td, int d, const void *buf, size_t nbytes)
 {
 	struct uio auio;
 	struct iovec aiov;
+	int error;
 
 	/* TODO: Enable here. */
 #if 0
@@ -110,10 +111,11 @@ fmaster_write_or_die(struct thread *td, int d, const void *buf, size_t nbytes)
 	auio.uio_resid = nbytes;
 	auio.uio_segflg = UIO_SYSSPACE;
 
-	while (0 < auio.uio_resid)
-		if (kern_writev(td, d, &auio) != 0)
-			/* TODO: Print a friendly message. */
-			exit1(td, 1);
+	error = 0;
+	while ((error == 0) && (0 < auio.uio_resid))
+		error = kern_writev(td, d, &auio);
+
+	return (error);
 }
 
 static struct master_data *
@@ -134,16 +136,18 @@ fmaster_wfd_of_thread(struct thread *td)
 	return (data_of_thread(td)->wfd);
 }
 
-#define	IMPLEMENT_WRITE_X(type, name, bufsize, encode)		\
-void								\
-name(struct thread *td, type n)					\
-{								\
-	int len, wfd;						\
-	char buf[bufsize];					\
-								\
-	len = encode(n, buf, array_sizeof(buf));		\
-	wfd = fmaster_wfd_of_thread(td);			\
-	return (fmaster_write_or_die(td, wfd, buf, len));	\
+#define	IMPLEMENT_WRITE_X(type, name, bufsize, encode)	\
+int							\
+name(struct thread *td, type n)				\
+{							\
+	int len, wfd;					\
+	char buf[bufsize];				\
+							\
+	len = encode(n, buf, array_sizeof(buf));	\
+	if (len < 0)					\
+		return (EMSGSIZE);			\
+	wfd = fmaster_wfd_of_thread(td);		\
+	return (fmaster_write(td, wfd, buf, len));	\
 }
 
 IMPLEMENT_WRITE_X(
