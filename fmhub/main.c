@@ -176,10 +176,10 @@ dispose_master(struct master *master)
 static void
 process_exit(struct mhub *mhub, struct master *master)
 {
-	int status, wfd;
+	int _, status, wfd;
 	pid_t pid;
 
-	status = read_int32(master->rfd);
+	status = read_int32(master->rfd, &_);
 	pid = master->pid;
 	syslog(LOG_DEBUG, "CALL_EXIT: pid=%d, status=%d", pid, status);
 

@@ -6,10 +6,10 @@
 void
 transport_fds(int rfd, int wfd)
 {
-	int n;
+	int _, n;
 	char *buf;
 
-	n = read_int32(rfd);
+	n = read_int32(rfd, &_);
 	assert(0 <= n);
 	buf = (char *)alloca(sizeof(char) * n);
 	read_or_die(rfd, buf, n);

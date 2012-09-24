@@ -101,25 +101,22 @@ write_open_fds(struct slave *slave)
 static void
 execute_write(struct slave *slave, ssize_t *ret, int *errnum)
 {
-	int data_size, fd, len_fd, len_nbytes, nbytes, payload_size, rfd;
-	char buf_fd[FSYSCALL_BUFSIZE_INT32], buf_nbytes[FSYSCALL_BUFSIZE_INT32];
+	int _, data_size, fd, fd_len, nbytes, nbytes_len, payload_size, rfd;
 	char *data;
 
 	syslog(LOG_DEBUG, "Processing CMD_WRITE.");
 
 	rfd = slave->rfd;
-	payload_size = read_int32(rfd);
-	len_fd = read_numeric_sequence(rfd, buf_fd, array_sizeof(buf_fd));
-	fd = decode_int32(buf_fd, len_fd);
-	len_nbytes = read_numeric_sequence(
-		rfd,
-		buf_nbytes,
-		array_sizeof(buf_nbytes));
-	nbytes = decode_int32(buf_nbytes, len_nbytes);
+	payload_size = read_int32(rfd, &_);
+
+	fd = read_int32(rfd, &fd_len);
+	nbytes = read_int32(rfd, &nbytes_len);
 
 	syslog(LOG_DEBUG, "CMD_WRITE: fd=%d, nbytes=%d", fd, nbytes);
 
-	data_size = payload_size - (len_fd + len_nbytes);
+	data_size = payload_size - (fd_len + nbytes_len);
+	if (data_size < 0)
+		diex(-1, "Data size is negative");
 	data = (char *)alloca(sizeof(char) * data_size);
 	read_or_die(rfd, data, data_size);
 	*ret = write(fd, data, nbytes);
@@ -149,12 +146,16 @@ return_generic(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 static void
 execute_close(struct slave *slave, int *ret, int *errnum)
 {
-	int fd, rfd;
+	payload_size_t payload_size;
+	int fd, fd_len, rfd;
 
 	rfd = slave->rfd;
-	read_payload_size(rfd);
-	/* TODO: Check declared payload size and actual payload size. */
-	fd = read_int32(rfd);
+	payload_size = read_payload_size(rfd);
+
+	fd = read_int32(rfd, &fd_len);
+	if (fd_len != payload_size)
+		diec(-1, EPROTO, "Payload size mismatched");
+
 	*ret = close(fd);
 	if (*ret != 0)
 		*errnum = errno;
@@ -164,19 +165,27 @@ static void
 execute_open(struct slave *slave, int *ret, int *errnum)
 {
 	uint64_t path_len;
-	uint32_t payload_size;
+	payload_size_t payload_size;
 	int32_t flags, mode;
-	int rfd;
+	int flags_len, mode_len, path_len_len, rfd;
 	char *path;
 
 	rfd = slave->rfd;
 	payload_size = read_payload_size(rfd);
-	path_len = read_uint64(rfd);
+
+	path_len = read_uint64(rfd, &path_len_len);
 	path = (char *)alloca(sizeof(char) * (path_len + 1));
 	read_or_die(rfd, path, path_len);
 	path[path_len] = '\0';
-	flags = read_int32(rfd);
-	mode = (flags & O_CREAT) != 0 ? read_int32(rfd) : 0;
+
+	flags = read_int32(rfd, &flags_len);
+	if ((flags & O_CREAT) != 0)
+		mode = read_int32(rfd, &mode_len);
+	else
+		mode = mode_len = 0;
+
+	if (payload_size != path_len_len + path_len + flags_len + mode_len)
+		diec(-1, EPROTO, "Payload size mismatched");
 
 	*ret = open(path, flags, mode);
 	if (*ret == -1)
@@ -215,7 +224,7 @@ static int
 mainloop(struct slave *slave)
 {
 	command_t cmd;
-	int rfd;
+	int _, rfd;
 
 	rfd = slave->rfd;
 	for (;;) {
@@ -225,7 +234,7 @@ mainloop(struct slave *slave)
 			process_close(slave);
 			break;
 		case CALL_EXIT:
-			return (read_int32(rfd));
+			return (read_int32(rfd, &_));
 		case CALL_OPEN:
 			process_open(slave);
 			break;

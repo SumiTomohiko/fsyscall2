@@ -134,12 +134,12 @@ process_exit(struct shub *shub)
 {
 	struct slave *slave;
 	pid_t pid;
-	int rfd, status, wfd;
+	int _, rfd, status, wfd;
 
 	rfd = shub->mhub.rfd;
 	pid = read_pid(rfd);
 	slave = find_slave_of_master_pid(shub, pid);
-	status = read_int32(rfd);
+	status = read_int32(rfd, &_);
 	syslog(LOG_DEBUG, "CALL_EXIT: master_pid=%d, status=%d", pid, status);
 
 	wfd = slave->wfd;

@@ -9,6 +9,7 @@
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/encode.h>
+#include <fsyscall/private/io.h>
 
 void
 write_or_die(int fd, const void *buf, size_t nbytes)
@@ -78,34 +79,38 @@ read_numeric_sequence(int fd, char *buf, int bufsize)
 
 #define	IMPLEMENT_READ_X(type, name, bufsize, decode)			\
 type									\
+name(int fd, int *len)							\
+{									\
+	char buf[bufsize];						\
+									\
+	*len = read_numeric_sequence(fd, buf, array_sizeof(buf));	\
+	return (decode(buf, *len));					\
+}
+
+IMPLEMENT_READ_X(int32_t, read_int32, FSYSCALL_BUFSIZE_INT32, decode_int32)
+IMPLEMENT_READ_X(int64_t, read_int64, FSYSCALL_BUFSIZE_INT64, decode_int64)
+
+#define	IMPLEMENT_READ_WITHOUT_LEN_X(type, name, bufsize, decode)	\
+type									\
 name(int fd)								\
 {									\
-	type dest;							\
 	int len;							\
 	char buf[bufsize];						\
 									\
 	len = read_numeric_sequence(fd, buf, array_sizeof(buf));	\
-									\
-	if (decode(buf, len, &dest) != 0)				\
-		diex(-1, "Invalid numeric sequence");			\
-	return (dest);							\
+	return (decode(buf, len));					\
 }
 
-IMPLEMENT_READ_X(
-		int32_t,
-		read_int32,
-		FSYSCALL_BUFSIZE_INT32,
-		fsyscall_decode_int32)
-IMPLEMENT_READ_X(
-		int64_t,
-		read_int64,
-		FSYSCALL_BUFSIZE_INT64,
-		fsyscall_decode_int64)
-IMPLEMENT_READ_X(
+IMPLEMENT_READ_WITHOUT_LEN_X(
 		command_t,
 		read_command,
 		FSYSCALL_BUFSIZE_COMMAND,
-		fsyscall_decode_command)
+		decode_command)
+IMPLEMENT_READ_WITHOUT_LEN_X(
+		payload_size_t,
+		read_payload_size,
+		FSYSCALL_BUFSIZE_PAYLOAD_SIZE,
+		decode_payload_size)
 
 void
 write_pid(int fd, pid_t pid)
@@ -116,7 +121,8 @@ write_pid(int fd, pid_t pid)
 pid_t
 read_pid(int fd)
 {
-	return (read_int32(fd));
+	int _;
+	return (read_int32(fd, &_));
 }
 
 void
