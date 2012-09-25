@@ -58,19 +58,36 @@ read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize, int *si
 	return (0);
 }
 
-int
-fmaster_read_int32(struct thread *td, int32_t *dest, int *size)
-{
-	int error, fd;
-	char buf[FSYSCALL_BUFSIZE_INT32];
-
-	fd = fmaster_rfd_of_thread(td);
-	error = read_numeric_sequence(td, fd, buf, array_sizeof(buf), size);
-	if (error != 0)
-		return (error);
-
-	return (fsyscall_decode_int32(buf, *size, dest) != 0 ? EPROTO : 0);
+#define	IMPLEMENT_READ_X(type, name, bufsize, decode)		\
+int								\
+name(struct thread *td, type *dest, int *size)			\
+{								\
+	int error, fd;						\
+	char buf[bufsize];					\
+								\
+	fd = fmaster_rfd_of_thread(td);				\
+	error = read_numeric_sequence(				\
+		td,						\
+		fd,						\
+		buf,						\
+		array_sizeof(buf),				\
+		size);						\
+	if (error != 0)						\
+		return (error);					\
+								\
+	return (decode(buf, *size, dest) != 0 ? EPROTO : 0);	\
 }
+
+IMPLEMENT_READ_X(
+	int32_t,
+	fmaster_read_int32,
+	FSYSCALL_BUFSIZE_INT32,
+	fsyscall_decode_int32)
+IMPLEMENT_READ_X(
+	int64_t,
+	fmaster_read_int64,
+	FSYSCALL_BUFSIZE_INT64,
+	fsyscall_decode_int64)
 
 int
 fmaster_read_payload_size(struct thread *td, payload_size_t *dest)

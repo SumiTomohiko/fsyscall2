@@ -38,10 +38,13 @@ struct master_data {
 
 int	fmaster_read_command(struct thread *, command_t *);
 int	fmaster_read_int32(struct thread *, int32_t *, int *);
+int	fmaster_read_int64(struct thread *, int64_t *, int *);
 int	fmaster_read_payload_size(struct thread *, payload_size_t *);
 int	fmaster_read(struct thread *, int, void *, size_t);
 #define	fmaster_read_uint32(td, dest, size) \
 			fmaster_read_int32((td), (int32_t *)(dest), (size))
+#define	fmaster_read_uint64(td, dest, size) \
+			fmaster_read_int64((td), (int64_t *)(dest), (size))
 
 int	fmaster_write(struct thread *, int, const void *, size_t);
 int	fmaster_write_command(struct thread *, command_t);
