@@ -37,7 +37,13 @@ arch=$(uname -p)
 rm -rf "${tmp_dir}" || exit 1
 mkdir -p "${tmp_dir}" || exit 1
 
-find "${tests_dir}" -name "test_*" | sort | while read t
+if [ -z "${@}" ]; then
+	tests=$(find "${tests_dir}" -name "test_*" | sort)
+else
+	tests="${@}"
+fi
+
+for t in ${tests}
 do
 	echo "******** ${t} ********"
 
