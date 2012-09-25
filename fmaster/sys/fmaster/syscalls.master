@@ -56,8 +56,8 @@
 1	AUE_EXIT	STD	{ void fmaster_exit(int rval); } exit \
 				    fmaster_exit_args void
 2	AUE_FORK	UNIMPL	{ int fmaster_fork(void); }
-3	AUE_NULL	UNIMPL	{ ssize_t fmaster_read(int fd, void *buf, \
-				    size_t nbyte); }
+3	AUE_NULL	STD	{ ssize_t fmaster_read(int fd, void *buf, \
+				    size_t nbytes); }
 4	AUE_NULL	STD	{ ssize_t fmaster_write(int fd, \
 				    const void *buf, size_t nbytes); }
 5	AUE_OPEN_RWTC	STD	{ int fmaster_open(char *path, int flags, \

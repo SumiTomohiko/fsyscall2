@@ -161,6 +161,7 @@ process_mhub(struct shub *shub)
 		break;
 	case CALL_CLOSE:
 	case CALL_OPEN:
+	case CALL_READ:
 	case CALL_WRITE:
 		transfer_payload_to_slave(shub, cmd);
 		break;
@@ -203,6 +204,7 @@ process_slave(struct shub *shub, struct slave *slave)
 	switch (cmd) {
 	case RET_CLOSE:
 	case RET_OPEN:
+	case RET_READ:
 	case RET_WRITE:
 		transfer_payload_from_slave(shub, slave, cmd);
 		break;
