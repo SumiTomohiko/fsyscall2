@@ -21,6 +21,7 @@ fslave/fslave
 tests/*/close/close
 tests/*/exit/exit
 tests/*/open/open
+tests/*/read
 tests/*/write/write
 tests/encode/pid/pid
 tests/tester/tester

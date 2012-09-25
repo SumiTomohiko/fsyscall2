@@ -1,5 +1,6 @@
 
 %define	sys.exit	1
+%define	sys.read	3
 %define	sys.write	4
 %define	sys.open	5
 %define	sys.close	6
