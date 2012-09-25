@@ -2,6 +2,6 @@
 cmd="read/read"
 file="${tests_dir}/song"
 args="${file}"
-expected_stdout="$(cat "${file}")\n"
+expected_stdout="$(cat "${file}")"
 
 # vim: filetype=sh
