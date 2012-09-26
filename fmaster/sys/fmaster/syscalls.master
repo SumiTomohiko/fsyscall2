@@ -130,7 +130,7 @@
 50	AUE_SETLOGIN	UNIMPL	{ int fmaster_setlogin(char *namebuf); }
 51	AUE_ACCT	UNIMPL	{ int fmaster_acct(char *path); }
 52	AUE_SIGPENDING	OBSOL	sigpending
-53	AUE_SIGALTSTACK	UNIMPL	{ int fmaster_sigaltstack(stack_t *ss, \
+53	AUE_SIGALTSTACK	NOPROTO	{ int sigaltstack(stack_t *ss, \
 				    stack_t *oss); }
 54	AUE_IOCTL	UNIMPL	{ int fmaster_ioctl(int fd, u_long com, \
 				    caddr_t data); }
@@ -563,17 +563,16 @@
 339	AUE_NULL	UNIMPL	{ int fmaster_nnpfs_syscall(int operation, \
 				    char *a_pathP, int a_opcode, \
 				    void *a_paramsP, int a_followSymlinks); }
-340	AUE_SIGPROCMASK	UNIMPL	{ int fmaster_sigprocmask(int how, \
+340	AUE_SIGPROCMASK	NOPROTO	{ int sigprocmask(int how, \
 				    const sigset_t *set, sigset_t *oset); }
-341	AUE_SIGSUSPEND	UNIMPL	{ int fmaster_sigsuspend(\
-				    const sigset_t *sigmask); }
+341	AUE_SIGSUSPEND	NOPROTO	{ int sigsuspend(const sigset_t *sigmask); }
 342	AUE_SIGACTION	OBSOL	sigaction
-343	AUE_SIGPENDING	UNIMPL	{ int fmaster_sigpending(sigset_t *set); }
+343	AUE_SIGPENDING	NOPROTO	{ int sigpending(sigset_t *set); }
 344	AUE_SIGRETURN	OBSOL	sigreturn
-345	AUE_SIGWAIT	UNIMPL	{ int fmaster_sigtimedwait(\
-				    const sigset_t *set, siginfo_t *info, \
+345	AUE_SIGWAIT	NOPROTO	{ int sigtimedwait(const sigset_t *set, \
+				    siginfo_t *info, \
 				    const struct timespec *timeout); }
-346	AUE_NULL	UNIMPL	{ int fmaster_sigwaitinfo(const sigset_t *set, \
+346	AUE_NULL	NOPROTO	{ int sigwaitinfo(const sigset_t *set, \
 				    siginfo_t *info); }
 347	AUE_NULL	UNIMPL	{ int fmaster___acl_get_file(const char *path, \
 				    acl_type_t type, struct acl *aclp); }
@@ -716,10 +715,10 @@
 415	AUE_NULL	UNIMPL	{ int fmaster___mac_execve(char *fname, \
 				    char **argv, char **envv, \
 				    struct mac *mac_p); }
-416	AUE_SIGACTION	UNIMPL	{ int fmaster_sigaction(int sig, \
+416	AUE_SIGACTION	NOPROTO	{ int sigaction(int sig, \
 				    const struct sigaction *act, \
 				    struct sigaction *oact); }
-417	AUE_SIGRETURN	UNIMPL	{ int fmaster_sigreturn( \
+417	AUE_SIGRETURN	NOPROTO	{ int sigreturn( \
 				    const struct __ucontext *sigcntxp); }
 418	AUE_NULL	UNIMPL	__xstat
 419	AUE_NULL	UNIMPL	__xfstat
@@ -741,7 +740,7 @@
 428	AUE_NULL	UNIMPL	{ int fmaster___acl_aclcheck_link(\
 				    const char *path, acl_type_t type, \
 				    struct acl *aclp); }
-429	AUE_SIGWAIT	UNIMPL	{ int fmaster_sigwait(const sigset_t *set, \
+429	AUE_SIGWAIT	NOPROTO	{ int sigwait(const sigset_t *set, \
 				    int *sig); }
 430	AUE_NULL	UNIMPL	{ int fmaster_thr_create(ucontext_t *ctx, \
 				    long *id, int flags); }
@@ -789,8 +788,7 @@
 				    u_long val, void *uaddr1, void *uaddr2); }
 455	AUE_NULL	UNIMPL	{ int fmaster_thr_new(struct thr_param *param, \
 				    int param_size); }
-456	AUE_NULL	UNIMPL	{ int fmaster_sigqueue(pid_t pid, int signum, \
-				    void *value); }
+456	AUE_NULL	NOPROTO	{ int sigqueue(pid_t pid, int signum, void *value); }
 457	AUE_NULL	UNIMPL	{ int fmaster_kmq_open(const char *path, \
 				    int flags, mode_t mode, \
 				    const struct mq_attr *attr); }
