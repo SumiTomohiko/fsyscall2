@@ -157,7 +157,7 @@
 71	AUE_MMAP	OBSOL	mmap
 72	AUE_O_VADVISE	UNIMPL	{ int fmaster_ovadvise(int anom); } vadvise \
 				    ovadvise_args int
-73	AUE_MUNMAP	STD|NOPROTO	{ int munmap(void *addr, size_t len); }
+73	AUE_MUNMAP	NOPROTO		{ int munmap(void *addr, size_t len); }
 74	AUE_MPROTECT	STD|NOPROTO	{ int mprotect(const void *addr, \
 				    size_t len, int prot); }
 75	AUE_MADVISE	STD|NOPROTO	{ int madvise(void *addr, size_t len, \
@@ -839,9 +839,8 @@
 476	AUE_PWRITE	UNIMPL	{ ssize_t fmaster_pwrite(int fd, \
 				    const void *buf, size_t nbyte, \
 				    off_t offset); }
-477	AUE_MMAP	UNIMPL	{ caddr_t fmaster_mmap(caddr_t addr, \
-				    size_t len, int prot, int flags, int fd, \
-				    off_t pos); }
+477	AUE_MMAP	NOPROTO	{ caddr_t mmap(caddr_t addr, size_t len, \
+				    int prot, int flags, int fd, off_t pos); }
 478	AUE_LSEEK	UNIMPL	{ off_t fmaster_lseek(int fd, off_t offset, \
 				    int whence); }
 479	AUE_TRUNCATE	UNIMPL	{ int fmaster_truncate(char *path, \
