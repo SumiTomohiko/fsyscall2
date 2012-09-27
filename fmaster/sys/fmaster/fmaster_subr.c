@@ -32,7 +32,7 @@ fmaster_read(struct thread *td, int d, void *buf, size_t nbytes)
 	auio.uio_segflg = UIO_SYSSPACE;
 
 	error = 0;
-	while ((0 < auio.uio_resid) && (error == 0))
+	while (((error == 0) || (error == EINTR)) && (0 < auio.uio_resid))
 		error = kern_readv(td, d, &auio);
 	return (error);
 }
@@ -125,7 +125,7 @@ fmaster_write(struct thread *td, int d, const void *buf, size_t nbytes)
 	auio.uio_segflg = UIO_SYSSPACE;
 
 	error = 0;
-	while ((error == 0) && (0 < auio.uio_resid))
+	while (((error == 0) || (error == EINTR)) && (0 < auio.uio_resid))
 		error = kern_writev(td, d, &auio);
 
 	return (error);
