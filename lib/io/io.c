@@ -37,7 +37,7 @@ read_or_die(int fd, const void *buf, size_t nbytes)
 			diex(-1, "End-of-file in reading");
 		if (m < 0)
 			die(-1, "Cannot read fd %d", fd);
-		n -= m;
+		n += m;
 	}
 }
 
