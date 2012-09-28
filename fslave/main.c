@@ -16,6 +16,7 @@
 #include <fsyscall.h>
 #include <fsyscall/private.h>
 #include <fsyscall/private/atoi_or_die.h>
+#include <fsyscall/private/command.h>
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/io.h>
@@ -129,6 +130,9 @@ return_generic(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 	int errnum_len, ret_len, wfd;
 	char errnum_buf[FSYSCALL_BUFSIZE_INT32];
 	char ret_buf[FSYSCALL_BUFSIZE_INT64];
+	const char *fmt = "%s: ret=%zd, errnum=%d";
+
+	syslog(LOG_DEBUG, fmt, get_command_name(cmd), ret, errnum);
 
 	ret_len = encode_int64(ret, ret_buf, array_sizeof(ret_buf));
 	errnum_len = (ret == -1) ? encode_int32(
@@ -273,10 +277,24 @@ process_write(struct slave *slave)
 }
 
 static int
+process_exit(struct slave *slave)
+{
+	int _, status;
+
+	syslog(LOG_DEBUG, "Processing CMD_EXIT.");
+
+	status = read_int32(slave->rfd, &_);
+
+	syslog(LOG_DEBUG, "CMD_EXIT: status=%d", status);
+
+	return (status);
+}
+
+static int
 mainloop(struct slave *slave)
 {
 	command_t cmd;
-	int _, rfd;
+	int rfd;
 
 	rfd = slave->rfd;
 	for (;;) {
@@ -286,7 +304,7 @@ mainloop(struct slave *slave)
 			process_close(slave);
 			break;
 		case CALL_EXIT:
-			return (read_int32(rfd, &_));
+			return process_exit(slave);
 		case CALL_OPEN:
 			process_open(slave);
 			break;
