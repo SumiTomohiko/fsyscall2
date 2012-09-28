@@ -320,6 +320,7 @@ mhub_main(struct mhub *mhub, int argc, char *argv[])
 	struct master *master;
 	int hub2master[2], master2hub[2], rfd, syscall_num, wfd;
 	pid_t pid;
+	const char *verbose;
 
 	syscall_num = find_syscall();
 
@@ -336,6 +337,10 @@ mhub_main(struct mhub *mhub, int argc, char *argv[])
 		exec_master(syscall_num, rfd, wfd, argc, argv);
 		/* NOTREACHED */
 	}
+
+	verbose = getenv(FSYSCALL_ENV_VERBOSE);
+	if ((verbose != NULL) && (strcmp(verbose, "1") == 0))
+		printf("pid of fmaster=%d\n", pid);
 
 	close_or_die(hub2master[R]);
 	close_or_die(master2hub[W]);

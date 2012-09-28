@@ -1,9 +1,12 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <assert.h>
+#include <getopt.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 
+#include <fsyscall.h>
 #include <fsyscall/private.h>
 #include <fsyscall/private/close_or_die.h>
 #include <fsyscall/private/die.h>
@@ -25,18 +28,38 @@ status_is_fail(int status)
 	return (!WIFEXITED(status) || (WEXITSTATUS(status) != 0));
 }
 
+static void
+usage()
+{
+	puts("tester [-v|--verbose] commands...");
+}
+
 int
 main(int argc, char *argv[])
 {
+	struct option long_opts[] = {
+		{ "verbose", no_argument, NULL, 'v' },
+		{ NULL, 0, NULL, 0 }
+	};
 	pid_t master_pid, slave_pid;
-	int i, master_status, r, slave_status, w;
+	int i, opt, master_status, r, slave_status, w;
 	int mhub2shub[2], shub2mhub[2];
-	char **args;
+	bool verbose = false;
+	char **args, *fmt;
 
-	assert(1 < argc);
-	args = (char**)alloca(sizeof(char*) * (argc - 1));
-	for (i = 1; i < argc; i++)
-		args[i - 1] = argv[i];
+	while ((opt = getopt_long(argc, argv, "v", long_opts, NULL)) != -1)
+		switch (opt) {
+		case 'v':
+			setenv(FSYSCALL_ENV_VERBOSE, "1", 1);
+			verbose = true;
+			break;
+		case '?':
+		default:
+			usage();
+			return (1);
+		}
+	argc -= optind;
+	argv += optind;
 
 	pipe_or_die(shub2mhub);
 	pipe_or_die(mhub2shub);
@@ -47,7 +70,7 @@ main(int argc, char *argv[])
 		close_or_die(mhub2shub[W]);
 		r = mhub2shub[R];
 		w = shub2mhub[W];
-		fsyscall_start_slave(r, w, argc - 1, args);
+		fsyscall_start_slave(r, w, argc, argv);
 		/* NOTREACHED */
 	}
 
@@ -57,8 +80,13 @@ main(int argc, char *argv[])
 		close_or_die(shub2mhub[W]);
 		r = shub2mhub[R];
 		w = mhub2shub[W];
-		fsyscall_start_master(r, w, argc - 1, args);
+		fsyscall_start_master(r, w, argc, argv);
 		/* NOTREACHED */
+	}
+
+	if (verbose) {
+		printf("pid of fmhub=%d\n", master_pid);
+		printf("pid of fslave=%d\n", slave_pid);
 	}
 
 	close_or_die(shub2mhub[R]);

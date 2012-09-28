@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <fsyscall.h>
 #include <fsyscall/private/close_or_die.h>
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/fork_or_die.h>
@@ -62,7 +63,7 @@ fsyscall_start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 	pid_t pid;
 	int slave2hub[2], hub2slave[2];
 	int digits, i;
-	char **args, *cmd, path[32];
+	char **args, *cmd, path[32], *verbose;
 
 	snprintf(path, sizeof(path), "/tmp/fshub.%d", getpid());
 
@@ -79,6 +80,10 @@ fsyscall_start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 			path);
 		/* NOTREACHED */
 	}
+
+	verbose = getenv(FSYSCALL_ENV_VERBOSE);
+	if ((verbose != NULL) && (strcmp(verbose, "1") == 0))
+		printf("pid of fshub=%d\n", pid);
 
 	close_or_die(mhub2shub);
 	close_or_die(shub2mhub);
