@@ -110,6 +110,8 @@ sys_fmaster_read(struct thread *td, struct fmaster_read_args *uap)
 {
 	int error;
 
+	LOG(td, LOG_DEBUG, "read: fd=%d, buf=%p, nbytes=%zu", uap->fd, uap->buf, uap->nbytes);
+
 	error = execute_call(td, uap);
 	if (error != 0)
 		return (error);

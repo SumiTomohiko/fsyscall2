@@ -67,6 +67,8 @@ sys_fmaster_open(struct thread *td, struct fmaster_open_args *uap)
 {
 	int error;
 
+	LOG(td, LOG_DEBUG, "open: path=%s, flags=0x%x, mode=0o%o", uap->path, uap->flags, uap->mode);
+
 	error = execute_call(td, uap);
 	if (error != 0)
 		return (error);

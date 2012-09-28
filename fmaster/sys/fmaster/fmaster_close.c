@@ -39,6 +39,8 @@ sys_fmaster_close(struct thread *td, struct fmaster_close_args *uap)
 {
 	int error;
 
+	LOG(td, LOG_DEBUG, "close: fd=%d", uap->fd);
+
 	error = execute_close(td, uap);
 	if (error != 0)
 		return (error);

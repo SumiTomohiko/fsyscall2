@@ -5,6 +5,8 @@
 #include <sys/cdefs.h>
 #include <sys/malloc.h>
 #include <sys/proc.h>
+#include <sys/syslog.h>
+#include <sys/systm.h>
 
 #include <fsyscall/private/command.h>
 
@@ -59,5 +61,10 @@ int	fmaster_wfd_of_thread(struct thread *);
 #define	MASTER_FD2FD(fd)	(((fd) << 2) + 0x03)
 
 int	fmaster_execute_return_generic(struct thread *, command_t);
+
+#define	LOG(td, pri, fmt, ...)	do {				\
+	const char *__fmt__ = "fmaster[%d]: " fmt "\n";		\
+	log((pri), __fmt__, (td)->td_proc->p_pid, __VA_ARGS__);	\
+} while (0)
 
 #endif
