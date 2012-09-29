@@ -105,7 +105,7 @@ execute_write(struct slave *slave, ssize_t *ret, int *errnum)
 	int _, data_size, fd, fd_len, nbytes, nbytes_len, payload_size, rfd;
 	char *data;
 
-	syslog(LOG_DEBUG, "Processing CMD_WRITE.");
+	syslog(LOG_DEBUG, "Processing CALL_WRITE.");
 
 	rfd = slave->rfd;
 	payload_size = read_int32(rfd, &_);
@@ -113,7 +113,7 @@ execute_write(struct slave *slave, ssize_t *ret, int *errnum)
 	fd = read_int32(rfd, &fd_len);
 	nbytes = read_int32(rfd, &nbytes_len);
 
-	syslog(LOG_DEBUG, "CMD_WRITE: fd=%d, nbytes=%d", fd, nbytes);
+	syslog(LOG_DEBUG, "CALL_WRITE: fd=%d, nbytes=%d", fd, nbytes);
 
 	data_size = payload_size - (fd_len + nbytes_len);
 	if (data_size < 0)
@@ -281,11 +281,11 @@ process_exit(struct slave *slave)
 {
 	int _, status;
 
-	syslog(LOG_DEBUG, "Processing CMD_EXIT.");
+	syslog(LOG_DEBUG, "Processing CALL_EXIT.");
 
 	status = read_int32(slave->rfd, &_);
 
-	syslog(LOG_DEBUG, "CMD_EXIT: status=%d", status);
+	syslog(LOG_DEBUG, "CALL_EXIT: status=%d", status);
 
 	return (status);
 }
