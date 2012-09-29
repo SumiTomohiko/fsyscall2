@@ -102,10 +102,12 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 {
 	struct master_data *data;
 	int error, i, rfd, wfd;
+	pid_t pid;
 	const char *name = "fmaster_execve";
-	const char *fmt = "%s: rfd=%d, wfd=%d, path=%s\n";
+	const char *fmt = "%s: pid=%d, rfd=%d, wfd=%d, path=%s\n";
 
-	log(LOG_DEBUG, fmt, name, uap->rfd, uap->wfd, uap->path);
+	pid = td->td_proc->p_pid;
+	log(LOG_DEBUG, fmt, name, pid, uap->rfd, uap->wfd, uap->path);
 	for (i = 0; uap->argv[i] != NULL; i++)
 		log(LOG_DEBUG, "%s: argv[%d]=%s\n", name, i, uap->argv[i]);
 	for (i = 0; uap->envp[i] != NULL; i++)
