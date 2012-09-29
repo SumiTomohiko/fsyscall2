@@ -181,6 +181,8 @@ fmaster_execute_return_generic(struct thread *td, command_t expected_cmd)
 	uint32_t payload_size;
 	int errnum, errnum_len, error, ret, ret_len;
 
+	LOG(td, LOG_DEBUG, "fmaster_execute_return_generic: expected_cmd=%d", expected_cmd);
+
 	error = fmaster_read_command(td, &cmd);
 	if (error != 0)
 		return (error);
