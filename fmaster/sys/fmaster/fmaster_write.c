@@ -50,7 +50,7 @@ sys_fmaster_write(struct thread *td, struct fmaster_write_args *uap)
 {
 	int error;
 
-	LOG(td, LOG_DEBUG, "write: fd=%d, buf=%p, nbytes=%zu", uap->fd, uap->buf, uap->nbytes);
+	LOG(td, LOG_DEBUG, "write (CALL_WRITE): fd=%d, buf=%p, nbytes=%zu", uap->fd, uap->buf, uap->nbytes);
 
 	if ((((size_t)1 << 32) - 1) < uap->nbytes)
 		return (-1);
