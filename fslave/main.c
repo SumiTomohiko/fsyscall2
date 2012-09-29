@@ -35,6 +35,14 @@ usage()
 }
 
 static void
+die_if_payload_size_mismatched(int expected, int actual)
+{
+	if (expected == actual)
+		return;
+	diec(-1, EPROTO, "Payload size mismatched");
+}
+
+static void
 negotiate_version(struct slave *slave)
 {
 	uint8_t request_ver = 0;
@@ -102,7 +110,8 @@ write_open_fds(struct slave *slave)
 static void
 execute_write(struct slave *slave, ssize_t *ret, int *errnum)
 {
-	int _, data_size, fd, fd_len, nbytes, nbytes_len, payload_size, rfd;
+	int _, expected_payload_size, fd, fd_len, nbytes, nbytes_len;
+	int payload_size, rfd;
 	char *data;
 
 	syslog(LOG_DEBUG, "Processing CALL_WRITE.");
@@ -117,11 +126,11 @@ execute_write(struct slave *slave, ssize_t *ret, int *errnum)
 
 	syslog(LOG_DEBUG, "CALL_WRITE: fd=%d, nbytes=%d", fd, nbytes);
 
-	data_size = payload_size - (fd_len + nbytes_len);
-	if (data_size < 0)
-		diex(-1, "Data size is negative");
-	data = (char *)alloca(sizeof(char) * data_size);
-	read_or_die(rfd, data, data_size);
+	expected_payload_size = fd_len + nbytes_len + nbytes;
+	die_if_payload_size_mismatched(payload_size, expected_payload_size);
+
+	data = (char *)alloca(sizeof(char) * nbytes);
+	read_or_die(rfd, data, nbytes);
 	*ret = write(fd, data, nbytes);
 	*errnum = errno;
 }
@@ -147,14 +156,6 @@ return_generic(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 	write_payload_size(wfd, ret_len + errnum_len);
 	write_or_die(wfd, ret_buf, ret_len);
 	write_or_die(wfd, errnum_buf, errnum_len);
-}
-
-static void
-die_if_payload_size_mismatched(int expected, int actual)
-{
-	if (expected == actual)
-		return;
-	diec(-1, EPROTO, "Payload size mismatched");
 }
 
 static void
