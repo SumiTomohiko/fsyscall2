@@ -110,6 +110,8 @@ execute_write(struct slave *slave, ssize_t *ret, int *errnum)
 	rfd = slave->rfd;
 	payload_size = read_int32(rfd, &_);
 
+	syslog(LOG_DEBUG, "CALL_WRITE: payload_size=%u", payload_size);
+
 	fd = read_int32(rfd, &fd_len);
 	nbytes = read_int32(rfd, &nbytes_len);
 
@@ -181,8 +183,12 @@ execute_open(struct slave *slave, int *ret, int *errnum)
 	int flags_len, mode_len, path_len_len, rfd;
 	char *path;
 
+	syslog(LOG_DEBUG, "Processing CALL_OPEN.");
+
 	rfd = slave->rfd;
 	payload_size = read_payload_size(rfd);
+
+	syslog(LOG_DEBUG, "CALL_OPEN: payload_size=%u", payload_size);
 
 	path_len = read_uint64(rfd, &path_len_len);
 	path = (char *)alloca(sizeof(char) * (path_len + 1));
@@ -198,6 +204,8 @@ execute_open(struct slave *slave, int *ret, int *errnum)
 	die_if_payload_size_mismatched(
 		payload_size,
 		path_len_len + path_len + flags_len + mode_len);
+
+	syslog(LOG_DEBUG, "CALL_OPEN: path=%s, flags=0x%x, mode=0o%o", path, flags, mode);
 
 	*ret = open(path, flags, mode);
 	if (*ret == -1)
