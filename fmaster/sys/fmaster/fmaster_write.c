@@ -38,7 +38,7 @@ execute_call(struct thread *td, struct fmaster_write_args *uap)
 	error = fmaster_write(td, wfd, nbytes, nbytes_len);
 	if (error != 0)
 		return (error);
-	error = fmaster_write(td, wfd, uap->buf, uap->nbytes);
+	error = fmaster_write_userspace(td, wfd, uap->buf, uap->nbytes);
 	if (error != 0)
 		return (error);
 

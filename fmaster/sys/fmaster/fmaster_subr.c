@@ -105,8 +105,8 @@ fmaster_read_command(struct thread *td, command_t *dest)
 	return (fmaster_read_uint32(td, dest, &_));
 }
 
-int
-fmaster_write(struct thread *td, int d, const void *buf, size_t nbytes)
+static int
+write_aio(struct thread *td, int d, const void *buf, size_t nbytes, enum uio_seg segflg)
 {
 	struct uio auio;
 	struct iovec aiov;
@@ -122,13 +122,25 @@ fmaster_write(struct thread *td, int d, const void *buf, size_t nbytes)
 	auio.uio_iov = &aiov;
 	auio.uio_iovcnt = 1;
 	auio.uio_resid = nbytes;
-	auio.uio_segflg = UIO_SYSSPACE;
+	auio.uio_segflg = segflg;
 
 	error = 0;
 	while (((error == 0) || (error == EINTR)) && (0 < auio.uio_resid))
 		error = kern_writev(td, d, &auio);
 
 	return (error);
+}
+
+int
+fmaster_write_userspace(struct thread *td, int d, const void *buf, size_t nbytes)
+{
+	return (write_aio(td, d, buf, nbytes, UIO_USERSPACE));
+}
+
+int
+fmaster_write(struct thread *td, int d, const void *buf, size_t nbytes)
+{
+	return (write_aio(td, d, buf, nbytes, UIO_SYSSPACE));
 }
 
 static struct master_data *

@@ -52,6 +52,7 @@ int	fmaster_write(struct thread *, int, const void *, size_t);
 int	fmaster_write_command(struct thread *, command_t);
 int	fmaster_write_int32(struct thread *, int32_t);
 #define	fmaster_write_uint32(td, n)	fmaster_write_int32((td), (int32_t)(n))
+int	fmaster_write_userspace(struct thread *, int, const void *, size_t);
 #define	fmaster_write_payload_size	fmaster_write_uint32
 
 int	fmaster_rfd_of_thread(struct thread *);
