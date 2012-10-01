@@ -10,6 +10,7 @@
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/io.h>
+#include <fsyscall/private/malloc_or_die.h>
 
 void
 write_or_die(int fd, const void *buf, size_t nbytes)
@@ -138,4 +139,20 @@ transfer(int rfd, int wfd, uint32_t len)
 		write_or_die(wfd, buf, nbytes);
 		rest -= nbytes;
 	}
+}
+
+char *
+read_string(int rfd, uint64_t *total_len)
+{
+	uint64_t len;
+	int len_len;
+	char *ptr;
+
+	len = read_uint64(rfd, &len_len);
+	ptr = malloc_or_die(len + 1);
+	read_or_die(rfd, ptr, len);
+	ptr[len] = '\0';
+	*total_len = len_len + len;
+
+	return (ptr);
 }

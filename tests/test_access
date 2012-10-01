@@ -1,0 +1,4 @@
+
+cmd="access/access"
+args="${tests_dir}/song 4"
+expected_status="0"

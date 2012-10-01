@@ -1,0 +1,4 @@
+
+cmd="access/access"
+args="${tests_dir}/song 1"
+unexpected_status="0"

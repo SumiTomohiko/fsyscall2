@@ -176,6 +176,33 @@ execute_close(struct slave *slave, int *ret, int *errnum)
 }
 
 static void
+execute_access(struct slave *slave, int *ret, int *errnum)
+{
+	uint64_t path_len;
+	payload_size_t payload_size;
+	int mode, mode_len, rfd;
+	char *path;
+
+	syslog(LOG_DEBUG, "Processing CALL_ACCESS.");
+
+	rfd = slave->rfd;
+	payload_size = read_payload_size(rfd);
+
+	syslog(LOG_DEBUG, "CALL_ACCESS: payload_size=%u", payload_size);
+
+	path = read_string(rfd, &path_len);
+	mode = read_int32(rfd, &mode_len);
+
+	die_if_payload_size_mismatched(payload_size, path_len + mode_len);
+
+	syslog(LOG_DEBUG, "CALL_ACCESS: path=%s, mode=0o%o", path, mode);
+
+	*ret = access(path, mode);
+	*errnum = errno;
+	free(path);
+}
+
+static void
 execute_open(struct slave *slave, int *ret, int *errnum)
 {
 	uint64_t path_len;
@@ -211,6 +238,15 @@ execute_open(struct slave *slave, int *ret, int *errnum)
 	*ret = open(path, flags, mode);
 	if (*ret == -1)
 		*errnum = errno;
+}
+
+static void
+process_access(struct slave *slave)
+{
+	int errnum, ret;
+
+	execute_access(slave, &ret, &errnum);
+	return_generic(slave, RET_ACCESS, ret, errnum);
 }
 
 static void
@@ -309,6 +345,9 @@ mainloop(struct slave *slave)
 	for (;;) {
 		cmd = read_command(rfd);
 		switch (cmd) {
+		case CALL_ACCESS:
+			process_access(slave);
+			break;
 		case CALL_CLOSE:
 			process_close(slave);
 			break;

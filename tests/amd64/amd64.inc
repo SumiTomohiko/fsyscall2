@@ -4,6 +4,7 @@
 %define	sys.write	4
 %define	sys.open	5
 %define	sys.close	6
+%define	sys.access	33
 
 %macro test_argc 1
 	cmp	qword [rdi], %1

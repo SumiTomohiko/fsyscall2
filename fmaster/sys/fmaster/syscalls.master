@@ -107,7 +107,7 @@
 32	AUE_GETSOCKNAME	UNIMPL	{ int fmaster_getsockname(int fdes, \
 				    struct sockaddr * __restrict asa, \
 				    __socklen_t * __restrict alen); }
-33	AUE_ACCESS	UNIMPL	{ int fmaster_access(char *path, int flags); }
+33	AUE_ACCESS	STD	{ int fmaster_access(char *path, int flags); }
 34	AUE_CHFLAGS	UNIMPL	{ int fmaster_chflags(char *path, int flags); }
 35	AUE_FCHFLAGS	UNIMPL	{ int fmaster_fchflags(int fd, int flags); }
 36	AUE_SYNC	UNIMPL	{ int fmaster_sync(void); }

@@ -13,14 +13,16 @@ get_command_name(command_t cmd)
 		"CALL_OPEN",
 		"CALL_CLOSE",
 		"CALL_READ",
-		"CALL_WRITE"
+		"CALL_WRITE",
+		"CALL_ACCESS"
 	};
 	const char *name_of_ret[] = {
 		"INVALID",
 		"RET_OPEN",
 		"RET_CLOSE",
 		"RET_READ",
-		"RET_WRITE"
+		"RET_WRITE",
+		"RET_ACCESS"
 	};
 
 	if (cmd < UINT16_MAX)

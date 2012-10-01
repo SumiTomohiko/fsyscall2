@@ -159,6 +159,7 @@ process_mhub(struct shub *shub)
 	case CALL_EXIT:
 		process_exit(shub);
 		break;
+	case CALL_ACCESS:
 	case CALL_CLOSE:
 	case CALL_OPEN:
 	case CALL_READ:
@@ -202,6 +203,7 @@ process_slave(struct shub *shub, struct slave *slave)
 
 	cmd = read_command(slave->rfd);
 	switch (cmd) {
+	case RET_ACCESS:
 	case RET_CLOSE:
 	case RET_OPEN:
 	case RET_READ:
