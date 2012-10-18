@@ -181,6 +181,10 @@ def concrete_datatype_of_abstract_datatype(datatype):
 
 def print_encoding(p, syscall):
     for a in syscall.args:
+        # Special code only for fmaster_write.
+        if (syscall.name == "fmaster_write") and (a.name == "buf"):
+            continue
+
         p("\t{name} = uap->{name};\n".format(**vars(a)))
         if a.datatype == "char *":
             p("""\
@@ -212,9 +216,15 @@ def bufsize_of_datatype(datatype):
 def make_payload_size_expr(syscall):
     terms = []
     for a in syscall.args:
+        # Special code only for fmaster_write.
+        if (syscall.name == "fmaster_write") and (a.name == "buf"):
+            terms.append("nbytes")
+            continue
+
         if a.datatype == "char *":
             terms.append("{name}_len_len".format(**vars(a)))
         terms.append("{name}_len".format(**vars(a)))
+
     return " + ".join(terms)
 
 def print_fmaster_write(p, buf, size):
@@ -249,6 +259,9 @@ def print_write(p, syscall):
             print_fmaster_write(p, buf, size)
             print_fmaster_write(p, a.name, "{name}_len".format(**vars(a)))
             continue
+        # Special code only for fmaster_write.
+        if (syscall.name == "fmaster_write") and (a.name == "buf"):
+            continue
         # Special code only for fmaster_open's mode.
         if (syscall.name == "fmaster_open") and (a.name == "mode"):
             p("""\
@@ -258,6 +271,15 @@ def print_write(p, syscall):
         buf = "{name}_buf".format(**vars(a))
         size = "{name}_len".format(**vars(a))
         print_fmaster_write(p, buf, size)
+
+    if syscall.name != "fmaster_write":
+        return
+    # Special code only for fmaster_write.
+    p("""\
+\terror = fmaster_write_userspace(td, wfd, uap->buf, nbytes);
+\tif (error != 0)
+\t\treturn (error);
+""")
 
 def print_tail(p, syscall):
     name = syscall.name
@@ -287,6 +309,9 @@ def write_syscall(dirpath, syscall):
     for a in syscall.args:
         if a.datatype == "char *":
             local_vars.extend(make_string_locals(a.name))
+            continue
+        if (syscall.name == "fmaster_write") and (a.name == "buf"):
+            # Special code only for fmaster_write.
             continue
         for datatype, fmt, size in (
                 (a.datatype, "{name}", None),
