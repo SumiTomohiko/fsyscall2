@@ -297,7 +297,8 @@ sys_{name}(struct thread *td, struct {name}_args *uap)
 \tif (error != 0)
 \t\treturn (error);
 \treturn (fmaster_execute_return_generic(td, RET_{cmd_name}));
-}}""".format(**locals()))
+}}
+""".format(**locals()))
 
 def write_syscall(dirpath, syscall):
     local_vars = []
