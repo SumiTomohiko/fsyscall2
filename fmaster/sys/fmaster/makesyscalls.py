@@ -14,19 +14,19 @@ SYSCALLS = {
         "fmaster_access": None
         }
 
+def make_decl(o):
+    # o can be Argument or Variable.
+    datatype = drop_pointer(o.datatype)
+    name = make_local_decl(o)
+    return "{datatype} {name}".format(**locals())
+
 class Argument:
 
     def __init__(self, datatype, name):
         self.datatype = datatype
         self.name = name
 
-    def __str__(self):
-        datatype = self.datatype
-        space = "" if datatype[-1] == "*" else " "
-        name = self.name
-        return "{datatype}{space}{name}".format(**locals())
-
-    __repr__ = __str__
+    __repr__ = __str__ = make_decl
 
 class Syscall:
 
@@ -72,13 +72,7 @@ class Variable:
         self.name = name
         self.size = size
 
-    def __str__(self):
-        datatype = self.datatype
-        space = "" if self.datatype[-1] == "*" else " "
-        name = self.name
-        return "{datatype}{space}{name}".format(**locals())
-
-    __repr__ = __str__
+    __repr__ = __str__ = make_decl
 
 def make_string_locals(name):
     a = []
