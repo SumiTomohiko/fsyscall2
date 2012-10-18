@@ -208,6 +208,68 @@ def bufsize_of_datatype(datatype):
     concrete = concrete_datatype_of_abstract_datatype(datatype)
     return "FSYSCALL_BUFSIZE_" + concrete.upper()
 
+def make_payload_size_expr(syscall):
+    terms = []
+    for a in syscall.args:
+        if a.datatype == "char *":
+            terms.append("{name}_len_len".format(**vars(a)))
+        terms.append("{name}_len".format(**vars(a)))
+    return " + ".join(terms)
+
+def print_fmaster_write(p, buf, size):
+    p("""\
+\terror = fmaster_write(td, wfd, {buf}, {size});
+\tif (error != 0)
+\t\treturn (error);
+""".format(**locals()))
+
+def make_cmd_name(syscall):
+    prefix = "fmaster_"
+    assert syscall.name[:len(prefix)] == prefix
+    return syscall.name[len(prefix):].upper()
+
+def print_write(p, syscall):
+    cmd_name = make_cmd_name(syscall)
+    payload_size_expr = make_payload_size_expr(syscall)
+    p("""\
+\terror = fmaster_write_command(td, CALL_{cmd_name});
+\tif (error != 0)
+\t\treturn (error);
+\tpayload_size = {payload_size_expr};
+\terror = fmaster_write_payload_size(td, payload_size);
+\tif (error != 0)
+\t\treturn (error);
+\twfd = fmaster_wfd_of_thread(td);
+""".format(**locals()))
+    for a in syscall.args:
+        if a.datatype == "char *":
+            buf = "{name}_len_buf".format(**vars(a))
+            size = "{name}_len_len".format(**vars(a))
+            print_fmaster_write(p, buf, size)
+            print_fmaster_write(p, a.name, "{name}_len".format(**vars(a)))
+            continue
+        buf = "{name}_buf".format(**vars(a))
+        size = "{name}_len".format(**vars(a))
+        print_fmaster_write(p, buf, size)
+
+def print_tail(p, syscall):
+    name = syscall.name
+    cmd_name = make_cmd_name(syscall)
+    p("""\
+\treturn (0);
+}}
+
+int
+sys_{name}(struct thread *td, struct {name}_args *uap)
+{{
+\tint error;
+
+\terror = execute_call(td, uap);
+\tif (error != 0)
+\t\treturn (error);
+\treturn (fmaster_execute_return_generic(td, RET_{cmd_name}));
+}}""".format(**locals()))
+
 def write_syscall(dirpath, syscall):
     local_vars = []
     for datatype, name in (
@@ -235,38 +297,9 @@ def write_syscall(dirpath, syscall):
         print_newline()
         print_encoding(p, syscall)
         print_newline()
-        p("""\
-\terror = fmaster_write_command(td, CALL_ACCESS);
-\tif (error != 0)
-\t\treturn (error);
-\tpayload_size = path_len_len + path_len + flags_len;
-\terror = fmaster_write_payload_size(td, payload_size);
-\tif (error != 0)
-\t\treturn (error);
-\twfd = fmaster_wfd_of_thread(td);
-\terror = fmaster_write(td, wfd, path_len_buf, path_len_len);
-\tif (error != 0)
-\t\treturn (error);
-\terror = fmaster_write(td, wfd, path, path_len);
-\tif (error != 0)
-\t\treturn (error);
-\terror = fmaster_write(td, wfd, flags_buf, flags_len);
-\tif (error != 0)
-\t\treturn (error);
-
-\treturn (0);
-}}
-
-int
-sys_{name}(struct thread *td, struct {name}_args *uap)
-{{
-\tint error;
-
-\terror = execute_call(td, uap);
-\tif (error != 0)
-\t\treturn (error);
-\treturn (fmaster_execute_return_generic(td, RET_ACCESS));
-}}""".format(**locals()), file=fp)
+        print_write(p, syscall)
+        print_newline()
+        print_tail(p, syscall)
 
 def main(dirpath):
     with open(join(dirpath, "syscalls.master")) as fp:
