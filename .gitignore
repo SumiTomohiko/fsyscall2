@@ -10,6 +10,7 @@ fmaster/@
 fmaster/export_syms
 fmaster/machine
 fmaster/sys/fmaster/fmaster_access.c
+fmaster/sys/fmaster/fmaster_link.c
 fmaster/sys/fmaster/fmaster_proto.h
 fmaster/sys/fmaster/fmaster_syscall.h
 fmaster/sys/fmaster/fmaster_syscalls.c
