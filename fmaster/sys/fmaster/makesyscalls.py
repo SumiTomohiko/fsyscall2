@@ -6,7 +6,6 @@ from re import search, sub
 from sys import argv, exit
 
 SYSCALLS = {
-        "fmaster_read": None,
         "fmaster_write": None,
         "fmaster_open": None,
         "fmaster_close": None,
