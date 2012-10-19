@@ -1,11 +1,12 @@
 #!/usr/local/bin/python3.2
 
 from functools import partial
-from os.path import basename, dirname, join
+from os import getcwd, mkdir
+from os.path import abspath, basename, dirname, join
 from re import search, sub
 from sys import argv, exit
 
-SYSCALLS = {
+FMASTER_SYSCALLS = {
         "fmaster_write": None,
         "fmaster_open": None,
         "fmaster_close": None,
@@ -300,6 +301,10 @@ sys_{name}(struct thread *td, struct {name}_args *uap)
 }}
 """.format(**locals()))
 
+def partial_print(fp):
+    p = partial(print, end="", file=fp)
+    return p, partial(p, "\n")
+
 def write_syscall(dirpath, syscall):
     local_vars = []
     for datatype, name in (
@@ -323,8 +328,7 @@ def write_syscall(dirpath, syscall):
 
     name = syscall.name
     with open(join(dirpath, name) + ".c", "w") as fp:
-        p = partial(print, end="", file=fp)
-        print_newline = partial(p, "\n")
+        p, print_newline = partial_print(fp)
         print_head(p, name)
         print_locals(p, local_vars)
         print_newline()
@@ -334,24 +338,97 @@ def write_syscall(dirpath, syscall):
         print_newline()
         print_tail(p, syscall)
 
-def main(dirpath):
+def read_syscalls(dirpath):
+    syscalls = []
     with open(join(dirpath, "syscalls.master")) as fp:
         src = fp.read().replace("\\\n", "")
     for line in src.split("\n"):
         if (line.strip() == "") or (line[0] in (";", "#")):
             continue
-        if (line.split()[2] != "STD"):
+        if line.split()[2] != "STD":
             continue
         proto = line[line.index("{") + 1:line.rindex("}")].strip()
-        syscall = parse_proto(proto)
-        if syscall.name not in SYSCALLS:
-            continue
+        syscalls.append(parse_proto(proto))
+    return syscalls
+
+def write_fmaster(dirpath, syscalls):
+    for syscall in [sc for sc in syscalls if sc.name in FMASTER_SYSCALLS]:
         write_syscall(dirpath, syscall)
+
+def drop_prefix(s):
+    return s[s.find("_") + 1:]
+
+def write_command_code(dirpath, syscalls):
+    with open(join(dirpath, "code.h"), "w") as fp:
+        p, print_newline = partial_print(fp)
+        directive = "FSYSCALL_PRIVATE_COMMAND_CODE_H_INCLUDED"
+        p("""\
+#if !defined({directive})
+#define\t{directive}
+""".format(**locals()))
+        print_newline()
+        for i, syscall in enumerate(syscalls):
+            name = drop_prefix(syscall.name).upper()
+            call = i << 1
+            ret = call + 1
+            p("""\
+#define\tCALL_{name}\t{call}
+#define\tRET_{name}\t{ret}
+""".format(**locals()))
+        print_newline()
+        p("""\
+#endif
+""")
+
+def write_name_entries(p, prefix, syscalls):
+    for i, syscall in enumerate(syscalls):
+        name = drop_prefix(syscall.name).upper()
+        sep = "," if i < len(syscalls) - 1 else ""
+        p("""\
+\t\"{prefix}_{name}\"{sep}\t\t\\
+""".format(**locals()))
+
+def write_command_name(dirpath, syscalls):
+    with open(join(dirpath, "name.h"), "w") as fp:
+        p, print_newline = partial_print(fp)
+        p("""\
+#if !defined(FSYSCALL_PRIVATE_COMMAND_NAME_H_INCLUDED)
+#define\tFSYSCALL_PRIVATE_COMMAND_NAME_H_INCLUDED
+
+#define\tCALL_NAMES\t{\t\\
+""")
+        write_name_entries(p, "CALL", syscalls)
+        p("""\
+}
+#define\tRET_NAMES\t{\t\\
+""")
+        write_name_entries(p, "RET", syscalls)
+        p("""\
+}
+
+#endif
+""")
+
+def write_command(dirpath, syscalls):
+    try:
+        mkdir(dirpath)
+    except OSError:
+        pass
+    write_command_code(dirpath, syscalls)
+    write_command_name(dirpath, syscalls)
+
+def main(dirpath):
+    fmaster_dir = join(dirpath, "fmaster", "sys", "fmaster")
+    syscalls = read_syscalls(fmaster_dir)
+    write_fmaster(fmaster_dir, syscalls)
+
+    command_dir = join(dirpath, "include", "fsyscall", "private", "command")
+    write_command(command_dir, syscalls)
 
 def usage():
     print("Usage: {prog} dirpath".format(prog=basename(argv[0])))
 
 if __name__ == "__main__":
-    main(dirname(__file__) if len(argv) != 2 else argv[1])
+    main(abspath(getcwd()) if len(argv) != 2 else argv[1])
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=python

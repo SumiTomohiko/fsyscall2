@@ -23,6 +23,8 @@ fmaster/x86
 fmhub/fmhub
 fshub/fshub
 fslave/fslave
+include/fsyscall/private/command/code.h
+include/fsyscall/private/command/name.h
 tests/*/access/access
 tests/*/close/close
 tests/*/exit/exit
