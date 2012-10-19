@@ -7,11 +7,11 @@ from re import search, sub
 from sys import argv, exit
 
 FMASTER_SYSCALLS = {
-        "fmaster_write": None,
-        "fmaster_open": None,
-        "fmaster_close": None,
-        "fmaster_link": None,
-        "fmaster_access": None
+        "fmaster_write",
+        "fmaster_open",
+        "fmaster_close",
+        "fmaster_link",
+        "fmaster_access"
         }
 
 def make_decl(o):
