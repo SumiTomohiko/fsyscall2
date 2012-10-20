@@ -598,7 +598,7 @@ def main(dirpath):
     write_proto(join(private_dir, "fslave"), syscalls)
 
 def usage():
-    print("Usage: {prog} dirpath".format(prog=basename(argv[0])))
+    print("usage: {prog} dirpath".format(prog=basename(argv[0])))
 
 if __name__ == "__main__":
     main(abspath(getcwd()) if len(argv) != 2 else argv[1])
