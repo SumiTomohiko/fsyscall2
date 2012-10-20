@@ -67,7 +67,7 @@
 				    int options, struct rusage *rusage); } \
 				    wait4 wait_args int
 8	AUE_CREAT	OBSOL	creat
-9	AUE_LINK	STD	{ int fmaster_link(char *path, char *link); }
+9	AUE_LINK	STD	{ int fmaster_link(char *path1, char *path2); }
 10	AUE_UNLINK	UNIMPL	{ int fmaster_unlink(char *path); }
 11	AUE_NULL	OBSOL	execv
 12	AUE_CHDIR	UNIMPL	{ int fmaster_chdir(char *path); }

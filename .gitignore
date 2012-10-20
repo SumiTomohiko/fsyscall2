@@ -22,9 +22,15 @@ fmaster/sys/fmaster/fmaster_write.c
 fmaster/x86
 fmhub/fmhub
 fshub/fshub
+fslave/Makefile.makesyscalls
 fslave/fslave
+fslave/fslave_access.c
+fslave/fslave_close.c
+fslave/fslave_link.c
+fslave/fslave_open.c
 include/fsyscall/private/command/code.h
 include/fsyscall/private/command/name.h
+include/fsyscall/private/fslave/proto.h
 tests/*/access/access
 tests/*/close/close
 tests/*/exit/exit

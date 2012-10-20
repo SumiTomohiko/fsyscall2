@@ -19,14 +19,10 @@
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/encode.h>
+#include <fsyscall/private/fslave.h>
+#include <fsyscall/private/fslave/proto.h>
 #include <fsyscall/private/io.h>
 #include <fsyscall/private/log.h>
-
-struct slave {
-	int rfd;
-	int wfd;
-	const char *path;
-};
 
 static void
 usage()
@@ -34,7 +30,7 @@ usage()
 	puts("fslave rfd wfd path");
 }
 
-static void
+void
 die_if_payload_size_mismatched(int expected, int actual)
 {
 	if (expected == actual)
@@ -135,7 +131,7 @@ execute_write(struct slave *slave, ssize_t *ret, int *errnum)
 	*errnum = errno;
 }
 
-static void
+void
 return_generic(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 {
 	int errnum_len, ret_len, wfd;
@@ -156,115 +152,6 @@ return_generic(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 	write_payload_size(wfd, ret_len + errnum_len);
 	write_or_die(wfd, ret_buf, ret_len);
 	write_or_die(wfd, errnum_buf, errnum_len);
-}
-
-static void
-execute_close(struct slave *slave, int *ret, int *errnum)
-{
-	payload_size_t payload_size;
-	int fd, fd_len, rfd;
-
-	rfd = slave->rfd;
-	payload_size = read_payload_size(rfd);
-
-	fd = read_int32(rfd, &fd_len);
-	die_if_payload_size_mismatched(payload_size, fd_len);
-
-	*ret = close(fd);
-	if (*ret != 0)
-		*errnum = errno;
-}
-
-static void
-execute_access(struct slave *slave, int *ret, int *errnum)
-{
-	uint64_t path_len;
-	payload_size_t payload_size;
-	int mode, mode_len, rfd;
-	char *path;
-
-	syslog(LOG_DEBUG, "Processing CALL_ACCESS.");
-
-	rfd = slave->rfd;
-	payload_size = read_payload_size(rfd);
-
-	syslog(LOG_DEBUG, "CALL_ACCESS: payload_size=%u", payload_size);
-
-	path = read_string(rfd, &path_len);
-	mode = read_int32(rfd, &mode_len);
-
-	die_if_payload_size_mismatched(payload_size, path_len + mode_len);
-
-	syslog(LOG_DEBUG, "CALL_ACCESS: path=%s, mode=0o%o", path, mode);
-
-	*ret = access(path, mode);
-	*errnum = errno;
-	free(path);
-}
-
-static void
-execute_open(struct slave *slave, int *ret, int *errnum)
-{
-	uint64_t path_len;
-	payload_size_t payload_size;
-	int32_t flags, mode;
-	int flags_len, mode_len, path_len_len, rfd;
-	char *path;
-
-	syslog(LOG_DEBUG, "Processing CALL_OPEN.");
-
-	rfd = slave->rfd;
-	payload_size = read_payload_size(rfd);
-
-	syslog(LOG_DEBUG, "CALL_OPEN: payload_size=%u", payload_size);
-
-	path_len = read_uint64(rfd, &path_len_len);
-	path = (char *)alloca(sizeof(char) * (path_len + 1));
-	read_or_die(rfd, path, path_len);
-	path[path_len] = '\0';
-
-	flags = read_int32(rfd, &flags_len);
-	if ((flags & O_CREAT) != 0)
-		mode = read_int32(rfd, &mode_len);
-	else
-		mode = mode_len = 0;
-
-	die_if_payload_size_mismatched(
-		payload_size,
-		path_len_len + path_len + flags_len + mode_len);
-
-	syslog(LOG_DEBUG, "CALL_OPEN: path=%s, flags=0x%x, mode=0o%o", path, flags, mode);
-
-	*ret = open(path, flags, mode);
-	if (*ret == -1)
-		*errnum = errno;
-}
-
-static void
-process_access(struct slave *slave)
-{
-	int errnum, ret;
-
-	execute_access(slave, &ret, &errnum);
-	return_generic(slave, RET_ACCESS, ret, errnum);
-}
-
-static void
-process_close(struct slave *slave)
-{
-	int errnum, ret;
-
-	execute_close(slave, &ret, &errnum);
-	return_generic(slave, RET_CLOSE, ret, errnum);
-}
-
-static void
-process_open(struct slave *slave)
-{
-	int errnum, ret;
-
-	execute_open(slave, &ret, &errnum);
-	return_generic(slave, RET_OPEN, ret, errnum);
 }
 
 static void
