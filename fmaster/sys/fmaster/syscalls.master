@@ -77,7 +77,7 @@
 15	AUE_CHMOD	UNIMPL	{ int fmaster_chmod(char *path, int mode); }
 16	AUE_CHOWN	UNIMPL	{ int fmaster_chown(char *path, int uid, \
 				    int gid); }
-17	AUE_NULL	UNIMPL	{ int obreak(char *nsize); } break \
+17	AUE_NULL	NOPROTO	{ int obreak(char *nsize); } break \
 				    obreak_args int
 18	AUE_GETFSSTAT	OBSOL	getfsstat
 19	AUE_LSEEK	OBSOL	lseek
