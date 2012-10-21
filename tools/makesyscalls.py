@@ -470,7 +470,13 @@ execute_{name}(struct slave *slave, int *ret, int *errnum)
 """.format(**locals()))
 
 def make_fslave_payload_size_expr(syscall):
-    return " + ".join(["{name}_len".format(**vars(a)) for a in syscall.args])
+    terms = []
+    for a in syscall.args:
+        if a.datatype == "void *":
+            terms.append(SYSCALLS[syscall.name][a.name].size)
+            continue
+        terms.append("{name}_len".format(**vars(a)))
+    return " + ".join(terms)
 
 def print_fslave_main(p, print_newline, syscall):
     local_vars = []
@@ -480,6 +486,9 @@ def print_fslave_main(p, print_newline, syscall):
             ("int", "rfd")):
         local_vars.append(Variable(datatype, name))
     for a in syscall.args:
+        if a.datatype == "void *":
+            local_vars.append(Variable(a.datatype, a.name))
+            continue
         len_type = "uint64_t" if a.datatype == "char *" else "int"
         for datatype, name in (
                 (len_type, "{name}_len"),
