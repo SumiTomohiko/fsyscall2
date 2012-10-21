@@ -6,37 +6,52 @@ from os.path import abspath, basename, dirname, join
 from re import search, sub
 from sys import argv, exit
 
-class Option:
-
-    def __init__(self, expr):
-        self.expr = expr
-
-SYSCALLS = {
-        "fmaster_write": {},
-        "fmaster_open": {
-            "mode": Option("(flags & O_CREAT) != 0")
-            },
-        "fmaster_close": {},
-        "fmaster_link": {},
-        "fmaster_access": {}
-        }
-FMASTER_SYSCALLS = SYSCALLS
-FSLAVE_SYSCALLS = SYSCALLS
-del FSLAVE_SYSCALLS["fmaster_write"]
-
 def make_decl(o):
-    # o can be Argument or Variable.
     datatype = drop_pointer(o.datatype)
     name = make_local_decl(o)
     return "{datatype} {name}".format(**locals())
 
-class Argument:
+class Variable:
 
-    def __init__(self, datatype, name):
+    def __init__(self, datatype, name, size=None):
         self.datatype = datatype
         self.name = name
+        self.size = size
 
     __repr__ = __str__ = make_decl
+
+class Struct:
+
+    def __init__(self, members):
+        self.members = members
+
+stat = Struct([
+    # TODO: Write here.
+    ])
+
+class Argument:
+
+    def __init__(self, opt=None, out=False, size=None, struct=None):
+        self.opt = opt
+        self.out = out
+        self.size = size
+        self.struct = struct
+
+SYSCALLS = {
+        "fmaster_write": {},
+        "fmaster_open": {
+            "mode": Argument(opt="(flags & O_CREAT) != 0")
+            },
+        "fmaster_close": {},
+        "fmaster_link": {},
+        "fmaster_access": {},
+        "fmaster_fstat": {
+            "sb": Argument(out=True, struct=stat)
+            }
+        }
+FMASTER_SYSCALLS = SYSCALLS
+FSLAVE_SYSCALLS = SYSCALLS
+del FSLAVE_SYSCALLS["fmaster_write"]
 
 class Syscall:
 
@@ -71,18 +86,9 @@ def parse_proto(proto):
     syscall.name = name
     for a in args:
         datatype, name = split_datatype_name(a)
-        syscall.args.append(Argument(drop_const(datatype), name))
+        syscall.args.append(Variable(drop_const(datatype), name))
 
     return syscall
-
-class Variable:
-
-    def __init__(self, datatype, name, size=None):
-        self.datatype = datatype
-        self.name = name
-        self.size = size
-
-    __repr__ = __str__ = make_decl
 
 def make_string_locals(name):
     a = []
@@ -197,7 +203,10 @@ def concrete_datatype_of_abstract_datatype(datatype):
             "int": "int32" }[datatype]
 
 def opt_of_syscall(tab, syscall, a):
-    return tab[syscall.name].get(a.name, None)
+    try:
+        return tab[syscall.name][a.name].opt
+    except KeyError:
+        return None
 
 def print_encoding(p, syscall):
     for a in syscall.args:
@@ -216,7 +225,7 @@ def print_encoding(p, syscall):
         concrete_datatype = concrete_datatype_of_abstract_datatype(a.datatype)
         opt = opt_of_syscall(FMASTER_SYSCALLS, syscall, a)
         if opt is not None:
-            expr_head = "{expr} ? ".format(**vars(opt))
+            expr_head = "{opt} ? ".format(**locals())
             expr_tail = " : 0"
         else:
             expr_head = expr_tail = ""
@@ -489,9 +498,8 @@ def print_fslave_main(p, print_newline, syscall):
         assignment = "{name} = {f}(rfd, &{name}_len)".format(**locals())
         opt = opt_of_syscall(FMASTER_SYSCALLS, syscall, a)
         if opt is not None:
-            expr = opt.expr
             p("""\
-\tif ({expr})
+\tif ({opt})
 \t\t{assignment};
 \telse
 \t\t{name} = {name}_len = 0;
