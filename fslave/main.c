@@ -103,34 +103,6 @@ write_open_fds(struct slave *slave)
 	write_or_die(wfd, buf, pos);
 }
 
-static void
-execute_write(struct slave *slave, ssize_t *ret, int *errnum)
-{
-	int _, expected_payload_size, fd, fd_len, nbytes, nbytes_len;
-	int payload_size, rfd;
-	char *data;
-
-	syslog(LOG_DEBUG, "Processing CALL_WRITE.");
-
-	rfd = slave->rfd;
-	payload_size = read_int32(rfd, &_);
-
-	syslog(LOG_DEBUG, "CALL_WRITE: payload_size=%u", payload_size);
-
-	fd = read_int32(rfd, &fd_len);
-	nbytes = read_int32(rfd, &nbytes_len);
-
-	syslog(LOG_DEBUG, "CALL_WRITE: fd=%d, nbytes=%d", fd, nbytes);
-
-	expected_payload_size = fd_len + nbytes_len + nbytes;
-	die_if_payload_size_mismatched(payload_size, expected_payload_size);
-
-	data = (char *)alloca(sizeof(char) * nbytes);
-	read_or_die(rfd, data, nbytes);
-	*ret = write(fd, data, nbytes);
-	*errnum = errno;
-}
-
 void
 return_generic(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 {
@@ -196,16 +168,6 @@ process_read(struct slave *slave)
 	}
 
 	return_read(slave, ret, buf);
-}
-
-static void
-process_write(struct slave *slave)
-{
-	ssize_t ret;
-	int errnum;
-
-	execute_write(slave, &ret, &errnum);
-	return_generic(slave, RET_WRITE, ret, errnum);
 }
 
 static int
