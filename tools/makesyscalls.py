@@ -60,6 +60,7 @@ class Syscall:
         self.rettype = None
         self.name = None
         self.args = []
+        self.sending_order_args = None
 
     def __str__(self):
         args = ", ".join([str(a) for a in self.args])
@@ -88,6 +89,14 @@ def parse_proto(proto):
     for a in args:
         datatype, name = split_datatype_name(a)
         syscall.args.append(Variable(drop_const(datatype), name))
+
+    # fsyscall sends arguments in order written in syscalls.master. But some
+    # arguments hold size of previous arguments.
+    args = syscall.args
+    syscall.sending_order_args = args if syscall.name != "fmaster_write" else [
+            args[0],
+            args[2],
+            args[1]]
 
     return syscall
 
@@ -282,7 +291,7 @@ def print_write(p, syscall):
 \t\treturn (error);
 \twfd = fmaster_wfd_of_thread(td);
 """.format(**locals()))
-    for a in syscall.args:
+    for a in syscall.sending_order_args:
         if a.datatype == "char *":
             buf = "{name}_len_buf".format(**vars(a))
             size = "{name}_len_len".format(**vars(a))
@@ -486,8 +495,16 @@ def print_fslave_main(p, print_newline, syscall):
 \tpayload_size = read_payload_size(rfd);
 """)
     print_newline()
-    for a in syscall.args:
+    for a in syscall.sending_order_args:
         name = a.name
+        if a.datatype == "void *":
+            size = SYSCALLS[syscall.name][name].size
+            p("""\
+\t{name} = alloca({size});
+\tread_or_die(rfd, {name}, {size});
+""".format(**locals()))
+            continue
+
         f = {
                 "char *": "read_string",
                 "int": "read_int32",
@@ -587,19 +604,9 @@ void process_{name}(struct slave *);
 #endif
 """)
 
-def reorder_syscalls(syscalls):
-    # fsyscall sends arguments in order written in syscalls.master. But some
-    # arguments hold size of previous arguments. This function moves data size
-    # arguments to front of data arguments.
-    for syscall in syscalls:
-        if syscall.name == "fmaster_write":
-            args = syscall.args
-            args[1], args[2] = args[2], args[1]
-    return syscalls
-
 def main(dirpath):
     fmaster_dir = join(dirpath, "fmaster", "sys", "fmaster")
-    syscalls = reorder_syscalls(read_syscalls(fmaster_dir))
+    syscalls = read_syscalls(fmaster_dir)
     write_fmaster(fmaster_dir, syscalls)
 
     private_dir = join(dirpath, "include", "fsyscall", "private")
