@@ -307,12 +307,12 @@ def print_write(p, syscall):
 \t\treturn (error);
 """.format(**locals()))
             continue
-        # Special code only for fmaster_open's mode.
-        if (syscall.name == "fmaster_open") and (a.name == "mode"):
+        opt = opt_of_syscall(FMASTER_SYSCALLS, syscall, a)
+        if opt is not None:
             p("""\
-\tif ((flags & O_CREAT) == 0)
+\tif (!({opt}))
 \t\treturn (0);
-""")
+""".format(**locals()))
         buf = "{name}_buf".format(**vars(a))
         size = "{name}_len".format(**vars(a))
         print_fmaster_write(p, buf, size)
