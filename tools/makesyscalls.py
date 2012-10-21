@@ -38,7 +38,9 @@ class Argument:
         self.struct = struct
 
 SYSCALLS = {
-        "fmaster_write": {},
+        "fmaster_write": {
+            "buf": Argument(size="nbytes")
+            },
         "fmaster_open": {
             "mode": Argument(opt="(flags & O_CREAT) != 0")
             },
@@ -51,7 +53,6 @@ SYSCALLS = {
         }
 FMASTER_SYSCALLS = SYSCALLS
 FSLAVE_SYSCALLS = SYSCALLS
-del FSLAVE_SYSCALLS["fmaster_write"]
 
 class Syscall:
 
@@ -210,8 +211,7 @@ def opt_of_syscall(tab, syscall, a):
 
 def print_encoding(p, syscall):
     for a in syscall.args:
-        # Special code only for fmaster_write.
-        if (syscall.name == "fmaster_write") and (a.name == "buf"):
+        if a.datatype == "void *":
             continue
 
         p("\t{name} = uap->{name};\n".format(**vars(a)))
@@ -245,9 +245,10 @@ def bufsize_of_datatype(datatype):
 def make_payload_size_expr(syscall):
     terms = []
     for a in syscall.args:
-        # Special code only for fmaster_write.
-        if (syscall.name == "fmaster_write") and (a.name == "buf"):
-            terms.append("nbytes")
+        if a.datatype == "void *":
+            size = SYSCALLS[syscall.name][a.name].size
+            assert size is not None
+            terms.append(size)
             continue
 
         if a.datatype == "char *":
@@ -288,8 +289,14 @@ def print_write(p, syscall):
             print_fmaster_write(p, buf, size)
             print_fmaster_write(p, a.name, "{name}_len".format(**vars(a)))
             continue
-        # Special code only for fmaster_write.
-        if (syscall.name == "fmaster_write") and (a.name == "buf"):
+        if a.datatype == "void *":
+            name = a.name
+            size = SYSCALLS[syscall.name][name].size
+            p("""\
+\terror = fmaster_write_userspace(td, wfd, uap->{name}, {size});
+\tif (error != 0)
+\t\treturn (error);
+""".format(**locals()))
             continue
         # Special code only for fmaster_open's mode.
         if (syscall.name == "fmaster_open") and (a.name == "mode"):
@@ -300,15 +307,6 @@ def print_write(p, syscall):
         buf = "{name}_buf".format(**vars(a))
         size = "{name}_len".format(**vars(a))
         print_fmaster_write(p, buf, size)
-
-    if syscall.name != "fmaster_write":
-        return
-    # Special code only for fmaster_write.
-    p("""\
-\terror = fmaster_write_userspace(td, wfd, uap->buf, nbytes);
-\tif (error != 0)
-\t\treturn (error);
-""")
 
 def print_tail(p, syscall):
     name = syscall.name
@@ -344,8 +342,7 @@ def write_syscall(dirpath, syscall):
         if a.datatype == "char *":
             local_vars.extend(make_string_locals(a.name))
             continue
-        if (syscall.name == "fmaster_write") and (a.name == "buf"):
-            # Special code only for fmaster_write.
+        if a.datatype == "void *":
             continue
         for datatype, fmt, size in (
                 (a.datatype, "{name}", None),
@@ -590,9 +587,19 @@ void process_{name}(struct slave *);
 #endif
 """)
 
+def reorder_syscalls(syscalls):
+    # fsyscall sends arguments in order written in syscalls.master. But some
+    # arguments hold size of previous arguments. This function moves data size
+    # arguments to front of data arguments.
+    for syscall in syscalls:
+        if syscall.name == "fmaster_write":
+            args = syscall.args
+            args[1], args[2] = args[2], args[1]
+    return syscalls
+
 def main(dirpath):
     fmaster_dir = join(dirpath, "fmaster", "sys", "fmaster")
-    syscalls = read_syscalls(fmaster_dir)
+    syscalls = reorder_syscalls(read_syscalls(fmaster_dir))
     write_fmaster(fmaster_dir, syscalls)
 
     private_dir = join(dirpath, "include", "fsyscall", "private")
