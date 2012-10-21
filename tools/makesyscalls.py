@@ -38,6 +38,9 @@ class Argument:
         self.struct = struct
 
 SYSCALLS = {
+        "fmaster_read": {
+            "buf": Argument(out=True, size="retval")
+            },
         "fmaster_write": {
             "buf": Argument(size="nbytes")
             },
@@ -93,7 +96,8 @@ def parse_proto(proto):
     # fsyscall sends arguments in order written in syscalls.master. But some
     # arguments hold size of previous arguments.
     args = syscall.args
-    syscall.sending_order_args = args if syscall.name != "fmaster_write" else [
+    specials = ("fmaster_write", "fmaster_read")
+    syscall.sending_order_args = args if syscall.name not in specials else [
             args[0],
             args[2],
             args[1]]
@@ -115,8 +119,10 @@ def drop_pointer(datatype):
 
 def datasize_of_datatype(datatype):
     DATASIZE_OF_DATATYPE = {
+            "int64_t": 64,
             "payload_size_t": 64,
             "size_t": 64,
+            "ssize_t": 64,
             "uint64_t": 64,
             "void": 64,
             "int": 32,
@@ -190,6 +196,7 @@ def print_head(p, name):
     print_caution(p)
     p("""\
 #include <sys/param.h>
+#include <sys/errno.h>
 #include <sys/fcntl.h>
 #include <sys/libkern.h>
 #include <sys/proc.h>
@@ -209,6 +216,7 @@ def concrete_datatype_of_abstract_datatype(datatype):
     return {
             "char *": "uint64",
             "size_t": "uint64",
+            "ssize_t": "int64",
             "void *": "int64",
             "int": "int32" }[datatype]
 
@@ -220,7 +228,7 @@ def opt_of_syscall(tab, syscall, a):
 
 def print_encoding(p, syscall):
     for a in syscall.args:
-        if a.datatype == "void *":
+        if (a.datatype == "void *") or data_of_argument(syscall, a).out:
             continue
 
         p("\t{name} = uap->{name};\n".format(**vars(a)))
@@ -251,9 +259,9 @@ def bufsize_of_datatype(datatype):
     concrete = concrete_datatype_of_abstract_datatype(datatype)
     return "FSYSCALL_BUFSIZE_" + concrete.upper()
 
-def make_payload_size_expr(syscall):
+def make_payload_size_expr(syscall, args):
     terms = []
-    for a in syscall.args:
+    for a in args:
         if a.datatype == "void *":
             size = SYSCALLS[syscall.name][a.name].size
             assert size is not None
@@ -273,14 +281,18 @@ def print_fmaster_write(p, buf, size):
 \t\treturn (error);
 """.format(**locals()))
 
-def make_cmd_name(syscall):
+def make_cmd_name(name):
     prefix = "fmaster_"
-    assert syscall.name[:len(prefix)] == prefix
-    return syscall.name[len(prefix):].upper()
+    assert name[:len(prefix)] == prefix
+    return name[len(prefix):].upper()
+
+def input_arguments_of_syscall(syscall):
+    return [a for a in syscall.args if not data_of_argument(syscall, a).out]
 
 def print_write(p, syscall):
-    cmd_name = make_cmd_name(syscall)
-    payload_size_expr = make_payload_size_expr(syscall)
+    cmd_name = make_cmd_name(syscall.name)
+    input_arguments = input_arguments_of_syscall(syscall)
+    payload_size_expr = make_payload_size_expr(syscall, input_arguments)
     p("""\
 \terror = fmaster_write_command(td, CALL_{cmd_name});
 \tif (error != 0)
@@ -292,6 +304,8 @@ def print_write(p, syscall):
 \twfd = fmaster_wfd_of_thread(td);
 """.format(**locals()))
     for a in syscall.sending_order_args:
+        if data_of_argument(syscall, a).out:
+            continue
         if a.datatype == "char *":
             buf = "{name}_len_buf".format(**vars(a))
             size = "{name}_len_len".format(**vars(a))
@@ -317,13 +331,18 @@ def print_write(p, syscall):
         size = "{name}_len".format(**vars(a))
         print_fmaster_write(p, buf, size)
 
-def print_tail(p, syscall):
-    name = syscall.name
-    cmd_name = make_cmd_name(syscall)
+def print_call_tail(p, print_newline):
     p("""\
 \treturn (0);
-}}
+}
+""")
+    print_newline()
 
+def print_generic_tail(p, print_newline, syscall):
+    print_call_tail(p, print_newline)
+    name = syscall.name
+    cmd_name = make_cmd_name(name)
+    p("""\
 int
 sys_{name}(struct thread *td, struct {name}_args *uap)
 {{
@@ -336,9 +355,122 @@ sys_{name}(struct thread *td, struct {name}_args *uap)
 }}
 """.format(**locals()))
 
+def out_arguemnts_of_syscall(syscall):
+    return [a for a in syscall.args if data_of_argument(syscall, a).out]
+
+def print_execute_return(p, print_newline, syscall):
+    name = syscall.name
+    p("""\
+static int
+execute_return(struct thread *td, struct {name}_args *uap)
+{{
+""".format(**locals()))
+
+    local_vars = []
+    for datatype, name in (
+            ("int", "errnum"),
+            ("int", "errnum_len"),
+            ("int", "error"),
+            ("int", "retval_len"),
+            ("int", "wfd"),
+            ("payload_size_t", "expected_payload_size"),
+            ("payload_size_t", "payload_size"),
+            (syscall.rettype, "retval")):
+        local_vars.append(Variable(datatype, name))
+    out_arguments = out_arguemnts_of_syscall(syscall)
+    for a in out_arguments:
+        if a.datatype == "void *":
+            continue
+        for datatype, name in (("int", "{name}_len"), ("{datatype}", "{name}")):
+            d = vars(a)
+            t = datatype.format(**d)
+            n = name.format(**d)
+            local_vars.append(Variable(t, n))
+    print_locals(p, local_vars)
+    print_newline()
+
+    p("""\
+\terror = fmaster_read_payload_size(td, &payload_size);
+\tif (error != 0)
+\t\treturn (error);
+\terror = fmaster_read_{t}(td, &retval, &retval_len);
+\tif (error != 0)
+\t\treturn (error);
+\ttd->td_retval[0] = retval;
+\tif (retval == -1) {{
+\t\terror = fmaster_read_int32(td, &errnum, &errnum_len);
+\t\tif (error != 0)
+\t\t\treturn (error);
+\t\tif (retval_len + errnum_len != payload_size)
+\t\t\treturn (EPROTO);
+\t\treturn (errnum);
+\t}}
+""".format(t=concrete_datatype_of_abstract_datatype(syscall.rettype)))
+    print_newline()
+    p("""\
+\twfd = fmaster_wfd_of_thread(td);
+""")
+
+    for a in out_arguments:
+        if a.datatype == "void *":
+            p("""\
+\terror = fmaster_read(td, wfd, uap->{name}, {size});
+\tif (error != 0)
+\t\treturn (error);
+""".format(name=a.name, size=data_of_argument(syscall, a).size))
+            continue
+
+        p("""\
+\terror = fmaster_read_{t}(td, &{name}, &{name}_len);
+\tif (error != 0)
+\t\treturn (error);
+""")
+    print_newline()
+
+    expected_payload_size = make_payload_size_expr(syscall, out_arguments)
+    p("""\
+\texpected_payload_size = retval_len + {expected_payload_size};
+\tif (expected_payload_size != payload_size)
+\t\treturn (EPROTO);
+
+\treturn (0);
+}}
+""".format(**locals()))
+
+def print_syscall(p, name):
+    p("""\
+int
+sys_{name}(struct thread *td, struct {name}_args *uap)
+{{
+\tint error;
+
+\terror = execute_call(td, uap);
+\tif (error != 0)
+\t\treturn (error);
+\treturn (execute_return(td, uap));
+}}
+""".format(**locals()))
+
+def print_tail(p, print_newline, syscall):
+    if len([a for a in syscall.args if data_of_argument(syscall, a).out]) == 0:
+        print_generic_tail(p, print_newline, syscall)
+        return
+    print_call_tail(p, print_newline)
+    print_execute_return(p, print_newline, syscall)
+    print_newline()
+    print_syscall(p, syscall.name)
+
 def partial_print(fp):
     p = partial(print, end="", file=fp)
     return p, partial(p, "\n")
+
+DEFAULT_ARGUMENT = Argument()
+
+def data_of_argument(syscall, a):
+    try:
+        return SYSCALLS[syscall.name][a.name]
+    except KeyError:
+        return DEFAULT_ARGUMENT
 
 def write_syscall(dirpath, syscall):
     local_vars = []
@@ -351,7 +483,7 @@ def write_syscall(dirpath, syscall):
         if a.datatype == "char *":
             local_vars.extend(make_string_locals(a.name))
             continue
-        if a.datatype == "void *":
+        if (a.datatype == "void *") or data_of_argument(syscall, a).out:
             continue
         for datatype, fmt, size in (
                 (a.datatype, "{name}", None),
@@ -370,7 +502,7 @@ def write_syscall(dirpath, syscall):
         print_newline()
         print_write(p, syscall)
         print_newline()
-        print_tail(p, syscall)
+        print_tail(p, print_newline, syscall)
 
 def read_syscalls(dirpath):
     syscalls = []
@@ -551,7 +683,7 @@ def print_fslave_main(p, print_newline, syscall):
 
 def print_fslave_tail(p, syscall):
     name = drop_prefix(syscall.name)
-    cmd_name = name.upper()
+    cmd_name = make_cmd_name(syscall.name)
     p("""\
 }}
 
