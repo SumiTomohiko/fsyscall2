@@ -14,6 +14,7 @@ fmaster/sys/fmaster/fmaster_close.c
 fmaster/sys/fmaster/fmaster_link.c
 fmaster/sys/fmaster/fmaster_open.c
 fmaster/sys/fmaster/fmaster_proto.h
+fmaster/sys/fmaster/fmaster_read.c
 fmaster/sys/fmaster/fmaster_syscall.h
 fmaster/sys/fmaster/fmaster_syscalls.c
 fmaster/sys/fmaster/fmaster_sysent.c
