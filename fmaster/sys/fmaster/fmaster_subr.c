@@ -132,7 +132,7 @@ write_aio(struct thread *td, int d, const void *buf, size_t nbytes, enum uio_seg
 }
 
 int
-fmaster_write_userspace(struct thread *td, int d, const void *buf, size_t nbytes)
+fmaster_write_from_userspace(struct thread *td, int d, const void *buf, size_t nbytes)
 {
 	return (write_aio(td, d, buf, nbytes, UIO_USERSPACE));
 }
@@ -221,4 +221,24 @@ fmaster_execute_return_generic(struct thread *td, command_t expected_cmd)
 	if (payload_size != ret_len + errnum_len)
 		return (EPROTO);
 	return (errnum);
+}
+
+int
+fmaster_read_to_userspace(struct thread *td, int d, void *buf, size_t nbytes)
+{
+	struct uio auio;
+	struct iovec aiov;
+	int error;
+
+	aiov.iov_base = buf;
+	aiov.iov_len = nbytes;
+	auio.uio_iov = &aiov;
+	auio.uio_iovcnt = 1;
+	auio.uio_resid = nbytes;
+	auio.uio_segflg = UIO_USERSPACE;
+
+	error = 0;
+	while ((0 < auio.uio_resid) && (error == 0))
+		error = kern_readv(td, d, &auio);
+	return (error);
 }

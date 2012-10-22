@@ -126,50 +126,6 @@ return_generic(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 	write_or_die(wfd, errnum_buf, errnum_len);
 }
 
-static void
-return_read(struct slave *slave, ssize_t ret, const char *buf)
-{
-	int ret_len, wfd;
-	char ret_buf[FSYSCALL_BUFSIZE_INT64];
-
-	ret_len = encode_int64(ret, ret_buf, array_sizeof(ret_buf));
-
-	syslog(LOG_DEBUG, "ret=%zd, ret_len=%d", ret, ret_len);
-	wfd = slave->wfd;
-	write_command(wfd, RET_READ);
-	write_payload_size(wfd, ret_len + ret);
-	write_or_die(wfd, ret_buf, ret_len);
-	write_or_die(wfd, buf, ret);
-}
-
-static void
-process_read(struct slave *slave)
-{
-	int fd, fd_len, nbytes_len, rfd;
-	payload_size_t payload_size;
-	size_t nbytes;
-	ssize_t ret;
-	char *buf;
-
-	syslog(LOG_DEBUG, "Processing CMD_READ.");
-
-	rfd = slave->rfd;
-	payload_size = read_payload_size(rfd);
-	fd = read_int32(rfd, &fd_len);
-	nbytes = read_uint64(rfd, &nbytes_len);
-	syslog(LOG_DEBUG, "CMD_READ: fd=%d, nbytes=%zu", fd, nbytes);
-	die_if_payload_size_mismatched(payload_size, fd_len + nbytes_len);
-
-	buf = (char *)alloca(sizeof(char) * nbytes);
-	ret = read(fd, buf, nbytes);
-	if (ret == -1) {
-		return_generic(slave, RET_READ, ret, errno);
-		return;
-	}
-
-	return_read(slave, ret, buf);
-}
-
 static int
 process_exit(struct slave *slave)
 {

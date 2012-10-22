@@ -31,15 +31,16 @@ stat = Struct([
 
 class Argument:
 
-    def __init__(self, opt=None, out=False, size=None, struct=None):
+    def __init__(self, opt=None, out=False, size=None, retsize=None, struct=None):
         self.opt = opt
         self.out = out
         self.size = size
+        self.retsize = retsize
         self.struct = struct
 
 SYSCALLS = {
         "fmaster_read": {
-            "buf": Argument(out=True, size="retval")
+            "buf": Argument(out=True, size="nbytes", retsize="retval")
             },
         "fmaster_write": {
             "buf": Argument(size="nbytes")
@@ -125,6 +126,7 @@ def datasize_of_datatype(datatype):
             "ssize_t": 64,
             "uint64_t": 64,
             "void": 64,
+            "command_t": 32,
             "int": 32,
             "char": 1
             }
@@ -259,11 +261,11 @@ def bufsize_of_datatype(datatype):
     concrete = concrete_datatype_of_abstract_datatype(datatype)
     return "FSYSCALL_BUFSIZE_" + concrete.upper()
 
-def make_payload_size_expr(syscall, args):
+def make_payload_size_expr(syscall, args, bufsize="size"):
     terms = []
     for a in args:
         if a.datatype == "void *":
-            size = SYSCALLS[syscall.name][a.name].size
+            size = getattr(SYSCALLS[syscall.name][a.name], bufsize)
             assert size is not None
             terms.append(size)
             continue
@@ -316,7 +318,7 @@ def print_write(p, syscall):
             name = a.name
             size = SYSCALLS[syscall.name][name].size
             p("""\
-\terror = fmaster_write_userspace(td, wfd, uap->{name}, {size});
+\terror = fmaster_write_from_userspace(td, wfd, uap->{name}, {size});
 \tif (error != 0)
 \t\treturn (error);
 """.format(**locals()))
@@ -368,11 +370,12 @@ execute_return(struct thread *td, struct {name}_args *uap)
 
     local_vars = []
     for datatype, name in (
+            ("command_t", "cmd"),
             ("int", "errnum"),
             ("int", "errnum_len"),
             ("int", "error"),
             ("int", "retval_len"),
-            ("int", "wfd"),
+            ("int", "rfd"),
             ("payload_size_t", "expected_payload_size"),
             ("payload_size_t", "payload_size"),
             (syscall.rettype, "retval")):
@@ -389,7 +392,14 @@ execute_return(struct thread *td, struct {name}_args *uap)
     print_locals(p, local_vars)
     print_newline()
 
+    cmd_name = make_cmd_name(syscall.name)
+    t = concrete_datatype_of_abstract_datatype(syscall.rettype)
     p("""\
+\terror = fmaster_read_command(td, &cmd);
+\tif (error != 0)
+\t\treturn (error);
+\tif (cmd != RET_{cmd_name})
+\t\treturn (EPROTO);
 \terror = fmaster_read_payload_size(td, &payload_size);
 \tif (error != 0)
 \t\treturn (error);
@@ -405,19 +415,19 @@ execute_return(struct thread *td, struct {name}_args *uap)
 \t\t\treturn (EPROTO);
 \t\treturn (errnum);
 \t}}
-""".format(t=concrete_datatype_of_abstract_datatype(syscall.rettype)))
+""".format(**locals()))
     print_newline()
     p("""\
-\twfd = fmaster_wfd_of_thread(td);
+\trfd = fmaster_rfd_of_thread(td);
 """)
 
     for a in out_arguments:
         if a.datatype == "void *":
             p("""\
-\terror = fmaster_read(td, wfd, uap->{name}, {size});
+\terror = fmaster_read_to_userspace(td, rfd, uap->{name}, {size});
 \tif (error != 0)
 \t\treturn (error);
-""".format(name=a.name, size=data_of_argument(syscall, a).size))
+""".format(name=a.name, size=data_of_argument(syscall, a).retsize))
             continue
 
         p("""\
@@ -427,7 +437,7 @@ execute_return(struct thread *td, struct {name}_args *uap)
 """)
     print_newline()
 
-    expected_payload_size = make_payload_size_expr(syscall, out_arguments)
+    expected_payload_size = make_payload_size_expr(syscall, out_arguments, "retsize")
     p("""\
 \texpected_payload_size = retval_len + {expected_payload_size};
 \tif (expected_payload_size != payload_size)
@@ -583,7 +593,17 @@ def write_command(dirpath, syscalls):
     write_command_code(dirpath, syscalls)
     write_command_name(dirpath, syscalls)
 
+def make_pointer(a):
+    datatype = a.datatype
+    space = "" if datatype[-1] == "*" else " "
+    name = a.name
+    return "{datatype}{space}*{name}".format(**locals())
+
 def print_fslave_head(p, syscall):
+    args = ["struct slave *slave", "int *retval", "int *errnum"]
+    for a in out_arguemnts_of_syscall(syscall):
+        args.append(make_pointer(a))
+
     name = drop_prefix(syscall.name)
     print_caution(p)
     p("""\
@@ -592,32 +612,37 @@ def print_fslave_head(p, syscall):
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <fsyscall/private.h>
 #include <fsyscall/private/command.h>
+#include <fsyscall/private/encode.h>
 #include <fsyscall/private/fslave.h>
 #include <fsyscall/private/io.h>
 
 static void
-execute_{name}(struct slave *slave, int *ret, int *errnum)
+execute_call({args})
 {{
-""".format(**locals()))
+""".format(args=", ".join(args)))
 
 def make_fslave_payload_size_expr(syscall):
     terms = []
     for a in syscall.args:
+        if data_of_argument(syscall, a).out:
+            continue
         if a.datatype == "void *":
             terms.append(SYSCALLS[syscall.name][a.name].size)
             continue
         terms.append("{name}_len".format(**vars(a)))
     return " + ".join(terms)
 
-def print_fslave_main(p, print_newline, syscall):
+def print_fslave_call(p, print_newline, syscall):
     local_vars = []
     for datatype, name in (
             ("payload_size_t", "payload_size"),
             ("payload_size_t", "actual_payload_size"),
             ("int", "rfd")):
         local_vars.append(Variable(datatype, name))
-    for a in syscall.args:
+    input_arguments = input_arguments_of_syscall(syscall)
+    for a in input_arguments:
         if a.datatype == "void *":
             local_vars.append(Variable(a.datatype, a.name))
             continue
@@ -637,6 +662,8 @@ def print_fslave_main(p, print_newline, syscall):
 """)
     print_newline()
     for a in syscall.sending_order_args:
+        if data_of_argument(syscall, a).out:
+            continue
         name = a.name
         if a.datatype == "void *":
             size = SYSCALLS[syscall.name][name].size
@@ -665,35 +692,150 @@ def print_fslave_main(p, print_newline, syscall):
 """.format(**locals()))
     print_newline()
     payload_size = make_fslave_payload_size_expr(syscall)
-    name = drop_prefix(syscall.name)
-    args = ", ".join([a.name for a in syscall.args])
     p("""\
 \tactual_payload_size = {payload_size};
 \tdie_if_payload_size_mismatched(payload_size, actual_payload_size);
-
-\t*ret = {name}({args});
-\t*errnum = errno;
 """.format(**locals()))
+    print_newline()
+
+    out_arguments = out_arguemnts_of_syscall(syscall)
+    for a in out_arguments:
+        assert a.datatype == "void *"
+        name = a.name
+        datatype = a.datatype
+        size = data_of_argument(syscall, a).size
+        p("""\
+\t*{name} = ({datatype})malloc({size});
+""".format(**locals()))
+    if 0 < len(out_arguments):
+        print_newline()
+
+    args = []
+    for a in syscall.args:
+        ast = "*" if data_of_argument(syscall, a).out else ""
+        args.append("{ast}{name}".format(ast=ast, name=a.name))
+    p("""\
+\t*retval = {name}({args});
+\t*errnum = errno;
+""".format(name=drop_prefix(syscall.name), args=", ".join(args)))
+
     for a in syscall.args:
         if a.datatype != "char *":
             continue
         p("""\
 \tfree({name});
 """.format(**vars(a)))
-
-def print_fslave_tail(p, syscall):
-    name = drop_prefix(syscall.name)
-    cmd_name = make_cmd_name(syscall.name)
     p("""\
 }}
+""".format(**locals()))
 
+def print_fslave_main(p, print_newline, syscall):
+    name = drop_prefix(syscall.name)
+    p("""\
 void
 process_{name}(struct slave *slave)
 {{
-\tint errnum, ret;
+""".format(**locals()))
 
-\texecute_{name}(slave, &ret, &errnum);
-\treturn_generic(slave, RET_{cmd_name}, ret, errnum);
+    local_vars = []
+    for datatype, name in (("int", "retval"), ("int", "errnum")):
+        local_vars.append(Variable(datatype, name))
+
+    out_arguments = out_arguemnts_of_syscall(syscall)
+    if len(out_arguments) == 0:
+        cmd_name = make_cmd_name(syscall.name)
+        print_locals(p, local_vars)
+        print_newline()
+        p("""\
+\texecute_call(slave, &retval, &errnum);
+\treturn_generic(slave, RET_{cmd_name}, retval, errnum);
+}}
+""".format(**locals()))
+        return
+
+    for a in out_arguments:
+        local_vars.append(Variable(a.datatype, a.name))
+
+    print_locals(p, local_vars)
+    print_newline()
+    call_args = ", ".join(["&{name}".format(**vars(a)) for a in out_arguments])
+    ret_args = ", ".join([a.name for a in out_arguments])
+    p("""\
+\texecute_call(slave, &retval, &errnum, {call_args});
+\texecute_return(slave, retval, errnum, {ret_args});
+}}
+""".format(**locals()))
+
+def print_fslave_return(p, print_newline, syscall):
+    args = ", ".join([make_decl(a) for a in out_arguemnts_of_syscall(syscall)])
+    p("""\
+static void
+execute_return(struct slave *slave, int retval, int errnum, {args})
+{{
+""".format(**locals()))
+
+    local_vars = [Variable(datatype, name, size) for datatype, name, size in (
+        ("payload_size_t", "payload_size", None),
+        ("char", "retval_buf", bufsize_of_datatype(syscall.rettype)),
+        ("int", "retval_len", None),
+        ("int", "wfd", None))]
+    out_arguments = out_arguemnts_of_syscall(syscall)
+    for a in out_arguments:
+        datatype = a.datatype
+        if a.datatype == "void *":
+            continue
+        append = local_vars.append
+        append(Variable("int", "{name}_len".format(**vars(a))))
+        size = bufsize_of_datatype(datatype)
+        append(Variable("char", "{name}_buf".format(**vars(a)), size))
+
+    print_locals(p, local_vars)
+    print_newline()
+    cmd_name = make_cmd_name(syscall.name)
+    p("""\
+\tif (retval == -1) {{
+\t\treturn_generic(slave, RET_{cmd_name}, retval, errnum);
+\t\treturn;
+\t}}
+""".format(**locals()))
+    print_newline()
+    p("""\
+\tretval_len = encode_{datatype}(retval, retval_buf, array_sizeof(retval_buf));
+""".format(datatype=concrete_datatype_of_abstract_datatype(syscall.rettype)))
+    for a in out_arguments:
+        if a.datatype == "void *":
+            continue
+        name = a.name
+        datatype = concrete_datatype_of_abstract_datatype(a.datatype)
+        p("""\
+\t{name}_len = encode_{datatype}({name}, {name}_buf, array_sizeof({name}_buf));
+""".format(**locals()))
+    payload_size = make_payload_size_expr(syscall, out_arguments, "retsize")
+    p("""\
+\tpayload_size = retval_len + {payload_size};
+
+\twfd = slave->wfd;
+\twrite_command(wfd, RET_{cmd_name});
+\twrite_payload_size(wfd, payload_size);
+\twrite_or_die(wfd, retval_buf, retval_len);
+""".format(**locals()))
+    for a in out_arguments:
+        if a.datatype == "void *":
+            name = a.name
+            size = data_of_argument(syscall, a).retsize
+            p("""\
+\twrite_or_die(wfd, {name}, {size});
+""".format(**locals()))
+            continue
+        p("""\
+\twrite_or_die(wfd, {name}_buf, {name}_len);
+""".format(**vars(a)))
+    print_newline()
+    for a in out_arguments:
+        p("""\
+\tfree({name});
+""".format(**vars(a)))
+    p("""\
 }}
 """.format(**locals()))
 
@@ -704,8 +846,12 @@ def write_fslave(dirpath, syscalls):
         with open(path, "w") as fp:
             p, print_newline = partial_print(fp)
             print_fslave_head(p, syscall)
+            print_fslave_call(p, print_newline, syscall)
+            print_newline()
+            if 0 < len(out_arguemnts_of_syscall(syscall)):
+                print_fslave_return(p, print_newline, syscall)
+                print_newline()
             print_fslave_main(p, print_newline, syscall)
-            print_fslave_tail(p, syscall)
 
 def write_makefile(path, syscalls):
     with open(path, "w") as fp:
