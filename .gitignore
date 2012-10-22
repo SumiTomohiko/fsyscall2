@@ -29,6 +29,7 @@ fslave/fslave_access.c
 fslave/fslave_close.c
 fslave/fslave_link.c
 fslave/fslave_open.c
+fslave/fslave_read.c
 fslave/fslave_write.c
 include/fsyscall/private/command/code.h
 include/fsyscall/private/command/name.h
