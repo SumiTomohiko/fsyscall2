@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Usage: run_tests [tests...]
+# usage: run_tests [tests...]
 # If no test is given, run_tests tests all test_* under tests directory.
 
 typename()
