@@ -1,4 +1,4 @@
 
-SUBDIR=	access close exit open read write
+SUBDIR=	access close exit open read stat write
 
 .include <bsd.subdir.mk>
