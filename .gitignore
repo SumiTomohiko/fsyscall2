@@ -44,5 +44,6 @@ tests/*/write/write
 tests/amd64/stat/name.inc
 tests/amd64/stat/print.inc
 tests/amd64/stat/print_stat_layout
+tests/amd64/stat/stat
 tests/encode/pid/pid
 tests/tester/tester
