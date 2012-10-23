@@ -1,11 +1,14 @@
 
 PROG=		stat
 ADDITIONAL=	name.inc print.inc
+GENERATOR=	print_stat_layout
+GENERATOR_SRCS=	${GENERATOR}.c
+CFLAGS+=	-g -Wall -Werror
 
-name.inc print.inc: print_stat_layout
-	./print_stat_layout
+${ADDITIONAL}: ${GENERATOR}
+	./${GENERATOR}
 
-print_stat_layout: print_stat_layout.c
-	${CC} -o ${.TARGET} -g -Wall -Werror print_stat_layout.c
+${GENERATOR}: ${GENERATOR_SRCS} Makefile
+	${CC} -o ${.TARGET} ${CFLAGS} ${GENERATOR_SRCS}
 
 .include "../Makefile.asm"
