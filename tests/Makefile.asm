@@ -6,7 +6,7 @@ ADDITIONAL+=	Makefile ../Makefile ../Makefile.asm
 all: ${PROG}
 
 ${PROG}: ${OBJS}
-	ld -o ${.TARGET} ${OBJS}
+	ld -o ${.TARGET} ${OBJS} -L../lib -ltest
 
 ${OBJS}: ${SRCS} ${ADDITIONAL}
 	nasm -f ${FORMAT} -o ${.TARGET} -l ${PROG}.lst ${SRCS}

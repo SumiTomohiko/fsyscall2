@@ -1,4 +1,4 @@
-%include "../amd64.inc"
+%include "../test.inc"
 
 ; usage: stat path [member]
 ; Exit status of this program is that of stat(2). If member is given, this

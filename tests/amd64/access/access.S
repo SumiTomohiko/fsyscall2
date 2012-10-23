@@ -1,4 +1,4 @@
-%include "../amd64.inc"
+%include "../test.inc"
 
 ; Usage: access path flags
 ; flags is hexadecimal.

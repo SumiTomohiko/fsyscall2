@@ -1,4 +1,4 @@
-%include "../amd64.inc"
+%include "../test.inc"
 
 ; Usage: exit x x x ...
 ; exit exits with status number that is same as number of command line

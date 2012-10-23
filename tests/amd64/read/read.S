@@ -1,4 +1,4 @@
-%include "../amd64.inc"
+%include "../test.inc"
 
 ; Usage: read path
 ; This is kind of cat. This writes contents of <path> to stdout.

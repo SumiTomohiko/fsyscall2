@@ -1,4 +1,4 @@
-%include "../amd64.inc"
+%include "../test.inc"
 
 ; Usage: open path flags mode
 ; flags must be hexadecimal, mode must be octal.

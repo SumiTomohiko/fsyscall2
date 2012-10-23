@@ -1,6 +1,6 @@
 
 FORMAT=		elf64
-ADDITIONAL+=	../amd64.inc
+ADDITIONAL+=	../sys.inc ../test.inc
 
 .include "../../Makefile.asm"
 
