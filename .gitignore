@@ -6,6 +6,7 @@
 *.lst
 *.o
 *.po
+.gdb_history
 fmaster/@
 fmaster/export_syms
 fmaster/machine
