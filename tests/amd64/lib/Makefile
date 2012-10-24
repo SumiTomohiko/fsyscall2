@@ -1,6 +1,6 @@
 
 LIB=	libtest.a
-SRCS=	atoi.S exit.S streq.S strlen.S
+SRCS=	atoi.S exit.S print_num.S streq.S strlen.S
 OBJS=	${SRCS:.S=.o}
 
 all: ${LIB}
