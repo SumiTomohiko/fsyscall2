@@ -47,6 +47,7 @@ main(int argc, char *argv[])
 	bool verbose = false;
 	char name_path[MAXPATHLEN], print_path[MAXPATHLEN], prog[MAXPATHLEN];
 	const char *dirpath, *fmt = "offsetof(struct stat, %s)=%lu\n", *reg, *s;
+	const char *tab, *tabs = "\t\t";
 	const char *tmpl = "\
 \t; %s\n\
 \tmov\trdi, member\n\
@@ -84,14 +85,15 @@ main(int argc, char *argv[])
 	if (verbose)
 		printf("sizeof(struct stat)=%zu\n", sizeof(struct stat));
 
-#define	PROCESS_MEMBER(name)	do {				\
-	reg = register_of_size(sizeof(stat.name));		\
-	offset = offsetof(struct stat, name);			\
-	if (verbose)						\
-		printf(fmt, #name, offset);			\
-	fprintf(name_fp, "%s:\tdb\t\"%s\", 0\n", #name, #name);	\
-	s = #name;						\
-	fprintf(print_fp, tmpl, s, s, s, reg, offset, s);	\
+#define	PROCESS_MEMBER(name)	do {					\
+	reg = register_of_size(sizeof(stat.name));			\
+	offset = offsetof(struct stat, name);				\
+	if (verbose)							\
+		printf(fmt, #name, offset);				\
+	tab = tabs + (strlen(#name) < 7 ? 0 : 1);			\
+	fprintf(name_fp, "%s:%sdb\t\"%s\", 0\n", #name, tab, #name);	\
+	s = #name;							\
+	fprintf(print_fp, tmpl, s, s, s, reg, offset, s);		\
 } while (0)
 	PROCESS_MEMBER(st_dev);
 	PROCESS_MEMBER(st_ino);
