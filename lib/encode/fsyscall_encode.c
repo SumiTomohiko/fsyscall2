@@ -23,6 +23,7 @@ name(char *buf, int bufsize, type *dest)		\
 }
 
 IMPLEMENT_DECODE_X(command_t, fsyscall_decode_command)
+IMPLEMENT_DECODE_X(int16_t, fsyscall_decode_int16)
 IMPLEMENT_DECODE_X(int32_t, fsyscall_decode_int32)
 IMPLEMENT_DECODE_X(int64_t, fsyscall_decode_int64)
 

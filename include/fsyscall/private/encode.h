@@ -6,6 +6,7 @@
 #include <fsyscall/private/command.h>
 
 int	fsyscall_decode_command(char *, int, command_t *);
+int	fsyscall_decode_int16(char *, int, int16_t *);
 int	fsyscall_decode_int32(char *, int, int32_t *);
 int	fsyscall_decode_int64(char *, int, int64_t *);
 #define	fsyscall_decode_uint32(buf, bufsize, dest) \
@@ -19,6 +20,7 @@ int		fsyscall_encode_uint64(uint64_t, char *, int);
 
 #define	FSYSCALL_BUFSIZE(type)		(sizeof(type) * 8 / 7 + 1)
 #define	FSYSCALL_BUFSIZE_COMMAND	FSYSCALL_BUFSIZE(command_t)
+#define	FSYSCALL_BUFSIZE_INT16		FSYSCALL_BUFSIZE(int16_t)
 #define	FSYSCALL_BUFSIZE_INT32		FSYSCALL_BUFSIZE(int32_t)
 #define	FSYSCALL_BUFSIZE_INT64		FSYSCALL_BUFSIZE(int64_t)
 #define	FSYSCALL_BUFSIZE_PAYLOAD_SIZE	FSYSCALL_BUFSIZE(payload_size_t)

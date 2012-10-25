@@ -6,7 +6,7 @@ TOP_DIR=	..
 
 KMOD=		fmaster
 SRCS=		elf_machdep.c fmaster_access.c fmaster_close.c fmaster_exit.c \
-		fmaster_link.c fmaster_open.c fmaster_read.c \
+		fmaster_link.c fmaster_open.c fmaster_read.c fmaster_stat.c \
 		fmaster_syscalls.c fmaster_sysent.c fmaster_subr.c \
 		fmaster_write.c fsyscall_encode.c imgact_elf32.c \
 		imgact_elf64.c kern_exec.c syscall.c

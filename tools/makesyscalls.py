@@ -26,7 +26,23 @@ class Struct:
         self.members = members
 
 stat = Struct([
-    # TODO: Write here.
+    Variable("__dev_t", "st_dev"),
+    Variable("ino_t", "st_ino"),
+    Variable("mode_t", "st_mode"),
+    Variable("nlink_t", "st_nlink"),
+    Variable("uid_t", "st_uid"),
+    Variable("gid_t", "st_gid"),
+    Variable("__dev_t", "st_rdev"),
+    #Variable("struct timespec", "st_atim"),
+    #Variable("struct timespec", "st_mtim"),
+    #Variable("struct timespec", "st_ctim"),
+    Variable("off_t", "st_size"),
+    Variable("blkcnt_t", "st_blocks"),
+    Variable("blksize_t", "st_blksize"),
+    Variable("fflags_t", "st_flags"),
+    Variable("__uint32_t", "st_gen"),
+    Variable("__int32_t", "st_lspare"),
+    #Variable("struct timespec", "st_birthtim")
     ])
 
 class Argument:
@@ -51,8 +67,8 @@ SYSCALLS = {
         "fmaster_close": {},
         "fmaster_link": {},
         "fmaster_access": {},
-        "fmaster_fstat": {
-            "sb": Argument(out=True, struct=stat)
+        "fmaster_stat": {
+            "ub": Argument(out=True, struct=stat)
             }
         }
 FMASTER_SYSCALLS = SYSCALLS
@@ -119,16 +135,30 @@ def drop_pointer(datatype):
     return datatype if datatype[-1] != "*" else datatype[:-2]
 
 def datasize_of_datatype(datatype):
+    if datatype.split()[0] == "struct":
+        return 64
     DATASIZE_OF_DATATYPE = {
+            "__dev_t": 32,
+            "__int32_t": 32,
+            "__uint32_t": 32,
+            "blkcnt_t": 64,
+            "blksize_t": 32,
+            "char": 1,
+            "command_t": 32,
+            "fflags_t": 32,
+            "gid_t": 32,
+            "ino_t": 32,
+            "int": 32,
             "int64_t": 64,
+            "mode_t": 16,
+            "nlink_t": 16,
+            "off_t": 64,
             "payload_size_t": 64,
             "size_t": 64,
             "ssize_t": 64,
+            "uid_t": 32,
             "uint64_t": 64,
-            "void": 64,
-            "command_t": 32,
-            "int": 32,
-            "char": 1
+            "void": 64
             }
     return DATASIZE_OF_DATATYPE[datatype]
 
@@ -202,6 +232,8 @@ def print_head(p, name):
 #include <sys/fcntl.h>
 #include <sys/libkern.h>
 #include <sys/proc.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <fsyscall/private.h>
 #include <fsyscall/private/command.h>
@@ -216,6 +248,20 @@ execute_call(struct thread *td, struct {name}_args *uap)
 
 def concrete_datatype_of_abstract_datatype(datatype):
     return {
+            "__dev_t": "uint32",
+            "__int32_t": "int32",
+            "__uint32_t": "uint32",
+            "blkcnt_t": "int64",
+            "blksize_t": "uint32",
+            "fflags_t": "uint32",
+            "gid_t": "uint32",
+            "ino_t": "uint32",
+            "int64_t": "int64",
+            "mode_t": "uint16",
+            "nlink_t": "uint16",
+            "off_t": "int64",
+            "uid_t": "uint32",
+            "uint64_t": "uint64",
             "char *": "uint64",
             "size_t": "uint64",
             "ssize_t": "int64",
@@ -268,6 +314,14 @@ def make_payload_size_expr(syscall, args, bufsize="size"):
             size = getattr(SYSCALLS[syscall.name][a.name], bufsize)
             assert size is not None
             terms.append(size)
+            continue
+
+        st = data_of_argument(syscall, a).struct
+        if st is not None:
+            struct_name = a.name
+            for member in st.members:
+                name = member.name
+                terms.append("{struct_name}_{name}_len".format(**locals()))
             continue
 
         if a.datatype == "char *":
@@ -384,6 +438,19 @@ execute_return(struct thread *td, struct {name}_args *uap)
     for a in out_arguments:
         if a.datatype == "void *":
             continue
+        st = data_of_argument(syscall, a).struct
+        if st is not None:
+            local_vars.append(Variable(a.datatype, a.name))
+            for datatype, name in (
+                    ("int", "{name}_len"),
+                    ("{datatype}", "{name}")):
+                for member in st.members:
+                    s = "{arg}_{member}".format(arg=a.name, member=member.name)
+                    d = { "datatype": member.datatype, "name": s }
+                    t = datatype.format(**d)
+                    n = name.format(**d)
+                    local_vars.append(Variable(t, n))
+            continue
         for datatype, name in (("int", "{name}_len"), ("{datatype}", "{name}")):
             d = vars(a)
             t = datatype.format(**d)
@@ -429,12 +496,22 @@ execute_return(struct thread *td, struct {name}_args *uap)
 \t\treturn (error);
 """.format(name=a.name, size=data_of_argument(syscall, a).retsize))
             continue
-
-        p("""\
-\terror = fmaster_read_{t}(td, &{name}, &{name}_len);
+        st = data_of_argument(syscall, a).struct
+        if st is not None:
+            struct_name = a.name
+            p("""\
+\t{struct_name} = uap->{struct_name};
+""".format(**locals()))
+            for member in st.members:
+                t = concrete_datatype_of_abstract_datatype(member.datatype)
+                name = member.name
+                var = "{struct_name}_{name}".format(**locals())
+                p("""\
+\terror = fmaster_read_{t}(td, &{var}, &{var}_len);
 \tif (error != 0)
 \t\treturn (error);
-""")
+\t{struct_name}->{name} = {var};
+""".format(**locals()))
     print_newline()
 
     expected_payload_size = make_payload_size_expr(syscall, out_arguments, "retsize")
@@ -607,6 +684,8 @@ def print_fslave_head(p, syscall):
     name = drop_prefix(syscall.name)
     print_caution(p)
     p("""\
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>

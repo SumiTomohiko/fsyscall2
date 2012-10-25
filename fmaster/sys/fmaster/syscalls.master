@@ -48,6 +48,7 @@
 ; #ifdef's, etc. may be included, and are copied to the output files.
 
 #include <sys/param.h>
+#include <sys/stat.h>
 #include <sys/sysent.h>
 #include <sys/sysproto.h>
 #include <sys/fmaster/fmaster_proto.h>
@@ -314,7 +315,7 @@
 185	AUE_NULL	UNIMPL	lfs_markv
 186	AUE_NULL	UNIMPL	lfs_segclean
 187	AUE_NULL	UNIMPL	lfs_segwait
-188	AUE_STAT	UNIMPL	{ int fmaster_stat(char *path, \
+188	AUE_STAT	STD	{ int fmaster_stat(char *path, \
 				    struct stat *ub); }
 189	AUE_FSTAT	UNIMPL	{ int fmaster_fstat(int fd, struct stat *sb); }
 190	AUE_LSTAT	UNIMPL	{ int fmaster_lstat(char *path, \

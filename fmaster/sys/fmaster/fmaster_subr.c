@@ -79,6 +79,11 @@ name(struct thread *td, type *dest, int *size)			\
 }
 
 IMPLEMENT_READ_X(
+	int16_t,
+	fmaster_read_int16,
+	FSYSCALL_BUFSIZE_INT16,
+	fsyscall_decode_int16)
+IMPLEMENT_READ_X(
 	int32_t,
 	fmaster_read_int32,
 	FSYSCALL_BUFSIZE_INT32,
