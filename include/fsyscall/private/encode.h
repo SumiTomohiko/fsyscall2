@@ -15,6 +15,7 @@ int	fsyscall_decode_int64(char *, int, int64_t *);
 #define		fsyscall_encode_command	fsyscall_encode_uint32
 int		fsyscall_encode_int32(int32_t, char *, int);
 int		fsyscall_encode_int64(int64_t, char *, int);
+int		fsyscall_encode_uint16(uint16_t, char *, int);
 int		fsyscall_encode_uint32(uint32_t, char *, int);
 int		fsyscall_encode_uint64(uint64_t, char *, int);
 
@@ -24,6 +25,7 @@ int		fsyscall_encode_uint64(uint64_t, char *, int);
 #define	FSYSCALL_BUFSIZE_INT32		FSYSCALL_BUFSIZE(int32_t)
 #define	FSYSCALL_BUFSIZE_INT64		FSYSCALL_BUFSIZE(int64_t)
 #define	FSYSCALL_BUFSIZE_PAYLOAD_SIZE	FSYSCALL_BUFSIZE(payload_size_t)
+#define	FSYSCALL_BUFSIZE_UINT16		FSYSCALL_BUFSIZE(uint16_t)
 #define	FSYSCALL_BUFSIZE_UINT32		FSYSCALL_BUFSIZE(uint32_t)
 #define	FSYSCALL_BUFSIZE_UINT64		FSYSCALL_BUFSIZE(uint64_t)
 
@@ -31,6 +33,7 @@ int		fsyscall_encode_uint64(uint64_t, char *, int);
 #define		encode_command	encode_uint32
 int		encode_int32(int32_t, char *, int);
 int		encode_int64(int64_t, char *, int);
+int		encode_uint16(uint16_t, char *, int);
 int		encode_uint32(uint32_t, char *, int);
 int		encode_uint64(uint64_t, char *, int);
 command_t	decode_command(char *, int);

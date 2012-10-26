@@ -670,7 +670,7 @@ def write_command(dirpath, syscalls):
     write_command_code(dirpath, syscalls)
     write_command_name(dirpath, syscalls)
 
-def make_pointer(a):
+def make_execute_call_format_argument(a):
     datatype = a.datatype
     space = "" if datatype[-1] == "*" else " "
     name = a.name
@@ -679,7 +679,11 @@ def make_pointer(a):
 def print_fslave_head(p, syscall):
     args = ["struct slave *slave", "int *retval", "int *errnum"]
     for a in out_arguemnts_of_syscall(syscall):
-        args.append(make_pointer(a))
+        st = data_of_argument(syscall, a).struct
+        if st is not None:
+            args.append("{datatype}{name}".format(**vars(a)))
+            continue
+        args.append(make_execute_call_format_argument(a))
 
     name = drop_prefix(syscall.name)
     print_caution(p)
@@ -777,21 +781,25 @@ def print_fslave_call(p, print_newline, syscall):
 """.format(**locals()))
     print_newline()
 
+    malloced = False
     out_arguments = out_arguemnts_of_syscall(syscall)
     for a in out_arguments:
-        assert a.datatype == "void *"
+        if a.datatype != "void *":
+            continue
         name = a.name
         datatype = a.datatype
         size = data_of_argument(syscall, a).size
         p("""\
 \t*{name} = ({datatype})malloc({size});
 """.format(**locals()))
-    if 0 < len(out_arguments):
+        malloced = True
+    if malloced:
         print_newline()
 
     args = []
     for a in syscall.args:
-        ast = "*" if data_of_argument(syscall, a).out else ""
+        data = data_of_argument(syscall, a)
+        ast = "*" if data.out and (data.struct is None) else ""
         args.append("{ast}{name}".format(ast=ast, name=a.name))
     p("""\
 \t*retval = {name}({args});
@@ -807,6 +815,14 @@ def print_fslave_call(p, print_newline, syscall):
     p("""\
 }}
 """.format(**locals()))
+
+def make_execute_return_actual_arguments(syscall, args):
+    exprs = []
+    for a in args:
+        st = data_of_argument(syscall, a).struct
+        fmt = "&{name}" if st is not None else "{name}"
+        exprs.append(fmt.format(**vars(a)))
+    return ", ".join(exprs)
 
 def print_fslave_main(p, print_newline, syscall):
     name = drop_prefix(syscall.name)
@@ -833,12 +849,14 @@ process_{name}(struct slave *slave)
         return
 
     for a in out_arguments:
-        local_vars.append(Variable(a.datatype, a.name))
+        st = data_of_argument(syscall, a).struct
+        datatype = drop_pointer(a.datatype) if st is not None else a.datatype
+        local_vars.append(Variable(datatype, a.name))
 
     print_locals(p, local_vars)
     print_newline()
     call_args = ", ".join(["&{name}".format(**vars(a)) for a in out_arguments])
-    ret_args = ", ".join([a.name for a in out_arguments])
+    ret_args = make_execute_return_actual_arguments(syscall, out_arguments)
     p("""\
 \texecute_call(slave, &retval, &errnum, {call_args});
 \texecute_return(slave, retval, errnum, {ret_args});
@@ -863,10 +881,18 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
         datatype = a.datatype
         if a.datatype == "void *":
             continue
-        append = local_vars.append
-        append(Variable("int", "{name}_len".format(**vars(a))))
-        size = bufsize_of_datatype(datatype)
-        append(Variable("char", "{name}_buf".format(**vars(a)), size))
+        st = data_of_argument(syscall, a).struct
+        assert st is not None
+        for member in st.members:
+            append = local_vars.append
+            fmt = "{struct_name}_{name}_len"
+            struct_name = a.name
+            name = member.name
+            append(Variable("int", fmt.format(**locals())))
+
+            fmt = "{struct_name}_{name}_buf"
+            size = bufsize_of_datatype(member.datatype)
+            append(Variable("char", fmt.format(**locals()), size))
 
     print_locals(p, local_vars)
     print_newline()
@@ -884,10 +910,14 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
     for a in out_arguments:
         if a.datatype == "void *":
             continue
-        name = a.name
-        datatype = concrete_datatype_of_abstract_datatype(a.datatype)
-        p("""\
-\t{name}_len = encode_{datatype}({name}, {name}_buf, array_sizeof({name}_buf));
+        st = data_of_argument(syscall, a).struct
+        assert st is not None
+        for member in st.members:
+            struct_name = a.name
+            name = member.name
+            datatype = concrete_datatype_of_abstract_datatype(member.datatype)
+            p("""\
+\t{struct_name}_{name}_len = encode_{datatype}({struct_name}->{name}, {struct_name}_{name}_buf, array_sizeof({struct_name}_{name}_buf));
 """.format(**locals()))
     payload_size = make_payload_size_expr(syscall, out_arguments, "retsize")
     p("""\
@@ -906,11 +936,22 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
 \twrite_or_die(wfd, {name}, {size});
 """.format(**locals()))
             continue
-        p("""\
+        st = data_of_argument(syscall, a).struct
+        assert st is not None
+        for member in st.members:
+            fmt = "{struct_name}_{name}"
+            p("""\
 \twrite_or_die(wfd, {name}_buf, {name}_len);
-""".format(**vars(a)))
-    print_newline()
+""".format(name=fmt.format(struct_name=a.name, name=member.name)))
+
+    newlined = False
     for a in out_arguments:
+        st = data_of_argument(syscall, a).struct
+        if st is not None:
+            continue
+        if not newlined:
+            print_newline()
+            newlined = True
         p("""\
 \tfree({name});
 """.format(**vars(a)))
