@@ -40,7 +40,7 @@ arch=$(uname -p)
 rm -rf "${tmp_dir}" || exit 1
 mkdir -p "${tmp_dir}" || exit 1
 
-if [ -z "${@}" ]; then
+if [ $# -eq 0 ]; then
 	tests=$(find "${tests_dir}" -name "test_*" | sort)
 else
 	tests="${@}"
