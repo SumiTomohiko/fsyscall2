@@ -101,6 +101,7 @@ main(int argc, char *argv[])
 	PROCESS_MEMBER(st_nlink);
 	PROCESS_MEMBER(st_uid);
 	PROCESS_MEMBER(st_gid);
+	PROCESS_MEMBER(st_rdev);
 #if 0
 	PROCESS_MEMBER(st_atim);
 	PROCESS_MEMBER(st_mtim);
