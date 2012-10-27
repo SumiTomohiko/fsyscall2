@@ -158,6 +158,7 @@ process_shub(struct mhub *mhub)
 	case RET_CLOSE:
 	case RET_OPEN:
 	case RET_READ:
+	case RET_STAT:
 	case RET_WRITE:
 		transfer_payload_to_master(mhub, cmd);
 		break;
@@ -234,6 +235,7 @@ process_master(struct mhub *mhub, struct master *master)
 	case CALL_CLOSE:
 	case CALL_OPEN:
 	case CALL_READ:
+	case CALL_STAT:
 	case CALL_WRITE:
 		transfer_payload_from_master(mhub, master, cmd);
 		break;
