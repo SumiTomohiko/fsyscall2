@@ -164,6 +164,9 @@ mainloop(struct slave *slave)
 		case CALL_READ:
 			process_read(slave);
 			break;
+		case CALL_STAT:
+			process_stat(slave);
+			break;
 		case CALL_WRITE:
 			process_write(slave);
 			break;
