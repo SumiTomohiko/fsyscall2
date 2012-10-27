@@ -110,5 +110,5 @@ if [ -n "${summary}" ]; then
 	echo "${summary}"
 else
 	echo "${header}
-NO FAILURE"
+No Failure \(^o^)/"
 fi
