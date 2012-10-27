@@ -3,6 +3,30 @@
 # usage: run_tests [tests...]
 # If no test is given, run_tests tests all test_* under tests directory.
 
+show_title()
+{
+	local cmd len mark screen_size title unused
+
+	mark="$1"
+	title=" $2 "
+	screen_size="80"
+	cmd="echo -n \"\${mark}\""
+	len=$(((${screen_size} - ${#title}) / 2))
+	for unused in $(jot ${len})
+	do
+		eval ${cmd}
+	done
+	echo -n "${title}"
+	for unused in $(jot ${len})
+	do
+		eval ${cmd}
+	done
+	if [ $((2 * ${len} + ${#title})) != "${screen_size}" ]; then
+		eval ${cmd}
+	fi
+	echo
+}
+
 typename()
 {
 	local name
@@ -46,11 +70,11 @@ else
 	tests="${@}"
 fi
 
-echo "******** Running Tests ********"
+show_title "*" "Running Tests"
 summary=""
 for t in ${tests}
 do
-	echo "======== ${t} ========"
+	show_title "=" "${t}"
 
 	unset args cmd expected_status expected_stdout status unexpected_status
 	unset -f test_status
@@ -93,8 +117,8 @@ do
 
 	print_result "${t}" "${result}"
 	if [ "${result}" != "OK" ]; then
-		summary="${summary}
-${t}"
+		summary="${t}
+${summary}"
 	fi
 
 	if [ "$(typename postcmd)" = "shell function" ]; then
@@ -104,11 +128,9 @@ done
 
 rm -rf "${tmp_dir}" || exit 1
 
-header="******** Summary ********"
+show_title "*" "Summary"
 if [ -n "${summary}" ]; then
-	echo -n "${header}"
-	echo "${summary}"
+	echo -n "${summary}" | sort
 else
-	echo "${header}
-No Failure \(^o^)/"
+	echo "No Failure \(^o^)/"
 fi
