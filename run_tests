@@ -104,7 +104,11 @@ done
 
 rm -rf "${tmp_dir}" || exit 1
 
+header="******** Summary ********"
 if [ -n "${summary}" ]; then
-	echo -n "******** Summary ********"
+	echo -n "${header}"
 	echo "${summary}"
+else
+	echo "${header}
+NO FAILURE"
 fi
