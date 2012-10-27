@@ -1,0 +1,10 @@
+
+dir=$(dirname $0)
+
+. "${tests_dir}/stat.rc"
+
+args="${file} st_blksize"
+eval $(stat -s "${file}")
+expected_stdout="${st_blksize}"
+
+# vim: filetype=sh

@@ -1,0 +1,5 @@
+
+cmd="stat/stat"
+file="${tests_dir}/song"
+
+# vim: filetype=sh
