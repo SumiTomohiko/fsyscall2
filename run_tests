@@ -46,9 +46,11 @@ else
 	tests="${@}"
 fi
 
+echo "******** Running Tests ********"
+summary=""
 for t in ${tests}
 do
-	echo "******** ${t} ********"
+	echo "======== ${t} ========"
 
 	unset args cmd expected_status expected_stdout status unexpected_status
 	unset -f test_status
@@ -88,7 +90,12 @@ do
 		testcmd
 		result=$(test_result "${?}")
 	fi
+
 	print_result "${t}" "${result}"
+	if [ "${result}" != "OK" ]; then
+		summary="${summary}
+${t}"
+	fi
 
 	if [ "$(typename postcmd)" = "shell function" ]; then
 		postcmd
@@ -96,3 +103,8 @@ do
 done
 
 rm -rf "${tmp_dir}" || exit 1
+
+if [ -n "${summary}" ]; then
+	echo -n "******** Summary ********"
+	echo "${summary}"
+fi
