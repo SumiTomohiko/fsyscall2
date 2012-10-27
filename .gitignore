@@ -48,4 +48,5 @@ tests/amd64/stat/print.inc
 tests/amd64/stat/print_stat_layout
 tests/amd64/stat/stat
 tests/encode/pid/pid
+tests/o2d/o2d
 tests/tester/tester

@@ -5,6 +5,6 @@ dir=$(dirname $0)
 
 args="${file} st_mode"
 eval $(stat -s "${file}")
-expected_stdout="${st_mode}"
+expected_stdout="$(${tests_dir}/o2d/o2d ${st_mode})"
 
 # vim: filetype=sh
