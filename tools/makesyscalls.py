@@ -473,7 +473,6 @@ execute_return(struct thread *td, struct {name}_args *uap)
 \terror = fmaster_read_{t}(td, &retval, &retval_len);
 \tif (error != 0)
 \t\treturn (error);
-\ttd->td_retval[0] = retval;
 \tif (retval == -1) {{
 \t\terror = fmaster_read_int32(td, &errnum, &errnum_len);
 \t\tif (error != 0)
@@ -520,6 +519,7 @@ execute_return(struct thread *td, struct {name}_args *uap)
 \tif (expected_payload_size != payload_size)
 \t\treturn (EPROTO);
 
+\ttd->td_retval[0] = retval;
 \treturn (0);
 }}
 """.format(**locals()))
