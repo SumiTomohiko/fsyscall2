@@ -52,7 +52,7 @@ read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize, int *si
 	}
 	if (error != 0)
 		return (error);
-	if (pend <= p + 1)
+	if ((*p & 0x80) != 0)
 		return (EMSGSIZE);
 	*size = (uintptr_t)p - (uintptr_t)buf + 1;
 	return (0);
