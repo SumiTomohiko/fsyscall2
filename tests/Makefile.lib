@@ -8,8 +8,10 @@ ${LIB}: ${OBJS}
 
 ${OBJS}: ${ADDITIONAL} Makefile
 
+LST=	${.ALLSRC:M*.S:.S=.lst}
+
 .S.o:
-	nasm -f ${FORMAT} -o ${.TARGET} -l ${.ALLSRC:M*.S:.S=.lst} ${.ALLSRC:M*.S}
+	nasm -f ${FORMAT} -o ${.TARGET} -l ${LST} ${.ALLSRC:M*.S}
 
 clean:
 	rm -f ${OBJS} ${LIB} *.lst
