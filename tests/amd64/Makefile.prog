@@ -1,7 +1,7 @@
 
-FORMAT=		elf64
 ADDITIONAL+=	../sys.inc ../test.inc
 
-.include "../../Makefile.asm"
+.include "../Makefile.amd64"
+.include "../../Makefile.prog"
 
 # vim: filetype=make

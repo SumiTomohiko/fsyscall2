@@ -1,0 +1,5 @@
+
+.include "../Makefile.amd64"
+.include "../../Makefile.lib"
+
+# vim: filetype=make

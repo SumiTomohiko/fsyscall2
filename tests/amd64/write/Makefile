@@ -1,4 +1,4 @@
 
 PROG=	write
 
-.include "../Makefile.asm"
+.include "../Makefile.prog"

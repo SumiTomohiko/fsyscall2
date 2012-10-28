@@ -11,4 +11,4 @@ ${ADDITIONAL}: ${GENERATOR}
 ${GENERATOR}: ${GENERATOR_SRCS} Makefile
 	${CC} -o ${.TARGET} ${CFLAGS} ${GENERATOR_SRCS}
 
-.include "../Makefile.asm"
+.include "../Makefile.prog"

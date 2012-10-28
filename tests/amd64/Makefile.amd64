@@ -1,0 +1,4 @@
+
+FORMAT=	elf64
+
+# vim: filetype=make

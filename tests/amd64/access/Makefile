@@ -1,4 +1,4 @@
 
 PROG=	access
 
-.include "../Makefile.asm"
+.include "../Makefile.prog"

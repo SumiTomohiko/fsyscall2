@@ -1,4 +1,4 @@
 
 PROG=	read
 
-.include "../Makefile.asm"
+.include "../Makefile.prog"

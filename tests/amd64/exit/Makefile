@@ -1,4 +1,4 @@
 
 PROG=	exit
 
-.include "../Makefile.asm"
+.include "../Makefile.prog"
