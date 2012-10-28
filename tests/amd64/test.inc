@@ -9,6 +9,7 @@
 %endmacro
 
 extern atoi
+extern do_stat_test
 extern exit
 extern print_num
 extern streq

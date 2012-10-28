@@ -6,10 +6,10 @@ all: ${LIB}
 ${LIB}: ${OBJS}
 	${AR} cq ${.TARGET} ${OBJS}
 
-${SRCS}: Makefile
+${OBJS}: ${ADDITIONAL} Makefile
 
 .S.o:
-	nasm -f ${FORMAT} -o ${.TARGET} -l ${.ALLSRC:.S=.lst} ${.ALLSRC}
+	nasm -f ${FORMAT} -o ${.TARGET} -l ${.ALLSRC:M*.S:.S=.lst} ${.ALLSRC:M*.S}
 
 clean:
 	rm -f ${OBJS} ${LIB} *.lst

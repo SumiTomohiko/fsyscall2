@@ -43,9 +43,9 @@ tests/*/exit/exit
 tests/*/open/open
 tests/*/read/read
 tests/*/write/write
-tests/amd64/stat/name.inc
-tests/amd64/stat/print.inc
-tests/amd64/stat/print_stat_layout
+tests/amd64/do_stat_test/name.inc
+tests/amd64/do_stat_test/print.inc
+tests/amd64/do_stat_test/print_stat_layout
 tests/amd64/stat/stat
 tests/encode/pid/pid
 tests/o2d/o2d
