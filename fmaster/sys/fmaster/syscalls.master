@@ -318,7 +318,7 @@
 188	AUE_STAT	STD	{ int fmaster_stat(char *path, \
 				    struct stat *ub); }
 189	AUE_FSTAT	UNIMPL	{ int fmaster_fstat(int fd, struct stat *sb); }
-190	AUE_LSTAT	UNIMPL	{ int fmaster_lstat(char *path, \
+190	AUE_LSTAT	STD	{ int fmaster_lstat(char *path, \
 				    struct stat *ub); }
 191	AUE_PATHCONF	UNIMPL	{ int fmaster_pathconf(char *path, int name); }
 192	AUE_FPATHCONF	UNIMPL	{ int fmaster_fpathconf(int fd, int name); }
