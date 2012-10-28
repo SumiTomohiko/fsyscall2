@@ -1,9 +1,0 @@
-
-dir=$(dirname $0)
-
-. "${tests_dir}/stat.rc"
-
-args="${file}"
-expected_status="0"
-
-# vim: filetype=sh
