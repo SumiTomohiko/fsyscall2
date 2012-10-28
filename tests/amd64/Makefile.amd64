@@ -1,5 +1,5 @@
 
 FORMAT=		elf64
-NASMFLAGS+=	-I../lib/ -I../do_stat_test/ -I../
+NASMFLAGS+=	-I../include/
 
 # vim: filetype=make

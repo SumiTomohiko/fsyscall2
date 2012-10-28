@@ -1,5 +1,6 @@
 
-ADDITIONAL+=	../sys.inc ../prog.inc
+INCLUDE_DIR=	../include
+ADDITIONAL+=	${INCLUDE_DIR}/sys.inc ${INCLUDE_DIR}/prog.inc
 
 .include "../Makefile.amd64"
 .include "../../Makefile.prog"
