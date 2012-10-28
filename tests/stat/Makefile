@@ -21,3 +21,6 @@ ${DIR}/${syscall}.rc: ${RC_GENERATOR}
 .endfor
 
 all: ${TARGETS}
+
+clean:
+	rm -f ${TARGETS}
