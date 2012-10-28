@@ -1,5 +1,7 @@
 
-OBJS=	${SRCS:.S=.o}
+NASMFLAGS+=	-I${MACHINE_ARCH}
+LST=		${.ALLSRC:M*.S:.S=.lst}
+OBJS=		${SRCS:.S=.o}
 
 all: ${LIB}
 
@@ -8,10 +10,8 @@ ${LIB}: ${OBJS}
 
 ${OBJS}: ${ADDITIONAL} Makefile
 
-LST=	${.ALLSRC:M*.S:.S=.lst}
-
 .S.o:
-	nasm -f ${FORMAT} -o ${.TARGET} -l ${LST} ${.ALLSRC:M*.S}
+	nasm -f ${FORMAT} -o ${.TARGET} -l ${LST} ${NASMFLAGS} ${.ALLSRC:M*.S}
 
 clean:
 	rm -f ${OBJS} ${LIB} *.lst

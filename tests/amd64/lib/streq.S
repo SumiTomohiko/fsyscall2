@@ -1,4 +1,4 @@
-%include "../sys.inc"
+%include "sys.inc"
 
 ; usage: rdi=string, rsi=string
 ; If two strings are same, streq will return zero. Otherwise, non-zero.

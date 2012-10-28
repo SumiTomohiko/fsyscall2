@@ -1,8 +1,5 @@
-%include "../sys.inc"
-
-extern exit
-extern print_num
-extern streq
+%include "lib.inc"
+%include "sys.inc"
 
 %include "name.inc"
 

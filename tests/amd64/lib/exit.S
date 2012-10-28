@@ -1,4 +1,4 @@
-%include "../sys.inc"
+%include "sys.inc"
 
 ; usage: rdi=status
 global exit

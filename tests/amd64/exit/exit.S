@@ -1,4 +1,4 @@
-%include "../test.inc"
+%include "prog.inc"
 
 ; Usage: exit x x x ...
 ; exit exits with status number that is same as number of command line

@@ -9,7 +9,7 @@ ${PROG}: ${OBJS}
 	ld -o ${.TARGET} ${OBJS} ${LDFLAGS} -L../lib -ltest
 
 ${OBJS}: ${SRCS} ${ADDITIONAL}
-	nasm -f ${FORMAT} -o ${.TARGET} -l ${PROG}.lst ${SRCS}
+	nasm -f ${FORMAT} -o ${.TARGET} -l ${PROG}.lst ${NASMFLAGS} ${SRCS}
 
 clean:
 	rm -f ${PROG} ${OBJS}

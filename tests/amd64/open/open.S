@@ -1,4 +1,4 @@
-%include "../test.inc"
+%include "prog.inc"
 
 ; Usage: open path flags mode
 ; flags must be hexadecimal, mode must be octal.

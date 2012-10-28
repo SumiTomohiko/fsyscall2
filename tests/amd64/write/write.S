@@ -1,4 +1,4 @@
-%include "../test.inc"
+%include "prog.inc"
 
 ; Usage: write fd string
 

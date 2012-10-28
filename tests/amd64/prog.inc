@@ -1,4 +1,5 @@
-%include "../sys.inc"
+%include "lib.inc"
+%include "sys.inc"
 
 %macro test_argc 1
 	cmp	qword [rdi], %1
@@ -7,12 +8,5 @@
 	call	exit
 .__main__:
 %endmacro
-
-extern atoi
-extern do_stat_test
-extern exit
-extern print_num
-extern streq
-extern strlen
 
 # vim: filetype=nasm

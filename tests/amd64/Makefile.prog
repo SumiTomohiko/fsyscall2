@@ -1,5 +1,5 @@
 
-ADDITIONAL+=	../sys.inc ../test.inc
+ADDITIONAL+=	../sys.inc ../prog.inc
 
 .include "../Makefile.amd64"
 .include "../../Makefile.prog"

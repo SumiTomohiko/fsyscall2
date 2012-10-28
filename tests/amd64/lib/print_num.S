@@ -1,4 +1,4 @@
-%include "../sys.inc"
+%include "sys.inc"
 
 digits:	db	"0123456789"
 

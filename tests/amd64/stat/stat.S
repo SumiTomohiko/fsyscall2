@@ -1,4 +1,5 @@
-%include "../test.inc"
+%include "do_stat_test.inc"
+%include "sys.inc"
 
 ; usage: stat path [member]
 ; Exit status of this program is that of stat(2). If member is given, this
