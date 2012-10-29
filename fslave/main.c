@@ -158,6 +158,9 @@ mainloop(struct slave *slave)
 			break;
 		case CALL_EXIT:
 			return process_exit(slave);
+		case CALL_FSTAT:
+			process_fstat(slave);
+			break;
 		case CALL_LSTAT:
 			process_lstat(slave);
 			break;

@@ -67,6 +67,9 @@ SYSCALLS = {
         "fmaster_close": {},
         "fmaster_link": {},
         "fmaster_access": {},
+        "fmaster_fstat": {
+            "sb": Argument(out=True, struct=stat)
+            },
         "fmaster_lstat": {
             "ub": Argument(out=True, struct=stat)
             },

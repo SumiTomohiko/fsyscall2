@@ -156,6 +156,7 @@ process_shub(struct mhub *mhub)
 	switch (cmd) {
 	case RET_ACCESS:
 	case RET_CLOSE:
+	case RET_FSTAT:
 	case RET_LSTAT:
 	case RET_OPEN:
 	case RET_READ:
@@ -234,6 +235,7 @@ process_master(struct mhub *mhub, struct master *master)
 		break;
 	case CALL_ACCESS:
 	case CALL_CLOSE:
+	case CALL_FSTAT:
 	case CALL_LSTAT:
 	case CALL_OPEN:
 	case CALL_READ:
