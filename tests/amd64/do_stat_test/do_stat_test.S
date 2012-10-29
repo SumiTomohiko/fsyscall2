@@ -1,7 +1,5 @@
 %include "lib.inc"
-%include "sys.inc"
-
-%include "name.inc"
+%include "print_stat_member.inc"
 
 ; usage: rdi=syscall_num, rsi=pargc
 ; This function never return.
@@ -32,7 +30,9 @@ do_stat_test:
 	je	.exit
 	mov	stat, rax
 
-%include "print.inc"
+	mov	rdi, sb
+	mov	rsi, member
+	call	print_stat_member
 
 	mov	rax, stat
 

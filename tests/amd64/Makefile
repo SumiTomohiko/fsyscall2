@@ -1,4 +1,5 @@
 
-SUBDIR=	do_stat_test lib access close exit lstat open read stat write
+LIBDIR=	do_stat_test print_stat_member lib
+SUBDIR=	${LIBDIR} access close exit fstat lstat open read stat write
 
 .include <bsd.subdir.mk>
