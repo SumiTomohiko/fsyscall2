@@ -45,6 +45,7 @@ tests/*/exit/exit
 tests/*/open/open
 tests/*/read/read
 tests/*/write/write
+tests/amd64/fstat/fstat
 tests/amd64/lstat/lstat
 tests/amd64/print_stat_member/name.inc
 tests/amd64/print_stat_member/print.inc

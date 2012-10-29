@@ -10,6 +10,9 @@
 %define	sys.close	6
 %define	sys.access	33
 %define	sys.stat	188
+%define	sys.fstat	189
 %define	sys.lstat	190
+
+%define	sizeof.stat	120
 
 # vim: filetype=nasm
