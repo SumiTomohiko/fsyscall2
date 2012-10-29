@@ -3,7 +3,7 @@ DIR=		..
 GENERATOR=	makestattests.sh
 MEMBERS=	blksize blocks dev flags gid ino mode nlink rdev size uid
 RC_GENERATOR=	makestatrc.sh
-SYSCALLS=	stat lstat
+SYSCALLS=	fstat lstat stat
 
 TARGETS=
 .for syscall in ${SYSCALLS}
