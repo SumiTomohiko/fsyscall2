@@ -1036,6 +1036,21 @@ def write_dispatch(dirpath, syscalls):
  */
 """)
 
+def write_cases(path, syscalls, prefix):
+    with open(path, "w") as fp:
+        p, _ = partial_print(fp)
+        for syscall in syscalls:
+            if syscall.name not in SYSCALLS:
+                continue
+            cmd = make_cmd_name(syscall.name)
+            p("""\
+\tcase {prefix}{cmd}:
+""".format(**locals()))
+
+def write_fshub_dispatch(dirpath, syscalls):
+    write_cases(join(dirpath, "dispatch_call.inc"), syscalls, "CALL_")
+    write_cases(join(dirpath, "dispatch_ret.inc"), syscalls, "RET_")
+
 def main(dirpath):
     fmaster_dir = join(dirpath, "fmaster", "sys", "fmaster")
     syscalls = read_syscalls(fmaster_dir)
@@ -1048,6 +1063,8 @@ def main(dirpath):
     fslave_dir = join(dirpath, "fslave")
     write_fslave(fslave_dir, syscalls)
     write_dispatch(fslave_dir, syscalls)
+
+    write_fshub_dispatch(join(dirpath, "fshub"), syscalls)
 
     write_makefile(join(fslave_dir, "Makefile.makesyscalls"), syscalls)
     write_proto(join(private_dir, "fslave"), syscalls)

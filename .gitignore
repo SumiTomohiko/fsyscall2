@@ -26,6 +26,8 @@ fmaster/sys/fmaster/fmaster_systrace_args.c
 fmaster/sys/fmaster/fmaster_write.c
 fmaster/x86
 fmhub/fmhub
+fshub/dispatch_call.inc
+fshub/dispatch_ret.inc
 fshub/fshub
 fslave/Makefile.makesyscalls
 fslave/dispatch.inc

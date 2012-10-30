@@ -159,14 +159,7 @@ process_mhub(struct shub *shub)
 	case CALL_EXIT:
 		process_exit(shub);
 		break;
-	case CALL_ACCESS:
-	case CALL_CLOSE:
-	case CALL_FSTAT:
-	case CALL_LSTAT:
-	case CALL_OPEN:
-	case CALL_READ:
-	case CALL_STAT:
-	case CALL_WRITE:
+#include "dispatch_call.inc"
 		transfer_payload_to_slave(shub, cmd);
 		break;
 	default:
@@ -206,14 +199,7 @@ process_slave(struct shub *shub, struct slave *slave)
 
 	cmd = read_command(slave->rfd);
 	switch (cmd) {
-	case RET_ACCESS:
-	case RET_CLOSE:
-	case RET_FSTAT:
-	case RET_LSTAT:
-	case RET_OPEN:
-	case RET_READ:
-	case RET_STAT:
-	case RET_WRITE:
+#include "dispatch_ret.inc"
 		transfer_payload_from_slave(shub, slave, cmd);
 		break;
 	default:
