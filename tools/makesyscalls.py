@@ -979,7 +979,7 @@ def write_fslave(dirpath, syscalls):
                 print_newline()
             print_fslave_main(p, print_newline, syscall)
 
-def write_makefile(path, syscalls):
+def write_makefile(path, syscalls, prefix):
     with open(path, "w") as fp:
         p, _ = partial_print(fp)
         p("SRCS+=\t")
@@ -989,8 +989,9 @@ def write_makefile(path, syscalls):
         for syscall in syscalls:
             if syscall.name not in FSLAVE_SYSCALLS:
                 continue
-            name = "fslave_{name}.c".format(name=drop_prefix(syscall.name))
-            files.append(name)
+            name = drop_prefix(syscall.name)
+            c = "{prefix}{name}.c".format(**locals())
+            files.append(c)
         p(" ".join(files))
 
 def write_proto(dirpath, syscalls):
@@ -1058,9 +1059,12 @@ def write_fshub_dispatch(dirpath, syscalls):
 write_fmhub_dispatch = write_fshub_dispatch
 
 def main(dirpath):
-    fmaster_dir = join(dirpath, "fmaster", "sys", "fmaster")
+    fmaster_root = join(dirpath, "fmaster")
+    fmaster_dir = join(fmaster_root, "sys", "fmaster")
     syscalls = read_syscalls(fmaster_dir)
     write_fmaster(fmaster_dir, syscalls)
+    MAKEFILE = "Makefile.makesyscalls"
+    write_makefile(join(fmaster_root, MAKEFILE), syscalls, "fmaster_")
 
     private_dir = join(dirpath, "include", "fsyscall", "private")
     command_dir = join(private_dir, "command")
@@ -1073,7 +1077,7 @@ def main(dirpath):
     write_fshub_dispatch(join(dirpath, "fshub"), syscalls)
     write_fmhub_dispatch(join(dirpath, "fmhub"), syscalls)
 
-    write_makefile(join(fslave_dir, "Makefile.makesyscalls"), syscalls)
+    write_makefile(join(fslave_dir, MAKEFILE), syscalls, "fslave_")
     write_proto(join(private_dir, "fslave"), syscalls)
 
 def usage():

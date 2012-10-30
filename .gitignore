@@ -8,6 +8,7 @@
 *.po
 .gdb_history
 fmaster/@
+fmaster/Makefile.makesyscalls
 fmaster/export_syms
 fmaster/machine
 fmaster/sys/fmaster/fmaster_access.c
