@@ -28,6 +28,7 @@ fmaster/x86
 fmhub/fmhub
 fshub/fshub
 fslave/Makefile.makesyscalls
+fslave/dispatch.inc
 fslave/fslave
 fslave/fslave_access.c
 fslave/fslave_close.c

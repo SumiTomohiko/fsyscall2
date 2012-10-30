@@ -150,32 +150,9 @@ mainloop(struct slave *slave)
 	for (;;) {
 		cmd = read_command(rfd);
 		switch (cmd) {
-		case CALL_ACCESS:
-			process_access(slave);
-			break;
-		case CALL_CLOSE:
-			process_close(slave);
-			break;
+#include "dispatch.inc"
 		case CALL_EXIT:
 			return process_exit(slave);
-		case CALL_FSTAT:
-			process_fstat(slave);
-			break;
-		case CALL_LSTAT:
-			process_lstat(slave);
-			break;
-		case CALL_OPEN:
-			process_open(slave);
-			break;
-		case CALL_READ:
-			process_read(slave);
-			break;
-		case CALL_STAT:
-			process_stat(slave);
-			break;
-		case CALL_WRITE:
-			process_write(slave);
-			break;
 		default:
 			diex(-1, "Unknown command (%d)", cmd);
 			/* NOTREACHED */

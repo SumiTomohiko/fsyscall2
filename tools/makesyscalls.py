@@ -1017,6 +1017,25 @@ void process_{name}(struct slave *);
 #endif
 """)
 
+def write_dispatch(dirpath, syscalls):
+    with open(join(dirpath, "dispatch.inc"), "w") as fp:
+        p, _ = partial_print(fp)
+        for syscall in syscalls:
+            if syscall.name not in SYSCALLS:
+                continue
+            cmd = make_cmd_name(syscall.name)
+            name = drop_prefix(syscall.name)
+            p("""\
+\t\tcase CALL_{cmd}:
+\t\t\tprocess_{name}(slave);
+\t\t\tbreak;
+""".format(**locals()))
+        p("""\
+/**
+ * vim: filetype=c
+ */
+""")
+
 def main(dirpath):
     fmaster_dir = join(dirpath, "fmaster", "sys", "fmaster")
     syscalls = read_syscalls(fmaster_dir)
@@ -1028,6 +1047,7 @@ def main(dirpath):
 
     fslave_dir = join(dirpath, "fslave")
     write_fslave(fslave_dir, syscalls)
+    write_dispatch(fslave_dir, syscalls)
 
     write_makefile(join(fslave_dir, "Makefile.makesyscalls"), syscalls)
     write_proto(join(private_dir, "fslave"), syscalls)
