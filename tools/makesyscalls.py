@@ -200,6 +200,8 @@ def print_first_local(p, datatype, local_var):
     p(s)
     return strlen(s)
 
+LINE_WIDTH = 80
+
 def print_locals(p, local_vars):
     datatypes = list(set([drop_pointer(v.datatype) for v in local_vars]))
     for datatype in sort_datatypes(datatypes):
@@ -207,14 +209,13 @@ def print_locals(p, local_vars):
         a = sorted(locals_of_datatype(local_vars, datatype), key=f)
 
         col = print_first_local(p, datatype, a[0])
-        CHARS_PER_LINE = 80
         for local_var in a[1:]:
             ast = "*" if local_var.datatype[-1] == "*" else ""
             make_bracket = lambda: "[{size}]".format(**vars(local_var))
             size = make_bracket() if local_var.size is not None else ""
             fmt = ", {ast}{name}{size}"
             s = fmt.format(ast=ast, name=local_var.name, size=size)
-            if CHARS_PER_LINE <= col + strlen(s) + 1:
+            if LINE_WIDTH <= col + strlen(s) + 1:
                 p(";\n")
                 col = print_first_local(p, datatype, local_var)
                 continue
@@ -980,19 +981,21 @@ def write_fslave(dirpath, syscalls):
             print_fslave_main(p, print_newline, syscall)
 
 def write_makefile(path, syscalls, prefix):
-    with open(path, "w") as fp:
-        p, _ = partial_print(fp)
-        p("SRCS+=\t")
+    s = "SRCS+=\t"
+    pos = 8
 
-        fmt = "{name}.c"
-        files = []
-        for syscall in syscalls:
-            if syscall.name not in FSLAVE_SYSCALLS:
-                continue
-            name = drop_prefix(syscall.name)
-            c = "{prefix}{name}.c".format(**locals())
-            files.append(c)
-        p(" ".join(files))
+    a = [syscall for syscall in syscalls if syscall.name in FSLAVE_SYSCALLS]
+    for syscall in a:
+        name = drop_prefix(syscall.name)
+        entry = "{prefix}{name}.c ".format(**locals())
+        if LINE_WIDTH - 1 < pos + len(entry):
+            s += "\\\n\t"
+            pos = 8
+        s += entry
+        pos += len(entry)
+
+    with open(path, "w") as fp:
+        print(s.strip(), file=fp)
 
 def write_proto(dirpath, syscalls):
     try:
