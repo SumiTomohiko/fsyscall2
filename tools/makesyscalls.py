@@ -1017,6 +1017,13 @@ void process_{name}(struct slave *);
 #endif
 """)
 
+def write_c_footer(p):
+    p("""\
+/**
+ * vim: filetype=c
+ */
+""")
+
 def write_dispatch(dirpath, syscalls):
     with open(join(dirpath, "dispatch.inc"), "w") as fp:
         p, _ = partial_print(fp)
@@ -1030,11 +1037,7 @@ def write_dispatch(dirpath, syscalls):
 \t\t\tprocess_{name}(slave);
 \t\t\tbreak;
 """.format(**locals()))
-        p("""\
-/**
- * vim: filetype=c
- */
-""")
+        write_c_footer(p)
 
 def write_cases(path, syscalls, prefix):
     with open(path, "w") as fp:
@@ -1046,6 +1049,7 @@ def write_cases(path, syscalls, prefix):
             p("""\
 \tcase {prefix}{cmd}:
 """.format(**locals()))
+        write_c_footer(p)
 
 def write_fshub_dispatch(dirpath, syscalls):
     write_cases(join(dirpath, "dispatch_call.inc"), syscalls, "CALL_")
