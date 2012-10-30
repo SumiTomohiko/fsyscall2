@@ -154,14 +154,7 @@ process_shub(struct mhub *mhub)
 
 	cmd = read_command(mhub->shub.rfd);
 	switch (cmd) {
-	case RET_ACCESS:
-	case RET_CLOSE:
-	case RET_FSTAT:
-	case RET_LSTAT:
-	case RET_OPEN:
-	case RET_READ:
-	case RET_STAT:
-	case RET_WRITE:
+#include "dispatch_ret.inc"
 		transfer_payload_to_master(mhub, cmd);
 		break;
 	default:
@@ -233,14 +226,7 @@ process_master(struct mhub *mhub, struct master *master)
 	case CALL_EXIT:
 		process_exit(mhub, master);
 		break;
-	case CALL_ACCESS:
-	case CALL_CLOSE:
-	case CALL_FSTAT:
-	case CALL_LSTAT:
-	case CALL_OPEN:
-	case CALL_READ:
-	case CALL_STAT:
-	case CALL_WRITE:
+#include "dispatch_call.inc"
 		transfer_payload_from_master(mhub, master, cmd);
 		break;
 	default:

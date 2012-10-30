@@ -1051,6 +1051,8 @@ def write_fshub_dispatch(dirpath, syscalls):
     write_cases(join(dirpath, "dispatch_call.inc"), syscalls, "CALL_")
     write_cases(join(dirpath, "dispatch_ret.inc"), syscalls, "RET_")
 
+write_fmhub_dispatch = write_fshub_dispatch
+
 def main(dirpath):
     fmaster_dir = join(dirpath, "fmaster", "sys", "fmaster")
     syscalls = read_syscalls(fmaster_dir)
@@ -1065,6 +1067,7 @@ def main(dirpath):
     write_dispatch(fslave_dir, syscalls)
 
     write_fshub_dispatch(join(dirpath, "fshub"), syscalls)
+    write_fmhub_dispatch(join(dirpath, "fmhub"), syscalls)
 
     write_makefile(join(fslave_dir, "Makefile.makesyscalls"), syscalls)
     write_proto(join(private_dir, "fslave"), syscalls)
