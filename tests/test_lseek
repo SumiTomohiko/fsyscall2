@@ -1,0 +1,7 @@
+
+. "${tests_dir}/lseek.rc"
+
+args="${file} 0 0 0"
+expected_status="0"
+
+# vim: filetype=sh

@@ -1,0 +1,5 @@
+
+cmd="lseek/lseek"
+file="${tests_dir}/song"
+
+# vim: filetype=sh

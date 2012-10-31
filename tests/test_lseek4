@@ -1,0 +1,9 @@
+
+. "${tests_dir}/lseek.rc"
+
+offset=$(head -n 1 "${file}" | wc -c)
+
+args="${file} 0 ${offset} 0"
+expected_stdout="$(tail -n +1 "${file}")"
+
+# vim: filetype=sh

@@ -1,0 +1,9 @@
+
+. "${tests_dir}/lseek.rc"
+
+skip=$(head -n 1 "${file}" | wc -c)
+
+args="${file} ${skip} 0 0"
+expected_stdout="$(cat "${file}")"
+
+# vim: filetype=sh
