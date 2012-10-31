@@ -784,6 +784,7 @@ def print_fslave_call(p, print_newline, syscall):
         f = {
                 "char *": "read_string",
                 "int": "read_int32",
+                "off_t": "read_int64",
                 "size_t": "read_uint64" }[a.datatype]
         assignment = "{name} = {f}(rfd, &{name}_len)".format(**locals())
         opt = opt_of_syscall(FMASTER_SYSCALLS, syscall, a)
