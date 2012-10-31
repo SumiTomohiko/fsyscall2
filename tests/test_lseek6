@@ -5,6 +5,6 @@ skip=$(head -n 1 "${file}" | wc -c)
 offset=$(head -n 2 "${file}" | tail -n 1 | wc -c)
 
 args="${file} ${skip} ${offset} 1"
-expected_stdout="$(tail -n +2 "${file}")"
+expected_stdout="$(tail -n +3 "${file}")"
 
 # vim: filetype=sh
