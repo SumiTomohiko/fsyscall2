@@ -102,12 +102,15 @@ def split_datatype_name(datatype_with_name):
 def drop_const(datatype):
     return sub(r"\bconst\b", "", datatype).replace("  ", " ").strip()
 
+def parse_formal_arguments(args):
+    return [a.strip() for a in args.split(",")] if args != "void" else []
+
 def parse_proto(proto):
     assert proto[-2:] == ");"
     lpar = proto.index("(")
     rpar = proto.rindex(")")
     rettype, name = split_datatype_name(proto[:lpar])
-    args = [a.strip() for a in proto[lpar + 1:rpar].split(",")]
+    args = parse_formal_arguments(proto[lpar + 1:rpar])
 
     syscall = Syscall()
     syscall.rettype = drop_const(rettype)
@@ -315,6 +318,9 @@ def bufsize_of_datatype(datatype):
     return "FSYSCALL_BUFSIZE_" + concrete.upper()
 
 def make_payload_size_expr(syscall, args, bufsize="size"):
+    if len(args) == 0:
+        return "0"
+
     terms = []
     for a in args:
         if a.datatype == "void *":
@@ -364,6 +370,11 @@ def print_write(p, syscall):
 \terror = fmaster_write_payload_size(td, payload_size);
 \tif (error != 0)
 \t\treturn (error);
+""".format(**locals()))
+    if len(input_arguments) == 0:
+        return
+
+    p("""\
 \twfd = fmaster_wfd_of_thread(td);
 """.format(**locals()))
     for a in syscall.sending_order_args:
@@ -570,9 +581,11 @@ def write_syscall(dirpath, syscall):
     local_vars = []
     for datatype, name in (
             ("payload_size_t", "payload_size"),
-            ("int", "error"),
-            ("int", "wfd")):
+            ("int", "error")):
         local_vars.append(Variable(datatype, name))
+    if 0 < len(syscall.args):
+        for datatyoe, name in (("int", "wfd"), ):
+            local_vars.append(Variable(datatype, name))
     for a in syscall.args:
         if a.datatype == "char *":
             local_vars.extend(make_string_locals(a.name))
@@ -593,7 +606,8 @@ def write_syscall(dirpath, syscall):
         print_locals(p, local_vars)
         print_newline()
         print_encoding(p, syscall)
-        print_newline()
+        if 0 < len(syscall.args):
+            print_newline()
         print_write(p, syscall)
         print_newline()
         print_tail(p, print_newline, syscall)
@@ -714,6 +728,9 @@ execute_call({args})
 """.format(args=", ".join(args)))
 
 def make_fslave_payload_size_expr(syscall):
+    if len(syscall.args) == 0:
+        return "0"
+
     terms = []
     for a in syscall.args:
         if data_of_argument(syscall, a).out:
@@ -780,7 +797,8 @@ def print_fslave_call(p, print_newline, syscall):
             p("""\
 \t{assignment};
 """.format(**locals()))
-    print_newline()
+    if 0 < len(syscall.args):
+        print_newline()
     payload_size = make_fslave_payload_size_expr(syscall)
     p("""\
 \tactual_payload_size = {payload_size};
