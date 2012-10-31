@@ -88,6 +88,14 @@ _start:
 	jmp	.begin
 .end:
 
+	; close
+	mov	rax, sys.close
+	mov	rdi, fd
+	syscall
+	jc	.error
+	cmp	rax, -1
+	je	.error
+
 	jmp	.exit
 
 .error:
