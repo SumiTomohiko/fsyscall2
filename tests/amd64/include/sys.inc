@@ -12,6 +12,7 @@
 %define	sys.stat	188
 %define	sys.fstat	189
 %define	sys.lstat	190
+%define	sys.issetugid	253
 
 %define	sizeof.stat	120
 
