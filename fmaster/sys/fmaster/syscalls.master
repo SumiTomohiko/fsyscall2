@@ -428,7 +428,7 @@
 251	AUE_RFORK	UNIMPL	{ int fmaster_rfork(int flags); }
 252	AUE_POLL	UNIMPL	{ int fmaster_openbsd_poll(struct pollfd *fds, \
 				    u_int nfds, int timeout); }
-253	AUE_ISSETUGID	UNIMPL	{ int fmaster_issetugid(void); }
+253	AUE_ISSETUGID	STD	{ int fmaster_issetugid(void); }
 254	AUE_LCHOWN	UNIMPL	{ int fmaster_lchown(char *path, int uid, \
 				    int gid); }
 255	AUE_NULL	UNIMPL	{ int fmaster_aio_read(struct aiocb *aiocbp); }
