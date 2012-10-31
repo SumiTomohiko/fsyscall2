@@ -8,6 +8,7 @@ print_num:
 %define	bufsize	32
 %define	locals	5
 	enter	locals * 8, 0
+	save_registers
 
 %define	buf	rbp - (bufsize + locals * 8)
 %define	bufend	qword [rbp - 5 * 8]
@@ -57,6 +58,7 @@ print_num:
 	mov	rdx, len
 	syscall
 
+	restore_registers
 	leave
 	ret
 

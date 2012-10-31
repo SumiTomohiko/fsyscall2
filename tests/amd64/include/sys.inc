@@ -16,4 +16,18 @@
 
 %define	sizeof.stat	120
 
+%macro save_registers 0
+	push	r12
+	push	r13
+	push	r14
+	push	r15
+%endmacro
+
+%macro restore_registers 0
+	pop	r15
+	pop	r14
+	pop	r13
+	pop	r12
+%endmacro
+
 # vim: filetype=nasm

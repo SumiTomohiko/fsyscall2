@@ -5,6 +5,7 @@
 global streq
 streq:
 	enter	0, 0
+	save_registers
 %define	p	rdi
 %define	q	rsi
 
@@ -35,6 +36,7 @@ streq:
 
 %undef	q
 %undef	p
+	restore_registers
 	leave
 	ret
 

@@ -4,6 +4,7 @@
 global atoi
 atoi:
 	enter	0, 0
+	save_registers
 
 	mov	r8, 0
 	mov	rbx, rdi
@@ -23,6 +24,7 @@ atoi:
 
 .end:
 	mov	rax, r8
+	restore_registers
 	leave
 	ret
 

@@ -4,6 +4,7 @@
 global strlen
 strlen:
 	enter	0, 0
+	save_registers
 
 	mov	rax, 0
 	mov	rbx, rdi
@@ -15,6 +16,7 @@ strlen:
 	jmp	.begin
 
 .end:
+	restore_registers
 	leave
 	ret
 

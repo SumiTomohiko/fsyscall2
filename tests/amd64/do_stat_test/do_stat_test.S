@@ -7,6 +7,7 @@ global do_stat_test
 do_stat_test:
 %define	locals_num	2
 	enter	120 + locals_num * 8, 0
+	save_registers
 
 %define	syscall_num	qword [rbp - 1 * 8]
 %define	pargc		r12
