@@ -13,8 +13,11 @@
 %define	sys.fstat	189
 %define	sys.lstat	190
 %define	sys.issetugid	253
+%define	sys.lseek	478
 
 %define	sizeof.stat	120
+
+%define	flags.readonly	0
 
 %macro save_registers 0
 	push	r12

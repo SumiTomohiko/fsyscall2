@@ -9,4 +9,12 @@
 .__main__:
 %endmacro
 
+; usage: mov.atoi dest src base
+%macro mov.atoi 3
+	mov	rdi, %2
+	mov	rsi, %3
+	call	atoi
+	mov	%1, rax
+%endmacro
+
 # vim: filetype=nasm
