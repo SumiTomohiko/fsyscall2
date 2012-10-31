@@ -16,6 +16,7 @@ fmaster/sys/fmaster/fmaster_close.c
 fmaster/sys/fmaster/fmaster_fstat.c
 fmaster/sys/fmaster/fmaster_issetugid.c
 fmaster/sys/fmaster/fmaster_link.c
+fmaster/sys/fmaster/fmaster_lseek.c
 fmaster/sys/fmaster/fmaster_lstat.c
 fmaster/sys/fmaster/fmaster_open.c
 fmaster/sys/fmaster/fmaster_proto.h
@@ -41,6 +42,7 @@ fslave/fslave_close.c
 fslave/fslave_fstat.c
 fslave/fslave_issetugid.c
 fslave/fslave_link.c
+fslave/fslave_lseek.c
 fslave/fslave_lstat.c
 fslave/fslave_open.c
 fslave/fslave_read.c

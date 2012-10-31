@@ -76,7 +76,8 @@ SYSCALLS = {
         "fmaster_stat": {
             "ub": Argument(out=True, struct=stat)
             },
-        "fmaster_issetugid": {}
+        "fmaster_issetugid": {},
+        "fmaster_lseek": {}
         }
 FMASTER_SYSCALLS = SYSCALLS
 FSLAVE_SYSCALLS = SYSCALLS
