@@ -1,4 +1,4 @@
-%include "lib.inc"
+%include "prog.inc"
 
 %include "name.inc"
 

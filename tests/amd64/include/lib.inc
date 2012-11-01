@@ -1,4 +1,3 @@
-%include "sys.inc"
 
 extern atoi
 extern exit
