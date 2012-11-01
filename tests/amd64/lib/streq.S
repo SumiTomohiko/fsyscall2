@@ -38,4 +38,4 @@ streq:
 %undef	p
 	epilogue
 
-# vim: filetype=nasm
+; vim: filetype=nasm

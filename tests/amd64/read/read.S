@@ -70,4 +70,4 @@ _start:
 	mov	rdi, error
 	call	exit
 
-# vim: filetype=nasm
+; vim: filetype=nasm

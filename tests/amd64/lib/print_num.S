@@ -59,4 +59,4 @@ print_num:
 	add	rsp, bufsize
 	epilogue
 
-# vim: filetype=nasm
+; vim: filetype=nasm

@@ -15,4 +15,4 @@ _start:
 	call	do_stat_test
 	; NOTREACHED
 
-# vim: filetype=nasm
+; vim: filetype=nasm

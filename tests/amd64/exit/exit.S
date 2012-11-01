@@ -13,4 +13,4 @@ _start:
 	dec	rdi
 	call	exit
 
-# vim: filetype=nasm
+; vim: filetype=nasm

@@ -44,4 +44,4 @@ do_stat_test:
 	mov	rdi, rax
 	call	exit
 
-# vim: filetype=nasm
+; vim: filetype=nasm

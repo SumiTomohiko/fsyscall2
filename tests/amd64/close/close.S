@@ -30,4 +30,4 @@ _start:
 	mov	rdi, -1
 	call	exit
 
-# vim: filetype=nasm
+; vim: filetype=nasm

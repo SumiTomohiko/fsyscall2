@@ -18,4 +18,4 @@ strlen:
 .end:
 	epilogue
 
-# vim: filetype=nasm
+; vim: filetype=nasm

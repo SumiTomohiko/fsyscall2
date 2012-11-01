@@ -12,4 +12,4 @@ exit:
 
 	epilogue
 
-# vim: filetype=nasm
+; vim: filetype=nasm

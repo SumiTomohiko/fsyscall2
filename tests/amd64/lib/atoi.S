@@ -26,4 +26,4 @@ atoi:
 	mov	rax, r8
 	epilogue
 
-# vim: filetype=nasm
+; vim: filetype=nasm
