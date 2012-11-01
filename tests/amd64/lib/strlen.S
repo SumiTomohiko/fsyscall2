@@ -1,10 +1,10 @@
+%include "macro.inc"
 %include "sys.inc"
 
 ; usage: rdi=string
 global strlen
 strlen:
-	enter	0, 0
-	save_registers
+	prologue	0
 
 	mov	rax, 0
 	mov	rbx, rdi
@@ -16,8 +16,6 @@ strlen:
 	jmp	.begin
 
 .end:
-	restore_registers
-	leave
-	ret
+	epilogue
 
 # vim: filetype=nasm

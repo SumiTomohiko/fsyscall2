@@ -1,11 +1,11 @@
+%include "macro.inc"
 %include "sys.inc"
 
 ; usage: rdi=string, rsi=string
 ; If two strings are same, streq will return zero. Otherwise, non-zero.
 global streq
 streq:
-	enter	0, 0
-	save_registers
+	prologue	0
 %define	p	rdi
 %define	q	rsi
 
@@ -36,8 +36,6 @@ streq:
 
 %undef	q
 %undef	p
-	restore_registers
-	leave
-	ret
+	epilogue
 
 # vim: filetype=nasm

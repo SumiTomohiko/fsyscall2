@@ -1,3 +1,4 @@
+%include "macro.inc"
 %include "sys.inc"
 
 digits:	db	"0123456789"
@@ -5,16 +6,13 @@ digits:	db	"0123456789"
 ; usage: rdi=number
 global print_num
 print_num:
-%define	bufsize	32
-%define	locals	5
-	enter	locals * 8, 0
-	save_registers
+	prologue	5
 
-%define	bufend	qword [rbp - 5 * 8]
-%define	len	qword [rbp - 4 * 8]
-%define	p	qword [rbp - 3 * 8]
-%define	base	qword [rbp - 2 * 8]
-%define	n	qword [rbp - 8]
+%define	bufend	local(4)
+%define	len	local(3)
+%define	p	local(2)
+%define	base	local(1)
+%define	n	local(0)
 	mov	base, 10
 	mov	n, rdi
 	mov	p, rsp
@@ -22,6 +20,7 @@ print_num:
 	mov	rax, p
 	mov	byte [rax], 0
 	mov	bufend, rsp
+%define	bufsize	32
 	sub	rsp, bufsize
 
 	cmp	n, 0
@@ -58,8 +57,6 @@ print_num:
 	syscall
 
 	add	rsp, bufsize
-	restore_registers
-	leave
-	ret
+	epilogue
 
 # vim: filetype=nasm

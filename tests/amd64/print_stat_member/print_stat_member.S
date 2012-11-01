@@ -1,13 +1,12 @@
-%include "prog.inc"
+%include "lib.inc"
+%include "macro.inc"
 
 %include "name.inc"
 
 ; usage: rdi=struct stat *, rsi=member name
 global print_stat_member
 print_stat_member:
-%define	locals_num	0
-	enter	locals_num * 8, 0
-	save_registers
+	prologue	0
 %define	sb		r12
 %define	member		r13
 	mov	sb, rdi
@@ -15,8 +14,6 @@ print_stat_member:
 
 %include "print.inc"
 
-	restore_registers
-	leave
-	ret
+	epilogue
 
 ; vim: filetype=nasm

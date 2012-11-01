@@ -1,17 +1,15 @@
+%include "macro.inc"
 %include "sys.inc"
 
 ; usage: rdi=status
 global exit
 exit:
-	enter	0, 0
-	save_registers
+	prologue	0
 
 	mov	rax, sys.exit
 	syscall
 	; NOTREACHED
 
-	restore_registers
-	leave
-	ret
+	epilogue
 
 # vim: filetype=nasm
