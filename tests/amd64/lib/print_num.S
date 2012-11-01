@@ -57,6 +57,7 @@ print_num:
 	mov	rdx, len
 	syscall
 
+	add	rsp, bufsize
 	restore_registers
 	leave
 	ret
