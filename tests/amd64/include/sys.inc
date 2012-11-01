@@ -9,6 +9,7 @@
 %define	sys.open	5
 %define	sys.close	6
 %define	sys.access	33
+%define	sys.readlink	58
 %define	sys.stat	188
 %define	sys.fstat	189
 %define	sys.lstat	190
