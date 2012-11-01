@@ -10,7 +10,6 @@ print_num:
 	enter	locals * 8, 0
 	save_registers
 
-%define	buf	rbp - (bufsize + locals * 8)
 %define	bufend	qword [rbp - 5 * 8]
 %define	len	qword [rbp - 4 * 8]
 %define	p	qword [rbp - 3 * 8]
