@@ -1,0 +1,8 @@
+
+. "${tests_dir}/pread.rc"
+
+offset=$(head -n 1 < "${file}" | wc -c)
+args="${file} ${offset}"
+expected_status=$(tail -n +2 < "${file}" | wc -c)
+
+# vim: filetype=sh

@@ -1,0 +1,7 @@
+
+. "${tests_dir}/pread.rc"
+
+args="${file} 0"
+expected_stdout=$(cat "${file}")
+
+# vim: filetype=sh

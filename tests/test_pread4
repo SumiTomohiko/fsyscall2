@@ -1,0 +1,8 @@
+
+. "${tests_dir}/pread.rc"
+
+offset=$(head -n 1 < "${file}" | wc -c)
+args="${file} ${offset}"
+expected_stdout=$(tail -n +2 < "${file}")
+
+# vim: filetype=sh

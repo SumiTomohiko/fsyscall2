@@ -1,0 +1,7 @@
+
+. "${tests_dir}/pread.rc"
+
+args="${file} 0"
+expected_status=$(wc -c < "${file}")
+
+# vim: filetype=sh
