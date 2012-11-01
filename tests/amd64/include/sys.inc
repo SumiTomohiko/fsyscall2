@@ -34,4 +34,6 @@
 	pop	r12
 %endmacro
 
+%define	callee_save_registers_num	4
+
 # vim: filetype=nasm

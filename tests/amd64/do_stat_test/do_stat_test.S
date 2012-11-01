@@ -1,20 +1,23 @@
 %include "lib.inc"
 %include "print_stat_member.inc"
+%include "sys.inc"
 
 ; usage: rdi=syscall_num, rsi=pargc
 ; This function never return.
 global do_stat_test
 do_stat_test:
-%define	locals_num	2
+%define	locals_num	3
 	enter	120 + locals_num * 8, 0
 	save_registers
 
 %define	syscall_num	qword [rbp - 1 * 8]
 %define	pargc		r12
 %define	stat		qword [rbp - 2 * 8]
-%define sb		rsp
+%define sb		qword [rbp - 3 * 8]
 	mov	syscall_num, rdi
 	mov	pargc, rsi
+	mov	sb, rsp
+	add	sb, callee_save_registers_num * 8
 %define	argc		qword [pargc]
 %define	path		qword [pargc + 2 * 8]
 %define	member		qword [pargc + 3 * 8]
