@@ -90,7 +90,7 @@ do
 	status="${?}"
 
 	if [ -n "${expected_status}" ]; then
-		if [ "${expected_status}" = "${status}" ]; then
+		if [ "${expected_status}" -eq "${status}" ]; then
 			result="OK"
 		else
 			result="NG"
