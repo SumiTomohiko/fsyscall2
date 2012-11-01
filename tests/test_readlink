@@ -1,0 +1,18 @@
+
+cmd="readlink/readlink"
+source="test.readlink.source.$$"
+target="test.readlink.target.$$"
+args="${target}"
+expected_stdout="${source}"
+
+precmd()
+{
+	ln -s "${source}" "${target}"
+}
+
+postcmd()
+{
+	rm -f "${target}"
+}
+
+# vim: filetype=sh
