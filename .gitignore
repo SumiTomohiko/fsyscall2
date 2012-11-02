@@ -22,6 +22,7 @@ fmaster/sys/fmaster/fmaster_open.c
 fmaster/sys/fmaster/fmaster_pread.c
 fmaster/sys/fmaster/fmaster_proto.h
 fmaster/sys/fmaster/fmaster_read.c
+fmaster/sys/fmaster/fmaster_readlink.c
 fmaster/sys/fmaster/fmaster_stat.c
 fmaster/sys/fmaster/fmaster_syscall.h
 fmaster/sys/fmaster/fmaster_syscalls.c
@@ -48,6 +49,7 @@ fslave/fslave_lstat.c
 fslave/fslave_open.c
 fslave/fslave_pread.c
 fslave/fslave_read.c
+fslave/fslave_readlink.c
 fslave/fslave_stat.c
 fslave/fslave_write.c
 include/fsyscall/private/command/code.h

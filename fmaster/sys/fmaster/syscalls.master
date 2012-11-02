@@ -138,7 +138,7 @@
 55	AUE_REBOOT	UNIMPL	{ int fmaster_reboot(int opt); }
 56	AUE_REVOKE	UNIMPL	{ int fmaster_revoke(char *path); }
 57	AUE_SYMLINK	UNIMPL	{ int fmaster_symlink(char *path, char *link); }
-58	AUE_READLINK	UNIMPL	{ ssize_t fmaster_readlink(char *path, \
+58	AUE_READLINK	STD	{ ssize_t fmaster_readlink(char *path, \
 				    char *buf, size_t count); }
 59	AUE_EXECVE	UNIMPL	{ int fmaster_execve(char *fname, char **argv, \
 				    char **envv); }

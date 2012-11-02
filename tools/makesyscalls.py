@@ -80,6 +80,9 @@ SYSCALLS = {
         "fmaster_lseek": {},
         "fmaster_pread": {
             "buf": Argument(out=True, size="nbyte", retsize="retval")
+            },
+        "fmaster_readlink": {
+            "buf": Argument(out=True, size="count", retsize="retval")
             }
         }
 FMASTER_SYSCALLS = SYSCALLS
