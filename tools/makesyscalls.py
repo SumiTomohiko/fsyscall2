@@ -328,7 +328,7 @@ def make_payload_size_expr(syscall, args, bufsize="size"):
 
     terms = []
     for a in args:
-        if a.datatype == "void *":
+        if (a.datatype == "void *") or ((a.datatype == "char *") and data_of_argument(syscall, a).out):
             size = getattr(SYSCALLS[syscall.name][a.name], bufsize)
             assert size is not None
             terms.append(size)
@@ -343,6 +343,10 @@ def make_payload_size_expr(syscall, args, bufsize="size"):
             continue
 
         if a.datatype == "char *":
+            assert not data_of_argument(syscall, a).out
+            # Input arguments of char * include their size using NUL terminator
+            # (any other arguments do not hold their size). So it need one more
+            # special variable.
             terms.append("{name}_len_len".format(**vars(a)))
         terms.append("{name}_len".format(**vars(a)))
 
@@ -459,7 +463,7 @@ execute_return(struct thread *td, struct {name}_args *uap)
         local_vars.append(Variable(datatype, name))
     out_arguments = out_arguemnts_of_syscall(syscall)
     for a in out_arguments:
-        if a.datatype == "void *":
+        if a.datatype in ("char *", "void *"):
             continue
         st = data_of_argument(syscall, a).struct
         if st is not None:
@@ -511,7 +515,7 @@ execute_return(struct thread *td, struct {name}_args *uap)
 """)
 
     for a in out_arguments:
-        if a.datatype == "void *":
+        if a.datatype in ("char *", "void *"):
             p("""\
 \terror = fmaster_read_to_userspace(td, rfd, uap->{name}, {size});
 \tif (error != 0)
@@ -592,10 +596,10 @@ def write_syscall(dirpath, syscall):
         for datatyoe, name in (("int", "wfd"), ):
             local_vars.append(Variable(datatype, name))
     for a in syscall.args:
+        if (a.datatype == "void *") or data_of_argument(syscall, a).out:
+            continue
         if a.datatype == "char *":
             local_vars.extend(make_string_locals(a.name))
-            continue
-        if (a.datatype == "void *") or data_of_argument(syscall, a).out:
             continue
         for datatype, fmt, size in (
                 (a.datatype, "{name}", None),
@@ -815,7 +819,7 @@ def print_fslave_call(p, print_newline, syscall):
     malloced = False
     out_arguments = out_arguemnts_of_syscall(syscall)
     for a in out_arguments:
-        if a.datatype != "void *":
+        if a.datatype not in ("char *", "void *"):
             continue
         name = a.name
         datatype = a.datatype
@@ -838,7 +842,7 @@ def print_fslave_call(p, print_newline, syscall):
 """.format(name=drop_prefix(syscall.name), args=", ".join(args)))
 
     for a in syscall.args:
-        if a.datatype != "char *":
+        if (a.datatype != "char *") or data_of_argument(syscall, a).out:
             continue
         p("""\
 \tfree({name});
@@ -910,7 +914,7 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
     out_arguments = out_arguemnts_of_syscall(syscall)
     for a in out_arguments:
         datatype = a.datatype
-        if a.datatype == "void *":
+        if a.datatype in ("char *", "void *"):
             continue
         st = data_of_argument(syscall, a).struct
         assert st is not None
@@ -939,7 +943,7 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
 \tretval_len = encode_{datatype}(retval, retval_buf, array_sizeof(retval_buf));
 """.format(datatype=concrete_datatype_of_abstract_datatype(syscall.rettype)))
     for a in out_arguments:
-        if a.datatype == "void *":
+        if a.datatype in ("char *", "void *"):
             continue
         st = data_of_argument(syscall, a).struct
         assert st is not None
@@ -960,7 +964,7 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
 \twrite_or_die(wfd, retval_buf, retval_len);
 """.format(**locals()))
     for a in out_arguments:
-        if a.datatype == "void *":
+        if a.datatype in ("char *", "void *"):
             name = a.name
             size = data_of_argument(syscall, a).retsize
             p("""\
