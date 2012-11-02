@@ -1,0 +1,7 @@
+
+. "${tests_dir}/writev.rc"
+
+args="${fd}"
+expected_status="0"
+
+# vim: filetype=sh

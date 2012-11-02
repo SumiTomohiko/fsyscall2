@@ -1,0 +1,5 @@
+
+cmd="writev/writev"
+fd="1"
+
+# vim: filetype=sh
