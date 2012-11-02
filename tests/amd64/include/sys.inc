@@ -10,6 +10,7 @@
 %define	sys.close	6
 %define	sys.access	33
 %define	sys.readlink	58
+%define	sys.writev	121
 %define	sys.stat	188
 %define	sys.fstat	189
 %define	sys.lstat	190
@@ -17,6 +18,7 @@
 %define	sys.pread	475
 %define	sys.lseek	478
 
+%define	sizeof.iov	(2 * 8)
 %define	sizeof.stat	120
 
 %define	flags.readonly	0
