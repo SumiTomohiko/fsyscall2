@@ -29,6 +29,7 @@ fmaster/sys/fmaster/fmaster_syscalls.c
 fmaster/sys/fmaster/fmaster_sysent.c
 fmaster/sys/fmaster/fmaster_systrace_args.c
 fmaster/sys/fmaster/fmaster_write.c
+fmaster/sys/fmaster/fmaster_writev.c
 fmaster/x86
 fmhub/dispatch_call.inc
 fmhub/dispatch_ret.inc
@@ -52,6 +53,7 @@ fslave/fslave_read.c
 fslave/fslave_readlink.c
 fslave/fslave_stat.c
 fslave/fslave_write.c
+fslave/fslave_writev.c
 include/fsyscall/private/command/code.h
 include/fsyscall/private/command/name.h
 include/fsyscall/private/fslave/proto.h

@@ -225,7 +225,7 @@
 119	AUE_NULL	UNIMPL	resuba (BSD/OS 2.x)
 120	AUE_READV	UNIMPL	{ int fmaster_readv(int fd, \
 				    struct iovec *iovp, u_int iovcnt); }
-121	AUE_WRITEV	UNIMPL	{ int fmaster_writev(int fd, \
+121	AUE_WRITEV	STD	{ int fmaster_writev(int fd, \
 				    struct iovec *iovp, u_int iovcnt); }
 122	AUE_SETTIMEOFDAY	UNIMPL	{ int fmaster_settimeofday(\
 				    struct timeval *tv, struct timezone *tzp); }

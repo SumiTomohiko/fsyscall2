@@ -85,6 +85,9 @@ SYSCALLS = {
             },
         "fmaster_readlink": {
             "buf": Argument(out=True, size="count", retsize="retval")
+            },
+        "fmaster_writev": {
+            "iovp": Argument(size="iovcnt")
             }
         }
 FMASTER_SYSCALLS = SYSCALLS
@@ -132,7 +135,7 @@ def parse_proto(proto):
     # fsyscall sends arguments in order written in syscalls.master. But some
     # arguments hold size of previous arguments.
     args = syscall.args
-    specials = ("fmaster_write", "fmaster_read")
+    specials = ("fmaster_write", "fmaster_read", "fmaster_writev")
     syscall.sending_order_args = args if syscall.name not in specials else [
             args[0],
             args[2],
