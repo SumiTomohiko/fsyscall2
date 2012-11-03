@@ -3,8 +3,10 @@
 from functools import partial
 from os import getcwd, mkdir
 from os.path import abspath, basename, dirname, join
-from re import search, sub
+from re import compile, search, sub
 from sys import argv, exit
+
+RE_ARRAY_DATATYPE = compile(r"^(?P<type>.+) \(\*\)\[(?P<size>.+)\]$")
 
 def make_decl(o):
     datatype = drop_pointer(o.datatype)
@@ -151,10 +153,16 @@ def make_string_locals(name):
 def drop_pointer(datatype):
     return datatype if datatype[-1] != "*" else datatype[:-2]
 
+def size_of_bufsize(name):
+    m = search(r"\d+$", name)
+    assert m is not None
+    return int(m.group()) // 7 + 1
+
 def datasize_of_datatype(datatype):
     if datatype.split()[0] == "struct":
         return 64
     DATASIZE_OF_DATATYPE = {
+            "u_int": 32,
             "__dev_t": 32,
             "__int32_t": 32,
             "__uint32_t": 32,
@@ -177,7 +185,11 @@ def datasize_of_datatype(datatype):
             "uint64_t": 64,
             "void": 64
             }
-    return DATASIZE_OF_DATATYPE[datatype]
+    m = RE_ARRAY_DATATYPE.match(datatype)
+    if m is None:
+        return DATASIZE_OF_DATATYPE[datatype]
+    base = DATASIZE_OF_DATATYPE[m.group("type")]
+    return 8 * base * size_of_bufsize(m.group("size"))
 
 def sort_datatypes(datatypes):
     datatypes_of_datasize = {}
@@ -206,6 +218,11 @@ def make_local_decl(local_var):
     return "{ast}{name}{size}".format(**locals())
 
 def print_first_local(p, datatype, local_var):
+    if RE_ARRAY_DATATYPE.match(datatype):
+        pos = datatype.find("*")
+        s = "\t" + datatype[:pos + 1] + local_var.name + datatype[pos + 1:]
+        p(s)
+        return strlen(s)
     decl = make_local_decl(local_var)
     s = "\t{datatype} {decl}".format(**locals())
     p(s)
@@ -221,6 +238,10 @@ def print_locals(p, local_vars):
 
         col = print_first_local(p, datatype, a[0])
         for local_var in a[1:]:
+            # This part cannot handle datatype such as
+            # "char (*)[FSYSCALL_BUFSIZE_UINT64]". But no system call has more
+            # than one arguments of "struct iovec *". So it will not get
+            # problem.
             ast = "*" if local_var.datatype[-1] == "*" else ""
             make_bracket = lambda: "[{size}]".format(**vars(local_var))
             size = make_bracket() if local_var.size is not None else ""
@@ -252,6 +273,7 @@ def print_head(p, name):
 #include <sys/proc.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 
 #include <fsyscall/private.h>
 #include <fsyscall/private/command.h>
@@ -266,6 +288,7 @@ execute_call(struct thread *td, struct {name}_args *uap)
 
 def concrete_datatype_of_abstract_datatype(datatype):
     return {
+            "u_int": "uint32",
             "__dev_t": "uint32",
             "__int32_t": "int32",
             "__uint32_t": "uint32",
@@ -293,11 +316,35 @@ def opt_of_syscall(tab, syscall, a):
         return None
 
 def print_encoding(p, syscall):
-    for a in syscall.args:
+    for a in syscall.sending_order_args:
         if (a.datatype == "void *") or data_of_argument(syscall, a).out:
             continue
 
         p("\t{name} = uap->{name};\n".format(**vars(a)))
+        if a.datatype == "struct iovec *":
+            concrete_datatype = concrete_datatype_of_abstract_datatype("size_t")
+            size = data_of_argument(syscall, a).size
+            name = a.name
+            p("""\
+\t{name}_iov_len_buf = (char (*)[FSYSCALL_BUFSIZE_UINT64])malloc(
+\t\tsizeof(char [FSYSCALL_BUFSIZE_UINT64]) * {size},
+\t\tM_TEMP,
+\t\tM_WAITOK);
+\t{name}_iov_len_len = (int *)malloc(
+\t\tsizeof(u_int) * iovcnt,
+\t\tM_TEMP,
+\t\tM_WAITOK);
+\tfor (i = 0; i < iovcnt; i++) {{
+\t\t{name}_iov_len_len[i] = fsyscall_encode_{concrete_datatype}(
+\t\t\t{name}[i].iov_len,
+\t\t\t{name}_iov_len_buf[i],
+\t\t\tarray_sizeof({name}_iov_len_buf[i]));
+\t\tif ({name}_iov_len_len[i] < 0)
+\t\t\treturn (EMSGSIZE);
+\t}}
+""".format(**locals()))
+            continue
+
         if a.datatype == "char *":
             p("""\
 \t{name}_len = strlen({name});
@@ -345,6 +392,10 @@ def make_payload_size_expr(syscall, args, bufsize="size"):
                 terms.append("{struct_name}_{name}_len".format(**locals()))
             continue
 
+        if a.datatype == "struct iovec *":
+            terms.append("{name}_payload_size".format(**vars(a)))
+            continue
+
         if a.datatype == "char *":
             assert not data_of_argument(syscall, a).out
             # Input arguments of char * include their size using NUL terminator
@@ -355,11 +406,12 @@ def make_payload_size_expr(syscall, args, bufsize="size"):
 
     return " + ".join(terms)
 
-def print_fmaster_write(p, buf, size):
+def print_fmaster_write(p, buf, size, indent=1):
+    tabs = indent * "\t"
     p("""\
-\terror = fmaster_write(td, wfd, {buf}, {size});
-\tif (error != 0)
-\t\treturn (error);
+{tabs}error = fmaster_write(td, wfd, {buf}, {size});
+{tabs}if (error != 0)
+{tabs}\treturn (error);
 """.format(**locals()))
 
 def make_cmd_name(name):
@@ -370,14 +422,26 @@ def make_cmd_name(name):
 def input_arguments_of_syscall(syscall):
     return [a for a in syscall.args if not data_of_argument(syscall, a).out]
 
-def print_write(p, syscall):
+def print_write(p, print_newline, syscall):
     cmd_name = make_cmd_name(syscall.name)
-    input_arguments = input_arguments_of_syscall(syscall)
-    payload_size_expr = make_payload_size_expr(syscall, input_arguments)
     p("""\
 \terror = fmaster_write_command(td, CALL_{cmd_name});
 \tif (error != 0)
 \t\treturn (error);
+""".format(**locals()))
+
+    input_arguments = input_arguments_of_syscall(syscall)
+    for a in [a for a in input_arguments if a.datatype == "struct iovec *"]:
+        name = a.name
+        size = data_of_argument(syscall, a).size
+        p("""\
+\t{name}_payload_size = 0;
+\tfor (i = 0; i < {size}; i++)
+\t\t{name}_payload_size += {name}_iov_len_len[i] + {name}[i].iov_len;
+""".format(**locals()))
+
+    payload_size_expr = make_payload_size_expr(syscall, input_arguments)
+    p("""\
 \tpayload_size = {payload_size_expr};
 \terror = fmaster_write_payload_size(td, payload_size);
 \tif (error != 0)
@@ -392,12 +456,14 @@ def print_write(p, syscall):
     for a in syscall.sending_order_args:
         if data_of_argument(syscall, a).out:
             continue
+
         if a.datatype == "char *":
             buf = "{name}_len_buf".format(**vars(a))
             size = "{name}_len_len".format(**vars(a))
             print_fmaster_write(p, buf, size)
             print_fmaster_write(p, a.name, "{name}_len".format(**vars(a)))
             continue
+
         if a.datatype == "void *":
             name = a.name
             size = SYSCALLS[syscall.name][name].size
@@ -407,6 +473,25 @@ def print_write(p, syscall):
 \t\treturn (error);
 """.format(**locals()))
             continue
+
+        if a.datatype == "struct iovec *":
+            p("""\
+\tfor (i = 0; i < iovcnt; i++) {{
+""".format(**locals()))
+
+            buf = "{name}_iov_len_buf[i]".format(**vars(a))
+            size = "{name}_iov_len_len[i]".format(**vars(a))
+            print_fmaster_write(p, buf, size, 2)
+
+            buf = "{name}[i].iov_base".format(**vars(a))
+            size = "{name}[i].iov_len".format(**vars(a))
+            print_fmaster_write(p, buf, size, 2)
+
+            p("""\
+\t}}
+""".format(**locals()))
+            continue
+
         opt = opt_of_syscall(FMASTER_SYSCALLS, syscall, a)
         if opt is not None:
             p("""\
@@ -416,6 +501,19 @@ def print_write(p, syscall):
         buf = "{name}_buf".format(**vars(a))
         size = "{name}_len".format(**vars(a))
         print_fmaster_write(p, buf, size)
+
+    cleanup_args = [
+            a
+            for a in syscall.sending_order_args
+            if a.datatype == "struct iovec *"]
+    if len(cleanup_args) == 0:
+        return
+    print_newline()
+    for a in cleanup_args:
+        p("""\
+\tfree({name}_iov_len_len, M_TEMP);
+\tfree({name}_iov_len_buf, M_TEMP);
+""".format(**vars(a)))
 
 def print_call_tail(p, print_newline):
     p("""\
@@ -604,6 +702,20 @@ def write_syscall(dirpath, syscall):
         if a.datatype == "char *":
             local_vars.extend(make_string_locals(a.name))
             continue
+        if a.datatype == "struct iovec *":
+            local_vars.append(Variable(a.datatype, a.name))
+            local_vars.append(Variable("u_int", "i"))
+            name = "{name}_payload_size".format(**vars(a))
+            local_vars.append(Variable("payload_size_t", name))
+
+            size = bufsize_of_datatype("size_t")
+            datatype = "char (*)[{size}]".format(**locals())
+            name = "{name}_iov_len_buf".format(name=a.name)
+            local_vars.append(Variable(datatype, name))
+
+            name = "{name}_iov_len_len".format(name=a.name)
+            local_vars.append(Variable("int *", name))
+            continue
         for datatype, fmt, size in (
                 (a.datatype, "{name}", None),
                 ("char", "{name}_buf", bufsize_of_datatype(a.datatype)),
@@ -620,7 +732,7 @@ def write_syscall(dirpath, syscall):
         print_encoding(p, syscall)
         if 0 < len(syscall.args):
             print_newline()
-        print_write(p, syscall)
+        print_write(p, print_newline, syscall)
         print_newline()
         print_tail(p, print_newline, syscall)
 
