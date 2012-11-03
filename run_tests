@@ -55,6 +55,14 @@ test_result()
 	echo "${result}"
 }
 
+isset()
+{
+	local name
+	name="$1"
+
+	set | grep -o "^${name}="
+}
+
 dir="$(dirname $0)"
 tests_dir="${dir}/tests"
 tester="${tests_dir}/tester/tester"
@@ -89,19 +97,19 @@ do
 	"${tester}" "${exe}" ${args} > "${stdout_log}"
 	status="${?}"
 
-	if [ -n "${expected_status}" ]; then
+	if [ -n "$(isset expected_status)" ]; then
 		if [ "${expected_status}" -eq "${status}" ]; then
 			result="OK"
 		else
 			result="NG"
 		fi
-	elif [ -n "${expected_stdout}" ]; then
+	elif [ -n "$(isset expected_stdout)" ]; then
 		if [ "${expected_stdout}" = "$(cat ${stdout_log})" ]; then
 			result="OK"
 		else
 			result="NG"
 		fi
-	elif [ -n "${unexpected_status}" ]; then
+	elif [ -n "$(isset unexpected_status)" ]; then
 		if [ "${unexpected_status}" != "${status}" ]; then
 			result="OK"
 		else
