@@ -833,8 +833,9 @@ def print_fslave_head(p, syscall):
     name = drop_prefix(syscall.name)
     print_caution(p)
     p("""\
-#include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/uio.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -859,10 +860,17 @@ def make_fslave_payload_size_expr(syscall):
     for a in syscall.args:
         if data_of_argument(syscall, a).out:
             continue
+
         if a.datatype == "void *":
             terms.append(SYSCALLS[syscall.name][a.name].size)
             continue
+
+        if a.datatype == "struct iovec *":
+            terms.append("{name}_payload_size".format(**vars(a)))
+            continue
+
         terms.append("{name}_len".format(**vars(a)))
+
     return " + ".join(terms)
 
 def print_fslave_call(p, print_newline, syscall):
@@ -877,6 +885,16 @@ def print_fslave_call(p, print_newline, syscall):
         if a.datatype == "void *":
             local_vars.append(Variable(a.datatype, a.name))
             continue
+
+        if a.datatype == "struct iovec *":
+            for datatype, name in (
+                    (a.datatype, a.name),
+                    ("int *", "{name}_iov_len_len"),
+                    ("int", "i"),
+                    ("payload_size_t", "{name}_payload_size")):
+                local_vars.append(Variable(datatype, name.format(**vars(a))))
+            continue
+
         len_type = "uint64_t" if a.datatype == "char *" else "int"
         for datatype, name in (
                 (len_type, "{name}_len"),
@@ -904,9 +922,24 @@ def print_fslave_call(p, print_newline, syscall):
 """.format(**locals()))
             continue
 
+        if a.datatype == "struct iovec *":
+            name = a.name
+            size = data_of_argument(syscall, a).size
+            p("""\
+\t{name} = (struct iovec *)alloca(sizeof(*{name}) * {size});
+\t{name}_iov_len_len = (int *)alloca(sizeof(int) * {size});
+\tfor (i = 0; i < {size}; i++) {{
+\t\t{name}[i].iov_len = read_uint64(rfd, &{name}_iov_len_len[i]);
+\t\t{name}[i].iov_base = alloca({name}[i].iov_len);
+\t\tread_or_die(rfd, {name}[i].iov_base, {name}[i].iov_len);
+\t}}
+""".format(**locals()))
+            continue
+
         f = {
                 "char *": "read_string",
                 "int": "read_int32",
+                "u_int": "read_uint32",
                 "off_t": "read_int64",
                 "size_t": "read_uint64" }[a.datatype]
         assignment = "{name} = {f}(rfd, &{name}_len)".format(**locals())
@@ -924,6 +957,17 @@ def print_fslave_call(p, print_newline, syscall):
 """.format(**locals()))
     if 0 < len(syscall.args):
         print_newline()
+
+    for a in [a for a in input_arguments if a.datatype == "struct iovec *"]:
+        name = a.name
+        size = data_of_argument(syscall, a).size
+        p("""\
+\t{name}_payload_size = 0;
+\tfor (i = 0; i < {size}; i++)
+\t\t{name}_payload_size += {name}_iov_len_len[i] + {name}[i].iov_len;
+""".format(**locals()))
+        continue
+
     payload_size = make_fslave_payload_size_expr(syscall)
     p("""\
 \tactual_payload_size = {payload_size};
