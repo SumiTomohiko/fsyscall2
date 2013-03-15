@@ -11,4 +11,3 @@ file=\"\${tests_dir}/song\"
 
 # vim: filetype=sh
 " > ${path}
-
