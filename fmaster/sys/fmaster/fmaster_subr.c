@@ -45,10 +45,10 @@ read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize, int *si
 
 	pend = buf + bufsize;
 	p = buf;
-	error = fmaster_read(td, fd, p, sizeof(buf[0]));
+	error = fmaster_read(td, fd, p, sizeof(*p));
 	while ((error == 0) && ((*p & 0x80) != 0) && (p + 1 < pend)) {
 		p++;
-		error = fmaster_read(td, fd, p, sizeof(buf[0]));
+		error = fmaster_read(td, fd, p, sizeof(*p));
 	}
 	if (error != 0)
 		return (error);
