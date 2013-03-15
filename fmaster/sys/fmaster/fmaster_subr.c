@@ -194,11 +194,10 @@ IMPLEMENT_WRITE_X(
 int
 fmaster_execute_return_generic(struct thread *td, command_t expected_cmd)
 {
+	int64_t ret;
 	command_t cmd;
 	uint32_t payload_size;
-	int errnum, errnum_len, error, ret, ret_len;
-
-	LOG(td, LOG_DEBUG, "fmaster_execute_return_generic: expected_cmd=%d", expected_cmd);
+	int errnum, errnum_len, error, ret_len;
 
 	error = fmaster_read_command(td, &cmd);
 	if (error != 0)
@@ -210,13 +209,14 @@ fmaster_execute_return_generic(struct thread *td, command_t expected_cmd)
 	if (error != 0)
 		return (error);
 
-	error = fmaster_read_int32(td, &ret, &ret_len);
+	error = fmaster_read_int64(td, &ret, &ret_len);
 	if (error != 0)
 		return (error);
 	if (ret != -1) {
 		if (payload_size != ret_len)
 			return (EPROTO);
-		td->td_retval[0] = ret;
+		td->td_retval[0] = ret & UINT32_MAX;
+		td->td_retval[1] = ret >> 32;
 		return (0);
 	}
 
