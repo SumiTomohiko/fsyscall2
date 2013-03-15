@@ -4,22 +4,22 @@
 #include <fsyscall/private/die.h>
 #endif
 
-#define	IMPLEMENT_DECODE_X(type, name)			\
-int							\
-name(char *buf, int bufsize, type *dest)		\
-{							\
-	type n;						\
-	int i;						\
-							\
-	if ((buf[bufsize - 1] & 0x80) != 0)		\
-		return (-1);				\
-							\
-	n = 0;						\
-	for (i = 0; i < bufsize; i++)			\
-		n += (buf[i] & 0x7f) << (7 * i);	\
-	*dest = n;					\
-							\
-	return (0);					\
+#define	IMPLEMENT_DECODE_X(type, name)				\
+int								\
+name(char *buf, int bufsize, type *dest)			\
+{								\
+	type n;							\
+	int i;							\
+								\
+	if ((buf[bufsize - 1] & 0x80) != 0)			\
+		return (-1);					\
+								\
+	n = 0;							\
+	for (i = 0; i < bufsize; i++)				\
+		n += ((type)(buf[i] & 0x7f)) << (7 * i);	\
+	*dest = n;						\
+								\
+	return (0);						\
 }
 
 IMPLEMENT_DECODE_X(command_t, fsyscall_decode_command)
