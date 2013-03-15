@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3.2
+#!/usr/local/bin/python3
 
 from functools import partial
 from os import getcwd, mkdir
