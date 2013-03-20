@@ -166,6 +166,12 @@ fmaster_wfd_of_thread(struct thread *td)
 	return (data_of_thread(td)->wfd);
 }
 
+int *
+fmaster_fds_of_thread(struct thread *td)
+{
+	return (data_of_thread(td)->fds);
+}
+
 #define	IMPLEMENT_WRITE_X(type, name, bufsize, encode)	\
 int							\
 name(struct thread *td, type n)				\

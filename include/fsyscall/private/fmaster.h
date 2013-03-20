@@ -10,7 +10,7 @@
 
 #include <fsyscall/private/command.h>
 
-#define	MAX_FD	1024
+#define	FD_NUM	1024
 
 struct master_data {
 	int rfd;
@@ -35,7 +35,7 @@ struct master_data {
 	 *
 	 * If a fd is unused, fds[fd] is zero.
 	 */
-	int fds[MAX_FD];
+	int fds[FD_NUM];
 };
 
 int	fmaster_read_command(struct thread *, command_t *);
@@ -61,6 +61,7 @@ int	fmaster_write_from_userspace(struct thread *, int, const void *, size_t);
 
 int	fmaster_rfd_of_thread(struct thread *);
 int	fmaster_wfd_of_thread(struct thread *);
+int	*fmaster_fds_of_thread(struct thread *);
 
 #define	SLAVE_FD2FD(fd)		(((fd) << 2) + 0x01)
 #define	MASTER_FD2FD(fd)	(((fd) << 2) + 0x03)
