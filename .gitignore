@@ -19,6 +19,7 @@ fmaster/sys/fmaster/fmaster_link.c
 fmaster/sys/fmaster/fmaster_lseek.c
 fmaster/sys/fmaster/fmaster_lstat.c
 fmaster/sys/fmaster/fmaster_open.c
+fmaster/sys/fmaster/fmaster_pre_post.h
 fmaster/sys/fmaster/fmaster_pread.c
 fmaster/sys/fmaster/fmaster_proto.h
 fmaster/sys/fmaster/fmaster_read.c

@@ -2,7 +2,7 @@
 
 from functools import partial
 from os import getcwd, mkdir
-from os.path import abspath, basename, dirname, join
+from os.path import abspath, basename, dirname, exists, join
 from re import compile, search, sub
 from sys import argv, exit
 
@@ -100,6 +100,7 @@ class Syscall:
         self.name = None
         self.args = []
         self.sending_order_args = None
+        self.pre_execute = False
 
     def __str__(self):
         args = ", ".join([str(a) for a in self.args])
@@ -282,6 +283,7 @@ def print_head(p, name):
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fmaster.h>
+#include <sys/fmaster/fmaster_pre_post.h>
 #include <sys/fmaster/fmaster_proto.h>
 
 static int
@@ -527,14 +529,24 @@ def print_call_tail(p, print_newline):
 
 def print_generic_tail(p, print_newline, syscall):
     print_call_tail(p, print_newline)
+
+    local_vars = [Variable("int", "error")]
     name = syscall.name
-    cmd_name = make_cmd_name(name)
     p("""\
 int
 sys_{name}(struct thread *td, struct {name}_args *uap)
 {{
-\tint error;
-
+""".format(**locals()))
+    print_locals(p, local_vars)
+    print_newline()
+    if syscall.pre_execute:
+        p("""\
+\tif ({name}_pre_execute(td, uap, &error) == 0)
+\t\treturn (error);
+""".format(**locals()))
+        print_newline()
+    cmd_name = make_cmd_name(name)
+    p("""\
 \terror = execute_call(td, uap);
 \tif (error != 0)
 \t\treturn (error);
@@ -739,6 +751,9 @@ def write_syscall(dirpath, syscall):
         print_newline()
         print_tail(p, print_newline, syscall)
 
+def get_pre_execute_path(dirpath, syscall):
+    return join(dirpath, "{name}_pre_execute.c".format(name=syscall.name))
+
 def read_syscalls(dirpath):
     syscalls = []
     with open(join(dirpath, "syscalls.master")) as fp:
@@ -749,7 +764,9 @@ def read_syscalls(dirpath):
         if line.split()[2] != "STD":
             continue
         proto = line[line.index("{") + 1:line.rindex("}")].strip()
-        syscalls.append(parse_proto(proto))
+        syscall = parse_proto(proto)
+        syscall.pre_execute = exists(get_pre_execute_path(dirpath, syscall))
+        syscalls.append(syscall)
     return syscalls
 
 def write_fmaster(dirpath, syscalls):
@@ -1170,22 +1187,42 @@ def write_fslave(dirpath, syscalls):
                 print_newline()
             print_fslave_main(p, print_newline, syscall)
 
-def write_makefile(path, syscalls, prefix):
-    s = "SRCS+=\t"
-    pos = 8
+def pickup_sources(syscalls, prefix):
+    srcs = []
 
     a = [syscall for syscall in syscalls if syscall.name in FSLAVE_SYSCALLS]
     for syscall in a:
         name = drop_prefix(syscall.name)
-        entry = "{prefix}{name}.c ".format(**locals())
-        if LINE_WIDTH - 1 < pos + len(entry):
+        srcs.append("{prefix}{name}.c".format(**locals()))
+
+    return srcs
+
+def write_makefile(path, srcs):
+    s = "SRCS+=\t"
+    pos = 8
+
+    for src in sorted(srcs):
+        if LINE_WIDTH - 1 < pos + len(src):
             s += "\\\n\t"
             pos = 8
-        s += entry
-        pos += len(entry)
+        t = "{src} ".format(**locals())
+        s += t
+        pos += len(t)
 
     with open(path, "w") as fp:
         print(s.strip(), file=fp)
+
+def write_fmaster_makefile(path, syscalls):
+    srcs = pickup_sources(syscalls, "fmaster_")
+
+    for syscall in [syscall for syscall in syscalls if syscall.pre_execute]:
+        name = syscall.name
+        srcs.append("{name}_pre_execute.c".format(**locals()))
+
+    write_makefile(path, srcs)
+
+def write_fslave_makefile(path, syscalls):
+    write_makefile(path, pickup_sources(syscalls, "fslave_"))
 
 def write_proto(dirpath, syscalls):
     try:
@@ -1251,13 +1288,33 @@ def write_fshub_dispatch(dirpath, syscalls):
 
 write_fmhub_dispatch = write_fshub_dispatch
 
+def write_pre_post_h(dirpath, syscalls):
+    with open(join(dirpath, "fmaster_pre_post.h"), "w") as fp:
+        p = fp.write
+        print_newline = partial(p, "\n")
+
+        print_caution(p)
+        p("""\
+#include <sys/proc.h>
+
+#include <sys/fmaster/fmaster_proto.h>
+""")
+        print_newline()
+
+        protos = []
+        for syscall in [syscall for syscall in syscalls if syscall.pre_execute]:
+            fmt = "int {name}_pre_execute(struct thread *, struct {name}_args *, int *);\n"
+            protos.append(fmt.format(name=syscall.name))
+        p("".join(sorted(protos)))
+
 def main(dirpath):
     fmaster_root = join(dirpath, "fmaster")
     fmaster_dir = join(fmaster_root, "sys", "fmaster")
     syscalls = read_syscalls(fmaster_dir)
     write_fmaster(fmaster_dir, syscalls)
+    write_pre_post_h(fmaster_dir, syscalls)
     MAKEFILE = "Makefile.makesyscalls"
-    write_makefile(join(fmaster_root, MAKEFILE), syscalls, "fmaster_")
+    write_fmaster_makefile(join(fmaster_root, MAKEFILE), syscalls)
 
     private_dir = join(dirpath, "include", "fsyscall", "private")
     command_dir = join(private_dir, "command")
@@ -1270,7 +1327,7 @@ def main(dirpath):
     write_fshub_dispatch(join(dirpath, "fshub"), syscalls)
     write_fmhub_dispatch(join(dirpath, "fmhub"), syscalls)
 
-    write_makefile(join(fslave_dir, MAKEFILE), syscalls, "fslave_")
+    write_fslave_makefile(join(fslave_dir, MAKEFILE), syscalls)
     write_proto(join(private_dir, "fslave"), syscalls)
 
 def usage():
