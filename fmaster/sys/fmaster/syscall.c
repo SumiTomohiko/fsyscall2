@@ -59,10 +59,10 @@ negotiate_version(struct thread *td, int rfd, int wfd)
 	return (0);
 }
 
-static struct master_data *
+static struct fmaster_data *
 create_data(struct thread *td, int rfd, int wfd)
 {
-	struct master_data *data;
+	struct fmaster_data *data;
 
 	data = malloc(sizeof(*data), M_FMASTER, M_ZERO | M_NOWAIT);
 	if (data == NULL)
@@ -74,7 +74,7 @@ create_data(struct thread *td, int rfd, int wfd)
 }
 
 static int
-read_fds(struct thread *td, struct master_data *data)
+read_fds(struct thread *td, struct fmaster_data *data)
 {
 	int _, d, error, m, nbytes, pos;
 
@@ -100,7 +100,7 @@ read_fds(struct thread *td, struct master_data *data)
 static int
 fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 {
-	struct master_data *data;
+	struct fmaster_data *data;
 	int error, i, rfd, wfd;
 	pid_t pid;
 	const char *name = "fmaster_execve";

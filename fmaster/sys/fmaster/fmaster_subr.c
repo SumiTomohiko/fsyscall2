@@ -148,10 +148,10 @@ fmaster_write(struct thread *td, int d, const void *buf, size_t nbytes)
 	return (write_aio(td, d, buf, nbytes, UIO_SYSSPACE));
 }
 
-static struct master_data *
+static struct fmaster_data *
 data_of_thread(struct thread *td)
 {
-	return ((struct master_data *)(td->td_proc->p_emuldata));
+	return ((struct fmaster_data *)(td->td_proc->p_emuldata));
 }
 
 int

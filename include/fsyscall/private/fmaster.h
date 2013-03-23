@@ -12,7 +12,7 @@
 
 #define	FD_NUM	1024
 
-struct master_data {
+struct fmaster_data {
 	int rfd;
 	int wfd;
 
@@ -25,7 +25,7 @@ struct master_data {
 	 * may be same as a master fd. So, if a master process requests open(2),
 	 * and the slave process successed the request, the fmaster kernel
 	 * module returns a virtual fd. This virtual fd is index of
-	 * master_data::fds.
+	 * fmaster_data::fds.
 	 *
 	 * The actual fds are stored in this array. If a fd is a slave fd, two
 	 * less significant bits are 01. If a fd is a master fd, two less
