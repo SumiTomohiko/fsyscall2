@@ -29,6 +29,10 @@ fmaster_open_pre_execute(struct thread *td, struct fmaster_open_args *uap, int *
 		*error = open_master(td, uap);
 		return (0);
 	}
+	if (strcmp(uap->path, "/var/run/ld-elf.so.hints") == 0) {
+		*error = open_master(td, uap);
+		return (0);
+	}
 
 	return (1);
 }
