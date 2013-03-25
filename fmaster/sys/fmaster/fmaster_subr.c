@@ -166,8 +166,8 @@ fmaster_wfd_of_thread(struct thread *td)
 	return (data_of_thread(td)->wfd);
 }
 
-int *
-fmaster_fds_of_thread(struct thread *td)
+static int *
+fds_of_thread(struct thread *td)
 {
 	return (data_of_thread(td)->fds);
 }
@@ -252,4 +252,30 @@ fmaster_read_to_userspace(struct thread *td, int d, void *buf, size_t nbytes)
 	while ((0 < auio.uio_resid) && (error == 0))
 		error = kern_readv(td, d, &auio);
 	return (error);
+}
+
+static int
+find_unused_fd(struct thread *td)
+{
+	int *fds, i;
+
+	fds = fds_of_thread(td);
+	for (i = 0; (i < FD_NUM) && (fds[i] != 0); i++);
+
+	return (i);
+}
+
+int
+fmaster_return_fd(struct thread *td, int d)
+{
+	int fd, *fds;
+
+	fd = find_unused_fd(td);
+	if (fd == FD_NUM)
+		return (EMFILE);
+	fds = fds_of_thread(td);
+	fds[fd] = d;
+	td->td_retval[0] = fd;
+
+	return (0);
 }

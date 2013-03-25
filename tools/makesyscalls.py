@@ -101,6 +101,7 @@ class Syscall:
         self.args = []
         self.sending_order_args = None
         self.pre_execute = False
+        self.post_execute = False
 
     def __str__(self):
         args = ", ".join([str(a) for a in self.args])
@@ -550,7 +551,17 @@ sys_{name}(struct thread *td, struct {name}_args *uap)
 \terror = execute_call(td, uap);
 \tif (error != 0)
 \t\treturn (error);
-\treturn (fmaster_execute_return_generic(td, RET_{cmd_name}));
+\terror = fmaster_execute_return_generic(td, RET_{cmd_name});
+""".format(**locals()))
+    if syscall.post_execute:
+        p("""\
+\tif (error != 0)
+\t\treturn (error);
+
+\terror = {name}_post_execute(td, uap);
+""".format(**locals()))
+    p("""\
+\treturn (error);
 }}
 """.format(**locals()))
 
@@ -751,6 +762,9 @@ def write_syscall(dirpath, syscall):
         print_newline()
         print_tail(p, print_newline, syscall)
 
+def get_post_execute_path(dirpath, syscall):
+    return join(dirpath, "{name}_post_execute.c".format(name=syscall.name))
+
 def get_pre_execute_path(dirpath, syscall):
     return join(dirpath, "{name}_pre_execute.c".format(name=syscall.name))
 
@@ -766,6 +780,7 @@ def read_syscalls(dirpath):
         proto = line[line.index("{") + 1:line.rindex("}")].strip()
         syscall = parse_proto(proto)
         syscall.pre_execute = exists(get_pre_execute_path(dirpath, syscall))
+        syscall.post_execute = exists(get_post_execute_path(dirpath, syscall))
         syscalls.append(syscall)
     return syscalls
 
@@ -1218,6 +1233,9 @@ def write_fmaster_makefile(path, syscalls):
     for syscall in [syscall for syscall in syscalls if syscall.pre_execute]:
         name = syscall.name
         srcs.append("{name}_pre_execute.c".format(**locals()))
+    for syscall in [syscall for syscall in syscalls if syscall.post_execute]:
+        name = syscall.name
+        srcs.append("{name}_post_execute.c".format(**locals()))
 
     write_makefile(path, srcs)
 
@@ -1304,6 +1322,9 @@ def write_pre_post_h(dirpath, syscalls):
         protos = []
         for syscall in [syscall for syscall in syscalls if syscall.pre_execute]:
             fmt = "int {name}_pre_execute(struct thread *, struct {name}_args *, int *);\n"
+            protos.append(fmt.format(name=syscall.name))
+        for syscall in [syscall for syscall in syscalls if syscall.post_execute]:
+            fmt = "int {name}_post_execute(struct thread *, struct {name}_args *);\n"
             protos.append(fmt.format(name=syscall.name))
         p("".join(sorted(protos)))
 

@@ -61,12 +61,12 @@ int	fmaster_write_from_userspace(struct thread *, int, const void *, size_t);
 
 int	fmaster_rfd_of_thread(struct thread *);
 int	fmaster_wfd_of_thread(struct thread *);
-int	*fmaster_fds_of_thread(struct thread *);
 
 #define	SLAVE_FD2FD(fd)		(((fd) << 2) + 0x01)
 #define	MASTER_FD2FD(fd)	(((fd) << 2) + 0x03)
 
 int	fmaster_execute_return_generic(struct thread *, command_t);
+int	fmaster_return_fd(struct thread *, int);
 
 #define	LOG(td, pri, fmt, ...)	do {				\
 	const char *__fmt__ = "fmaster[%d]: " fmt "\n";		\
