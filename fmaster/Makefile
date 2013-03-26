@@ -5,7 +5,7 @@ TOP_DIR=	..
 		sys/${MACHINE}/${MACHINE} /usr/src/sys/kern
 
 KMOD=		fmaster
-SRCS=		elf_machdep.c fmaster_exit.c fmaster_syscalls.c \
+SRCS=		elf_machdep.c fmaster_exit.c fmaster_mmap.c fmaster_syscalls.c \
 		fmaster_sysent.c fmaster_subr.c fsyscall_encode.c \
 		imgact_elf32.c imgact_elf64.c kern_exec.c syscall.c
 KERNBUILDDIR=	/usr/obj/usr/src/sys/GENERIC
