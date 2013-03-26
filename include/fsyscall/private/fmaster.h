@@ -61,6 +61,7 @@ int	fmaster_write_from_userspace(struct thread *, int, const void *, size_t);
 
 int	fmaster_rfd_of_thread(struct thread *);
 int	fmaster_wfd_of_thread(struct thread *);
+int	*fmaster_fds_of_thread(struct thread *);
 
 #define	FD_MARK_WIDTH		2
 #define	SLAVE_FD_MARK		0x01

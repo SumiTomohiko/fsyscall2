@@ -166,8 +166,8 @@ fmaster_wfd_of_thread(struct thread *td)
 	return (data_of_thread(td)->wfd);
 }
 
-static int *
-fds_of_thread(struct thread *td)
+int *
+fmaster_fds_of_thread(struct thread *td)
 {
 	return (data_of_thread(td)->fds);
 }
@@ -259,7 +259,7 @@ find_unused_fd(struct thread *td)
 {
 	int *fds, i;
 
-	fds = fds_of_thread(td);
+	fds = fmaster_fds_of_thread(td);
 	for (i = 0; (i < FD_NUM) && (fds[i] != 0); i++);
 
 	return (i);
@@ -270,7 +270,7 @@ fmaster_type_of_fd(struct thread *td, int d)
 {
 	int mark;
 
-	mark = fds_of_thread(td)[d] & 0x03;
+	mark = fmaster_fds_of_thread(td)[d] & 0x03;
 	return mark == SLAVE_FD_MARK ? fft_slave : fft_master;
 }
 
@@ -282,7 +282,7 @@ fmaster_return_fd(struct thread *td, int d)
 	fd = find_unused_fd(td);
 	if (fd == FD_NUM)
 		return (EMFILE);
-	fds = fds_of_thread(td);
+	fds = fmaster_fds_of_thread(td);
 	fds[fd] = d;
 	td->td_retval[0] = fd;
 
