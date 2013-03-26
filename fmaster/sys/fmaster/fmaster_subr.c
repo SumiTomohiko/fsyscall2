@@ -265,6 +265,15 @@ find_unused_fd(struct thread *td)
 	return (i);
 }
 
+enum fmaster_fd_type
+fmaster_type_of_fd(struct thread *td, int d)
+{
+	int mark;
+
+	mark = fds_of_thread(td)[d] & 0x03;
+	return mark == SLAVE_FD_MARK ? fft_slave : fft_master;
+}
+
 int
 fmaster_return_fd(struct thread *td, int d)
 {

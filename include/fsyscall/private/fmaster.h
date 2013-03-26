@@ -62,8 +62,20 @@ int	fmaster_write_from_userspace(struct thread *, int, const void *, size_t);
 int	fmaster_rfd_of_thread(struct thread *);
 int	fmaster_wfd_of_thread(struct thread *);
 
-#define	SLAVE_FD2FD(fd)		(((fd) << 2) + 0x01)
-#define	MASTER_FD2FD(fd)	(((fd) << 2) + 0x03)
+#define	FD_MARK_WIDTH		2
+#define	SLAVE_FD_MARK		0x01
+#define	MASTER_FD_MARK		0x03
+#define	SLAVE_FD2FD(fd)		(((fd) << FD_MARK_WIDTH) + SLAVE_FD_MARK)
+#define	MASTER_FD2FD(fd)	(((fd) << FD_MARK_WIDTH) + MASTER_FD_MARK)
+#define	LOCAL_FD(d)		((unsigned int)(d) >> FD_MARK_WIDTH)
+
+enum fmaster_fd_type {
+	fft_slave,
+	fft_master
+};
+
+enum fmaster_fd_type
+	fmaster_type_of_fd(struct thread *, int);
 
 int	fmaster_execute_return_generic(struct thread *, command_t);
 int	fmaster_return_fd(struct thread *, int);

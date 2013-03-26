@@ -277,6 +277,7 @@ def print_head(p, name):
 #include <sys/libkern.h>
 #include <sys/proc.h>
 #include <sys/stat.h>
+#include <sys/sysproto.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 
@@ -528,6 +529,20 @@ def print_call_tail(p, print_newline):
 """)
     print_newline()
 
+def print_master_call(p, print_newline, syscall):
+    if len([a for a in syscall.args if a.name == "fd"]) == 0:
+        return
+    name = drop_prefix(syscall.name)
+    p("""\
+\tif (fmaster_type_of_fd(td, uap->fd) == fft_master) {{
+\t\tstruct {name}_args a;
+\t\tmemcpy(&a, uap, sizeof(a));
+\t\ta.fd = LOCAL_FD(uap->fd);
+\t\treturn (sys_{name}(td, &a));
+\t}}
+""".format(**locals()))
+    print_newline()
+
 def print_generic_tail(p, print_newline, syscall):
     print_call_tail(p, print_newline)
 
@@ -540,6 +555,7 @@ sys_{name}(struct thread *td, struct {name}_args *uap)
 """.format(**locals()))
     print_locals(p, local_vars)
     print_newline()
+    print_master_call(p, print_newline, syscall)
     if syscall.pre_execute:
         p("""\
 \tif ({name}_pre_execute(td, uap, &error) == 0)
@@ -678,13 +694,17 @@ execute_return(struct thread *td, struct {name}_args *uap)
 }}
 """.format(**locals()))
 
-def print_syscall(p, name):
+def print_syscall(p, print_newline, syscall):
+    name = syscall.name
     p("""\
 int
 sys_{name}(struct thread *td, struct {name}_args *uap)
 {{
 \tint error;
-
+""".format(**locals()))
+    print_newline()
+    print_master_call(p, print_newline, syscall)
+    p("""\
 \terror = execute_call(td, uap);
 \tif (error != 0)
 \t\treturn (error);
@@ -699,7 +719,7 @@ def print_tail(p, print_newline, syscall):
     print_call_tail(p, print_newline)
     print_execute_return(p, print_newline, syscall)
     print_newline()
-    print_syscall(p, syscall.name)
+    print_syscall(p, print_newline, syscall)
 
 def partial_print(fp):
     p = partial(print, end="", file=fp)
