@@ -1,6 +1,7 @@
 #include <sys/param.h>
 #include <sys/uio.h>
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <syslog.h>
 #include <unistd.h>
@@ -17,6 +18,17 @@ write_or_die(int fd, const void *buf, size_t nbytes)
 {
 	size_t n = 0;
 	ssize_t m;
+
+#if 0
+	syslog(LOG_DEBUG, "write: nbytes=%lu", nbytes);
+	int i;
+	for (i = 0; i < nbytes; i++) {
+		char *p = (char *)buf;
+		int n = 0xff & p[i];
+		char c = isprint(n) ? n : ' ';
+		syslog(LOG_DEBUG, "write: buf[%d]=0x%02x (%c)", i, n, c);
+	}
+#endif
 
 	while (n < nbytes) {
 		m = write(fd, (char *)buf + n, nbytes - n);
