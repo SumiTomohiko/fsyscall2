@@ -103,10 +103,41 @@ write_open_fds(struct slave *slave)
 	write_or_die(wfd, buf, pos);
 }
 
-void
-return_generic(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
+static void
+return_generic(struct slave *slave, command_t cmd, char *ret_buf, int ret_len, char *errnum_buf, int errnum_len)
 {
-	int errnum_len, ret_len, wfd;
+	int wfd;
+
+	wfd = slave->wfd;
+	write_command(wfd, cmd);
+	write_payload_size(wfd, ret_len + errnum_len);
+	write_or_die(wfd, ret_buf, ret_len);
+	write_or_die(wfd, errnum_buf, errnum_len);
+}
+
+void
+return_int(struct slave *slave, command_t cmd, int ret, int errnum)
+{
+	int errnum_len, ret_len;
+	char errnum_buf[FSYSCALL_BUFSIZE_INT32];
+	char ret_buf[FSYSCALL_BUFSIZE_INT32];
+	const char *fmt = "%s: ret=%d, errnum=%d";
+
+	syslog(LOG_DEBUG, fmt, get_command_name(cmd), ret, errnum);
+
+	ret_len = encode_int32(ret, ret_buf, array_sizeof(ret_buf));
+	errnum_len = (ret == -1) ? encode_int32(
+			errnum,
+			errnum_buf,
+			array_sizeof(errnum_buf)) : 0;
+
+	return_generic(slave, cmd, ret_buf, ret_len, errnum_buf, errnum_len);
+}
+
+void
+return_ssize(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
+{
+	int errnum_len, ret_len;
 	char errnum_buf[FSYSCALL_BUFSIZE_INT32];
 	char ret_buf[FSYSCALL_BUFSIZE_INT64];
 	const char *fmt = "%s: ret=%zd, errnum=%d";
@@ -119,11 +150,7 @@ return_generic(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 			errnum_buf,
 			array_sizeof(errnum_buf)) : 0;
 
-	wfd = slave->wfd;
-	write_command(wfd, cmd);
-	write_payload_size(wfd, ret_len + errnum_len);
-	write_or_die(wfd, ret_buf, ret_len);
-	write_or_die(wfd, errnum_buf, errnum_len);
+	return_generic(slave, cmd, ret_buf, ret_len, errnum_buf, errnum_len);
 }
 
 static int

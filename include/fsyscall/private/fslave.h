@@ -10,6 +10,7 @@ struct slave {
 };
 
 void die_if_payload_size_mismatched(int, int);
-void return_generic(struct slave *, command_t, ssize_t, int);
+void return_int(struct slave *, command_t, int, int);
+void return_ssize(struct slave *, command_t, ssize_t, int);
 
 #endif

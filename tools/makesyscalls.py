@@ -1074,6 +1074,9 @@ def make_execute_return_actual_arguments(syscall, args):
         exprs.append(fmt.format(**vars(a)))
     return ", ".join(exprs)
 
+def get_fslave_return_func(syscall):
+    return "return_int" if syscall.rettype == "int" else "return_ssize"
+
 def print_fslave_main(p, print_newline, syscall):
     name = drop_prefix(syscall.name)
     p("""\
@@ -1091,9 +1094,10 @@ process_{name}(struct slave *slave)
         cmd_name = make_cmd_name(syscall.name)
         print_locals(p, local_vars)
         print_newline()
+        return_func = get_fslave_return_func(syscall)
         p("""\
 \texecute_call(slave, &retval, &errnum);
-\treturn_generic(slave, RET_{cmd_name}, retval, errnum);
+\t{return_func}(slave, RET_{cmd_name}, retval, errnum);
 }}
 """.format(**locals()))
         return
@@ -1147,9 +1151,10 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
     print_locals(p, local_vars)
     print_newline()
     cmd_name = make_cmd_name(syscall.name)
+    return_func = get_fslave_return_func(syscall)
     p("""\
 \tif (retval == -1) {{
-\t\treturn_generic(slave, RET_{cmd_name}, retval, errnum);
+\t\t{return_func}(slave, RET_{cmd_name}, retval, errnum);
 \t\treturn;
 \t}}
 """.format(**locals()))
