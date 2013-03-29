@@ -195,8 +195,7 @@ transfer_payload_from_master(struct mhub *mhub, struct master *master, command_t
 	pid_t pid;
 	int len, payload_size, rfd, wfd;
 	char buf[FSYSCALL_BUFSIZE_INT32];
-	const char *fmt = "%s: pid=%d, payload_size=%d";
-	const char *name;
+	const char *fmt = "%s: pid=%d, payload_size=%d", *name;
 
 	pid = master->pid;
 	name = get_command_name(cmd);
