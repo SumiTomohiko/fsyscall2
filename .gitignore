@@ -8,6 +8,7 @@
 *.po
 .gdb_history
 doc/index.html
+doc/overview.png
 doc/overview_of_system_call_flow.png
 fmaster/@
 fmaster/Makefile.makesyscalls
