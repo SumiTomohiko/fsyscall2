@@ -8,14 +8,15 @@ documentation are not still implemented.
 Overview
 ========
 
-fsyscall is a system to transfer system call requests from applications on
-FreeBSD to another process through file descriptors. In the most expected usage,
-a socket is used as file descriptors. This means that a user can use a process
-in a remote machine as that in a local machine.
+fsyscall is a system to transfer system call requests for file I/O from
+applications on FreeBSD to another process through file descriptors. Application
+do not need to be modified at all.
+
+In the most expected usage, a socket is used for the file descriptors.
 
 .. image:: overview.png
 
-Expected merits are:
+Expected merits of fsyscall are:
 
 * using applications on FreeBSD from a non-FreeBSD machine such as Android.
 * using a remote powerful machine as a local machine.
