@@ -1,5 +1,5 @@
 
-all: overview.png overview_of_system_call_flow.png index.html
+all: overview.png master_and_slave.png index.html
 
 .SUFFIXES: .rst .html .svg .png
 

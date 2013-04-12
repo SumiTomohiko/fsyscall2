@@ -36,7 +36,10 @@ explains "master" and "slave").
 Master and slave
 ================
 
-.. image:: overview_of_system_call_flow.png
+In fsyscall, a machine requesting system calls is called as a "master". A
+"slave" is defined as a machine accepting system calls.
+
+.. image:: master_and_slave.png
 
 A local machine as a master
 ---------------------------
