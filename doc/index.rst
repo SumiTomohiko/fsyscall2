@@ -26,6 +26,13 @@ There is a demerit:
 
 * throughput of network I/O becomes that of file I/O.
 
+NOTICE: fsyscall does not have any functions to connect a local machine to a
+remote machine. It is a role of other applications. nexec_ is one example. nexec
+connects a local slave machine to a remote master machine (the following section
+explains "master" and "slave").
+
+.. _nexec: http://neko-daisuki.ddo.jp/~SumiTomohiko/nexec/index.html
+
 Master and slave
 ================
 
