@@ -1,5 +1,6 @@
 
-all: overview.png master_and_slave.png index.html
+all: overview.png master_and_slave.png a_local_machine_as_a_master.png \
+	a_local_machine_as_a_slave.png index.html
 
 .SUFFIXES: .rst .html .svg .png
 

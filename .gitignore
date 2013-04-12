@@ -7,6 +7,8 @@
 *.o
 *.po
 .gdb_history
+doc/a_local_machine_as_a_master.png
+doc/a_local_machine_as_a_slave.png
 doc/index.html
 doc/master_and_slave.png
 doc/overview.png

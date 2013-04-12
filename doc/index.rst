@@ -44,8 +44,12 @@ In fsyscall, a machine requesting system calls is called as a "master". A
 A local machine as a master
 ---------------------------
 
+.. image:: a_local_machine_as_a_master.png
+
 A local machine as a slave
 --------------------------
+
+.. image:: a_local_machine_as_a_slave.png
 
 Structure
 =========
