@@ -38,10 +38,34 @@ Master and slave
 
 .. image:: overview_of_system_call_flow.png
 
-Hub system
+A local machine as a master
+---------------------------
+
+A local machine as a slave
+--------------------------
+
+Structure
+=========
+
+Restrictions
+============
+
+Download
+========
+
+How to compile/install
+======================
+
+How to use
 ==========
 
-fsyscall transfers system calls which handles files.
-====================================================
+How to start a master
+---------------------
+
+How to start a slave
+--------------------
+
+Author
+======
 
 .. vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4
