@@ -9,12 +9,12 @@ Overview
 ========
 
 fsyscall is a system to transfer system call requests for file I/O from
-applications on FreeBSD to another process through file descriptors. Application
-do not need to be modified at all.
-
-In the most expected usage, a socket is used for the file descriptors.
+applications on FreeBSD to another process through file descriptors. In the most
+expected usage, a socket is used for the file descriptors.
 
 .. image:: overview.png
+
+Application requesting system calls do not need to be modified at all.
 
 Expected merits of fsyscall are:
 
