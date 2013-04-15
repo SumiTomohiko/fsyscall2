@@ -73,6 +73,8 @@ read/write files in your slave machine.
 Structure
 =========
 
+.. image:: structure.png
+
 Restrictions
 ============
 

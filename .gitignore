@@ -15,6 +15,7 @@ doc/example3.png
 doc/index.html
 doc/master_and_slave.png
 doc/overview.png
+doc/structure.png
 fmaster/@
 fmaster/Makefile.makesyscalls
 fmaster/export_syms
