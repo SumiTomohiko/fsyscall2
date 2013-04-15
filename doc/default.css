@@ -3,6 +3,10 @@ div.section > h1 {
     border-bottom-style: solid;
 }
 
+div.section > h2 {
+    border-bottom-style: dashed;
+}
+
 /**
  * vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4
  */
