@@ -56,10 +56,17 @@ In fsyscall, a machine requesting system calls is called as a "master". A
 A local machine as a master
 ---------------------------
 
+If you use your machine as a master, you can control a slave with applications
+in your machine.
+
 .. image:: a_local_machine_as_a_master.png
 
 A local machine as a slave
 --------------------------
+
+When your machine is a slave, you can use a master machine as a local machine.
+You can use CPU/memory/applications in the master. These applications can
+read/write files in your slave machine.
 
 .. image:: a_local_machine_as_a_slave.png
 
