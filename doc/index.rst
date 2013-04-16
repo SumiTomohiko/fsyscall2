@@ -73,7 +73,38 @@ read/write files in your slave machine.
 Structure
 =========
 
+This section explains modules of fsyscall and how they work.
+
+Hub system
+----------
+
+One feature of Unix is fork(2). An application can do one or more fork(2) to use
+helper applications. To support this feature, fsyscall use HUBs.
+
 .. image:: structure.png
+
+A master machine includes:
+
+1. One or more master processes. These are applications itself. One of them is
+   what a user started. Rest of them are forked processes from the first one or
+   its children (all of them uses the kernel module fmaster.ko. It will be
+   explained later).
+2. One MASTER HUB whose name is fmhub (Fsyscall Master HUB). One of its roles is
+   sending messages from master processes to the slave machine with appening
+   pid. A master hub also receives messages from the slave machine. It
+   distributes these messages to destination processes which are described in
+   the messages.
+
+A slave machine includes:
+
+1. One or more slave processes. One slave process is for one master process. A
+   slave process does system call for its master process in the slave machine.
+   If its master process did fork(2), the slave process also does fork(2). The
+   new slave process is for the new master process. Name of the executable for
+   slave process is fslave (Fsyscall SLAVE).
+2. One SLAVE HUB whose name is fshub (Fsyscall Slave HUB). Its job is the same
+   as a master hub -- sending messages from slave processes to the master
+   machine, and distributing messages from the master machine.
 
 Restrictions
 ============
