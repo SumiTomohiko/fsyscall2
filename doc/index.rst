@@ -215,11 +215,28 @@ You will get
 How to use
 ==========
 
-How to start a master
----------------------
+kldload fmaster.ko
+------------------
 
-How to start a slave
---------------------
+First of all, you must do::
+
+    $ sudo kldload fmaster/fmaster.ko
+
+Use applications using fsyscall
+-------------------------------
+
+fsyscall does not have any functions to connect a master machine with a slave
+machine. If you hope to use your machine as a slave, you can use nexec_.
+
+NOTICE: There are no applications to use a machine as a master yet (2013-04-18).
+
+Libraries starting fsyscall
+---------------------------
+
+If you want to write an application using fsyscall, you can use
+fsyscall_start_master() function in lib/start_master/libstart_master.a to start
+master side. You can also use fsyscall_start_slave() function in
+lib/start_master/libstart_master.a.
 
 Author
 ======
