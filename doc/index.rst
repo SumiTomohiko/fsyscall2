@@ -5,6 +5,8 @@ fsyscall
 NOTICE: fsyscall is under development. Some features described in this
 documentation are not still implemented.
 
+.. contents:: Table of contents
+
 Overview
 ========
 
