@@ -1,11 +1,18 @@
 
+body {
+    font-family: "Times New Roman", serif;
+    font-size: x-large;
+}
+
 div.section > h1 {
     border-bottom-style: solid;
 }
 
 div.section > h2 {
-    border-bottom-style: dashed;
+    border-bottom-style: solid;
+    border-bottom-width: 1px;
     margin-left: 16px;
+    padding-left: 8px;
 }
 
 img {
