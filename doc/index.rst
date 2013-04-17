@@ -153,6 +153,9 @@ is a simple application.
 Slave process (fslave)
 ----------------------
 
+A slave process works as ordered by a master process. It does system calls
+actually with sending the results.
+
 Restrictions
 ============
 
