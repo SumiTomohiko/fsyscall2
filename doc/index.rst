@@ -109,6 +109,36 @@ A slave machine includes:
 Master processes and slave processes do not know about hubs. They think that
 they are directly connected.
 
+Master process with fmaster.ko
+------------------------------
+
+Any ELF binaries are available for fsyscall without any modifications. All
+mechanism is in fmaster.ko which is a kernel module.
+
+fmaster.ko includes a system call entry table. Some entries are same as these of
+original FreeBSD kernel. Rest of these are special entries for fsyscall. In such
+special entries, a system call request is serialized and sent to a slave through
+a master hub.
+
+fmaster.ko does not send all requests. For example, an executable often needs
+one or more libraries such as libc.so. These libraries must be opened in the
+master machine because these will be mmap(2)'ed later, and because these must
+have binary compatibility with the executable. So fmaster.ko opens such
+libraries in the master machine. Since other files are opened in the slave
+machine, fmaster.ko knows which file descriptor is on the slave, or on the
+master. If an application requests to mmap(2) with a file descriptor, fmaster.ko
+accepts the request only when the file descriptor is in the master machine (The
+request is rejected when the file descriptor is in the slave).
+
+Master hub (fmhub)
+------------------
+
+Slave hub (fshub)
+-----------------
+
+Slave process (fslave)
+----------------------
+
 Restrictions
 ============
 
