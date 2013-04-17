@@ -32,6 +32,10 @@ pre {
     padding: 8px;
 }
 
+ul, ol {
+    margin-left: 64px;
+}
+
 /**
  * vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4
  */
