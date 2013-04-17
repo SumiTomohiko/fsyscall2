@@ -238,6 +238,11 @@ fsyscall_start_master() function in lib/start_master/libstart_master.a to start
 master side. You can also use fsyscall_start_slave() function in
 lib/start_master/libstart_master.a.
 
+License
+=======
+
+fsyscall is under the MIT license.
+
 Author
 ======
 
