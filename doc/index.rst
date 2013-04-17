@@ -92,8 +92,8 @@ A master machine includes:
 2. One MASTER HUB whose name is fmhub (Fsyscall Master HUB). One of its roles is
    sending messages from master processes to the slave machine with appening
    pid. A master hub also receives messages from the slave machine. It
-   distributes these messages to destination processes which are described in
-   the messages.
+   distributes a message to a destination processe which is specified in the
+   message.
 
 A slave machine includes:
 
