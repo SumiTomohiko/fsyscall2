@@ -241,4 +241,7 @@ lib/start_master/libstart_master.a.
 Author
 ======
 
+The author of fsyscall is
+`Tomohiko Sumi <http://neko-daisuki.ddo.jp/~SumiTomohiko/index.html>`_.
+
 .. vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4
