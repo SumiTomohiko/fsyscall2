@@ -109,6 +109,8 @@ A slave machine includes:
 Master processes and slave processes do not know about hubs. They think that
 they are directly connected.
 
+NOTE: fork(2) for fsyscall is not implemented now (2013-04-18).
+
 Master process with fmaster.ko
 ------------------------------
 
@@ -132,6 +134,15 @@ request is rejected when the file descriptor is in the slave).
 
 Master hub (fmhub)
 ------------------
+
+Main role of fmhub is transfering messages from/to master processes.
+
+Additionaly, fmhub has one more important role. That is sending signal to master
+processes. If a user signals one of slave processes, fslave send signal
+information to the master machine. When fmhub receives the message, it send the
+same signal to the corresponding master process instead of the user.
+
+NOTE: Signal handling is not implemented now (2013-04-18).
 
 Slave hub (fshub)
 -----------------
