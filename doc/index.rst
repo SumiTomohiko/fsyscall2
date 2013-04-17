@@ -147,6 +147,9 @@ NOTE: Signal handling is not implemented now (2013-04-18).
 Slave hub (fshub)
 -----------------
 
+All fshub does is transfering messages as described in the above section. fshub
+is a simple application.
+
 Slave process (fslave)
 ----------------------
 
