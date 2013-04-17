@@ -177,8 +177,40 @@ in future.
 Download
 ========
 
-How to compile/install
-======================
+Tar balls (fsyscall-*x.y.z*.tar.xz) are available in `the author's
+repository <http://neko-daisuki.ddo.jp/~SumiTomohiko/repos/index.html>`_.
+
+How to compile
+==============
+
+Requirements
+------------
+
+fsyscall works on FreeBSD 9.1.
+
+To build fsyscall, you need `Python 3.x <http://www.python.org/>`_.
+
+Generate source code
+--------------------
+
+Large part of fsyscall is automatically generated. After extracting a tar ball,
+run at the top directory::
+
+    $ python3 tools/makesyscalls.py
+
+Compile
+-------
+
+The command to compile is usual::
+
+    $ make
+
+You will get
+
+* fmaster/fmaster.ko
+* fmhub/fmhub
+* fshub/fshub
+* fslave/fslave
 
 How to use
 ==========
