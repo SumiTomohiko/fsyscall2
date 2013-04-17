@@ -159,6 +159,21 @@ actually with sending the results.
 Restrictions
 ============
 
+fsyscall cannot execute an application which needs mmap(2).
+-----------------------------------------------------------
+
+As described above, a master process opens a library in the master machine. But
+if the application does mmap(2) for a non-library file, it fails. Because there
+are no ways to share memory with the slave machine (The file may be mmap(2)'ed
+in the slave machine by another non-fsyscall process).
+
+Thread?
+-------
+
+The author does not think about threads on fsyscall. This does not mean that
+fsyscall cannot handle threads. The author must design fsyscall more for threads
+in future.
+
 Download
 ========
 
