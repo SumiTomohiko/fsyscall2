@@ -18,6 +18,13 @@ p {
     margin-left: 32px;
 }
 
+pre {
+    border-style: solid;
+    border-width: 1px;
+    margin-left: 64px;
+    padding: 8px;
+}
+
 /**
  * vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4
  */
