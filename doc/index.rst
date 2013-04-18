@@ -1270,13 +1270,21 @@ fsyscall_start_master() function in lib/start_master/libstart_master.a to start
 master side. You can also use fsyscall_start_slave() function in
 lib/start_master/libstart_master.a.
 
-License
-=======
+Anything else
+=============
 
-fsyscall is under the MIT license.
+License
+-------
+
+fsyscall is under `the MIT license <https://github.com/SumiTomohiko/fsyscall2/blob/master/COPYING.rst#mit-license>`_.
+
+GitHub repository
+-----------------
+
+GitHub repository of fsyscall is https://github.com/SumiTomohiko/fsyscall2.
 
 Author
-======
+------
 
 The author of fsyscall is
 `Tomohiko Sumi <http://neko-daisuki.ddo.jp/~SumiTomohiko/index.html>`_.
