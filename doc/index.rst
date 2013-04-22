@@ -1212,28 +1212,56 @@ Download
 Tar balls (fsyscall-*x.y.z*.tar.xz) are available in `the author's
 repository <http://neko-daisuki.ddo.jp/~SumiTomohiko/repos/index.html>`_.
 
+Requirements
+============
+
+fsyscall works on FreeBSD 9.1.
+
 How to compile
 ==============
 
 Requirements
 ------------
 
-fsyscall works on FreeBSD 9.1.
+To build fsyscall, you need
 
-To build fsyscall, you need `Python 3.x <http://www.python.org/>`_.
+* `Python <http://www.python.org/>`_ 3.3
+* `nasm <http://www.nasm.us/>`_ 2.10.3
+
+Generate declarations of system call entry
+------------------------------------------
+
+First of all, you must generate system call declarations. Do the following
+command at the top directory of the source tree::
+
+    $ (cd fmaster/sys/fmaster && make)
 
 Generate source code
 --------------------
 
-Large part of fsyscall is automatically generated. After extracting a tar ball,
-run at the top directory::
+Large parts of fsyscall implementation are automatically generated with the
+following command::
 
     $ python3 tools/makesyscalls.py
 
-Compile
--------
+Compile a kernel
+----------------
 
-The command to compile is usual::
+Compiling fmaster.ko needs a header file
+(/usr/obj/usr/src/sys/GENERIC/includes/opt_global.h) which is generated in
+compiling a kernel::
+
+    $ (cd /usr/src && make -j4 buildkernel)
+
+If you are using your own kernel, please change `KERNBUILDDIR` in
+fmaster/Makefile::
+
+    KERNBUILDDIR=	/usr/obj/usr/src/sys/GENERIC
+
+Compile fsyscall
+----------------
+
+Now is the time to compile fsyscall::
 
     $ make
 
@@ -1243,6 +1271,24 @@ You will get
 * fmhub/fmhub
 * fshub/fshub
 * fslave/fslave
+
+Install fsyscall
+----------------
+
+Please install them by manually (fmhub, fshub and fslave must be in one
+directory of $PATH)::
+
+    $ ln -s $PWD/fmhub/fmhub /usr/local/bin
+    $ ln -s $PWD/fshub/fshub /usr/local/bin
+    $ ln -s $PWD/fslave/fslave /usr/local/bin
+
+Test
+----
+
+run_tests can run all tests::
+
+    $ sync; sync; sync
+    $ ./run_tests
 
 How to use
 ==========
