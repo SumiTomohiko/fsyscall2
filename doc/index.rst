@@ -1287,6 +1287,7 @@ Test
 
 run_tests can run all tests::
 
+    $ sudo kldload fmaster/fmaster.ko
     $ sync; sync; sync
     $ ./run_tests
 
