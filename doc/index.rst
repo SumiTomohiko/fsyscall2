@@ -66,11 +66,15 @@ in your machine.
 A local machine as a slave
 --------------------------
 
-When your machine is a slave, you can use a master machine as a local machine.
-You can use CPU/memory/applications in the master. These applications can
-read/write files in your slave machine.
+When your machine is a slave, you can use a master FreeBSD machine as a local
+machine. You can use CPU/memory/applications in the master. These applications
+can read/write files in your slave machine.
 
 .. image:: a_local_machine_as_a_slave.png
+
+If your machine is Android and someone implements slave side of fsyscall
+protocol for Android, you will be able to use your Android tablet like a FreeBSD
+machine.
 
 Structure
 =========
