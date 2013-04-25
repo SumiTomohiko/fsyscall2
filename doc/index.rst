@@ -55,6 +55,9 @@ In fsyscall, a machine requesting system calls is called as a "master". A
 
 .. image:: master_and_slave.png
 
+You can use your machine as both of a master and a slave. It depends on an
+application which you use.
+
 A local machine as a master
 ---------------------------
 
@@ -69,6 +72,9 @@ A local machine as a slave
 When your machine is a slave, you can use a master FreeBSD machine as a local
 machine. You can use CPU/memory/applications in the master. These applications
 can read/write files in your slave machine.
+
+nexec_ is an application for this case. If you use nexec_, your machine becomes
+a slave. The client of nexec_ connects to a server which works as a master.
 
 .. image:: a_local_machine_as_a_slave.png
 
