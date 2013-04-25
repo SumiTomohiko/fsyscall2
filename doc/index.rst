@@ -154,6 +154,8 @@ processes. If a user signals one of slave processes, fslave send signal
 information to the master machine. When fmhub receives the message, it send the
 same signal to the corresponding master process instead of the user.
 
+.. image:: signal.png
+
 NOTE: Signal handling is not implemented now (2013-04-18).
 
 Slave hub (fshub)
