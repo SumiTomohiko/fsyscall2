@@ -2,8 +2,8 @@
 fsyscall
 ********
 
-NOTICE: fsyscall is under development. Some features described in this
-documentation are not still implemented.
+.. attention:: fsyscall is under development. Some features described in this
+    documentation are not still implemented.
 
 .. contents:: Table of contents
 
@@ -40,10 +40,10 @@ There is a demerit:
 
 * throughput of network I/O becomes that of file I/O.
 
-NOTICE: fsyscall does not have any functions to connect a local machine to a
-remote machine. It is a role of other applications. nexec_ is one example. nexec
-connects a local slave machine to a remote master machine (the following section
-explains "master" and "slave").
+.. attention:: fsyscall does not have any functions to connect a local machine
+    to a remote machine. It is a role of other applications. nexec_ is one
+    example. nexec connects a local slave machine to a remote master machine
+    (the following section explains "master" and "slave").
 
 .. _nexec: http://neko-daisuki.ddo.jp/~SumiTomohiko/nexec/index.html
 
@@ -121,7 +121,7 @@ A slave machine includes:
 Master processes and slave processes do not know about hubs. They think that
 they are directly connected.
 
-NOTICE: fork(2) for fsyscall is not implemented now (2013-04-18).
+.. attention:: fork(2) for fsyscall is not implemented now (2013-04-18).
 
 Master process with fmaster.ko
 ------------------------------
@@ -158,7 +158,7 @@ same signal to the corresponding master process instead of the user.
 
 .. image:: signal.png
 
-NOTICE: Signal handling is not implemented now (2013-04-18).
+.. attention:: Signal handling is not implemented now (2013-04-18).
 
 Slave hub (fshub)
 -----------------
@@ -1325,7 +1325,8 @@ Use applications using fsyscall
 fsyscall does not have any functions to connect a master machine with a slave
 machine. If you hope to use your machine as a slave, you can use nexec_.
 
-NOTICE: There are no applications to use a machine as a master yet (2013-04-18).
+.. attention:: There are no applications to use a machine as a master yet
+    (2013-04-18).
 
 Libraries starting fsyscall
 ---------------------------

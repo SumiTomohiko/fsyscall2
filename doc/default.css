@@ -35,6 +35,11 @@ img {
     margin-right: auto;
 }
 
+div.attention {
+    border-style: dashed;
+    margin: 16px 32px;
+}
+
 p img {
     display: inline;
     vertical-align: middle;
