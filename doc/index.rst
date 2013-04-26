@@ -121,7 +121,7 @@ A slave machine includes:
 Master processes and slave processes do not know about hubs. They think that
 they are directly connected.
 
-NOTE: fork(2) for fsyscall is not implemented now (2013-04-18).
+NOTICE: fork(2) for fsyscall is not implemented now (2013-04-18).
 
 Master process with fmaster.ko
 ------------------------------
@@ -158,7 +158,7 @@ same signal to the corresponding master process instead of the user.
 
 .. image:: signal.png
 
-NOTE: Signal handling is not implemented now (2013-04-18).
+NOTICE: Signal handling is not implemented now (2013-04-18).
 
 Slave hub (fshub)
 -----------------
