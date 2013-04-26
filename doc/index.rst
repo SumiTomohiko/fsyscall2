@@ -144,6 +144,8 @@ master. If an application requests to mmap(2) with a file descriptor, fmaster.ko
 accepts the request only when the file descriptor is in the master machine (The
 request is rejected when the file descriptor is in the slave).
 
+.. image:: open_file.png
+
 Master hub (fmhub)
 ------------------
 
