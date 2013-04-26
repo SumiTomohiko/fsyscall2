@@ -1289,12 +1289,16 @@ You will get
 Install fsyscall
 ----------------
 
-Please install them by manually (fmhub, fshub and fslave must be in one
-directory of $PATH)::
+Please install them by manually. fmaster.ko and fmhub must be installed into a
+master machine. fshub and fslave must be installed into a slave machine. fmhub,
+fshub and fslave must be in one directory of $PATH::
 
-    $ ln -s $PWD/fmhub/fmhub /usr/local/bin
-    $ ln -s $PWD/fshub/fshub /usr/local/bin
-    $ ln -s $PWD/fslave/fslave /usr/local/bin
+    master$ ln -s $PWD/fmhub/fmhub /usr/local/bin
+
+::
+
+    slave$ ln -s $PWD/fshub/fshub /usr/local/bin
+    slave$ ln -s $PWD/fslave/fslave /usr/local/bin
 
 Test
 ----
