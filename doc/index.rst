@@ -1350,4 +1350,24 @@ Author
 The author of fsyscall is
 `Tomohiko Sumi <http://neko-daisuki.ddo.jp/~SumiTomohiko/index.html>`_.
 
+About cliparts in this documentation
+------------------------------------
+
+Some cliparts in this documentation came from other websites.
+
+|internet-cloud| |chieftec_case| |people_computer| |jcartier_binary_file|
+
+.. |internet-cloud| image:: internet-cloud.png
+    :align: middle
+    :target: http://openclipart.org/detail/152311/internet-cloud-by-b.gaultier
+.. |chieftec_case| image:: chieftec_case.png
+    :align: middle
+    :target: http://openclipart.org/detail/78457/chieftec-computer-case-by-bocian
+.. |people_computer| image:: people_computer.png
+    :align: middle
+    :target: http://openclipart.org/detail/37129/personnage_ordinateur-by-antoine
+.. |jcartier_binary_file| image:: jcartier_binary_file.png
+    :align: middle
+    :target: http://openclipart.org/detail/17317/binary-file-by-jcartier
+
 .. vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4

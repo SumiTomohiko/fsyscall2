@@ -35,6 +35,11 @@ img {
     margin-right: auto;
 }
 
+p img {
+    display: inline;
+    vertical-align: middle;
+}
+
 p {
     margin-left: 32px;
 }
