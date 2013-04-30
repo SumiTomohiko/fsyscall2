@@ -27,13 +27,13 @@ struct fmaster_data {
 	 * module returns a virtual fd. This virtual fd is index of
 	 * fmaster_data::fds.
 	 *
-	 * The actual fds are stored in this array. If a fd is a slave fd, two
-	 * less significant bits are 01. If a fd is a master fd, two less
+	 * The actual fds are stored in this array. If an fd is a slave fd, two
+	 * less significant bits are 01. If an fd is a master fd, two less
 	 * significant bits are 11. You can get the actual fd in the slave
 	 * process with (fds[fd] >> 2), you can also get the actual fd in the
 	 * master process with the same expression.
 	 *
-	 * If a fd is unused, fds[fd] is zero.
+	 * If an fd is unused, fds[fd] is zero.
 	 */
 	int fds[FD_NUM];
 };
