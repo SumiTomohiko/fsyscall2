@@ -63,12 +63,15 @@ static struct fmaster_data *
 create_data(struct thread *td, int rfd, int wfd)
 {
 	struct fmaster_data *data;
+	int i;
 
 	data = malloc(sizeof(*data), M_FMASTER, M_ZERO | M_NOWAIT);
 	if (data == NULL)
 		return (NULL);
 	data->rfd = rfd;
 	data->wfd = wfd;
+	for (i = 0; i < FD_NUM; i++)
+		data->fds[i] = 0;
 
 	return (data);
 }

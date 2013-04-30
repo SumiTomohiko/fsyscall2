@@ -530,11 +530,15 @@ def print_call_tail(p, print_newline):
     print_newline()
 
 def print_master_call(p, print_newline, syscall):
-    if len([a for a in syscall.args if a.name == "fd"]) == 0:
+    if "fd" not in [a.name for a in syscall.args]:
         return
     name = drop_prefix(syscall.name)
     p("""\
-\tif (fmaster_type_of_fd(td, uap->fd) == fft_master) {{
+\ttype_of_fd = fmaster_type_of_fd(td, uap->fd);
+\tif (type_of_fd == fft_unused) {{
+\t\treturn (EBADF);
+\t}}
+\tif (type_of_fd == fft_master) {{
 \t\tstruct {name}_args a;
 \t\tint *fds = fmaster_fds_of_thread(td);
 \t\tmemcpy(&a, uap, sizeof(a));
@@ -547,7 +551,7 @@ def print_master_call(p, print_newline, syscall):
 def print_generic_tail(p, print_newline, syscall):
     print_call_tail(p, print_newline)
 
-    local_vars = [Variable("int", "error")]
+    local_vars = make_basic_local_vars(syscall)
     name = syscall.name
     p("""\
 int
@@ -695,14 +699,21 @@ execute_return(struct thread *td, struct {name}_args *uap)
 }}
 """.format(**locals()))
 
+def make_basic_local_vars(syscall):
+    return [Variable("int", "error")] + (
+            [Variable("int", "type_of_fd")]
+            if "fd" in [a.name for a in syscall.args]
+            else [])
+
 def print_syscall(p, print_newline, syscall):
+    local_vars = make_basic_local_vars(syscall)
     name = syscall.name
     p("""\
 int
 sys_{name}(struct thread *td, struct {name}_args *uap)
 {{
-\tint error;
 """.format(**locals()))
+    print_locals(p, local_vars)
     print_newline()
     print_master_call(p, print_newline, syscall)
     p("""\

@@ -64,6 +64,7 @@ int	fmaster_wfd_of_thread(struct thread *);
 int	*fmaster_fds_of_thread(struct thread *);
 
 #define	FD_MARK_WIDTH		2
+#define	UNUSED_FD_MARK		0x00
 #define	SLAVE_FD_MARK		0x01
 #define	MASTER_FD_MARK		0x03
 #define	SLAVE_FD2FD(fd)		(((fd) << FD_MARK_WIDTH) + SLAVE_FD_MARK)
@@ -71,6 +72,7 @@ int	*fmaster_fds_of_thread(struct thread *);
 #define	LOCAL_FD(d)		((unsigned int)(d) >> FD_MARK_WIDTH)
 
 enum fmaster_fd_type {
+	fft_unused,
 	fft_slave,
 	fft_master
 };

@@ -271,7 +271,11 @@ fmaster_type_of_fd(struct thread *td, int d)
 	int mark;
 
 	mark = fmaster_fds_of_thread(td)[d] & 0x03;
-	return mark == SLAVE_FD_MARK ? fft_slave : fft_master;
+	if (mark == UNUSED_FD_MARK)
+		return (fft_unused);
+	if (mark == SLAVE_FD_MARK)
+		return (fft_slave);
+	return (fft_master);
 }
 
 int
