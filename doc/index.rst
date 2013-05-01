@@ -183,12 +183,11 @@ if the application does mmap(2) for a non-library file, it fails. Because there
 are no ways to share memory with the slave machine (The file may be mmap(2)'ed
 in the slave machine by another non-fsyscall process).
 
-Thread?
--------
+Thread
+------
 
-The author does not think about threads on fsyscall. This does not mean that
-fsyscall cannot handle threads. The author must design fsyscall more for threads
-in future.
+The current implementation does not handle threads. The author is guessing that
+lock of connection between master process and master hub is needed.
 
 Problems
 ========
