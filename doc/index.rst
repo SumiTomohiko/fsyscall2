@@ -2,8 +2,9 @@
 fsyscall
 ********
 
-.. attention:: fsyscall is under development. Some features described in this
-    documentation are not still implemented.
+.. attention::
+    fsyscall is under development. Some features described in this documentation
+    have not been implemented yet.
 
 .. contents:: Table of contents
 
@@ -121,7 +122,7 @@ A slave machine includes:
 Master processes and slave processes do not know about hubs. They think that
 they are directly connected.
 
-.. attention:: fork(2) for fsyscall is not implemented yet (2013-04-18).
+.. attention:: fork(2) for fsyscall have not been implemented yet (2013-04-18).
 
 Master process with fmaster.ko
 ------------------------------
@@ -158,7 +159,7 @@ same signal to the corresponding master process instead of the user.
 
 .. image:: signal.png
 
-.. attention:: Signal handling is not implemented yet (2013-04-18).
+.. attention:: Signal handling have not been implemented yet (2013-04-18).
 
 Slave hub (fshub)
 -----------------
