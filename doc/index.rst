@@ -1229,7 +1229,7 @@ repository <http://neko-daisuki.ddo.jp/~SumiTomohiko/repos/index.html>`_.
 Requirements
 ============
 
-fsyscall works on FreeBSD 9.1.
+fsyscall works on FreeBSD 9.1/amd64.
 
 How to compile
 ==============
