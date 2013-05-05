@@ -80,7 +80,8 @@ enum fmaster_fd_type {
 enum fmaster_fd_type
 	fmaster_type_of_fd(struct thread *, int);
 
-int	fmaster_execute_return_generic(struct thread *, command_t);
+int	fmaster_execute_return_generic32(struct thread *, command_t);
+int	fmaster_execute_return_generic64(struct thread *, command_t);
 int	fmaster_return_fd(struct thread *, int);
 
 #define	LOG(td, pri, fmt, ...)	do {				\

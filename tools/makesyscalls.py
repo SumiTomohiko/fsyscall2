@@ -568,11 +568,12 @@ sys_{name}(struct thread *td, struct {name}_args *uap)
 """.format(**locals()))
         print_newline()
     cmd_name = make_cmd_name(name)
+    bit_num = 32 if syscall.rettype == "int" else 64
     p("""\
 \terror = execute_call(td, uap);
 \tif (error != 0)
 \t\treturn (error);
-\terror = fmaster_execute_return_generic(td, RET_{cmd_name});
+\terror = fmaster_execute_return_generic{bit_num}(td, RET_{cmd_name});
 """.format(**locals()))
     if syscall.post_execute:
         p("""\

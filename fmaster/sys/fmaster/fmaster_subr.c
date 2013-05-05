@@ -198,7 +198,47 @@ IMPLEMENT_WRITE_X(
 		fsyscall_encode_int32)
 
 int
-fmaster_execute_return_generic(struct thread *td, command_t expected_cmd)
+fmaster_execute_return_generic32(struct thread *td, command_t expected_cmd)
+{
+	/**
+	 * TODO: fmaster_execute_return_generic32 is very similar to
+	 * fmaster_execute_return_generic64.
+	 */
+	int32_t ret;
+	command_t cmd;
+	uint32_t payload_size;
+	int errnum, errnum_len, error, ret_len;
+
+	error = fmaster_read_command(td, &cmd);
+	if (error != 0)
+		return (error);
+	if (cmd != expected_cmd)
+		return (EPROTO);
+
+	error = fmaster_read_payload_size(td, &payload_size);
+	if (error != 0)
+		return (error);
+
+	error = fmaster_read_int32(td, &ret, &ret_len);
+	if (error != 0)
+		return (error);
+	if (ret != -1) {
+		if (payload_size != ret_len)
+			return (EPROTO);
+		td->td_retval[0] = ret;
+		return (0);
+	}
+
+	error = fmaster_read_int32(td, &errnum, &errnum_len);
+	if (error != 0)
+		return (error);
+	if (payload_size != ret_len + errnum_len)
+		return (EPROTO);
+	return (errnum);
+}
+
+int
+fmaster_execute_return_generic64(struct thread *td, command_t expected_cmd)
 {
 	int64_t ret;
 	command_t cmd;
