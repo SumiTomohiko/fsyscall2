@@ -12,6 +12,17 @@
 
 #define	FD_NUM	1024
 
+enum fmaster_fd_type {
+	fft_unused,
+	fft_slave,
+	fft_master
+};
+
+struct fmaster_fd {
+	enum fmaster_fd_type fd_type;
+	int fd_local;
+};
+
 struct fmaster_data {
 	int rfd;
 	int wfd;
@@ -26,16 +37,8 @@ struct fmaster_data {
 	 * and the slave process successed the request, the fmaster kernel
 	 * module returns a virtual fd. This virtual fd is index of
 	 * fmaster_data::fds.
-	 *
-	 * The actual fds are stored in this array. If an fd is a slave fd, two
-	 * less significant bits are 01. If an fd is a master fd, two less
-	 * significant bits are 11. You can get the actual fd in the slave
-	 * process with (fds[fd] >> 2), you can also get the actual fd in the
-	 * master process with the same expression.
-	 *
-	 * If an fd is unused, fds[fd] is zero.
 	 */
-	int fds[FD_NUM];
+	struct fmaster_fd fds[FD_NUM];
 };
 
 int	fmaster_read_command(struct thread *, command_t *);
@@ -61,28 +64,15 @@ int	fmaster_write_from_userspace(struct thread *, int, const void *, size_t);
 
 int	fmaster_rfd_of_thread(struct thread *);
 int	fmaster_wfd_of_thread(struct thread *);
-int	*fmaster_fds_of_thread(struct thread *);
-
-#define	FD_MARK_WIDTH		2
-#define	UNUSED_FD_MARK		0x00
-#define	SLAVE_FD_MARK		0x01
-#define	MASTER_FD_MARK		0x03
-#define	SLAVE_FD2FD(fd)		(((fd) << FD_MARK_WIDTH) + SLAVE_FD_MARK)
-#define	MASTER_FD2FD(fd)	(((fd) << FD_MARK_WIDTH) + MASTER_FD_MARK)
-#define	LOCAL_FD(d)		((unsigned int)(d) >> FD_MARK_WIDTH)
-
-enum fmaster_fd_type {
-	fft_unused,
-	fft_slave,
-	fft_master
-};
+struct fmaster_fd *
+	fmaster_fds_of_thread(struct thread *);
 
 enum fmaster_fd_type
 	fmaster_type_of_fd(struct thread *, int);
 
 int	fmaster_execute_return_generic32(struct thread *, command_t);
 int	fmaster_execute_return_generic64(struct thread *, command_t);
-int	fmaster_return_fd(struct thread *, int);
+int	fmaster_return_fd(struct thread *, enum fmaster_fd_type, int);
 
 #define	LOG(td, pri, fmt, ...)	do {				\
 	const char *__fmt__ = "fmaster[%d]: " fmt "\n";		\

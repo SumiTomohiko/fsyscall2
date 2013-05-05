@@ -166,7 +166,7 @@ fmaster_wfd_of_thread(struct thread *td)
 	return (data_of_thread(td)->wfd);
 }
 
-int *
+struct fmaster_fd *
 fmaster_fds_of_thread(struct thread *td)
 {
 	return (data_of_thread(td)->fds);
@@ -297,10 +297,11 @@ fmaster_read_to_userspace(struct thread *td, int d, void *buf, size_t nbytes)
 static int
 find_unused_fd(struct thread *td)
 {
-	int *fds, i;
+	struct fmaster_fd *fds;
+	int i;
 
 	fds = fmaster_fds_of_thread(td);
-	for (i = 0; (i < FD_NUM) && (fds[i] != 0); i++);
+	for (i = 0; (i < FD_NUM) && (fds[i].fd_type != fft_unused); i++);
 
 	return (i);
 }
@@ -308,27 +309,23 @@ find_unused_fd(struct thread *td)
 enum fmaster_fd_type
 fmaster_type_of_fd(struct thread *td, int d)
 {
-	int mark;
-
-	mark = fmaster_fds_of_thread(td)[d] & 0x03;
-	if (mark == UNUSED_FD_MARK)
-		return (fft_unused);
-	if (mark == SLAVE_FD_MARK)
-		return (fft_slave);
-	return (fft_master);
+	return (fmaster_fds_of_thread(td)[d].fd_type);
 }
 
 int
-fmaster_return_fd(struct thread *td, int d)
+fmaster_return_fd(struct thread *td, enum fmaster_fd_type type, int d)
 {
-	int fd, *fds;
+	struct fmaster_fd *fd;
+	int virtual_fd;
 
-	fd = find_unused_fd(td);
-	if (fd == FD_NUM)
+	virtual_fd = find_unused_fd(td);
+	if (virtual_fd == FD_NUM)
 		return (EMFILE);
-	fds = fmaster_fds_of_thread(td);
-	fds[fd] = d;
-	td->td_retval[0] = fd;
+	fd = &fmaster_fds_of_thread(td)[virtual_fd];
+	fd->fd_type = type;
+	fd->fd_local = d;
+
+	td->td_retval[0] = virtual_fd;
 
 	return (0);
 }

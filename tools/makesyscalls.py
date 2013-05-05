@@ -540,9 +540,9 @@ def print_master_call(p, print_newline, syscall):
 \t}}
 \tif (type_of_fd == fft_master) {{
 \t\tstruct {name}_args a;
-\t\tint *fds = fmaster_fds_of_thread(td);
+\t\tstruct fmaster_fd *fds = fmaster_fds_of_thread(td);
 \t\tmemcpy(&a, uap, sizeof(a));
-\t\ta.fd = LOCAL_FD(fds[uap->fd]);
+\t\ta.fd = fds[uap->fd].fd_local;
 \t\treturn (sys_{name}(td, &a));
 \t}}
 """.format(**locals()))

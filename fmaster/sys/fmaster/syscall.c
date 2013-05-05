@@ -71,7 +71,7 @@ create_data(struct thread *td, int rfd, int wfd)
 	data->rfd = rfd;
 	data->wfd = wfd;
 	for (i = 0; i < FD_NUM; i++)
-		data->fds[i] = 0;
+		data->fds[i].fd_type = fft_unused;
 
 	return (data);
 }
@@ -79,6 +79,7 @@ create_data(struct thread *td, int rfd, int wfd)
 static int
 read_fds(struct thread *td, struct fmaster_data *data)
 {
+	struct fmaster_fd *fd;
 	int _, d, error, m, nbytes, pos;
 
 	error = fmaster_read_int32(td, &nbytes, &_);
@@ -90,7 +91,9 @@ read_fds(struct thread *td, struct fmaster_data *data)
 		error = fmaster_read_int32(td, &d, &m);
 		if (error != 0)
 			return (error);
-		data->fds[d] = SLAVE_FD2FD(d);
+		fd = &data->fds[d];
+		fd->fd_type = fft_slave;
+		fd->fd_local = d;
 		pos += m;
 	}
 
