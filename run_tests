@@ -101,7 +101,7 @@ do
 		if [ "${expected_status}" -eq "${status}" ]; then
 			result="OK"
 		else
-			result="NG"
+			result="NG (actual: ${status})"
 		fi
 	elif [ -n "$(isset expected_stdout)" ]; then
 		if [ "${expected_stdout}" = "$(cat ${stdout_log})" ]; then
