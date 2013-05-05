@@ -67,7 +67,7 @@ int	fmaster_wfd_of_thread(struct thread *);
 struct fmaster_fd *
 	fmaster_fds_of_thread(struct thread *);
 
-void	fmaster_close_fd(struct thread *td, int d);
+void	fmaster_close_fd(struct thread *, int);
 enum fmaster_fd_type
 	fmaster_type_of_fd(struct thread *, int);
 
