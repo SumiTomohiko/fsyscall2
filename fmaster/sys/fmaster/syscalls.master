@@ -133,7 +133,7 @@
 52	AUE_SIGPENDING	OBSOL	sigpending
 53	AUE_SIGALTSTACK	NOPROTO	{ int sigaltstack(stack_t *ss, \
 				    stack_t *oss); }
-54	AUE_IOCTL	UNIMPL	{ int fmaster_ioctl(int fd, u_long com, \
+54	AUE_IOCTL	STD	{ int fmaster_ioctl(int fd, u_long com, \
 				    caddr_t data); }
 55	AUE_REBOOT	UNIMPL	{ int fmaster_reboot(int opt); }
 56	AUE_REVOKE	UNIMPL	{ int fmaster_revoke(char *path); }
