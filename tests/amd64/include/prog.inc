@@ -4,4 +4,4 @@
 %include "print_stat_member.inc"
 %include "sys.inc"
 
-# vim: filetype=nasm
+; vim: filetype=nasm
