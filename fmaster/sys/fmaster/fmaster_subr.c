@@ -329,3 +329,9 @@ fmaster_return_fd(struct thread *td, enum fmaster_fd_type type, int d)
 
 	return (0);
 }
+
+void
+fmaster_close_fd(struct thread *td, int d)
+{
+	fmaster_fds_of_thread(td)[d].fd_type = FD_CLOSED;
+}

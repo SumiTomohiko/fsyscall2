@@ -102,6 +102,7 @@ class Syscall:
         self.sending_order_args = None
         self.pre_execute = False
         self.post_execute = False
+        self.post_common = False
 
     def __str__(self):
         args = ", ".join([str(a) for a in self.args])
@@ -543,7 +544,18 @@ def print_master_call(p, print_newline, syscall):
 \t\tstruct fmaster_fd *fds = fmaster_fds_of_thread(td);
 \t\tmemcpy(&a, uap, sizeof(a));
 \t\ta.fd = fds[uap->fd].fd_local;
-\t\treturn (sys_{name}(td, &a));
+\t\terror = sys_{name}(td, &a);
+\t\tif (error != 0)
+\t\t\treturn (error);
+""".format(**locals()))
+    if syscall.post_common:
+        p("""\
+\t\terror = fmaster_{name}_post_common(td, uap);
+\t\tif (error != 0)
+\t\t\treturn (error);
+""".format(**locals()))
+    p("""\
+\t\treturn (0);
 \t}}
 """.format(**locals()))
     print_newline()
@@ -574,16 +586,23 @@ sys_{name}(struct thread *td, struct {name}_args *uap)
 \tif (error != 0)
 \t\treturn (error);
 \terror = fmaster_execute_return_generic{bit_num}(td, RET_{cmd_name});
+\tif (error != 0)
+\t\treturn (error);
 """.format(**locals()))
     if syscall.post_execute:
         p("""\
+\terror = {name}_post_execute(td, uap);
 \tif (error != 0)
 \t\treturn (error);
-
-\terror = {name}_post_execute(td, uap);
+""".format(**locals()))
+    if syscall.post_common:
+        p("""\
+\terror = {name}_post_common(td, uap);
+\tif (error != 0)
+\t\treturn (error);
 """.format(**locals()))
     p("""\
-\treturn (error);
+\treturn (0);
 }}
 """.format(**locals()))
 
@@ -795,11 +814,17 @@ def write_syscall(dirpath, syscall):
         print_newline()
         print_tail(p, print_newline, syscall)
 
+def get_hook_path(dirpath, syscall, fmt):
+    return join(dirpath, fmt.format(name=syscall.name))
+
+def get_post_common_path(dirpath, syscall):
+    return get_hook_path(dirpath, syscall, "{name}_post_common.c")
+
 def get_post_execute_path(dirpath, syscall):
-    return join(dirpath, "{name}_post_execute.c".format(name=syscall.name))
+    return get_hook_path(dirpath, syscall, "{name}_post_execute.c")
 
 def get_pre_execute_path(dirpath, syscall):
-    return join(dirpath, "{name}_pre_execute.c".format(name=syscall.name))
+    return get_hook_path(dirpath, syscall, "{name}_pre_execute.c")
 
 def read_syscalls(dirpath):
     syscalls = []
@@ -814,6 +839,7 @@ def read_syscalls(dirpath):
         syscall = parse_proto(proto)
         syscall.pre_execute = exists(get_pre_execute_path(dirpath, syscall))
         syscall.post_execute = exists(get_post_execute_path(dirpath, syscall))
+        syscall.post_common = exists(get_post_common_path(dirpath, syscall))
         syscalls.append(syscall)
     return syscalls
 
@@ -1274,6 +1300,9 @@ def write_fmaster_makefile(path, syscalls):
     for syscall in [syscall for syscall in syscalls if syscall.post_execute]:
         name = syscall.name
         srcs.append("{name}_post_execute.c".format(**locals()))
+    for syscall in [syscall for syscall in syscalls if syscall.post_common]:
+        name = syscall.name
+        srcs.append("{name}_post_common.c".format(**locals()))
 
     write_makefile(path, srcs)
 
@@ -1363,6 +1392,9 @@ def write_pre_post_h(dirpath, syscalls):
             protos.append(fmt.format(name=syscall.name))
         for syscall in [syscall for syscall in syscalls if syscall.post_execute]:
             fmt = "int {name}_post_execute(struct thread *, struct {name}_args *);\n"
+            protos.append(fmt.format(name=syscall.name))
+        for syscall in [syscall for syscall in syscalls if syscall.post_common]:
+            fmt = "int {name}_post_common(struct thread *, struct {name}_args *);\n"
             protos.append(fmt.format(name=syscall.name))
         p("".join(sorted(protos)))
 
