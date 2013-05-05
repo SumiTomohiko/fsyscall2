@@ -7,5 +7,5 @@
 int
 fmaster_open_post_execute(struct thread *td, struct fmaster_open_args *uap)
 {
-	return fmaster_return_fd(td, fft_slave, td->td_retval[0]);
+	return fmaster_return_fd(td, FD_SLAVE, td->td_retval[0]);
 }

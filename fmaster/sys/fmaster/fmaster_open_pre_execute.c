@@ -17,7 +17,7 @@ open_master(struct thread *td, struct fmaster_open_args *uap)
 	if (error != 0)
 		return (error);
 
-	return fmaster_return_fd(td, fft_master, td->td_retval[0]);
+	return fmaster_return_fd(td, FD_MASTER, td->td_retval[0]);
 }
 
 int

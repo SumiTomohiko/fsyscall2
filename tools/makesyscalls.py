@@ -535,10 +535,10 @@ def print_master_call(p, print_newline, syscall):
     name = drop_prefix(syscall.name)
     p("""\
 \ttype_of_fd = fmaster_type_of_fd(td, uap->fd);
-\tif (type_of_fd == fft_unused) {{
+\tif (type_of_fd == FD_CLOSED) {{
 \t\treturn (EBADF);
 \t}}
-\tif (type_of_fd == fft_master) {{
+\tif (type_of_fd == FD_MASTER) {{
 \t\tstruct {name}_args a;
 \t\tstruct fmaster_fd *fds = fmaster_fds_of_thread(td);
 \t\tmemcpy(&a, uap, sizeof(a));

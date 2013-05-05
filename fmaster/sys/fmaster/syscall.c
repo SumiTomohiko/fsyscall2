@@ -71,7 +71,7 @@ create_data(struct thread *td, int rfd, int wfd)
 	data->rfd = rfd;
 	data->wfd = wfd;
 	for (i = 0; i < FD_NUM; i++)
-		data->fds[i].fd_type = fft_unused;
+		data->fds[i].fd_type = FD_CLOSED;
 
 	return (data);
 }
@@ -92,7 +92,7 @@ read_fds(struct thread *td, struct fmaster_data *data)
 		if (error != 0)
 			return (error);
 		fd = &data->fds[d];
-		fd->fd_type = fft_slave;
+		fd->fd_type = FD_SLAVE;
 		fd->fd_local = d;
 		pos += m;
 	}

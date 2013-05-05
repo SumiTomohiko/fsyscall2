@@ -13,9 +13,9 @@
 #define	FD_NUM	1024
 
 enum fmaster_fd_type {
-	fft_unused,
-	fft_slave,
-	fft_master
+	FD_CLOSED,
+	FD_SLAVE,
+	FD_MASTER
 };
 
 struct fmaster_fd {

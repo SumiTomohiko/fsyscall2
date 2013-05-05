@@ -301,7 +301,7 @@ find_unused_fd(struct thread *td)
 	int i;
 
 	fds = fmaster_fds_of_thread(td);
-	for (i = 0; (i < FD_NUM) && (fds[i].fd_type != fft_unused); i++);
+	for (i = 0; (i < FD_NUM) && (fds[i].fd_type != FD_CLOSED); i++);
 
 	return (i);
 }

@@ -11,7 +11,7 @@ sys_fmaster_mmap(struct thread *td, struct fmaster_mmap_args *uap)
 {
 	int fd = uap->fd, flags = uap->flags;
 
-	if (((flags & MAP_ANON) != 0) || (fmaster_type_of_fd(td, fd) == fft_master)) {
+	if (((flags & MAP_ANON) != 0) || (fmaster_type_of_fd(td, fd) == FD_MASTER)) {
 		struct mmap_args a;
 		memcpy(&a, uap, sizeof(a));
 		if ((flags & MAP_ANON) == 0)
