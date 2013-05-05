@@ -9,15 +9,13 @@
 int
 sys_fmaster_mmap(struct thread *td, struct fmaster_mmap_args *uap)
 {
-	int fd = uap->fd, *fds, flags = uap->flags;
+	int fd = uap->fd, flags = uap->flags;
 
 	if (((flags & MAP_ANON) != 0) || (fmaster_type_of_fd(td, fd) == fft_master)) {
 		struct mmap_args a;
 		memcpy(&a, uap, sizeof(a));
-		if ((flags & MAP_ANON) == 0) {
-			fds = fmaster_fds_of_thread(td);
-			a.fd = LOCAL_FD(fds[fd]);
-		}
+		if ((flags & MAP_ANON) == 0)
+			a.fd = fmaster_fds_of_thread(td)[fd].fd_local;
 		return (sys_mmap(td, &a));
 	}
 
