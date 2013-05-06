@@ -86,6 +86,7 @@ tests/amd64/print_stat_member/name.inc
 tests/amd64/print_stat_member/print.inc
 tests/amd64/print_stat_member/print_stat_layout
 tests/amd64/readlink/readlink
+tests/amd64/select/select
 tests/amd64/stat/stat
 tests/amd64/writev/writev
 tests/encode/pid/pid

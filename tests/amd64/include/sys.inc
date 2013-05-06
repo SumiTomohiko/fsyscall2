@@ -11,6 +11,7 @@
 %define	sys.access	33
 %define	sys.ioctl	54
 %define	sys.readlink	58
+%define	sys.select	93
 %define	sys.writev	121
 %define	sys.stat	188
 %define	sys.fstat	189
