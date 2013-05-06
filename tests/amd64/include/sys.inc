@@ -25,4 +25,4 @@
 
 %define	flags.readonly	0
 
-# vim: filetype=nasm
+; vim: filetype=nasm
