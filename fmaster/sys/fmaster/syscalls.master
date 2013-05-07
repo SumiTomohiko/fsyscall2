@@ -186,7 +186,7 @@
 91	AUE_NULL	UNIMPL	getdopt
 92	AUE_FCNTL	UNIMPL	{ int fmaster_fcntl(int fd, int cmd, \
 				    long arg); }
-93	AUE_SELECT	UNIMPL	{ int fmaster_select(int nd, fd_set *in, \
+93	AUE_SELECT	STD	{ int fmaster_select(int nd, fd_set *in, \
 				    fd_set *ou, fd_set *ex, \
 				    struct timeval *tv); }
 94	AUE_NULL	UNIMPL	setdopt
