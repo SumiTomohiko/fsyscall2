@@ -152,7 +152,7 @@ sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
 	payload_size = nfds_len + nreadfds_len + readfds_len + nwritefds_len +
 		       writefds_len + nexceptfds_len + exceptfds_len +
 		       timeout_len + sec_len + usec_len;
-	e = fmaster_write_command(td, CALL_OPEN);
+	e = fmaster_write_command(td, CALL_SELECT);
 	if (e != 0)
 		goto finally;
 	e = fmaster_write_payload_size(td, payload_size);
