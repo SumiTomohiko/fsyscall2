@@ -120,6 +120,15 @@ sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
 	ENCODE_INT32(nreadfds, nreadfds_buf, nreadfds_len);
 	ENCODE_INT32(nwritefds, nwritefds_buf, nwritefds_len);
 	ENCODE_INT32(nexceptfds, nexceptfds_buf, nexceptfds_len);
+	/*
+	 * One more idea
+	 * *************
+	 *
+	 * The following field tells that timeout is NULL or not NULL. This
+	 * field can have more roles. For example, timeout must be usually NULL
+	 * (for blocking) or zero (for polling). So this field can tell that
+	 * timeout is zero with the value of "2". Such way can decrease bytes.
+	 */
 	ENCODE_INT32(timeout != NULL ? 1 : 0, timeout_buf, timeout_len);
 #undef	ENCODE_INT32
 #define	ENCODE_FDS(fds, buf, buf_len, len)	do {		\
