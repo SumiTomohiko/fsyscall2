@@ -154,6 +154,7 @@ process_shub(struct mhub *mhub)
 
 	cmd = read_command(mhub->shub.rfd);
 	switch (cmd) {
+	case RET_SELECT:
 #include "dispatch_ret.inc"
 		transfer_payload_to_master(mhub, cmd);
 		break;
@@ -225,6 +226,7 @@ process_master(struct mhub *mhub, struct master *master)
 	case CALL_EXIT:
 		process_exit(mhub, master);
 		break;
+	case CALL_SELECT:
 #include "dispatch_call.inc"
 		transfer_payload_from_master(mhub, master, cmd);
 		break;
