@@ -1,5 +1,5 @@
 
-LIBDIR=	do_stat_test print_stat_member lib
+LIBDIR=	do_stat_test print_stat_member lib tiny_runtime
 SUBDIR=	${LIBDIR} access close close_twice exit fstat ioctl issetugid lseek \
 	lstat open pread read readlink select stat write writev
 
