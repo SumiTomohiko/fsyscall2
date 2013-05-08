@@ -1,4 +1,4 @@
 
 PROG=	select
 
-.include "../Makefile.prog"
+.include "../Makefile.cprog"

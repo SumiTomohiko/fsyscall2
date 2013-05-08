@@ -1,0 +1,11 @@
+
+CC=		clang
+SRCS=		${PROG}.c
+ADDITIONAL	+= Makefile ../Makefile.cprog
+CFLAGS		+= -O0 -g
+LDFLAGS		+= ../tiny_runtime/tiny_runtime.o -nostdlib
+WITHOUT_MAN	= yes
+
+.include <bsd.prog.mk>
+
+# vim: filetype=make
