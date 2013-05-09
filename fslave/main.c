@@ -1,3 +1,4 @@
+#include <sys/select.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <assert.h>
@@ -153,6 +154,73 @@ return_ssize(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 	return_generic(slave, cmd, ret_buf, ret_len, errnum_buf, errnum_len);
 }
 
+static void
+read_fds(struct slave *slave, fd_set *fds, payload_size_t *len)
+{
+	payload_size_t payload_size;
+	int fd, fd_len, i, nfds, nfds_len, rfd;
+
+	rfd = slave->rfd;
+
+	nfds = read_int32(rfd, &nfds_len);
+	payload_size = nfds_len;
+
+	for (i = 0; i < nfds; i++) {
+		fd = read_int32(rfd, &fd_len);
+		payload_size += fd_len;
+		FD_SET(fd, fds);
+	}
+
+	*len = payload_size;
+}
+
+static void
+process_select(struct slave *slave)
+{
+	struct timeval *ptimeout, timeout;
+	fd_set exceptfds, readfds, writefds;
+	payload_size_t actual_payload_size, exceptfds_len, payload_size;
+	payload_size_t readfds_len, writefds_len;
+	int nfds, nfds_len, timeout_status, timeout_status_len, tv_sec_len;
+	int tv_usec_len, rfd;
+
+	FD_ZERO(&exceptfds);
+	FD_ZERO(&readfds);
+	FD_ZERO(&writefds);
+
+	rfd = slave->rfd;
+	actual_payload_size = 0;
+	payload_size = read_payload_size(rfd);
+
+	nfds = read_int32(rfd, &nfds_len);
+	actual_payload_size += nfds_len;
+
+	read_fds(slave, &readfds, &readfds_len);
+	actual_payload_size += readfds_len;
+	read_fds(slave, &writefds, &writefds_len);
+	actual_payload_size += writefds_len;
+	read_fds(slave, &exceptfds, &exceptfds_len);
+	actual_payload_size += exceptfds_len;
+
+	timeout_status = read_int32(rfd, &timeout_status_len);
+	actual_payload_size += timeout_status_len;
+
+	if (timeout_status == 0)
+		ptimeout = NULL;
+	else {
+		assert(timeout_status == 1);
+
+		timeout.tv_sec = read_int64(rfd, &tv_sec_len);
+		actual_payload_size += tv_sec_len;
+		timeout.tv_usec = read_int64(rfd, &tv_usec_len);
+		actual_payload_size += tv_usec_len;
+
+		ptimeout = &timeout;
+	}
+
+	syslog(LOG_DEBUG, "Processing CALL_SELECT.");
+}
+
 static int
 process_exit(struct slave *slave)
 {
@@ -178,6 +246,8 @@ mainloop(struct slave *slave)
 		cmd = read_command(rfd);
 		switch (cmd) {
 #include "dispatch.inc"
+		case CALL_SELECT:
+			process_select(slave);
 		case CALL_EXIT:
 			return process_exit(slave);
 		default:
