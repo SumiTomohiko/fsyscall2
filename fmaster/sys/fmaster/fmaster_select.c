@@ -68,14 +68,18 @@ sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
 
 	nfds = uap->nd;
 
-#define	COPYIN(u, k)	do {				\
-	if ((e = copyin((u), (k), sizeof(*k))) != 0)	\
-		return (e);				\
+#define	INIT_FDS(u, k)	do {					\
+	if ((u) != NULL) {					\
+		if ((e = copyin((u), (k), sizeof(*k))) != 0)	\
+			return (e);				\
+	}							\
+	else							\
+		FD_ZERO(k);					\
 } while (0)
-	COPYIN(uap->in, &readfds);
-	COPYIN(uap->ou, &writefds);
-	COPYIN(uap->ex, &exceptfds);
-#undef	COPYIN
+	INIT_FDS(uap->in, &readfds);
+	INIT_FDS(uap->ou, &writefds);
+	INIT_FDS(uap->ex, &exceptfds);
+#undef	INIT_FDS
 
 	if (has_nonslave_fd(td, nfds, &readfds))
 		return (EBADF);
