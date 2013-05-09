@@ -238,6 +238,24 @@ fmaster_execute_return_generic32(struct thread *td, command_t expected_cmd)
 }
 
 int
+fmaster_fd_of_slave_fd(struct thread *td, int slave_fd, int *local_fd)
+{
+	struct fmaster_fd *fd, *fds;
+	int i;
+
+	fds = fmaster_fds_of_thread(td);
+	for (i = 0; i < FD_NUM; i++) {
+		fd = &fds[i];
+		if ((fd->fd_type == FD_SLAVE) || (fd->fd_local == slave_fd)) {
+			*local_fd = i;
+			return (0);
+		}
+	}
+
+	return (EPROTO);
+}
+
+int
 fmaster_execute_return_generic64(struct thread *td, command_t expected_cmd)
 {
 	int64_t ret;

@@ -68,6 +68,7 @@ struct fmaster_fd *
 	fmaster_fds_of_thread(struct thread *);
 
 void	fmaster_close_fd(struct thread *, int);
+int	fmaster_fd_of_slave_fd(struct thread *, int, int *);
 enum fmaster_fd_type
 	fmaster_type_of_fd(struct thread *, int);
 

@@ -47,15 +47,13 @@ has_nonslave_fd(struct thread *td, int nfds, struct fd_set *fds)
 	return (0);
 }
 
-int
-sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
+static int
+write_call(struct thread *td, int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
 {
 	struct malloc_type *type;
-	struct fd_set exceptfds, readfds, writefds;
-	struct timeval *timeout;
 	payload_size_t payload_size;
 	unsigned long exceptfds_buf_len, readfds_buf_len, writefds_buf_len;
-	int e, exceptfds_len, flags, nexceptfds, nexceptfds_len, nfds;
+	int error, exceptfds_len, flags, nexceptfds, nexceptfds_len;
 	int nfds_len, nreadfds, nreadfds_len, nwritefds, nwritefds_len;
 	int readfds_len, sec_len, timeout_len, usec_len, wfd, writefds_len;
 	char *exceptfds_buf, nexceptfds_buf[FSYSCALL_BUFSIZE_INT32];
@@ -66,32 +64,15 @@ sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
 	char timeout_buf[FSYSCALL_BUFSIZE_INT32];
 	char usec_buf[FSYSCALL_BUFSIZE_INT64], *writefds_buf;
 
-	nfds = uap->nd;
+	KASSERT(readfds != NULL, "readfds must be NULL.");
+	KASSERT(writefds != NULL, "writefds must be NULL.");
+	KASSERT(exceptfds != NULL, "exceptfds must be NULL.");
 
-#define	INIT_FDS(u, k)	do {					\
-	if ((u) != NULL) {					\
-		if ((e = copyin((u), (k), sizeof(*k))) != 0)	\
-			return (e);				\
-	}							\
-	else							\
-		FD_ZERO(k);					\
-} while (0)
-	INIT_FDS(uap->in, &readfds);
-	INIT_FDS(uap->ou, &writefds);
-	INIT_FDS(uap->ex, &exceptfds);
-#undef	INIT_FDS
+	nreadfds = fsyscall_count_fds(nfds, readfds);
+	nwritefds = fsyscall_count_fds(nfds, writefds);
+	nexceptfds = fsyscall_count_fds(nfds, exceptfds);
 
-	if (has_nonslave_fd(td, nfds, &readfds))
-		return (EBADF);
-	if (has_nonslave_fd(td, nfds, &writefds))
-		return (EBADF);
-	if (has_nonslave_fd(td, nfds, &exceptfds))
-		return (EBADF);
-	nreadfds = fsyscall_count_fds(nfds, &readfds);
-	nwritefds = fsyscall_count_fds(nfds, &writefds);
-	nexceptfds = fsyscall_count_fds(nfds, &exceptfds);
-
-	e = 0;
+	error = 0;
 	writefds_buf = exceptfds_buf = NULL;
 	type = M_TMP;
 	flags = M_WAITOK;
@@ -102,21 +83,20 @@ sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
 	writefds_buf_len = fsyscall_compute_fds_bufsize(nwritefds);
 	writefds_buf = (char *)malloc(writefds_buf_len, type, flags);
 	if (writefds_buf == NULL) {
-		e = ENOMEM;
+		error = ENOMEM;
 		goto finally;
 	}
 	exceptfds_buf_len = fsyscall_compute_fds_bufsize(nexceptfds);
 	exceptfds_buf = (char *)malloc(exceptfds_buf_len, type, flags);
 	if (exceptfds_buf == NULL) {
-		e = ENOMEM;
+		error = ENOMEM;
 		goto finally;
 	}
 
-	timeout = uap->tv;
 #define	ENCODE_INT32(n, buf, len)	do {			\
 	len = fsyscall_encode_int32((n), (buf), sizeof(buf));	\
 	if (len == -1) {					\
-		e = ENOMEM;					\
+		error = ENOMEM;					\
 		goto finally;					\
 	}							\
 } while (0)
@@ -136,9 +116,9 @@ sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
 	ENCODE_INT32(timeout != NULL ? 1 : 0, timeout_buf, timeout_len);
 #undef	ENCODE_INT32
 #define	ENCODE_FDS(fds, buf, buf_len, len)	do {		\
-	len = encode_fds(td, nfds, &(fds), (buf), (buf_len));	\
+	len = encode_fds(td, nfds, (fds), (buf), (buf_len));	\
 	if (len == -1) {					\
-		e = ENOMEM;					\
+		error = ENOMEM;					\
 		goto finally;					\
 	}							\
 } while (0)
@@ -149,7 +129,7 @@ sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
 #define	ENCODE_INT64(n, buf, len) do {				\
 	len = fsyscall_encode_int64((n), (buf), sizeof(buf));	\
 	if (len == -1) {					\
-		e = ENOMEM;					\
+		error = ENOMEM;					\
 		goto finally;					\
 	}							\
 } while (0)
@@ -157,24 +137,23 @@ sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
 		ENCODE_INT64(timeout->tv_sec, sec_buf, sec_len);
 		ENCODE_INT64(timeout->tv_usec, usec_buf, usec_len);
 	}
-	else {
+	else
 		sec_len = usec_len = 0;
-	}
 #undef	ENCODE_INT64
 
 	payload_size = nfds_len + nreadfds_len + readfds_len + nwritefds_len +
 		       writefds_len + nexceptfds_len + exceptfds_len +
 		       timeout_len + sec_len + usec_len;
-	e = fmaster_write_command(td, CALL_SELECT);
-	if (e != 0)
+	error = fmaster_write_command(td, CALL_SELECT);
+	if (error != 0)
 		goto finally;
-	e = fmaster_write_payload_size(td, payload_size);
-	if (e != 0)
+	error = fmaster_write_payload_size(td, payload_size);
+	if (error != 0)
 		goto finally;
 	wfd = fmaster_wfd_of_thread(td);
 #define	WRITE(buf, len)	do {				\
-	e = fmaster_write(td, wfd, (buf), (len));	\
-	if (e != 0)					\
+	error = fmaster_write(td, wfd, (buf), (len));	\
+	if (error != 0)					\
 		goto finally;				\
 } while (0)
 	WRITE(nfds_buf, nfds_len);
@@ -194,5 +173,153 @@ finally:
 	free(writefds_buf, type);
 	free(readfds_buf, type);
 
-	return (e);
+	return (error);
+}
+
+static int
+read_fds(struct thread *td, fd_set *fds, payload_size_t *len)
+{
+	payload_size_t nfds_len, payload_size, slave_fd_len;
+	int error, local_fd, nfds, i, slave_fd;
+
+	payload_size = 0;
+
+	error = fmaster_read_int32(td, &nfds, &nfds_len);
+	if (error != 0)
+		return (error);
+	payload_size += nfds_len;
+
+	for (i = 0; i < nfds; i++) {
+		error = fmaster_read_int32(td, &slave_fd, &slave_fd_len);
+		if (error != 0)
+			return (error);
+		payload_size += slave_fd_len;
+
+		error = fmaster_fd_of_slave_fd(td, slave_fd, &local_fd);
+		if (error != 0)
+			return (error);
+		FD_SET(local_fd, fds);
+	}
+
+	*len = payload_size;
+
+	return (0);
+}
+
+static int
+read_result(struct thread *td, fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
+{
+	payload_size_t actual_payload_size, errnum_len, exceptfds_len;
+	payload_size_t payload_size, readfds_len, retval_len, writefds_len;
+	command_t cmd;
+	int errnum, error, retval;
+
+	error = fmaster_read_command(td, &cmd);
+	if (error != 0)
+		return (error);
+	if (cmd != RET_SELECT)
+		return (EPROTO);
+	error = fmaster_read_payload_size(td, &payload_size);
+	if (error != 0)
+		return (error);
+	error = fmaster_read_int32(td, &retval, &retval_len);
+	if (error != 0)
+		return (error);
+
+	switch (retval) {
+	case -1:
+		error = fmaster_read_int32(td, &errnum, &errnum_len);
+		if (error != 0)
+			return (error);
+		actual_payload_size = retval_len + errnum_len;
+		if (payload_size != actual_payload_size)
+			return (EPROTO);
+		return (errnum);
+	case 0:
+		readfds_len = writefds_len = exceptfds_len = 0;
+		break;
+	default:
+		FD_ZERO(readfds);
+		FD_ZERO(writefds);
+		FD_ZERO(exceptfds);
+		error = read_fds(td, readfds, &readfds_len);
+		if (error != 0)
+			return (error);
+		error = read_fds(td, writefds, &writefds_len);
+		if (error != 0)
+			return (error);
+		error = read_fds(td, exceptfds, &exceptfds_len);
+		if (error != 0)
+			return (error);
+		break;
+	}
+	actual_payload_size = retval_len + readfds_len + writefds_len +
+			      exceptfds_len;
+	if (payload_size != actual_payload_size)
+		return (EPROTO);
+
+	td->td_retval[0] = retval;
+
+	return (0);
+}
+
+int
+sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
+{
+	struct timeval *ptimeout, timeout;
+	fd_set exceptfds, readfds, writefds;
+	int error, nfds;
+
+	nfds = uap->nd;
+
+#define	INIT_FDS(u, k)	do {					\
+	if ((u) != NULL) {					\
+		error = copyin((u), (k), sizeof(*k));		\
+		if (error != 0)					\
+			return (error);				\
+	}							\
+	else							\
+		FD_ZERO(k);					\
+} while (0)
+	INIT_FDS(uap->in, &readfds);
+	INIT_FDS(uap->ou, &writefds);
+	INIT_FDS(uap->ex, &exceptfds);
+#undef	INIT_FDS
+	if (uap->tv != NULL) {
+		error = copyin(uap->tv, &timeout, sizeof(timeout));
+		if (error != 0)
+			return (error);
+		ptimeout = &timeout;
+	}
+	else
+		ptimeout = NULL;
+
+	if (has_nonslave_fd(td, nfds, &readfds))
+		return (EBADF);
+	if (has_nonslave_fd(td, nfds, &writefds))
+		return (EBADF);
+	if (has_nonslave_fd(td, nfds, &exceptfds))
+		return (EBADF);
+
+	error = write_call(td, nfds, &readfds, &writefds, &exceptfds, ptimeout);
+	if (error != 0)
+		return (error);
+
+	error = read_result(td, &readfds, &writefds, &exceptfds);
+	if (error != 0)
+		return (error);
+
+#define	COPYOUT(u, k)	do {					\
+	if ((u) != NULL) {					\
+		error = copyout((u), (k), sizeof(*(k)));	\
+		if (error == 0)					\
+			return (error);				\
+	}							\
+} while (0)
+	COPYOUT(uap->in, &readfds);
+	COPYOUT(uap->ou, &writefds);
+	COPYOUT(uap->ex, &exceptfds);
+#undef	COPYOUT
+
+	return (0);
 }
