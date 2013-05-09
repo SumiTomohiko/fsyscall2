@@ -24,6 +24,8 @@
 #include <fsyscall/private/fslave/proto.h>
 #include <fsyscall/private/io.h>
 #include <fsyscall/private/log.h>
+#include <fsyscall/private/malloc_or_die.h>
+#include <fsyscall/private/select.h>
 
 static void
 usage()
@@ -175,50 +177,157 @@ read_fds(struct slave *slave, fd_set *fds, payload_size_t *len)
 }
 
 static void
-process_select(struct slave *slave)
+read_select_parameters(struct slave *slave, int *nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout, struct timeval **ptimeout)
 {
-	struct timeval *ptimeout, timeout;
-	fd_set exceptfds, readfds, writefds;
 	payload_size_t actual_payload_size, exceptfds_len, payload_size;
 	payload_size_t readfds_len, writefds_len;
-	int nfds, nfds_len, timeout_status, timeout_status_len, tv_sec_len;
-	int tv_usec_len, rfd;
-
-	FD_ZERO(&exceptfds);
-	FD_ZERO(&readfds);
-	FD_ZERO(&writefds);
+	int nfds_len, rfd, timeout_status, timeout_status_len, tv_sec_len;
+	int tv_usec_len;
 
 	rfd = slave->rfd;
 	actual_payload_size = 0;
 	payload_size = read_payload_size(rfd);
 
-	nfds = read_int32(rfd, &nfds_len);
+	*nfds = read_int32(rfd, &nfds_len);
 	actual_payload_size += nfds_len;
 
-	read_fds(slave, &readfds, &readfds_len);
+	read_fds(slave, readfds, &readfds_len);
 	actual_payload_size += readfds_len;
-	read_fds(slave, &writefds, &writefds_len);
+	read_fds(slave, writefds, &writefds_len);
 	actual_payload_size += writefds_len;
-	read_fds(slave, &exceptfds, &exceptfds_len);
+	read_fds(slave, exceptfds, &exceptfds_len);
 	actual_payload_size += exceptfds_len;
 
 	timeout_status = read_int32(rfd, &timeout_status_len);
 	actual_payload_size += timeout_status_len;
 
 	if (timeout_status == 0)
-		ptimeout = NULL;
+		*ptimeout = NULL;
 	else {
 		assert(timeout_status == 1);
 
-		timeout.tv_sec = read_int64(rfd, &tv_sec_len);
+		timeout->tv_sec = read_int64(rfd, &tv_sec_len);
 		actual_payload_size += tv_sec_len;
-		timeout.tv_usec = read_int64(rfd, &tv_usec_len);
+		timeout->tv_usec = read_int64(rfd, &tv_usec_len);
 		actual_payload_size += tv_usec_len;
 
-		ptimeout = &timeout;
+		*ptimeout = timeout;
 	}
 
+	die_if_payload_size_mismatched(payload_size, actual_payload_size);
+}
+
+static size_t
+encode_fds(int nfds, fd_set *fds, char *buf, size_t bufsize)
+{
+	size_t pos;
+	int i;
+
+	pos = 0;
+	for (i = 0; i < nfds; i++) {
+		if (!FD_ISSET(i, fds))
+			continue;
+		pos += fsyscall_encode_int32(i, buf + pos, bufsize - pos);
+	}
+
+	return (pos);
+}
+
+static void
+write_select_timeout(struct slave *slave)
+{
+	payload_size_t retval_len;
+	int wfd;
+	char retval_buf[FSYSCALL_BUFSIZE_INT32];
+
+	retval_len = fsyscall_encode_int32(0, retval_buf, sizeof(retval_buf));
+
+	wfd = slave->wfd;
+	write_command(wfd, RET_SELECT);
+	write_payload_size(wfd, retval_len);
+	write_or_die(wfd, retval_buf, retval_len);
+}
+
+static void
+write_select_ready(struct slave *slave, int retval, int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
+{
+	payload_size_t exceptfds_len, nexceptfds_len, nreadfds_len;
+	payload_size_t nwritefds_len, payload_size, readfds_len, retval_len;
+	payload_size_t writefds_len;
+	size_t exceptfds_buf_len, readfds_buf_len, writefds_buf_len;
+	int nexceptfds, nreadfds, nwritefds, wfd;
+	char *exceptfds_buf, nexceptfds_buf[FSYSCALL_BUFSIZE_INT32];
+	char nreadfds_buf[FSYSCALL_BUFSIZE_INT32];
+	char nwritefds_buf[FSYSCALL_BUFSIZE_INT32], *readfds_buf;
+	char retval_buf[FSYSCALL_BUFSIZE_INT32], *writefds_buf;
+
+	nreadfds = fsyscall_count_fds(nfds, readfds);
+	nwritefds = fsyscall_count_fds(nfds, writefds);
+	nexceptfds = fsyscall_count_fds(nfds, exceptfds);
+	readfds_buf_len = fsyscall_compute_fds_bufsize(nreadfds);
+	writefds_buf_len = fsyscall_compute_fds_bufsize(nwritefds);
+	exceptfds_buf_len = fsyscall_compute_fds_bufsize(nexceptfds);
+	readfds_buf = (char *)malloc_or_die(readfds_buf_len);
+	writefds_buf = (char *)malloc_or_die(writefds_buf_len);
+	exceptfds_buf = (char *)malloc_or_die(exceptfds_buf_len);
+
+#define	ENCODE_INT32(len, n, buf)	do {			\
+	len = fsyscall_encode_int32((n), (buf), sizeof(buf));	\
+} while (0)
+	ENCODE_INT32(retval_len, retval, retval_buf);
+	ENCODE_INT32(nreadfds_len, nreadfds, nreadfds_buf);
+	ENCODE_INT32(nwritefds_len, nwritefds, nwritefds_buf);
+	ENCODE_INT32(nexceptfds_len, nexceptfds, nexceptfds_buf);
+#undef	ENCODE_INT32
+#define	ENCODE_FDS(len, fds, buf, bufsize)	do {		\
+	len = encode_fds(nfds, (fds), (buf), (bufsize));	\
+} while (0)
+	ENCODE_FDS(readfds_len, readfds, readfds_buf, readfds_buf_len);
+	ENCODE_FDS(writefds_len, writefds, writefds_buf, writefds_buf_len);
+	ENCODE_FDS(exceptfds_len, exceptfds, exceptfds_buf, exceptfds_buf_len);
+#undef	ENCODE_FDS
+
+	wfd = slave->wfd;
+	payload_size = retval_len + nreadfds_len + readfds_len + nwritefds_len +
+		       writefds_len + nexceptfds_len + exceptfds_len;
+	write_command(wfd, RET_SELECT);
+	write_payload_size(wfd, payload_size);
+	write_or_die(wfd, retval_buf, retval_len);
+	write_or_die(wfd, nreadfds_buf, nreadfds_len);
+	write_or_die(wfd, readfds_buf, readfds_len);
+	write_or_die(wfd, nwritefds_buf, nwritefds_len);
+	write_or_die(wfd, writefds_buf, writefds_len);
+	write_or_die(wfd, nexceptfds_buf, nexceptfds_len);
+	write_or_die(wfd, exceptfds_buf, exceptfds_len);
+}
+
+static void
+process_select(struct slave *slave)
+{
+	struct timeval *ptimeout, timeout;
+	fd_set exceptfds, readfds, writefds;
+	int nfds, retval;
+
 	syslog(LOG_DEBUG, "Processing CALL_SELECT.");
+
+	FD_ZERO(&exceptfds);
+	FD_ZERO(&readfds);
+	FD_ZERO(&writefds);
+	read_select_parameters(slave, &nfds, &readfds, &writefds, &exceptfds, &timeout, &ptimeout);
+
+	retval = select(nfds, &readfds, &writefds, &exceptfds, ptimeout);
+
+	switch (retval) {
+	case -1:
+		return_int(slave, RET_SELECT, retval, errno);
+		break;
+	case 0:
+		write_select_timeout(slave);
+		break;
+	default:
+		write_select_ready(slave, retval, nfds, &readfds, &writefds, &exceptfds);
+		break;
+	}
 }
 
 static int

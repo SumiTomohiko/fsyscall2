@@ -1,6 +1,13 @@
 #include <sys/select.h>
 
+#include <fsyscall/private/encode.h>
 #include <fsyscall/private/select.h>
+
+size_t
+fsyscall_compute_fds_bufsize(int nfds)
+{
+	return (nfds * FSYSCALL_BUFSIZE_INT32);
+}
 
 int
 fsyscall_count_fds(int nfds, fd_set *fds)

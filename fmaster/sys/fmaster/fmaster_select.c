@@ -95,17 +95,17 @@ sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
 	writefds_buf = exceptfds_buf = NULL;
 	type = M_TMP;
 	flags = M_WAITOK;
-	readfds_buf_len = nreadfds * FSYSCALL_BUFSIZE_INT32;
+	readfds_buf_len = fsyscall_compute_fds_bufsize(nreadfds);
 	readfds_buf = (char *)malloc(readfds_buf_len, type, flags);
 	if (readfds_buf == NULL)
 		return (ENOMEM);
-	writefds_buf_len = nwritefds * FSYSCALL_BUFSIZE_INT32;
+	writefds_buf_len = fsyscall_compute_fds_bufsize(nwritefds);
 	writefds_buf = (char *)malloc(writefds_buf_len, type, flags);
 	if (writefds_buf == NULL) {
 		e = ENOMEM;
 		goto finally;
 	}
-	exceptfds_buf_len = nexceptfds * FSYSCALL_BUFSIZE_INT32;
+	exceptfds_buf_len = fsyscall_compute_fds_bufsize(nexceptfds);
 	exceptfds_buf = (char *)malloc(exceptfds_buf_len, type, flags);
 	if (exceptfds_buf == NULL) {
 		e = ENOMEM;
