@@ -9,23 +9,23 @@
 #include <sys/fmaster/fmaster_proto.h>
 
 static int
-encode_fds(struct thread *td, int nfds, struct fd_set *fds, char *buf, size_t buf_len)
+encode_fds(struct thread *td, int nfds, struct fd_set *fds, char *buf, size_t bufsize, payload_size_t *data_len)
 {
-	int fd, i, len, rest;
-	char *p;
+	size_t pos;
+	int fd, i, len;
 
-	p = buf;
-	rest = buf_len;
+	pos = 0;
 	for (i = 0; i < nfds; i++) {
 		if (!FD_ISSET(i, fds))
 			continue;
 		fd = fmaster_fds_of_thread(td)[i].fd_local;
-		len = fsyscall_encode_int32(fd, p, rest);
+		len = fsyscall_encode_int32(fd, buf + pos, bufsize - pos);
 		if (len == -1)
 			return (ENOMEM);
-		p += len;
-		rest -= len;
+		pos += len;
 	}
+
+	*data_len = pos;
 
 	return (0);
 }
@@ -49,11 +49,11 @@ static int
 write_call(struct thread *td, int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
 {
 	struct malloc_type *type;
-	payload_size_t payload_size;
+	payload_size_t exceptfds_len, payload_size, readfds_len, writefds_len;
 	unsigned long exceptfds_buf_len, readfds_buf_len, writefds_buf_len;
-	int error, exceptfds_len, flags, nexceptfds, nexceptfds_len;
-	int nfds_len, nreadfds, nreadfds_len, nwritefds, nwritefds_len;
-	int readfds_len, sec_len, timeout_len, usec_len, wfd, writefds_len;
+	int error, flags, nexceptfds, nexceptfds_len, nfds_len, nreadfds;
+	int nreadfds_len, nwritefds, nwritefds_len, sec_len, timeout_len;
+	int usec_len, wfd;
 	char *exceptfds_buf, nexceptfds_buf[FSYSCALL_BUFSIZE_INT32];
 	char nfds_buf[FSYSCALL_BUFSIZE_INT32];
 	char nreadfds_buf[FSYSCALL_BUFSIZE_INT32];
@@ -113,12 +113,10 @@ write_call(struct thread *td, int nfds, fd_set *readfds, fd_set *writefds, fd_se
 	 */
 	ENCODE_INT32(timeout != NULL ? 1 : 0, timeout_buf, timeout_len);
 #undef	ENCODE_INT32
-#define	ENCODE_FDS(fds, buf, buf_len, len)	do {		\
-	len = encode_fds(td, nfds, (fds), (buf), (buf_len));	\
-	if (len == -1) {					\
-		error = ENOMEM;					\
-		goto finally;					\
-	}							\
+#define	ENCODE_FDS(fds, buf, buf_len, len)	do {			\
+	error = encode_fds(td, nfds, (fds), (buf), (buf_len), &(len));	\
+	if (error != 0)							\
+		goto finally;						\
 } while (0)
 	ENCODE_FDS(readfds, readfds_buf, readfds_buf_len, readfds_len);
 	ENCODE_FDS(writefds, writefds_buf, writefds_buf_len, writefds_len);
