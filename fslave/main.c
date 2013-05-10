@@ -357,6 +357,7 @@ mainloop(struct slave *slave)
 #include "dispatch.inc"
 		case CALL_SELECT:
 			process_select(slave);
+			break;
 		case CALL_EXIT:
 			return process_exit(slave);
 		default:
