@@ -1,0 +1,5 @@
+
+cmd="select2/select2"
+expected_status="0"
+
+# vim: filetype=sh
