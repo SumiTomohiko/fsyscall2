@@ -52,7 +52,7 @@ negotiate_version_with_master(struct master *master)
 	read_or_die(master->rfd, &request, sizeof(request));
 	assert(request == 0);
 	write_or_die(master->wfd, &ver, sizeof(ver));
-	syslog(LOG_INFO, "Protocol version for master is %d.", ver);
+	syslog(LOG_INFO, "protocol version for master is %d.", ver);
 }
 
 static void
@@ -64,7 +64,7 @@ negotiate_version_with_shub(struct mhub *mhub)
 	read_or_die(mhub->shub.rfd, &request, sizeof(request));
 	assert(request == 0);
 	write_or_die(mhub->shub.wfd, &ver, sizeof(ver));
-	syslog(LOG_INFO, "Protocol version for shub is %d.", ver);
+	syslog(LOG_INFO, "protocol version for shub is %d.", ver);
 }
 
 static int
@@ -76,11 +76,11 @@ find_syscall()
 
 	modid = modfind(modname);
 	if (modid == -1)
-		die(-1, "Cannot modfind %s", modname);
+		die(-1, "cannot modfind %s", modname);
 
 	stat.version = sizeof(stat);
 	if (modstat(modid, &stat) != 0)
-		die(-1, "Cannot modstat %s", modname);
+		die(-1, "cannot modstat %s", modname);
 
 	return (stat.data.intval);
 }
@@ -128,7 +128,7 @@ transfer_payload_to_master(struct mhub *mhub, command_t cmd)
 	const char *name;
 
 	name = get_command_name(cmd);
-	syslog(LOG_DEBUG, "Processing %s.", name);
+	syslog(LOG_DEBUG, "processing %s.", name);
 
 	rfd = mhub->shub.rfd;
 	pid = read_pid(rfd);
@@ -159,7 +159,7 @@ process_shub(struct mhub *mhub)
 		transfer_payload_to_master(mhub, cmd);
 		break;
 	default:
-		diex(-1, "Unknown command (%d) from the slave hub.", cmd);
+		diex(-1, "unknown command (%d) from the slave hub.", cmd);
 	}
 }
 
@@ -200,7 +200,7 @@ transfer_payload_from_master(struct mhub *mhub, struct master *master, command_t
 
 	pid = master->pid;
 	name = get_command_name(cmd);
-	syslog(LOG_DEBUG, "Processing %s from master %d.", name, pid);
+	syslog(LOG_DEBUG, "processing %s from master %d.", name, pid);
 
 	rfd = master->rfd;
 	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
@@ -232,7 +232,7 @@ process_master(struct mhub *mhub, struct master *master)
 		break;
 	default:
 		pid = master->pid;
-		diex(-1, "Unknown command (%d) from master (%d)", cmd, pid);
+		diex(-1, "unknown command (%d) from master (%d)", cmd, pid);
 		/* NOTREACHED */
 	}
 }

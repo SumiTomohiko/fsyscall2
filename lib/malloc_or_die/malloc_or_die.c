@@ -7,6 +7,6 @@ malloc_or_die(size_t size)
 {
 	void *ptr = malloc(size);
 	if (ptr == NULL)
-		die(-1, "Cannot allocate memory");
+		die(-1, "cannot allocate memory");
 	return (ptr);
 }

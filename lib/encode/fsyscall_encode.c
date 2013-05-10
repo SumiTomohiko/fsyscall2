@@ -35,7 +35,7 @@ name(char *buf, int bufsize)				\
 	type dest;					\
 							\
 	if (decoder(buf, bufsize, &dest) != 0)		\
-		diex(-1, "Invalid numeric sequence");	\
+		diex(-1, "invalid numeric sequence");	\
 	return (dest);					\
 }
 IMPLEMENT_DECODE_OR_DIE_X(command_t, decode_command, fsyscall_decode_command)
@@ -97,7 +97,7 @@ name(type n, char *dest, int dest_size)			\
 {							\
 	int size = encoder(n, dest, dest_size);		\
 	if (size < 0)					\
-		diex(-1, "Cannot encode");		\
+		diex(-1, "cannot encode");		\
 	return (size);					\
 }
 IMPLEMENT_ENCODE_OR_DIE_X(int32_t, encode_int32, fsyscall_encode_int32)

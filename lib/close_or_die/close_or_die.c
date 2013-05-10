@@ -6,5 +6,5 @@ void
 close_or_die(int fd)
 {
 	if (close(fd) != 0)
-		die(-1, "Cannot close");
+		die(-1, "cannot close");
 }

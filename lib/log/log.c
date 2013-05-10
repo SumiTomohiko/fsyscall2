@@ -7,7 +7,7 @@
 void
 log_graceful_exit(int status)
 {
-	syslog(LOG_INFO, "Exited gracefully with status %d.", status);
+	syslog(LOG_INFO, "exited gracefully with status %d.", status);
 }
 
 void
@@ -27,5 +27,5 @@ log_start_message(int argc, char *argv[])
 	}
 	p[0] = '\0';
 
-	syslog(LOG_INFO, "Started:%s", buf);
+	syslog(LOG_INFO, "started:%s", buf);
 }

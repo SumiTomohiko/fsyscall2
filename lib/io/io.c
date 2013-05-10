@@ -33,7 +33,7 @@ write_or_die(int fd, const void *buf, size_t nbytes)
 	while (n < nbytes) {
 		m = write(fd, (char *)buf + n, nbytes - n);
 		if (m < 0)
-			die(-1, "Cannot write to fd %d", fd);
+			die(-1, "cannot write to fd %d", fd);
 		n -= m;
 	}
 }
@@ -47,9 +47,9 @@ read_or_die(int fd, const void *buf, size_t nbytes)
 	while (n < nbytes) {
 		m = read(fd, (char *)buf + n, nbytes - n);
 		if (m == 0)
-			diex(-1, "End-of-file in reading");
+			diex(-1, "end-of-file in reading");
 		if (m < 0)
-			die(-1, "Cannot read fd %d", fd);
+			die(-1, "cannot read fd %d", fd);
 		n += m;
 	}
 }

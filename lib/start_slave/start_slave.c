@@ -16,7 +16,7 @@ dup_or_die(int old_fd)
 {
 	int new_fd = dup(old_fd);
 	if (new_fd == -1)
-		die(-1, "Cannot dup");
+		die(-1, "cannot dup");
 	return (old_fd);
 }
 
@@ -53,7 +53,7 @@ exec_fshub(int mhub2shub, int shub2mhub, int slave2hub, int hub2slave, char *pat
 	args[5] = path;
 	args[6] = NULL;
 	execvp(args[0], args);
-	die(-1, "Cannot execvp %s", args[0]);
+	die(-1, "cannot execvp %s", args[0]);
 	/* NOTREACHED */
 }
 
@@ -106,6 +106,6 @@ fsyscall_start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 	args[4 + i] = NULL;
 
 	execvp(args[0], args);
-	die(-1, "Cannot execlp %s", args[0]);
+	die(-1, "cannot execlp %s", args[0]);
 	/* NOTREACHED */
 }

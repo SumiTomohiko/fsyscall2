@@ -19,7 +19,7 @@ static void
 waitpid_or_die(pid_t pid, int *status)
 {
 	if (waitpid(pid, status, 0) == -1)
-		die(-1, "Cannot waitpid %d", pid);
+		die(-1, "cannot waitpid %d", pid);
 }
 
 static bool

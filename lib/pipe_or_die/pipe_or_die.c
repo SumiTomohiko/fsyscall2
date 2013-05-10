@@ -6,5 +6,5 @@ void
 pipe_or_die(int fds[2])
 {
 	if (pipe(fds) != 0)
-		die(-1, "Cannot pipe");
+		die(-1, "cannot pipe");
 }

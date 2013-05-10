@@ -47,7 +47,7 @@ negotiate_version_with_mhub(struct shub *shub)
 	write_or_die(shub->mhub.wfd, &ver, sizeof(ver));
 	read_or_die(shub->mhub.rfd, &request, sizeof(request));
 	assert(request == 0);
-	syslog(LOG_INFO, "Protocol version for mhub is %d.", ver);
+	syslog(LOG_INFO, "protocol version for mhub is %d.", ver);
 }
 
 static void
@@ -58,7 +58,7 @@ negotiate_version_with_slave(struct slave *slave)
 	read_or_die(slave->rfd, &request, sizeof(request));
 	assert(request == 0);
 	write_or_die(slave->wfd, &ver, sizeof(ver));
-	syslog(LOG_INFO, "Protocol version for slave is %d.", ver);
+	syslog(LOG_INFO, "protocol version for slave is %d.", ver);
 }
 
 static void
@@ -114,7 +114,7 @@ transfer_payload_to_slave(struct shub *shub, command_t cmd)
 	const char *fmt = "%s: master_pid=%d, payload_size=%u";
 
 	name = get_command_name(cmd);
-	syslog(LOG_DEBUG, "Processing %s.", name);
+	syslog(LOG_DEBUG, "processing %s.", name);
 
 	rfd = shub->mhub.rfd;
 	pid = read_pid(rfd);
@@ -164,7 +164,7 @@ process_mhub(struct shub *shub)
 		transfer_payload_to_slave(shub, cmd);
 		break;
 	default:
-		diex(-1, "Unknown command (%d) from the master hub", cmd);
+		diex(-1, "unknown command (%d) from the master hub", cmd);
 		/* NOTREACHED */
 	}
 }
@@ -178,7 +178,7 @@ transfer_payload_from_slave(struct shub *shub, struct slave *slave, command_t cm
 	const char *name;
 
 	name = get_command_name(cmd);
-	syslog(LOG_DEBUG, "Processing %s.", name);
+	syslog(LOG_DEBUG, "processing %s.", name);
 
 	rfd = slave->rfd;
 	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
@@ -205,7 +205,7 @@ process_slave(struct shub *shub, struct slave *slave)
 		transfer_payload_from_slave(shub, slave, cmd);
 		break;
 	default:
-		diex(-1, "Unknown command (%d) from slave %d", cmd, slave->pid);
+		diex(-1, "unknown command (%d) from slave %d", cmd, slave->pid);
 	}
 }
 
@@ -287,7 +287,7 @@ static void
 signal_handler(int sig)
 {
 	assert(sig == SIGPIPE);
-	diex(-1, "Signaled SIGPIPE.");
+	diex(-1, "signaled SIGPIPE.");
 	/* NOTREACHED */
 }
 

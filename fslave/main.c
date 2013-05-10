@@ -50,7 +50,7 @@ negotiate_version(struct slave *slave)
 	write_or_die(slave->wfd, &request_ver, sizeof(request_ver));
 	read_or_die(slave->rfd, &response, sizeof(response));
 	assert(response == 0);
-	syslog(LOG_INFO, "Protocol version for shub is %d.", response);
+	syslog(LOG_INFO, "protocol version for shub is %d.", response);
 }
 
 static bool
@@ -61,7 +61,7 @@ is_alive_fd(struct slave *slave, int fd)
 	if (fcntl(fd, F_GETFL) != -1)
 		return (true);
 	if (errno != EBADF)
-		die(-1, "Cannot fcntl(%d, F_GETFL)", fd);
+		die(-1, "cannot fcntl(%d, F_GETFL)", fd);
 	return (false);
 }
 
@@ -308,7 +308,7 @@ process_select(struct slave *slave)
 	fd_set exceptfds, readfds, writefds;
 	int nfds, retval;
 
-	syslog(LOG_DEBUG, "Processing CALL_SELECT.");
+	syslog(LOG_DEBUG, "processing CALL_SELECT.");
 
 	FD_ZERO(&exceptfds);
 	FD_ZERO(&readfds);
@@ -335,7 +335,7 @@ process_exit(struct slave *slave)
 {
 	int _, status;
 
-	syslog(LOG_DEBUG, "Processing CALL_EXIT.");
+	syslog(LOG_DEBUG, "processing CALL_EXIT.");
 
 	status = read_int32(slave->rfd, &_);
 
@@ -361,7 +361,7 @@ mainloop(struct slave *slave)
 		case CALL_EXIT:
 			return process_exit(slave);
 		default:
-			diex(-1, "Unknown command (%d)", cmd);
+			diex(-1, "unknown command (%d)", cmd);
 			/* NOTREACHED */
 		}
 	}
@@ -383,7 +383,7 @@ static void
 signal_handler(int sig)
 {
 	assert(sig == SIGPIPE);
-	diex(-1, "Signaled SIGPIPE.");
+	diex(-1, "signaled SIGPIPE.");
 	/* NOTREACHED */
 }
 

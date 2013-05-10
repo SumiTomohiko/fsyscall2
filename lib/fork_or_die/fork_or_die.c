@@ -8,6 +8,6 @@ fork_or_die()
 {
 	pid_t pid = fork();
 	if (pid == -1)
-		die(-1, "Cannot fork");
+		die(-1, "cannot fork");
 	return (pid);
 }
