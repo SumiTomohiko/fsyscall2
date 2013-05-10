@@ -8,8 +8,6 @@
 #include <fsyscall/private/select.h>
 #include <sys/fmaster/fmaster_proto.h>
 
-MALLOC_DECLARE(M_TMP);
-
 static int
 encode_fds(struct thread *td, int nfds, struct fd_set *fds, char *buf, size_t buf_len)
 {
@@ -74,7 +72,7 @@ write_call(struct thread *td, int nfds, fd_set *readfds, fd_set *writefds, fd_se
 
 	error = 0;
 	writefds_buf = exceptfds_buf = NULL;
-	type = M_TMP;
+	type = M_FMASTER;
 	flags = M_WAITOK;
 	readfds_buf_len = fsyscall_compute_fds_bufsize(nreadfds);
 	readfds_buf = (char *)malloc(readfds_buf_len, type, flags);

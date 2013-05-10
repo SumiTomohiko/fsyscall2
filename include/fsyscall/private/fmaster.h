@@ -81,4 +81,6 @@ int	fmaster_return_fd(struct thread *, enum fmaster_fd_type, int);
 	log((pri), __fmt__, (td)->td_proc->p_pid, __VA_ARGS__);	\
 } while (0)
 
+MALLOC_DECLARE(M_FMASTER);
+
 #endif
