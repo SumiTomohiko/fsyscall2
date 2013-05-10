@@ -1,5 +1,8 @@
 #include <tiny_runtime.h>
 
+/**
+ * Test for select(2) with not-null timeout.
+ */
 int
 main(int argc, char *argv[])
 {
