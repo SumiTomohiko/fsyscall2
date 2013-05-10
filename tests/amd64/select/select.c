@@ -1,5 +1,4 @@
-#include <stddef.h>
-#include <sys/select.h>
+#include <tiny_runtime.h>
 
 int
 main(int argc, char *argv[])

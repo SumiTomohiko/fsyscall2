@@ -2,7 +2,7 @@
 CC=		clang
 SRCS=		${PROG}.c
 ADDITIONAL	+= Makefile ../Makefile.cprog
-CFLAGS		+= -O0 -g
+CFLAGS		+= -O0 -g -I../include
 LDFLAGS		+= ../tiny_runtime/tiny_runtime.o -nostdlib
 WITHOUT_MAN	= yes
 
