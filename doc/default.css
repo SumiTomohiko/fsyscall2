@@ -35,6 +35,10 @@ img {
     margin-right: auto;
 }
 
+img.inline {
+    display: inline;
+}
+
 div.attention {
     border-style: dashed;
     margin: 16px 32px;
