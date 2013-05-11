@@ -1,7 +1,12 @@
 
+EXPORT_CMD=	inkscape --export-background-opacity 0.0 --export-png
+ICON_WIDTH=	64
+EXPORT_OPT=	--export-width ${ICON_WIDTH}
+
 all: overview.png example1.png example2.png example3.png master_and_slave.png \
 	a_local_machine_as_a_master.png a_local_machine_as_a_slave.png \
-	open_file.png signal.png structure.png index.html
+	open_file.png signal.png structure.png index.html not_supported.png \
+	partially_supported.png fully_supported.png
 
 .SUFFIXES: .rst .html .svg .png
 
@@ -10,7 +15,17 @@ all: overview.png example1.png example2.png example3.png master_and_slave.png \
 	--strip-comments < $< > $@
 
 .svg.png:
-	inkscape --export-png $@ $<
+	${EXPORT_CMD} $@ $<
+
+fully_supported.png: fully_supported.svg Makefile
+	${EXPORT_CMD} fully_supported.png ${EXPORT_OPT} fully_supported.svg
+
+partially_supported.png: partially_supported.svg Makefile
+	${EXPORT_CMD} partially_supported.png ${EXPORT_OPT} \
+	partially_supported.svg
+
+not_supported.png: not_supported.svg Makefile
+	${EXPORT_CMD} not_supported.png ${EXPORT_OPT} not_supported.svg
 
 clean:
 	rm -f *.html

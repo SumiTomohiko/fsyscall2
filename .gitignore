@@ -12,10 +12,13 @@ doc/a_local_machine_as_a_slave.png
 doc/example1.png
 doc/example2.png
 doc/example3.png
+doc/fully_supported.png
 doc/index.html
 doc/master_and_slave.png
+doc/not_supported.png
 doc/open_file.png
 doc/overview.png
+doc/partially_supported.png
 doc/signal.png
 doc/structure.png
 fmaster/@
