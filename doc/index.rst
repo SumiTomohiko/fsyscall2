@@ -1223,6 +1223,43 @@ fsyscall has over 1,000 problems.
 Supported system calls
 ======================
 
+The following table shows what system calls are supported on (current) fsyscall,
+or not. Each system call is in one of four statuses.
+
++---------------------+--------------------------------------------------------+
+|Status               |Description                                             |
++=====================+========================================================+
+||fully_supported|    |This system call works fully. This does not mean that   |
+|                     |this system call works in any cases. Some system calls  |
+|                     |have one or more restrictions even in this status. For  |
+|                     |example, mmap does not handle a slave side file         |
+|                     |descriptor. It is a designed restriction. In other      |
+|                     |words, "Fully supported" means "the author will not     |
+|                     |improve this system call more".                         |
+|                     |                                                        |
+|                     |This status also does not mean that fsyscall has the    |
+|                     |special implementation for this system call always. For |
+|                     |example, nanosleep is fully supported, but fsyscall does|
+|                     |not have any code for nanosleep at all. fsyscall uses   |
+|                     |original system call entry of FreeBSD for nanosleep.    |
++---------------------+--------------------------------------------------------+
+||partially_supported||The system call works under some situations only. The   |
+|                     |restriction will be removed in the future, and the      |
+|                     |status will be changed to "Fully supported".            |
++---------------------+--------------------------------------------------------+
+||not_supported|      |Current fsyscall does not support this system call at   |
+|                     |all. The system call will be implemented in the future. |
+|                     |                                                        |
+|                     |Please do not think this status as that the system call |
+|                     |will be never supported. That is "Out of support".      |
++---------------------+--------------------------------------------------------+
+||out_of_support|     |fsyscall does not support this system call even in the  |
+|                     |future. If you request this system call, the system call|
+|                     |exits with error of ENOSYS.                             |
++---------------------+--------------------------------------------------------+
+
+The table was updated on 2013-05-12.
+
 +------------------------+---------------------+-------------------------------+
 |System call             |Status               |Description                    |
 +========================+=====================+===============================+
