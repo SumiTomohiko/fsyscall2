@@ -54,7 +54,7 @@ negotiate_version(struct thread *td, int rfd, int wfd)
 	if (ver != 0)
 		return (EPROTO);
 
-	log(LOG_DEBUG, "Protocol version for fmhub is %d.\n", ver);
+	log(LOG_DEBUG, "protocol version for fmhub is %d.\n", ver);
 
 	return (0);
 }
@@ -177,11 +177,11 @@ fmaster_modevent(struct module *_, int cmd, void *__)
 			process_exit,
 			NULL,
 			EVENTHANDLER_PRI_ANY);
-		log(LOG_INFO, "Loaded fmaster.\n");
+		log(LOG_INFO, "loaded fmaster.\n");
 		break;
 	case MOD_UNLOAD :
 		EVENTHANDLER_DEREGISTER(process_exit, fmaster_exit_tag);
-		log(LOG_INFO, "Unnloaded fmaster.\n");
+		log(LOG_INFO, "unnloaded fmaster.\n");
 		break;
 	default :
 		error = EOPNOTSUPP;
