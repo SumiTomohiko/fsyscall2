@@ -38,7 +38,7 @@ die_if_payload_size_mismatched(int expected, int actual)
 {
 	if (expected == actual)
 		return;
-	diec(-1, EPROTO, "Payload size mismatched");
+	diec(-1, EPROTO, "payload size mismatched");
 }
 
 static void
