@@ -308,7 +308,7 @@ main(int argc, char *argv[])
 
 	signal(SIGPIPE, signal_handler);
 
-	while ((opt = getopt_long(argc, argv, "", opts, NULL)) != -1)
+	while ((opt = getopt_long(argc, argv, "+", opts, NULL)) != -1)
 		switch (opt) {
 		case 'h':
 			usage();
