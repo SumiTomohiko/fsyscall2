@@ -103,3 +103,4 @@ tests/test_fstat*
 tests/test_lstat*
 tests/test_stat*
 tests/tester/tester
+tools/lib/python/fsyscall/__pycache__
