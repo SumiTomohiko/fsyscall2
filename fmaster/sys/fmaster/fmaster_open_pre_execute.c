@@ -23,9 +23,8 @@ open_master(struct thread *td, struct fmaster_open_args *uap)
 int
 fmaster_open_pre_execute(struct thread *td, struct fmaster_open_args *uap, int *error)
 {
-	const char *dir = "/lib";
 
-	if (strncmp(uap->path, dir, strlen(dir)) == 0) {
+	if (strstr(uap->path, "/lib") != NULL) {
 		*error = open_master(td, uap);
 		return (0);
 	}
