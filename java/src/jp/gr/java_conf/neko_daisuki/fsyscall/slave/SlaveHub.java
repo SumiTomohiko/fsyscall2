@@ -9,20 +9,31 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.io.OutputSyscallStream;
 
 public class SlaveHub extends Worker {
 
-    private InputSyscallStream mMhubIn;
-    private OutputSyscallStream mMhubOut;
-    private InputSyscallStream mSlaveIn;
-    private OutputSyscallStream mSlaveOut;
+    private static class Peer {
+
+        public InputSyscallStream in;
+        public OutputSyscallStream out;
+
+        public Peer(InputSyscallStream in, OutputSyscallStream out) {
+            this.in = in;
+            this.out = out;
+        }
+    }
+
+    private Peer mMhub;
+    private Peer mSlave;
 
     public SlaveHub(InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) {
-        mMhubIn = new InputSyscallStream(mhubIn);
-        mMhubOut = new OutputSyscallStream(mhubOut);
-        mSlaveIn = new InputSyscallStream(slaveIn);
-        mSlaveOut = new OutputSyscallStream(slaveOut);
+        mMhub = new Peer(
+                new InputSyscallStream(mhubIn),
+                new OutputSyscallStream(mhubOut));
+        mSlave = new Peer(
+                new InputSyscallStream(slaveIn),
+                new OutputSyscallStream(slaveOut));
     }
 
     public boolean isReady() throws IOException {
-        return mMhubIn.isReady() || mSlaveIn.isReady();
+        return mMhub.in.isReady() || mSlave.in.isReady();
     }
 
     public void work() {
