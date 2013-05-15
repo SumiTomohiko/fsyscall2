@@ -1,6 +1,7 @@
 
-SUBDIR= lib fmhub fmaster fshub fslave tests
-DOCDIR=	doc
+SUBDIR= 	lib fmhub fmaster fshub fslave tests
+DOCDIR=		doc
+JAVADIR=	java
 
 test:
 	@sync
@@ -14,6 +15,9 @@ doc:
 doc-clean:
 	@cd $(DOCDIR) && $(MAKE) clean
 
-.PHONY: $(DOCDIR)
+java:
+	@cd $(JAVADIR) && ant
+
+.PHONY: $(DOCDIR) $(JAVADIR)
 
 .include <bsd.subdir.mk>

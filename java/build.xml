@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project default="all">
+    <property name="destdir" value="bin/classes"/>
+
+    <target name="all">
+        <mkdir dir="${destdir}"/>
+        <javac includeantruntime="false" srcdir="src" destdir="${destdir}"/>
+    </target>
+</project>
+<!--
+vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4
+-->
