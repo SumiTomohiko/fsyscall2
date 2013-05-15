@@ -73,6 +73,7 @@ fslave/fslave_writev.c
 include/fsyscall/private/command/code.h
 include/fsyscall/private/command/name.h
 include/fsyscall/private/fslave/proto.h
+java/bin
 jp.gr.java_conf.neko_daisuki.fsyscall
 jp.gr.java_conf.neko_daisuki.fsyscall.io
 jp.gr.java_conf.neko_daisuki.fsyscall.slave
