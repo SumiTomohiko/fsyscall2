@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<project default="all">
-    <property name="destdir" value="bin/classes"/>
+<project default="jar">
+    <property name="bindir" value="bin"/>
+    <property name="destdir" value="${bindir}/classes"/>
 
-    <target name="all">
+    <target name="jar" depends="compile">
+        <jar basedir="${destdir}" destfile="${bindir}/fsyscall.slave.jar"/>
+    </target>
+
+    <target name="compile">
         <mkdir dir="${destdir}"/>
         <javac includeantruntime="false" srcdir="src" destdir="${destdir}"/>
     </target>
