@@ -13,13 +13,13 @@ def write_command_code(dirpath, syscalls):
 #define\t{directive}
 """.format(**locals()))
         print_newline()
-        for i, syscall in enumerate(syscalls):
+        for syscall in syscalls:
             name = drop_prefix(syscall.name).upper()
-            call = i << 1
-            ret = call + 1
+            call_id = syscall.call_id
+            ret_id = syscall.ret_id
             p("""\
-#define\tCALL_{name}\t{call}
-#define\tRET_{name}\t{ret}
+#define\tCALL_{name}\t{call_id}
+#define\tRET_{name}\t{ret_id}
 """.format(**locals()))
         print_newline()
         p("""\

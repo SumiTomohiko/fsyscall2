@@ -14,6 +14,7 @@ class Syscall:
         self.pre_execute = False
         self.post_execute = False
         self.post_common = False
+        self.call_id = self.ret_id = None
 
     def __str__(self):
         args = ", ".join([str(a) for a in self.args])
@@ -69,6 +70,13 @@ def get_post_execute_path(dirpath, syscall):
 def get_pre_execute_path(dirpath, syscall):
     return get_hook_path(dirpath, syscall, "{name}_pre_execute.c")
 
+def number_syscalls(syscalls):
+    n = 42
+    for syscall in syscalls:
+        syscall.call_id = n
+        syscall.ret_id = n + 1
+        n += 2
+
 def read_syscalls(dirpath):
     syscalls = []
     with open(join(dirpath, "syscalls.master")) as fp:
@@ -84,6 +92,9 @@ def read_syscalls(dirpath):
         syscall.post_execute = exists(get_post_execute_path(dirpath, syscall))
         syscall.post_common = exists(get_post_common_path(dirpath, syscall))
         syscalls.append(syscall)
+
+    number_syscalls(syscalls)
+
     return syscalls
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=python
