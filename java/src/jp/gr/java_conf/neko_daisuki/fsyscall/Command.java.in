@@ -9,11 +9,11 @@ public enum Command {
     private static Map<Integer, Command> mNumber2Command;
     private static Map<Command, Integer> mCommand2Number;
 
-    public static Command fromNumber(int n) {
+    public static Command fromInteger(int n) {
         return mNumber2Command.get(Integer.valueOf(n));
     }
 
-    public int toNumber() {
+    public int toInteger() {
         return mCommand2Number.get(this).intValue();
     }
 
