@@ -18,6 +18,9 @@ doc-clean:
 java:
 	@cd $(JAVADIR) && ant
 
+syscalls:
+	@python3 tools/makesyscalls.py
+
 .PHONY: $(DOCDIR) $(JAVADIR)
 
 .include <bsd.subdir.mk>
