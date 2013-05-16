@@ -3,6 +3,8 @@ package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.LinkedList;
+import java.util.List;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.InputSyscallStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.OutputSyscallStream;
@@ -20,20 +22,32 @@ public class SlaveHub extends Worker {
         }
     }
 
+    private Application mApplication;
     private Peer mMhub;
-    private Peer mSlave;
+    private List<Peer> mSlaves;
 
-    public SlaveHub(InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) {
+    public SlaveHub(Application application, InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) {
+        mApplication = application;
         mMhub = new Peer(
                 new InputSyscallStream(mhubIn),
                 new OutputSyscallStream(mhubOut));
-        mSlave = new Peer(
-                new InputSyscallStream(slaveIn),
-                new OutputSyscallStream(slaveOut));
+        mSlaves = new LinkedList<Peer>();
+        mSlaves.add(
+                new Peer(
+                    new InputSyscallStream(slaveIn),
+                    new OutputSyscallStream(slaveOut)));
     }
 
     public boolean isReady() throws IOException {
-        return mMhub.in.isReady() || mSlave.in.isReady();
+        if (mMhub.in.isReady()) {
+            return true;
+        }
+        for (Peer peer: mSlaves) {
+            if (peer.in.isReady()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void work() {

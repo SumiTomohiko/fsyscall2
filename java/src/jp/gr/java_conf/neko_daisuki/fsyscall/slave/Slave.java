@@ -11,8 +11,10 @@ public class Slave extends Worker {
 
     private InputSyscallStream mIn;
     private OutputSyscallStream mOut;
+    private int mPid;
 
-    public Slave(InputStream in, OutputStream out) {
+    public Slave(int pid, InputStream in, OutputStream out) {
+        mPid = pid;
         mIn = new InputSyscallStream(in);
         mOut = new OutputSyscallStream(out);
     }

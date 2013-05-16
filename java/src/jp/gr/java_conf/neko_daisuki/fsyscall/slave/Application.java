@@ -8,8 +8,10 @@ import java.io.OutputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.io.PrintStream;
+import java.util.LinkedList;
+import java.util.List;
 
-public class Main {
+public class Application {
 
     private static class Pipe {
 
@@ -30,13 +32,51 @@ public class Main {
         }
     }
 
-    public void run(InputStream in, OutputStream out) throws IOException {
+    private int mPid;
+    private List<Worker> mWorkers;
+
+    public Application() {
+        mPid = 0;
+        mWorkers = new LinkedList<Worker>();
+    }
+
+    public void addWorker(Worker worker) {
+        mWorkers.add(worker);
+    }
+
+    public void run(InputStream in, OutputStream out) throws IOException, InterruptedException {
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
-        Slave slave = new Slave(hub2slave.getInput(), slave2hub.getOutput());
-        SlaveHub slaveHub = new SlaveHub(
+        Slave slave = new Slave(
+                mPid++,
+                hub2slave.getInput(), slave2hub.getOutput());
+        SlaveHub hub = new SlaveHub(
+                this,
                 in, out,
                 slave2hub.getInput(), hub2slave.getOutput());
+        addWorker(hub);
+        addWorker(slave);
+
+        while (1 < mWorkers.size()) {
+            while (!isReady()) {
+                Thread.sleep(10 /* msec */);
+            }
+            for (Worker worker: mWorkers) {
+                if (!worker.isReady()) {
+                    continue;
+                }
+                worker.work();
+            }
+        }
+    }
+
+    private boolean isReady() throws IOException {
+        for (Worker worker: mWorkers) {
+            if (worker.isReady()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void usage(PrintStream out) {
@@ -59,11 +99,11 @@ public class Main {
             wfd = Integer.parseInt(args[1]);
         }
         catch (ArrayIndexOutOfBoundsException _) {
-            Main.usage(System.out);
+            Application.usage(System.out);
             return;
         }
         catch (NumberFormatException _) {
-            Main.usage(System.out);
+            Application.usage(System.out);
             return;
         }
         String fmt = "/dev/fd/%d";
@@ -81,7 +121,7 @@ public class Main {
         }
 
         try {
-            new Main().run(in, out);
+            new Application().run(in, out);
         }
         catch (Throwable e) {
             e.printStackTrace();
