@@ -2,7 +2,7 @@
 from os.path import exists, join
 from re import search, sub
 
-from fsyscall.share import Variable
+from fsyscall.share import Variable, drop_prefix
 
 class Syscall:
 
@@ -15,6 +15,21 @@ class Syscall:
         self.post_execute = False
         self.post_common = False
         self.call_id = self.ret_id = None
+
+    def get_const_name(self):
+        return drop_prefix(self.name).upper()
+
+    const_name = property(get_const_name)
+
+    def get_call_name(self):
+        return "CALL_" + self.get_const_name()
+
+    call_name = property(get_call_name)
+
+    def get_ret_name(self):
+        return "RET_" + self.get_const_name()
+
+    ret_name = property(get_ret_name)
 
     def __str__(self):
         args = ", ".join([str(a) for a in self.args])

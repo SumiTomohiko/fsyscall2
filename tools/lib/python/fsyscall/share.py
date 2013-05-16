@@ -1,6 +1,6 @@
 
 from functools import partial
-from re import compile, search
+from re import compile, search, sub
 from sys import argv
 
 LINE_WIDTH = 80
@@ -342,5 +342,17 @@ def write_c_footer(p):
 
 def out_arguemnts_of_syscall(syscall):
     return [a for a in syscall.args if data_of_argument(syscall, a).out]
+
+RE_VAR = compile(r"@(?P<name>[A-Za-z_]\w*)@")
+
+def apply_template(path, d):
+    tmpl = path + ".in"
+    with open(path, "w") as fpout:
+        p = partial(print, end="", file=fpout)
+        print_caution(p)
+
+        with open(tmpl, "r") as fpin:
+            for line in fpin:
+                p(sub(RE_VAR, lambda m: d[m.group("name")], line))
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=python
