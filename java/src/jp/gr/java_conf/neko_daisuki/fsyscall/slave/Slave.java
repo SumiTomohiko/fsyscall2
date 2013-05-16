@@ -9,14 +9,26 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.io.OutputSyscallStream;
 
 public class Slave extends Worker {
 
+    private static class UnixFile {
+
+        public InputStream in;
+        public OutputStream out;
+    }
+
+    private static final int UNIX_FILE_NUM = 256;
+
     private InputSyscallStream mIn;
     private OutputSyscallStream mOut;
+
     private int mPid;
+    private UnixFile[] mFiles;
 
     public Slave(int pid, InputStream in, OutputStream out) {
-        mPid = pid;
         mIn = new InputSyscallStream(in);
         mOut = new OutputSyscallStream(out);
+
+        mPid = pid;
+        mFiles = new UnixFile[UNIX_FILE_NUM];
     }
 
     public boolean isReady() throws IOException {
