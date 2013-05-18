@@ -88,7 +88,10 @@ def build_import_of_protocol(syscalls):
         fmt = "import jp.gr.java_conf.neko_daisuki.fsyscall.{clazz}"
         clazz = make_args_class(syscall)
         imports.append(fmt.format(**locals()))
-    return sorted(imports)
+    return ";\n".join(sorted(imports))
+
+def make_proc(syscall):
+    return make_class_prefix(syscall) + "Proc"
 
 def build_proc_of_protocol(syscalls):
     procs = []
@@ -100,16 +103,25 @@ def build_proc_of_protocol(syscalls):
             SyscallResult result = mSlave.do{name}(args);
         }}
     }}"""
-        name = make_class_prefix(syscall)
+        name = make_proc(syscall)
         args = make_args_class(syscall)
         procs.append(fmt.format(**locals()))
-    return procs
+    return ("\n\n" + make_indent(4)).join(procs)
+
+def build_dispatch_of_protocol(syscalls):
+    dispatches = []
+    for syscall in syscalls:
+        fmt = "dispatcher.addEntry(Command.{cmd}, new {proc}())"
+        cmd = syscall.call_name
+        proc = make_proc(syscall)
+        dispatches.append(fmt.format(**locals()))
+    return (";\n" + make_indent(8)).join(dispatches)
 
 def write_protocol(dirpath, syscalls):
     d = {
-            "IMPORTS": ";\n".join(build_import_of_protocol(syscalls)),
-            "PROCS": "\n\n    ".join(build_proc_of_protocol(syscalls)),
-            "DISPATCHES": "" }
+            "IMPORTS": build_import_of_protocol(syscalls),
+            "PROCS": build_proc_of_protocol(syscalls),
+            "DISPATCHES": build_dispatch_of_protocol(syscalls) }
     apply_template(d, join(dirpath, "slave", "SlaveProtocol.java"))
 
 def write(dirpath, syscalls):
