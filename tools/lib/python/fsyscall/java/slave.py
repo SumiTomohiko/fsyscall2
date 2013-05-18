@@ -96,15 +96,16 @@ def make_proc(syscall):
 def build_proc_of_protocol(syscalls):
     procs = []
     for syscall in syscalls:
-        fmt = """private class {name} extends CommandDispatcher.Proc {{
+        fmt = """private class {proc} extends CommandDispatcher.Proc {{
 
         public void call(Command command) {{
             {args} args = new {args}();
             SyscallResult result = mSlave.do{name}(args);
         }}
     }}"""
-        name = make_proc(syscall)
+        proc = make_proc(syscall)
         args = make_args_class(syscall)
+        name = make_class_prefix(syscall)
         procs.append(fmt.format(**locals()))
     return ("\n\n" + make_indent(4)).join(procs)
 
