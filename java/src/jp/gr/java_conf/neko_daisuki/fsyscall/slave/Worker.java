@@ -5,7 +5,7 @@ import java.io.IOException;
 public abstract class Worker {
 
     public abstract boolean isReady() throws IOException;
-    public abstract void work();
+    public abstract void work() throws IOException;
 }
 
 /**
