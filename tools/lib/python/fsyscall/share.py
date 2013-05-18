@@ -345,8 +345,10 @@ def out_arguemnts_of_syscall(syscall):
 
 RE_VAR = compile(r"@(?P<name>[A-Za-z_]\w*)@")
 
-def apply_template(path, d):
-    tmpl = path + ".in"
+def apply_template(d, path, tmpl=None):
+    if tmpl is None:
+        return apply_template(d, path, path + ".in")
+
     with open(path, "w") as fpout:
         p = partial(print, end="", file=fpout)
         print_caution(p)

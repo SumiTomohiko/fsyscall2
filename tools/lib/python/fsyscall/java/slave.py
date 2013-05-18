@@ -44,9 +44,42 @@ def write_command_java(dirpath, syscalls):
             "ENUM_COMMAND": make_enum_command(syscalls),
             "NUMBER2COMMAND": make_number2command(syscalls),
             "COMMAND2NUMBER": make_command2number(syscalls) }
-    apply_template(path, d)
+    apply_template(d, path)
+
+JAVA_DATATYPE_OF_C_DATATYPE = {
+        "char *": "String",
+        "int": "int",
+        "void *": "char[]",
+        "size_t": "long",
+        # FIXME: u_long must be unsigned long. But Java does not have it.
+        "u_long": "long",
+        "caddr_t": "char[]",
+        "fd_set *": "FdSet",
+        "struct timeval *": "TimeVal",
+        "struct iovec *": "char[]",
+        "u_int": "long",
+        "struct stat *": "Stat",
+        "off_t": "long"
+        }
+
+def java_datatype_of_c_datatype(datatype):
+    return JAVA_DATATYPE_OF_C_DATATYPE[datatype]
+
+def write_syscall_args(dirpath, syscalls):
+    pkg_dir = get_package_path(dirpath)
+    tmpl = join(pkg_dir, "SyscallArgs.java.in")
+    for syscall in syscalls:
+        name = drop_prefix(syscall.name).title() + "Args"
+        members = []
+        for a in syscall.args:
+            datatype = java_datatype_of_c_datatype(a.datatype)
+            s = a.name
+            members.append("public {datatype} {s}".format(**locals()))
+        d = { "NAME": name, "MEMBERS": ";\n    ".join(members) }
+        apply_template(d, join(pkg_dir, "{name}.java".format(**locals())), tmpl)
 
 def write(dirpath, syscalls):
     write_command_java(dirpath, syscalls)
+    write_syscall_args(dirpath, syscalls)
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=python
