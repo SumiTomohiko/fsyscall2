@@ -1,0 +1,134 @@
+package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
+import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.InputSyscallStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.OutputSyscallStream;
+
+@IMPORTS@;
+
+public class Slave extends Worker {
+
+    private static class UnixFile {
+
+        public InputStream in;
+        public OutputStream out;
+    }
+
+    private static final int UNIX_FILE_NUM = 256;
+
+    private InputSyscallStream mIn;
+    private OutputSyscallStream mOut;
+    private SlaveProtocol mProtocol;
+
+    private int mPid;
+    private UnixFile[] mFiles;
+
+    // Cache
+    private SyscallResult mResult;
+
+    public Slave(int pid, InputStream in, OutputStream out) {
+        mIn = new InputSyscallStream(in);
+        mOut = new OutputSyscallStream(out);
+        mProtocol = new SlaveProtocol(this, mIn, mOut);
+
+        mPid = pid;
+        mFiles = new UnixFile[UNIX_FILE_NUM];
+
+        mResult = new SyscallResult();
+    }
+
+    public boolean isReady() throws IOException {
+        return mIn.isReady();
+    }
+
+    public void work() throws IOException {
+        mProtocol.communicate();
+    }
+
+    public SyscallResult doOpen(OpenArgs args) {
+        SyscallResult result = getSyscallResult();
+        result.n = 0;
+        result.errno = 0;
+        return result;
+    }
+
+    public SyscallResult doRead(ReadArgs args) {
+        return null;
+    }
+
+    public SyscallResult doLseek(LseekArgs args) {
+        return null;
+    }
+
+    public SyscallResult doMmap(MmapArgs args) {
+        return null;
+    }
+
+    public SyscallResult doPread(PreadArgs args) {
+        return null;
+    }
+
+    public SyscallResult doIssetugid(IssetugidArgs args) {
+        return null;
+    }
+
+    public SyscallResult doLstat(LstatArgs args) {
+        return null;
+    }
+
+    public SyscallResult doFstat(FstatArgs args) {
+        return null;
+    }
+
+    public SyscallResult doStat(StatArgs args) {
+        return null;
+    }
+
+    public SyscallResult doWritev(WritevArgs args) {
+        return null;
+    }
+
+    public SyscallResult doSelect(SelectArgs args) {
+        return null;
+    }
+
+    public SyscallResult doReadlink(ReadlinkArgs args) {
+        return null;
+    }
+
+    public SyscallResult doIoctl(IoctlArgs args) {
+        return null;
+    }
+
+    public SyscallResult doAccess(AccessArgs args) {
+        return null;
+    }
+
+    public SyscallResult doLink(LinkArgs args) {
+        return null;
+    }
+
+    public SyscallResult doClose(CloseArgs args) {
+        return null;
+    }
+
+    public SyscallResult doWrite(WriteArgs args) {
+        return null;
+    }
+
+    public SyscallResult doExit(ExitArgs args) {
+        return null;
+    }
+
+    private SyscallResult getSyscallResult() {
+        return mResult;
+    }
+}
+
+/**
+ * vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=java
+ */

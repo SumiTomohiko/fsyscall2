@@ -82,7 +82,7 @@ def write_syscall_args(dirpath, syscalls):
         d = { "NAME": name, "MEMBERS": ";\n    ".join(members) }
         apply_template(d, join(dirpath, "{name}.java".format(**locals())), tmpl)
 
-def build_import_of_protocol(syscalls):
+def build_args_import(syscalls):
     imports = []
     for syscall in syscalls:
         fmt = "import jp.gr.java_conf.neko_daisuki.fsyscall.{clazz}"
@@ -118,17 +118,25 @@ def build_dispatch_of_protocol(syscalls):
         dispatches.append(fmt.format(**locals()))
     return (";\n" + make_indent(8)).join(dispatches)
 
+def get_slave_dir(dirpath):
+    return join(dirpath, "slave")
+
 def write_protocol(dirpath, syscalls):
     d = {
-            "IMPORTS": build_import_of_protocol(syscalls),
+            "IMPORTS": build_args_import(syscalls),
             "PROCS": build_proc_of_protocol(syscalls),
             "DISPATCHES": build_dispatch_of_protocol(syscalls) }
-    apply_template(d, join(dirpath, "slave", "SlaveProtocol.java"))
+    apply_template(d, join(get_slave_dir(dirpath), "SlaveProtocol.java"))
+
+def write_slave(dirpath, syscalls):
+    d = { "IMPORTS": build_args_import(syscalls) }
+    apply_template(d, join(get_slave_dir(dirpath), "Slave.java"))
 
 def write(dirpath, syscalls):
     pkg_dir = get_package_path(dirpath)
     write_command_java(pkg_dir, syscalls)
     write_syscall_args(pkg_dir, syscalls)
     write_protocol(pkg_dir, syscalls)
+    write_slave(pkg_dir, syscalls)
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=python

@@ -93,6 +93,7 @@ java/src/jp/gr/java_conf/neko_daisuki/fsyscall/SelectArgs.java
 java/src/jp/gr/java_conf/neko_daisuki/fsyscall/StatArgs.java
 java/src/jp/gr/java_conf/neko_daisuki/fsyscall/WriteArgs.java
 java/src/jp/gr/java_conf/neko_daisuki/fsyscall/WritevArgs.java
+java/src/jp/gr/java_conf/neko_daisuki/fsyscall/slave/Slave.java
 java/src/jp/gr/java_conf/neko_daisuki/fsyscall/slave/SlaveProtocol.java
 jp.gr.java_conf.neko_daisuki.fsyscall
 jp.gr.java_conf.neko_daisuki.fsyscall.io
