@@ -31,7 +31,7 @@ public class SlaveProtocol {
     private OutputSyscallStream mOut;
     private CommandDispatcher mDispatcher;
 
-    public SlaveCommandReader(Slave slave, InputSyscallStream in, OutputSyscallStream out) {
+    public SlaveProtocol(Slave slave, InputSyscallStream in, OutputSyscallStream out) {
         mSlave = slave;
         mIn = in;
         mOut = out;
