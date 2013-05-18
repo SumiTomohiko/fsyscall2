@@ -16,8 +16,8 @@ public class CommandDispatcher {
         mTable = new HashMap<Command, Proc>();
     }
 
-    public void dispatch(Command command) {
-        mTable.get(command).call(command);
+    public Proc get(Command command) {
+        return mTable.get(command);
     }
 
     public void addEntry(Command command, Proc proc) {
