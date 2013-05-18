@@ -64,8 +64,11 @@ JAVA_DATATYPE_OF_C_DATATYPE = {
 def java_datatype_of_c_datatype(datatype):
     return JAVA_DATATYPE_OF_C_DATATYPE[datatype]
 
+def make_class_prefix(syscall):
+    return drop_prefix(syscall.name).title()
+
 def make_args_class(syscall):
-    return drop_prefix(syscall.name).title() + "Args"
+    return make_class_prefix(syscall) + "Args"
 
 def write_syscall_args(dirpath, syscalls):
     tmpl = join(dirpath, "SyscallArgs.java.in")
@@ -79,16 +82,33 @@ def write_syscall_args(dirpath, syscalls):
         d = { "NAME": name, "MEMBERS": ";\n    ".join(members) }
         apply_template(d, join(dirpath, "{name}.java".format(**locals())), tmpl)
 
-def write_protocol(dirpath, syscalls):
+def build_import_of_protocol(syscalls):
     imports = []
     for syscall in syscalls:
         fmt = "import jp.gr.java_conf.neko_daisuki.fsyscall.{clazz}"
         clazz = make_args_class(syscall)
         imports.append(fmt.format(**locals()))
+    return sorted(imports)
 
+def build_proc_of_protocol(syscalls):
+    procs = []
+    for syscall in syscalls:
+        fmt = """private class {name} extends CommandDispatcher.Proc {{
+
+        public void call(Command command) {{
+            {args} args = new {args}();
+            SyscallResult result = mSlave.do{name}(args);
+        }}
+    }}"""
+        name = make_class_prefix(syscall)
+        args = make_args_class(syscall)
+        procs.append(fmt.format(**locals()))
+    return procs
+
+def write_protocol(dirpath, syscalls):
     d = {
-            "IMPORTS": ";\n".join(sorted(imports)),
-            "CLASSES": "",
+            "IMPORTS": ";\n".join(build_import_of_protocol(syscalls)),
+            "PROCS": "\n\n    ".join(build_proc_of_protocol(syscalls)),
             "DISPATCHES": "" }
     apply_template(d, join(dirpath, "slave", "SlaveProtocol.java"))
 

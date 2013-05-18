@@ -24,7 +24,7 @@ public class SlaveProtocol {
     }
     */
 
-    @CLASSES@
+    @PROCS@
 
     private Slave mSlave;
     private InputSyscallStream mIn;
