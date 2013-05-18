@@ -1,0 +1,58 @@
+package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
+
+import java.io.IOException;
+
+import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
+import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
+import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.InputSyscallStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.OutputSyscallStream;
+
+@IMPORTS@;
+
+public class SlaveProtocol {
+
+    /* Example.
+    private class OpenProc extends CommandDispatcher.Proc {
+
+        public void call(Command _) {
+            OpenArgs args = new OpenArgs();
+            args.path = mIn.readString();
+            SyscallResult result = mSlave.doOpen(args);
+            // TODO: Return to master.
+        }
+    }
+    */
+
+    @CLASSES@
+
+    private Slave mSlave;
+    private InputSyscallStream mIn;
+    private OutputSyscallStream mOut;
+    private CommandDispatcher mDispatcher;
+
+    public SlaveCommandReader(Slave slave, InputSyscallStream in, OutputSyscallStream out) {
+        mSlave = slave;
+        mIn = in;
+        mOut = out;
+        mDispatcher = buildDispatcher();
+    }
+
+    public void communicate() throws IOException {
+        Command command = mIn.readCommand();
+        CommandDispatcher.Proc proc = mDispatcher.get(command);
+        if (proc == null) {
+            throw new ProtocolError();
+        }
+        proc.call(command);
+    }
+
+    private CommandDispatcher buildDispatcher() {
+        CommandDispatcher dispatcher = new CommandDispatcher();
+        @DISPATCHES@;
+    }
+}
+
+/**
+ * vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=java
+ */

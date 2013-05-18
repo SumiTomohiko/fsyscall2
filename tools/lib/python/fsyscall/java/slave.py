@@ -38,8 +38,7 @@ def make_command2number(syscalls):
     return (";\n" + make_indent(8)).join(lines)
 
 def write_command_java(dirpath, syscalls):
-    package_path = get_package_path(dirpath)
-    path = join(package_path, "Command.java")
+    path = join(dirpath, "Command.java")
     d = {
             "ENUM_COMMAND": make_enum_command(syscalls),
             "NUMBER2COMMAND": make_number2command(syscalls),
@@ -65,21 +64,38 @@ JAVA_DATATYPE_OF_C_DATATYPE = {
 def java_datatype_of_c_datatype(datatype):
     return JAVA_DATATYPE_OF_C_DATATYPE[datatype]
 
+def make_args_class(syscall):
+    return drop_prefix(syscall.name).title() + "Args"
+
 def write_syscall_args(dirpath, syscalls):
-    pkg_dir = get_package_path(dirpath)
-    tmpl = join(pkg_dir, "SyscallArgs.java.in")
+    tmpl = join(dirpath, "SyscallArgs.java.in")
     for syscall in syscalls:
-        name = drop_prefix(syscall.name).title() + "Args"
+        name = make_args_class(syscall)
         members = []
         for a in syscall.args:
             datatype = java_datatype_of_c_datatype(a.datatype)
             s = a.name
             members.append("public {datatype} {s}".format(**locals()))
         d = { "NAME": name, "MEMBERS": ";\n    ".join(members) }
-        apply_template(d, join(pkg_dir, "{name}.java".format(**locals())), tmpl)
+        apply_template(d, join(dirpath, "{name}.java".format(**locals())), tmpl)
+
+def write_protocol(dirpath, syscalls):
+    imports = []
+    for syscall in syscalls:
+        fmt = "import jp.gr.java_conf.neko_daisuki.fsyscall.{clazz}"
+        clazz = make_args_class(syscall)
+        imports.append(fmt.format(**locals()))
+
+    d = {
+            "IMPORTS": ";\n".join(sorted(imports)),
+            "CLASSES": "",
+            "DISPATCHES": "" }
+    apply_template(d, join(dirpath, "slave", "SlaveProtocol.java"))
 
 def write(dirpath, syscalls):
-    write_command_java(dirpath, syscalls)
-    write_syscall_args(dirpath, syscalls)
+    pkg_dir = get_package_path(dirpath)
+    write_command_java(pkg_dir, syscalls)
+    write_syscall_args(pkg_dir, syscalls)
+    write_protocol(pkg_dir, syscalls)
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=python
