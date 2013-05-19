@@ -11,6 +11,8 @@ import java.io.PrintStream;
 import java.util.LinkedList;
 import java.util.List;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
+
 public class Application {
 
     private static class Pipe {
@@ -32,11 +34,11 @@ public class Application {
         }
     }
 
-    private int mPid;
+    private Pid mPid;
     private List<Worker> mWorkers;
 
     public Application() {
-        mPid = 0;
+        mPid = new Pid(0);
         mWorkers = new LinkedList<Worker>();
     }
 
@@ -48,7 +50,7 @@ public class Application {
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
         Slave slave = new Slave(
-                mPid++,
+                new Pid(mPid),
                 hub2slave.getInput(), slave2hub.getOutput());
         SlaveHub hub = new SlaveHub(
                 this,
