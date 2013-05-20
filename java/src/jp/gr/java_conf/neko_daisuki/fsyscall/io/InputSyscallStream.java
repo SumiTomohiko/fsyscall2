@@ -34,6 +34,10 @@ public class InputSyscallStream {
         }
         return n;
     }
+
+    public byte readByte() throws IOException {
+        return (byte)mIn.read();
+    }
 }
 
 /**
