@@ -43,6 +43,16 @@ public class InputSyscallStream {
     public Pid readPid() throws IOException {
         return new Pid(readInteger());
     }
+
+    public byte[] read(int len) throws IOException {
+        byte[] buffer = new byte[len];
+        int nBytes = 0;
+        while (nBytes < len) {
+            nBytes += mIn.read(buffer, nBytes, len - nBytes);
+        }
+
+        return buffer;
+    }
 }
 
 /**
