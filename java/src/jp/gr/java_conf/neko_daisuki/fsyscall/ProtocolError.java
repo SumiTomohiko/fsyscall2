@@ -1,6 +1,10 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall;
 
 public class ProtocolError extends Error {
+
+    public ProtocolError(String message) {
+        super(message);
+    }
 }
 
 /**
