@@ -16,8 +16,13 @@ public class Pid {
         return mPid;
     }
 
-    public void setInteger(int pid) {
-        mPid = pid;
+    public int hashCode() {
+        return new Integer(mPid).hashCode();
+    }
+
+    public boolean equals(Object obj) {
+        Pid pid = (Pid)obj;
+        return getInteger() == pid.getInteger();
     }
 }
 
