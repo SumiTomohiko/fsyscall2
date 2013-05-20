@@ -6,6 +6,7 @@ import java.io.OutputStream;
 import java.util.LinkedList;
 import java.util.List;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.InputSyscallStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.OutputSyscallStream;
 
@@ -39,6 +40,9 @@ public class SlaveHub extends Worker {
         mMhub = new Peer(
                 new InputSyscallStream(mhubIn),
                 new OutputSyscallStream(mhubOut));
+
+        negotiateVersion();
+
         mSlaves = new LinkedList<Peer>();
         mSlaves.add(
                 new Peer(
@@ -67,6 +71,15 @@ public class SlaveHub extends Worker {
                 // TODO
             }
         }
+    }
+
+    private void negotiateVersion() throws IOException {
+        byte version = mMhub.getInputStream().readByte();
+        if (version != 0) {
+            String fmt = "requested version is not supported: %d";
+            throw new ProtocolError(String.format(fmt, version));
+        }
+        mMhub.getOutputStream().writeByte((byte)0);
     }
 }
 
