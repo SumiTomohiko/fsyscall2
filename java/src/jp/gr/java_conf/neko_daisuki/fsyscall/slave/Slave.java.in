@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.InputSyscallStream;
@@ -31,7 +32,7 @@ public class Slave extends Worker {
     // Cache
     private SyscallResult mResult;
 
-    public Slave(Pid pid, InputStream in, OutputStream out) {
+    public Slave(Pid pid, InputStream in, OutputStream out) throws IOException {
         mIn = new InputSyscallStream(in);
         mOut = new OutputSyscallStream(out);
         mProtocol = new SlaveProtocol(this, mIn, mOut);
@@ -40,6 +41,8 @@ public class Slave extends Worker {
         mFiles = new UnixFile[UNIX_FILE_NUM];
 
         mResult = new SyscallResult();
+
+        writeOpenedFileDescriptors();
     }
 
     public boolean isReady() throws IOException {
@@ -127,6 +130,23 @@ public class Slave extends Worker {
 
     private SyscallResult getSyscallResult() {
         return mResult;
+    }
+
+    private void writeOpenedFileDescriptors() throws IOException {
+        int fds[] = { 0, 1, 2 };
+        byte[][] buffers = new byte[fds.length][];
+        for (int i = 0; i < fds.length; i++) {
+            buffers[i] = Encoder.encodeInteger(fds[i]);
+        }
+        int len = 0;
+        for (int i = 0; i < fds.length; i++) {
+            len += buffers[i].length;
+        }
+
+        mOut.writeInteger(len);
+        for (int i = 0; i < fds.length; i++) {
+            mOut.write(buffers[i]);
+        }
     }
 }
 
