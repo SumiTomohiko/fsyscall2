@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 
 public class InputSyscallStream {
 
@@ -37,6 +38,10 @@ public class InputSyscallStream {
 
     public byte readByte() throws IOException {
         return (byte)mIn.read();
+    }
+
+    public Pid readPid() throws IOException {
+        return new Pid(readInteger());
     }
 }
 
