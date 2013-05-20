@@ -13,12 +13,20 @@ public class SlaveHub extends Worker {
 
     private static class Peer {
 
-        public InputSyscallStream in;
-        public OutputSyscallStream out;
+        private InputSyscallStream mIn;
+        private OutputSyscallStream mOut;
 
         public Peer(InputSyscallStream in, OutputSyscallStream out) {
-            this.in = in;
-            this.out = out;
+            mIn = in;
+            mOut = out;
+        }
+
+        public InputSyscallStream getInputStream() {
+            return mIn;
+        }
+
+        public OutputSyscallStream getOutputStream() {
+            return mOut;
         }
     }
 
@@ -39,19 +47,26 @@ public class SlaveHub extends Worker {
     }
 
     public boolean isReady() throws IOException {
-        if (mMhub.in.isReady()) {
+        if (mMhub.getInputStream().isReady()) {
             return true;
         }
-        for (Peer peer: mSlaves) {
-            if (peer.in.isReady()) {
+        for (Peer slave: mSlaves) {
+            if (slave.getInputStream().isReady()) {
                 return true;
             }
         }
         return false;
     }
 
-    public void work() {
-        // TODO
+    public void work() throws IOException {
+        if (mMhub.getInputStream().isReady()) {
+            // TODO
+        }
+        for (Peer peer: mSlaves) {
+            if (peer.getInputStream().isReady()) {
+                // TODO
+            }
+        }
     }
 }
 
