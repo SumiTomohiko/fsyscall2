@@ -7,9 +7,13 @@
         <jar basedir="${destdir}" destfile="${bindir}/fsyscall.slave.jar"/>
     </target>
 
-    <target name="compile">
+    <target name="compile" depends="generate-source">
         <mkdir dir="${destdir}"/>
         <javac includeantruntime="false" srcdir="src" destdir="${destdir}"/>
+    </target>
+
+    <target name="generate-source">
+        <exec executable="make"/>
     </target>
 </project>
 <!--
