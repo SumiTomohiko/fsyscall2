@@ -48,11 +48,12 @@ public class SlaveHub extends Worker {
         Pid masterPid = mMhub.getInputStream().readPid();
 
         mSlaves = new HashMap<Pid, Peer>();
-        mSlaves.put(
-                masterPid,
-                new Peer(
-                    new InputSyscallStream(slaveIn),
-                    new OutputSyscallStream(slaveOut)));
+        Peer slave = new Peer(
+                new InputSyscallStream(slaveIn),
+                new OutputSyscallStream(slaveOut));
+        mSlaves.put(masterPid, slave);
+
+        transportFileDescriptors(slave);
     }
 
     public boolean isReady() throws IOException {
@@ -85,6 +86,16 @@ public class SlaveHub extends Worker {
             throw new ProtocolError(String.format(fmt, version));
         }
         mMhub.getOutputStream().writeByte((byte)0);
+    }
+
+    private void transportFileDescriptors(Peer slave) throws IOException {
+        InputSyscallStream in = slave.getInputStream();
+        int len = in.readInteger();
+        byte[] data = in.read(len);
+
+        OutputSyscallStream out = slave.getOutputStream();
+        out.writeInteger(len);
+        out.write(data);
     }
 }
 
