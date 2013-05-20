@@ -3,9 +3,12 @@ package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.InputSyscallStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.OutputSyscallStream;
@@ -33,18 +36,20 @@ public class SlaveHub extends Worker {
 
     private Application mApplication;
     private Peer mMhub;
-    private List<Peer> mSlaves;
+    private Map<Pid, Peer> mSlaves;
 
-    public SlaveHub(Application application, InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) {
+    public SlaveHub(Application application, InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) throws IOException {
         mApplication = application;
         mMhub = new Peer(
                 new InputSyscallStream(mhubIn),
                 new OutputSyscallStream(mhubOut));
 
         negotiateVersion();
+        Pid masterPid = mMhub.getInputStream().readPid();
 
-        mSlaves = new LinkedList<Peer>();
-        mSlaves.add(
+        mSlaves = new HashMap<Pid, Peer>();
+        mSlaves.put(
+                masterPid,
                 new Peer(
                     new InputSyscallStream(slaveIn),
                     new OutputSyscallStream(slaveOut)));
@@ -54,7 +59,7 @@ public class SlaveHub extends Worker {
         if (mMhub.getInputStream().isReady()) {
             return true;
         }
-        for (Peer slave: mSlaves) {
+        for (Peer slave: mSlaves.values()) {
             if (slave.getInputStream().isReady()) {
                 return true;
             }
@@ -66,7 +71,7 @@ public class SlaveHub extends Worker {
         if (mMhub.getInputStream().isReady()) {
             // TODO
         }
-        for (Peer peer: mSlaves) {
+        for (Peer peer: mSlaves.values()) {
             if (peer.getInputStream().isReady()) {
                 // TODO
             }
