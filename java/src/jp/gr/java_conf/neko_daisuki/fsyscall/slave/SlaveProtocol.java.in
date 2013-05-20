@@ -43,7 +43,8 @@ public class SlaveProtocol {
         Command command = mIn.readCommand();
         CommandDispatcher.Proc proc = mDispatcher.get(command);
         if (proc == null) {
-            throw new ProtocolError();
+            String fmt = "cannot handle command of %s";
+            throw new ProtocolError(String.format(fmt, command.toString()));
         }
         proc.call(command);
     }
