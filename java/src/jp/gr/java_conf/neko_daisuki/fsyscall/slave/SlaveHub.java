@@ -10,26 +10,26 @@ import java.util.Map;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.InputSyscallStream;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.OutputSyscallStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
 public class SlaveHub extends Worker {
 
     private static class Peer {
 
-        private InputSyscallStream mIn;
-        private OutputSyscallStream mOut;
+        private SyscallInputStream mIn;
+        private SyscallOutputStream mOut;
 
-        public Peer(InputSyscallStream in, OutputSyscallStream out) {
+        public Peer(SyscallInputStream in, SyscallOutputStream out) {
             mIn = in;
             mOut = out;
         }
 
-        public InputSyscallStream getInputStream() {
+        public SyscallInputStream getInputStream() {
             return mIn;
         }
 
-        public OutputSyscallStream getOutputStream() {
+        public SyscallOutputStream getOutputStream() {
             return mOut;
         }
     }
@@ -41,16 +41,16 @@ public class SlaveHub extends Worker {
     public SlaveHub(Application application, InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) throws IOException {
         mApplication = application;
         mMhub = new Peer(
-                new InputSyscallStream(mhubIn),
-                new OutputSyscallStream(mhubOut));
+                new SyscallInputStream(mhubIn),
+                new SyscallOutputStream(mhubOut));
 
         negotiateVersion();
         Pid masterPid = mMhub.getInputStream().readPid();
 
         mSlaves = new HashMap<Pid, Peer>();
         Peer slave = new Peer(
-                new InputSyscallStream(slaveIn),
-                new OutputSyscallStream(slaveOut));
+                new SyscallInputStream(slaveIn),
+                new SyscallOutputStream(slaveOut));
         mSlaves.put(masterPid, slave);
 
         transportFileDescriptors(slave);
@@ -70,13 +70,16 @@ public class SlaveHub extends Worker {
 
     public void work() throws IOException {
         if (mMhub.getInputStream().isReady()) {
-            // TODO
+            processMasterHub();
         }
         for (Peer peer: mSlaves.values()) {
             if (peer.getInputStream().isReady()) {
                 // TODO
             }
         }
+    }
+
+    private void processMasterHub() {
     }
 
     private void negotiateVersion() throws IOException {
@@ -89,11 +92,11 @@ public class SlaveHub extends Worker {
     }
 
     private void transportFileDescriptors(Peer slave) throws IOException {
-        InputSyscallStream in = slave.getInputStream();
+        SyscallInputStream in = slave.getInputStream();
         int len = in.readInteger();
         byte[] data = in.read(len);
 
-        OutputSyscallStream out = slave.getOutputStream();
+        SyscallOutputStream out = slave.getOutputStream();
         out.writeInteger(len);
         out.write(data);
     }

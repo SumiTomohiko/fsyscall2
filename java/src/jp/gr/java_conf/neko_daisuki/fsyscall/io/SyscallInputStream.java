@@ -6,11 +6,11 @@ import java.io.InputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 
-public class InputSyscallStream {
+public class SyscallInputStream {
 
     private InputStream mIn;
 
-    public InputSyscallStream(InputStream in) {
+    public SyscallInputStream(InputStream in) {
         mIn = in;
     }
 

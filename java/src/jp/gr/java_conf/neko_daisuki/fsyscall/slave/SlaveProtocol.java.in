@@ -6,8 +6,8 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.InputSyscallStream;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.OutputSyscallStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
 @IMPORTS@;
 
@@ -28,11 +28,11 @@ public class SlaveProtocol {
     @PROCS@
 
     private Slave mSlave;
-    private InputSyscallStream mIn;
-    private OutputSyscallStream mOut;
+    private SyscallInputStream mIn;
+    private SyscallOutputStream mOut;
     private CommandDispatcher mDispatcher;
 
-    public SlaveProtocol(Slave slave, InputSyscallStream in, OutputSyscallStream out) {
+    public SlaveProtocol(Slave slave, SyscallInputStream in, SyscallOutputStream out) {
         mSlave = slave;
         mIn = in;
         mOut = out;

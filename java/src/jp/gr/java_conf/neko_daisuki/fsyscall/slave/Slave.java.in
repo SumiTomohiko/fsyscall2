@@ -7,8 +7,8 @@ import java.io.OutputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.InputSyscallStream;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.OutputSyscallStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
 @IMPORTS@;
 
@@ -22,8 +22,8 @@ public class Slave extends Worker {
 
     private static final int UNIX_FILE_NUM = 256;
 
-    private InputSyscallStream mIn;
-    private OutputSyscallStream mOut;
+    private SyscallInputStream mIn;
+    private SyscallOutputStream mOut;
     private SlaveProtocol mProtocol;
 
     private Pid mPid;
@@ -33,8 +33,8 @@ public class Slave extends Worker {
     private SyscallResult mResult;
 
     public Slave(Pid pid, InputStream in, OutputStream out) throws IOException {
-        mIn = new InputSyscallStream(in);
-        mOut = new OutputSyscallStream(out);
+        mIn = new SyscallInputStream(in);
+        mOut = new SyscallOutputStream(out);
         mProtocol = new SlaveProtocol(this, mIn, mOut);
 
         mPid = pid;

@@ -5,11 +5,11 @@ import java.io.OutputStream;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 
-public class OutputSyscallStream {
+public class SyscallOutputStream {
 
     private OutputStream mStream;
 
-    public OutputSyscallStream(OutputStream stream) {
+    public SyscallOutputStream(OutputStream stream) {
         mStream = stream;
     }
 
