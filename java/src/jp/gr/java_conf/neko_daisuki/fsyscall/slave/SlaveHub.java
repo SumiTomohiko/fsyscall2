@@ -8,6 +8,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
@@ -31,6 +32,11 @@ public class SlaveHub extends Worker {
 
         public SyscallOutputStream getOutputStream() {
             return mOut;
+        }
+
+        public void close() throws IOException {
+            mIn.close();
+            mOut.close();
         }
     }
 
@@ -79,7 +85,21 @@ public class SlaveHub extends Worker {
         }
     }
 
-    private void processMasterHub() {
+    private void processMasterHub() throws IOException {
+        SyscallInputStream in = mMhub.getInputStream();
+        Command command = in.readCommand();
+        Pid pid = in.readPid();
+        if (command == Command.CALL_EXIT) {
+            int unusedStatus = in.readInteger();
+            mSlaves.remove(pid).close();
+            return;
+        }
+        int payloadSize = in.readPayloadSize();
+
+        SyscallOutputStream out = mSlaves.get(pid).getOutputStream();
+        out.writeCommand(command);
+        out.writePayloadSize(payloadSize);
+        out.copyInputStream(in, payloadSize);
     }
 
     private void negotiateVersion() throws IOException {

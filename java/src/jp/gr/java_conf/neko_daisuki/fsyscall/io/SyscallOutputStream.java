@@ -3,6 +3,7 @@ package jp.gr.java_conf.neko_daisuki.fsyscall.io;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 
 public class SyscallOutputStream {
@@ -13,6 +14,15 @@ public class SyscallOutputStream {
         mStream = stream;
     }
 
+    public void copyInputStream(SyscallInputStream in, int size) throws IOException {
+        int rest = size;
+        while (0 < rest) {
+            int nBytes = Math.min(rest, 8192);
+            write(in.read(nBytes));
+            rest -= nBytes;
+        }
+    }
+
     public void writeByte(byte n) throws IOException {
         mStream.write(new byte[] { n });
     }
@@ -21,8 +31,16 @@ public class SyscallOutputStream {
         write(Encoder.encodeInteger(n));
     }
 
+    public void writePayloadSize(int n) throws IOException {
+        writeInteger(n);
+    }
+
     public void write(byte buffer[]) throws IOException {
         mStream.write(buffer);
+    }
+
+    public void writeCommand(Command command) throws IOException {
+        writeInteger(command.toInteger());
     }
 
     public void close() throws IOException {

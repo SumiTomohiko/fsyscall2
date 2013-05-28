@@ -40,6 +40,10 @@ public class SyscallInputStream {
         return n;
     }
 
+    public int readPayloadSize() throws IOException {
+        return readInteger();
+    }
+
     public byte readByte() throws IOException {
         return (byte)mIn.read();
     }
