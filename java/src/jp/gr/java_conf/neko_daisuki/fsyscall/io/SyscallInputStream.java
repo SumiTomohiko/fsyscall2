@@ -22,6 +22,10 @@ public class SyscallInputStream {
         return Command.fromInteger(readInteger());
     }
 
+    public void close() throws IOException {
+        mIn.close();
+    }
+
     /**
      * Reads signed int (32bits). This method cannot handle unsigned int.
      */

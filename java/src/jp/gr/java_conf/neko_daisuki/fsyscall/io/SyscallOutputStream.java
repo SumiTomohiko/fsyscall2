@@ -24,6 +24,10 @@ public class SyscallOutputStream {
     public void write(byte buffer[]) throws IOException {
         mStream.write(buffer);
     }
+
+    public void close() throws IOException {
+        mStream.close();
+    }
 }
 
 /**
