@@ -40,9 +40,23 @@ public class SlaveHub extends Worker {
         }
     }
 
+    private static class Slave extends Peer {
+
+        private Pid mMasterPid;
+
+        public Slave(SyscallInputStream in, SyscallOutputStream out, Pid masterPid) {
+            super(in, out);
+            mMasterPid = masterPid;
+        }
+
+        public Pid getMasterPid() {
+            return mMasterPid;
+        }
+    }
+
     private Application mApplication;
     private Peer mMhub;
-    private Map<Pid, Peer> mSlaves;
+    private Map<Pid, Slave> mSlaves;
 
     public SlaveHub(Application application, InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) throws IOException {
         mApplication = application;
@@ -53,10 +67,11 @@ public class SlaveHub extends Worker {
         negotiateVersion();
         Pid masterPid = mMhub.getInputStream().readPid();
 
-        mSlaves = new HashMap<Pid, Peer>();
-        Peer slave = new Peer(
+        mSlaves = new HashMap<Pid, Slave>();
+        Slave slave = new Slave(
                 new SyscallInputStream(slaveIn),
-                new SyscallOutputStream(slaveOut));
+                new SyscallOutputStream(slaveOut),
+                masterPid);
         mSlaves.put(masterPid, slave);
 
         transportFileDescriptors(slave);
@@ -78,11 +93,23 @@ public class SlaveHub extends Worker {
         if (mMhub.getInputStream().isReady()) {
             processMasterHub();
         }
-        for (Peer peer: mSlaves.values()) {
-            if (peer.getInputStream().isReady()) {
-                // TODO
+        for (Slave slave: mSlaves.values()) {
+            if (slave.getInputStream().isReady()) {
+                processSlave(slave);
             }
         }
+    }
+
+    private void processSlave(Slave slave) throws IOException {
+        SyscallInputStream in = slave.getInputStream();
+        Command command = in.readCommand();
+        int payloadSize = in.readPayloadSize();
+
+        SyscallOutputStream out = mMhub.getOutputStream();
+        out.writeCommand(command);
+        out.writePid(slave.getMasterPid());
+        out.writePayloadSize(payloadSize);
+        out.copyInputStream(in, payloadSize);
     }
 
     private void processMasterHub() throws IOException {
