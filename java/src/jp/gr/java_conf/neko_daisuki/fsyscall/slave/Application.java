@@ -73,12 +73,12 @@ public class Application {
     }
 
     private boolean isReady() throws IOException {
-        for (Worker worker: mWorkers) {
-            if (worker.isReady()) {
-                return true;
-            }
+        boolean ready = false;
+        int size = mWorkers.size();
+        for (int i = 0; (i < size) && !ready; i++) {
+            ready = mWorkers.get(i).isReady();
         }
-        return false;
+        return ready;
     }
 
     private static void usage(PrintStream out) {
