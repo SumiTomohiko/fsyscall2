@@ -9,10 +9,10 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 
 public class SyscallOutputStream {
 
-    private OutputStream mStream;
+    private OutputStream mOut;
 
     public SyscallOutputStream(OutputStream stream) {
-        mStream = stream;
+        mOut = stream;
     }
 
     public void copyInputStream(SyscallInputStream in, int size) throws IOException {
@@ -25,7 +25,7 @@ public class SyscallOutputStream {
     }
 
     public void writeByte(byte n) throws IOException {
-        mStream.write(new byte[] { n });
+        mOut.write(new byte[] { n });
     }
 
     public void writeInteger(int n) throws IOException {
@@ -37,7 +37,7 @@ public class SyscallOutputStream {
     }
 
     public void write(byte buffer[]) throws IOException {
-        mStream.write(buffer);
+        mOut.write(buffer);
     }
 
     public void writeCommand(Command command) throws IOException {
@@ -49,7 +49,7 @@ public class SyscallOutputStream {
     }
 
     public void close() throws IOException {
-        mStream.close();
+        mOut.close();
     }
 }
 
