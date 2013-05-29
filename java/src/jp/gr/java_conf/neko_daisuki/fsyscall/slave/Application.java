@@ -60,15 +60,27 @@ public class Application {
         addWorker(slave);
 
         while (1 < mWorkers.size()) {
-            while (!isReady()) {
-                Thread.sleep(10 /* msec */);
-            }
-            for (Worker worker: mWorkers) {
-                if (!worker.isReady()) {
-                    continue;
-                }
-                worker.work();
-            }
+            waitReady();
+            kickWorkers();
+        }
+    }
+
+    private void kickWorkerIfReady(Worker worker) throws IOException {
+        if (!worker.isReady()) {
+            return;
+        }
+        worker.work();
+    }
+
+    private void kickWorkers() throws IOException {
+        for (Worker worker: mWorkers) {
+            kickWorkerIfReady(worker);
+        }
+    }
+
+    private void waitReady() throws IOException, InterruptedException {
+        while (!isReady()) {
+            Thread.sleep(10 /* msec */);
         }
     }
 
