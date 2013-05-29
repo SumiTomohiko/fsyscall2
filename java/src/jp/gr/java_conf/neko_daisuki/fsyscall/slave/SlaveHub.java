@@ -89,6 +89,18 @@ public class SlaveHub extends Worker {
         return false;
     }
 
+    /**
+     * Closes the connection for the master hub ONLY. When this method is
+     * called, all slaves are not alive. So this method ignores connections for
+     * slave.
+     *
+     * When a slave is alive in calling this method, we will know that with an
+     * exception.
+     */
+    public void close() throws IOException {
+        mMhub.close();
+    }
+
     public void work() throws IOException {
         if (mMhub.getInputStream().isReady()) {
             processMasterHub();

@@ -63,6 +63,7 @@ public class Application {
             waitReady();
             kickWorkers();
         }
+        hub.close();
     }
 
     private void kickWorkerIfReady(Worker worker) throws IOException {
