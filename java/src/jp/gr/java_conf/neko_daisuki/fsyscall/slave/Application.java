@@ -10,10 +10,63 @@ import java.io.PipedOutputStream;
 import java.io.PrintStream;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.L;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 
 public class Application {
+
+    private static class LogHandler implements L.Handler {
+
+        private static class StdoutHandler extends Handler {
+
+            public StdoutHandler() {
+                super();
+            }
+
+            public void close() {
+            }
+
+            public void flush() {
+            }
+
+            public void publish(LogRecord record) {
+                String level = record.getLevel().getName();
+                String message = record.getMessage();
+                System.out.println(String.format("%s: %s", level, message));
+            }
+        }
+
+        private Logger mLogger;
+
+        public LogHandler() {
+            mLogger = Logger.getLogger("jp.gr.java_conf.neko_daisuki.fsyscall");
+            mLogger.addHandler(new StdoutHandler());
+        }
+
+        public void verbose(String message) {
+            mLogger.finest(message);
+        }
+
+        public void debug(String message) {
+            mLogger.finer(message);
+        }
+
+        public void info(String message) {
+            mLogger.info(message);
+        }
+
+        public void warn(String message) {
+            mLogger.warning(message);
+        }
+
+        public void err(String message) {
+            mLogger.severe(message);
+        }
+    }
 
     private static class Pipe {
 
@@ -108,6 +161,8 @@ public class Application {
      * do not know if the same way is usable on other platforms.
      */
     public static void main(String[] args) {
+        L.setHandler(new LogHandler());
+
         int rfd, wfd;
         try {
             rfd = Integer.parseInt(args[0]);
