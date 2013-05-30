@@ -31,24 +31,47 @@ status_is_fail(int status)
 static void
 usage()
 {
-	puts("tester [-v|--verbose] commands...");
+	puts("tester [--java] [-v|--verbose] commands...");
+}
+
+static void
+start_java_slave(int rfd, int wfd, int _, char *__[])
+{
+	char *argv[7], rbuf[32], wbuf[32];
+
+	snprintf(rbuf, sizeof(rbuf), "%d", rfd);
+	snprintf(wbuf, sizeof(wbuf), "%d", wfd);
+	argv[0] = "java";
+	argv[1] = "-classpath";
+	argv[2] = "java/bin/fsyscall.slave.jar";
+	argv[3] = "jp.gr.java_conf.neko_daisuki.fsyscall.slave.Application";
+	argv[4] = rbuf;
+	argv[5] = wbuf;
+	argv[6] = NULL;
+	execvp(argv[0], argv);
+	die(1, "failed to execvp");
 }
 
 int
 main(int argc, char *argv[])
 {
 	struct option long_opts[] = {
+		{ "java", no_argument, NULL, 'j' },
 		{ "verbose", no_argument, NULL, 'v' },
 		{ NULL, 0, NULL, 0 }
 	};
 	pid_t master_pid, slave_pid;
+	void (*start_slave)(int, int, int, char *[]);
 	int i, opt, master_status, r, slave_status, w;
 	int mhub2shub[2], shub2mhub[2];
-	bool verbose = false;
+	bool java = false, verbose = false;
 	char **args, *fmt;
 
 	while ((opt = getopt_long(argc, argv, "v", long_opts, NULL)) != -1)
 		switch (opt) {
+		case 'j':
+			java = true;
+			break;
 		case 'v':
 			setenv(FSYSCALL_ENV_VERBOSE, "1", 1);
 			verbose = true;
@@ -70,7 +93,8 @@ main(int argc, char *argv[])
 		close_or_die(mhub2shub[W]);
 		r = mhub2shub[R];
 		w = shub2mhub[W];
-		fsyscall_start_slave(r, w, argc, argv);
+		start_slave = !java ? fsyscall_start_slave : start_java_slave;
+		start_slave(r, w, argc, argv);
 		/* NOTREACHED */
 	}
 

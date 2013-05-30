@@ -72,6 +72,12 @@ arch=$(uname -p)
 rm -rf "${tmp_dir}" || exit 1
 mkdir -p "${tmp_dir}" || exit 1
 
+if [ "$1" = "--java" ]; then
+	tester_opts="--java"
+	shift
+else
+	tester_opts=""
+fi
 if [ $# -eq 0 ]; then
 	tests=$(find "${tests_dir}" -name "test_*" | sort)
 else
@@ -94,7 +100,7 @@ do
 
 	exe="${tests_dir}/${arch}/${cmd}"
 	stdout_log="${tmp_dir}/stdout.log"
-	"${tester}" "${exe}" ${args} > "${stdout_log}"
+	"${tester}" "${tester_opts}" "${exe}" ${args} > "${stdout_log}"
 	status="${?}"
 
 	if [ -n "$(isset expected_status)" ]; then
