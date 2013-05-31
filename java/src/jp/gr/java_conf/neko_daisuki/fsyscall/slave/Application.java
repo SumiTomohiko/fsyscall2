@@ -170,10 +170,12 @@ public class Application {
         }
         catch (ArrayIndexOutOfBoundsException _) {
             Application.usage(System.out);
+            System.exit(1);
             return;
         }
         catch (NumberFormatException _) {
             Application.usage(System.out);
+            System.exit(1);
             return;
         }
         String fmt = "/dev/fd/%d";
@@ -187,6 +189,7 @@ public class Application {
         }
         catch (IOException e) {
             e.printStackTrace();
+            System.exit(1);
             return;
         }
 
@@ -195,6 +198,7 @@ public class Application {
         }
         catch (Throwable e) {
             e.printStackTrace();
+            System.exit(1);
         }
     }
 }
