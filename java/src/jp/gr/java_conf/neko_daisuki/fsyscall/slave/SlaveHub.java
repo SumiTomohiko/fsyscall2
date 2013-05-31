@@ -166,12 +166,13 @@ public class SlaveHub extends Worker {
     }
 
     private void negotiateVersion() throws IOException {
+        mMhub.getOutputStream().writeByte((byte)0);
+
         byte version = mMhub.getInputStream().readByte();
         if (version != 0) {
             String fmt = "requested version is not supported: %d";
             throw new ProtocolError(String.format(fmt, version));
         }
-        mMhub.getOutputStream().writeByte((byte)0);
     }
 
     private void transportFileDescriptors(Peer slave) throws IOException {
