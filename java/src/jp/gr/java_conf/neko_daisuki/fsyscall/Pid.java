@@ -24,6 +24,10 @@ public class Pid {
         Pid pid = (Pid)obj;
         return getInteger() == pid.getInteger();
     }
+
+    public String toString() {
+        return Integer.toString(getInteger());
+    }
 }
 
 /**
