@@ -180,7 +180,7 @@ public class SlaveHub extends Worker {
         int len = in.readInteger();
         byte[] data = in.read(len);
 
-        SyscallOutputStream out = slave.getOutputStream();
+        SyscallOutputStream out = mMhub.getOutputStream();
         out.writeInteger(len);
         out.write(data);
     }
