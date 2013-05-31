@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
+import jp.gr.java_conf.neko_daisuki.fsyscall.L;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
@@ -60,12 +61,17 @@ public class SlaveHub extends Worker {
 
     public SlaveHub(Application application, InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) throws IOException {
         mApplication = application;
+        L.info("a slave hub is starting.");
+
         mMhub = new Peer(
                 new SyscallInputStream(mhubIn),
                 new SyscallOutputStream(mhubOut));
 
         negotiateVersion();
+        L.info("version negotiation finished.");
+
         Pid masterPid = mMhub.getInputStream().readPid();
+        L.info(String.format("master pid is %s.", masterPid));
 
         mSlaves = new HashMap<Pid, Slave>();
         Slave slave = new Slave(
@@ -75,6 +81,7 @@ public class SlaveHub extends Worker {
         mSlaves.put(masterPid, slave);
 
         transportFileDescriptors(slave);
+        L.info("file descriptors were transfered from the slave hub.");
     }
 
     public boolean isReady() throws IOException {
@@ -102,6 +109,8 @@ public class SlaveHub extends Worker {
     }
 
     public void work() throws IOException {
+        L.info("works of the slave hub are being processed.");
+
         if (mMhub.getInputStream().isReady()) {
             processMasterHub();
         }
@@ -110,9 +119,13 @@ public class SlaveHub extends Worker {
                 processSlave(slave);
             }
         }
+
+        L.info("works of the slave hub were finished.");
     }
 
     private void processSlave(Slave slave) throws IOException {
+        L.info("the work for the slave is being processed.");
+
         SyscallInputStream in = slave.getInputStream();
         Command command = in.readCommand();
         int payloadSize = in.readPayloadSize();
@@ -122,14 +135,25 @@ public class SlaveHub extends Worker {
         out.writePid(slave.getMasterPid());
         out.writePayloadSize(payloadSize);
         out.copyInputStream(in, payloadSize);
+
+        L.info("the work for the slave was finished.");
     }
 
     private void processMasterHub() throws IOException {
+        L.info("the work for the master hub is being processed.");
+
         SyscallInputStream in = mMhub.getInputStream();
         Command command = in.readCommand();
         Pid pid = in.readPid();
+        String fmt = "command received: command=%s, pid=%s";
+        L.info(String.format(fmt, command, pid));
+
         if (command == Command.CALL_EXIT) {
+            L.info("executing CALL_EXIT.");
+
             int unusedStatus = in.readInteger();
+            L.info(String.format("exit status is %d.", unusedStatus));
+
             mSlaves.remove(pid).close();
             return;
         }

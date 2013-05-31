@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
+import jp.gr.java_conf.neko_daisuki.fsyscall.L;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
@@ -41,6 +42,8 @@ public class SlaveProtocol {
 
     public void communicate() throws IOException {
         Command command = mIn.readCommand();
+        L.info(String.format("read command: %s", command.toString()));
+
         CommandDispatcher.Proc proc = mDispatcher.get(command);
         if (proc == null) {
             String fmt = "cannot handle command of %s";

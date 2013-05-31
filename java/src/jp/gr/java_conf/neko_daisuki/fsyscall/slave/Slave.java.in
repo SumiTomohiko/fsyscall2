@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
+import jp.gr.java_conf.neko_daisuki.fsyscall.L;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
@@ -33,6 +34,8 @@ public class Slave extends Worker {
     private SyscallResult mResult;
 
     public Slave(Pid pid, InputStream in, OutputStream out) throws IOException {
+        L.info("a slave is starting.");
+
         mIn = new SyscallInputStream(in);
         mOut = new SyscallOutputStream(out);
         mProtocol = new SlaveProtocol(this, mIn, mOut);
@@ -43,6 +46,7 @@ public class Slave extends Worker {
         mResult = new SyscallResult();
 
         writeOpenedFileDescriptors();
+        L.info("file descripters were transfered from the slave.");
     }
 
     public boolean isReady() throws IOException {

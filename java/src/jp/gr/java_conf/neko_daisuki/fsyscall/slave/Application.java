@@ -100,6 +100,8 @@ public class Application {
     }
 
     public void run(InputStream in, OutputStream out) throws IOException, InterruptedException {
+        L.info("starting a slave application");
+
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
         Slave slave = new Slave(
@@ -111,6 +113,8 @@ public class Application {
                 slave2hub.getInput(), hub2slave.getOutput());
         addWorker(hub);
         addWorker(slave);
+
+        L.info("the main loop starts.");
 
         while (1 < mWorkers.size()) {
             waitReady();
