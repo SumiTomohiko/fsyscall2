@@ -44,7 +44,7 @@ public class SyscallInputStream {
             n += ((m & 0x7f) << shift);
             shift += 7;
         }
-        return n;
+        return n + ((m & 0x7f) << shift);
     }
 
     public int readPayloadSize() throws IOException {
