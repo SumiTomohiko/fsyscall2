@@ -8,14 +8,20 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 
 public class SyscallInputStream {
 
+    private enum Status {
+        OPEN,
+        CLOSED };
+
+    private Status mStatus;
     private InputStream mIn;
 
     public SyscallInputStream(InputStream in) {
+        mStatus = Status.OPEN;
         mIn = in;
     }
 
     public boolean isReady() throws IOException {
-        return 0 < mIn.available();
+        return (mStatus == Status.OPEN) && (0 < mIn.available());
     }
 
     public Command readCommand() throws IOException {
@@ -23,6 +29,7 @@ public class SyscallInputStream {
     }
 
     public void close() throws IOException {
+        mStatus = Status.CLOSED;
         mIn.close();
     }
 
