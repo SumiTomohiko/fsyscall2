@@ -87,25 +87,33 @@ public class Application {
         }
     }
 
-    private Pid mPid;
     private List<Worker> mWorkers;
+    private int mExitStatus;
 
     public Application() {
-        mPid = new Pid(0);
         mWorkers = new LinkedList<Worker>();
+        mExitStatus = 0;
+    }
+
+    public void removeSlave(Slave slave) {
+        mWorkers.remove(slave);
     }
 
     public void addWorker(Worker worker) {
         mWorkers.add(worker);
     }
 
-    public void run(InputStream in, OutputStream out) throws IOException, InterruptedException {
+    public void setExitStatus(int exitStatus) {
+        mExitStatus = exitStatus;
+    }
+
+    public int run(InputStream in, OutputStream out) throws IOException, InterruptedException {
         L.info("starting a slave application");
 
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
         Slave slave = new Slave(
-                new Pid(mPid),
+                this,
                 hub2slave.getInput(), slave2hub.getOutput());
         SlaveHub hub = new SlaveHub(
                 this,
@@ -121,6 +129,8 @@ public class Application {
             kickWorkers();
         }
         hub.close();
+
+        return mExitStatus;
     }
 
     private void kickWorkerIfReady(Worker worker) throws IOException {
@@ -197,13 +207,15 @@ public class Application {
             return;
         }
 
+        int exitStatus;
         try {
-            new Application().run(in, out);
+            exitStatus = new Application().run(in, out);
         }
         catch (Throwable e) {
             e.printStackTrace();
-            System.exit(1);
+            exitStatus = 1;
         }
+        System.exit(exitStatus);
     }
 }
 

@@ -55,12 +55,10 @@ public class SlaveHub extends Worker {
         }
     }
 
-    private Application mApplication;
     private Peer mMhub;
     private Map<Pid, Slave> mSlaves;
 
     public SlaveHub(Application application, InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) throws IOException {
-        mApplication = application;
         L.info("a slave hub is starting.");
 
         mMhub = new Peer(
@@ -74,11 +72,7 @@ public class SlaveHub extends Worker {
         L.info(String.format("master pid is %s.", masterPid));
 
         mSlaves = new HashMap<Pid, Slave>();
-        Slave slave = new Slave(
-                new SyscallInputStream(slaveIn),
-                new SyscallOutputStream(slaveOut),
-                masterPid);
-        mSlaves.put(masterPid, slave);
+        Slave slave = addSlave(slaveIn, slaveOut, masterPid);
 
         transportFileDescriptors(slave);
         L.info("file descriptors were transfered from the slave hub.");
@@ -148,18 +142,23 @@ public class SlaveHub extends Worker {
         String fmt = "command received: command=%s, pid=%s";
         L.info(String.format(fmt, command, pid));
 
+        SyscallOutputStream out = mSlaves.get(pid).getOutputStream();
+
         if (command == Command.CALL_EXIT) {
             L.info("executing CALL_EXIT.");
 
-            int unusedStatus = in.readInteger();
-            L.info(String.format("exit status is %d.", unusedStatus));
+            int status = in.readInteger();
+            L.info(String.format("exit status is %d.", status));
+
+            out.writeCommand(command);
+            out.writeInteger(status);
 
             mSlaves.remove(pid).close();
             return;
         }
+
         int payloadSize = in.readPayloadSize();
 
-        SyscallOutputStream out = mSlaves.get(pid).getOutputStream();
         out.writeCommand(command);
         out.writePayloadSize(payloadSize);
         out.copyInputStream(in, payloadSize);
@@ -183,6 +182,19 @@ public class SlaveHub extends Worker {
         SyscallOutputStream out = mMhub.getOutputStream();
         out.writeInteger(len);
         out.write(data);
+    }
+
+    private Slave addSlave(InputStream in, OutputStream out, Pid masterPid) {
+        /*
+         * When fork(2) is implemented, make this method public, and call from
+         * Application.
+         */
+        Slave slave = new Slave(
+                new SyscallInputStream(in),
+                new SyscallOutputStream(out),
+                masterPid);
+        mSlaves.put(masterPid, slave);
+        return slave;
     }
 }
 

@@ -23,24 +23,24 @@ public class Slave extends Worker {
 
     private static final int UNIX_FILE_NUM = 256;
 
+    private Application mApplication;
     private SyscallInputStream mIn;
     private SyscallOutputStream mOut;
     private SlaveProtocol mProtocol;
 
-    private Pid mPid;
     private UnixFile[] mFiles;
 
     // Cache
     private SyscallResult mResult;
 
-    public Slave(Pid pid, InputStream in, OutputStream out) throws IOException {
+    public Slave(Application application, InputStream in, OutputStream out) throws IOException {
         L.info("a slave is starting.");
 
+        mApplication = application;
         mIn = new SyscallInputStream(in);
         mOut = new SyscallOutputStream(out);
         mProtocol = new SlaveProtocol(this, mIn, mOut);
 
-        mPid = pid;
         mFiles = new UnixFile[UNIX_FILE_NUM];
 
         mResult = new SyscallResult();
@@ -129,6 +129,10 @@ public class Slave extends Worker {
     }
 
     public SyscallResult doExit(ExitArgs args) throws IOException {
+        mIn.close();
+        mOut.close();
+        mApplication.removeSlave(this);
+        mApplication.setExitStatus(args.rval);
         return null;
     }
 
