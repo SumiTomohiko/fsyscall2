@@ -1,5 +1,6 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -7,7 +8,7 @@ public class CommandDispatcher {
 
     public abstract static class Proc {
 
-        public abstract void call(Command command);
+        public abstract void call(Command command) throws IOException;
     }
 
     private Map<Command, Proc> mTable;

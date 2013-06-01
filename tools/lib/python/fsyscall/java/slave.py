@@ -93,18 +93,32 @@ def build_args_import(syscalls):
 def make_proc(syscall):
     return make_class_prefix(syscall) + "Proc"
 
+def make_params_reading(syscall):
+    stmts = []
+    for a in syscall.args:
+        name = a.name
+        if a.datatype == "int":
+            meth = "readInteger"
+        else:
+            continue
+        stmts.append("args.{name} = mIn.{meth}()".format(**locals()))
+    return ";\n    ".join(stmts)
+
 def build_proc_of_protocol(syscalls):
     procs = []
     for syscall in syscalls:
+
         fmt = """private class {proc} extends CommandDispatcher.Proc {{
 
-        public void call(Command command) {{
+        public void call(Command command) throws IOException {{
             {args} args = new {args}();
+            {params};
             SyscallResult result = mSlave.do{name}(args);
         }}
     }}"""
         proc = make_proc(syscall)
         args = make_args_class(syscall)
+        params = make_params_reading(syscall)
         name = make_class_prefix(syscall)
         procs.append(fmt.format(**locals()))
     return ("\n\n" + make_indent(4)).join(procs)

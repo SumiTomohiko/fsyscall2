@@ -57,78 +57,78 @@ public class Slave extends Worker {
         mProtocol.communicate();
     }
 
-    public SyscallResult doOpen(OpenArgs args) {
+    public SyscallResult doOpen(OpenArgs args) throws IOException {
         SyscallResult result = getSyscallResult();
         result.n = 0;
         result.errno = 0;
         return result;
     }
 
-    public SyscallResult doRead(ReadArgs args) {
+    public SyscallResult doRead(ReadArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doLseek(LseekArgs args) {
+    public SyscallResult doLseek(LseekArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doMmap(MmapArgs args) {
+    public SyscallResult doMmap(MmapArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doPread(PreadArgs args) {
+    public SyscallResult doPread(PreadArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doIssetugid(IssetugidArgs args) {
+    public SyscallResult doIssetugid(IssetugidArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doLstat(LstatArgs args) {
+    public SyscallResult doLstat(LstatArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doFstat(FstatArgs args) {
+    public SyscallResult doFstat(FstatArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doStat(StatArgs args) {
+    public SyscallResult doStat(StatArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doWritev(WritevArgs args) {
+    public SyscallResult doWritev(WritevArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doSelect(SelectArgs args) {
+    public SyscallResult doSelect(SelectArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doReadlink(ReadlinkArgs args) {
+    public SyscallResult doReadlink(ReadlinkArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doIoctl(IoctlArgs args) {
+    public SyscallResult doIoctl(IoctlArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doAccess(AccessArgs args) {
+    public SyscallResult doAccess(AccessArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doLink(LinkArgs args) {
+    public SyscallResult doLink(LinkArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doClose(CloseArgs args) {
+    public SyscallResult doClose(CloseArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doWrite(WriteArgs args) {
+    public SyscallResult doWrite(WriteArgs args) throws IOException {
         return null;
     }
 
-    public SyscallResult doExit(ExitArgs args) {
+    public SyscallResult doExit(ExitArgs args) throws IOException {
         return null;
     }
 
