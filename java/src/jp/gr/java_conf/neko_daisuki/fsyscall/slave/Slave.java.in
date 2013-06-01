@@ -4,9 +4,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
+import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.L;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
+import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
@@ -21,17 +24,20 @@ public class Slave extends Worker {
         public OutputStream out;
     }
 
+    @PROCS@
+
     private static final int UNIX_FILE_NUM = 256;
 
     private Application mApplication;
     private SyscallInputStream mIn;
     private SyscallOutputStream mOut;
-    private SlaveProtocol mProtocol;
 
     private UnixFile[] mFiles;
 
     // Cache
     private SyscallResult mResult;
+
+    private CommandDispatcher mDispatcher;
 
     public Slave(Application application, InputStream in, OutputStream out) throws IOException {
         L.info("a slave is starting.");
@@ -39,7 +45,7 @@ public class Slave extends Worker {
         mApplication = application;
         mIn = new SyscallInputStream(in);
         mOut = new SyscallOutputStream(out);
-        mProtocol = new SlaveProtocol(this, mIn, mOut);
+        mDispatcher = buildDispatcher();
 
         mFiles = new UnixFile[UNIX_FILE_NUM];
 
@@ -54,7 +60,15 @@ public class Slave extends Worker {
     }
 
     public void work() throws IOException {
-        mProtocol.communicate();
+        Command command = mIn.readCommand();
+        L.info(String.format("read command: %s", command.toString()));
+
+        CommandDispatcher.Proc proc = mDispatcher.get(command);
+        if (proc == null) {
+            String fmt = "cannot handle command of %s";
+            throw new ProtocolError(String.format(fmt, command.toString()));
+        }
+        proc.call(command);
     }
 
     public SyscallResult doOpen(OpenArgs args) throws IOException {
@@ -155,6 +169,12 @@ public class Slave extends Worker {
         for (int i = 0; i < fds.length; i++) {
             mOut.write(buffers[i]);
         }
+    }
+
+    private CommandDispatcher buildDispatcher() {
+        CommandDispatcher dispatcher = new CommandDispatcher();
+        @DISPATCHES@;
+        return dispatcher;
     }
 }
 

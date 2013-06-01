@@ -113,7 +113,7 @@ def build_proc_of_protocol(syscalls):
         public void call(Command command) throws IOException {{
             {args} args = new {args}();
             {params};
-            SyscallResult result = mSlave.do{name}(args);
+            SyscallResult result = do{name}(args);
         }}
     }}"""
         proc = make_proc(syscall)
@@ -135,22 +135,17 @@ def build_dispatch_of_protocol(syscalls):
 def get_slave_dir(dirpath):
     return join(dirpath, "slave")
 
-def write_protocol(dirpath, syscalls):
+def write_slave(dirpath, syscalls):
     d = {
             "IMPORTS": build_args_import(syscalls),
             "PROCS": build_proc_of_protocol(syscalls),
             "DISPATCHES": build_dispatch_of_protocol(syscalls) }
-    apply_template(d, join(get_slave_dir(dirpath), "SlaveProtocol.java"))
-
-def write_slave(dirpath, syscalls):
-    d = { "IMPORTS": build_args_import(syscalls) }
     apply_template(d, join(get_slave_dir(dirpath), "Slave.java"))
 
 def write(dirpath, syscalls):
     pkg_dir = get_package_path(dirpath)
     write_command_java(pkg_dir, syscalls)
     write_syscall_args(pkg_dir, syscalls)
-    write_protocol(pkg_dir, syscalls)
     write_slave(pkg_dir, syscalls)
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=python
