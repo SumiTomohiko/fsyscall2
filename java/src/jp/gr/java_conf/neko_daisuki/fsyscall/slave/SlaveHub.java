@@ -41,11 +41,11 @@ public class SlaveHub extends Worker {
         }
     }
 
-    private static class Slave extends Peer {
+    private static class SlavePeer extends Peer {
 
         private Pid mMasterPid;
 
-        public Slave(SyscallInputStream in, SyscallOutputStream out, Pid masterPid) {
+        public SlavePeer(SyscallInputStream in, SyscallOutputStream out, Pid masterPid) {
             super(in, out);
             mMasterPid = masterPid;
         }
@@ -56,7 +56,7 @@ public class SlaveHub extends Worker {
     }
 
     private Peer mMhub;
-    private Map<Pid, Slave> mSlaves;
+    private Map<Pid, SlavePeer> mSlaves;
 
     public SlaveHub(Application application, InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) throws IOException {
         L.info("a slave hub is starting.");
@@ -71,8 +71,8 @@ public class SlaveHub extends Worker {
         Pid masterPid = mMhub.getInputStream().readPid();
         L.info(String.format("master pid is %s.", masterPid));
 
-        mSlaves = new HashMap<Pid, Slave>();
-        Slave slave = addSlave(slaveIn, slaveOut, masterPid);
+        mSlaves = new HashMap<Pid, SlavePeer>();
+        SlavePeer slave = addSlave(slaveIn, slaveOut, masterPid);
 
         transportFileDescriptors(slave);
         L.info("file descriptors were transfered from the slave hub.");
@@ -108,7 +108,7 @@ public class SlaveHub extends Worker {
         if (mMhub.getInputStream().isReady()) {
             processMasterHub();
         }
-        for (Slave slave: mSlaves.values()) {
+        for (SlavePeer slave: mSlaves.values()) {
             if (slave.getInputStream().isReady()) {
                 processSlave(slave);
             }
@@ -117,7 +117,7 @@ public class SlaveHub extends Worker {
         L.info("works of the slave hub were finished.");
     }
 
-    private void processSlave(Slave slave) throws IOException {
+    private void processSlave(SlavePeer slave) throws IOException {
         L.info("the work for the slave is being processed.");
 
         SyscallInputStream in = slave.getInputStream();
@@ -184,12 +184,12 @@ public class SlaveHub extends Worker {
         out.write(data);
     }
 
-    private Slave addSlave(InputStream in, OutputStream out, Pid masterPid) {
+    private SlavePeer addSlave(InputStream in, OutputStream out, Pid masterPid) {
         /*
          * When fork(2) is implemented, make this method public, and call from
          * Application.
          */
-        Slave slave = new Slave(
+        SlavePeer slave = new SlavePeer(
                 new SyscallInputStream(in),
                 new SyscallOutputStream(out),
                 masterPid);
