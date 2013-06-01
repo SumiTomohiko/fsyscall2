@@ -90,13 +90,17 @@ public class Application {
     private List<Worker> mWorkers;
     private int mExitStatus;
 
+    private List<Slave> mSlavesToRemove;
+
     public Application() {
         mWorkers = new LinkedList<Worker>();
         mExitStatus = 0;
+
+        mSlavesToRemove = new LinkedList<Slave>();
     }
 
     public void removeSlave(Slave slave) {
-        mWorkers.remove(slave);
+        mSlavesToRemove.add(slave);
     }
 
     public void addWorker(Worker worker) {
@@ -127,10 +131,19 @@ public class Application {
         while (1 < mWorkers.size()) {
             waitReady();
             kickWorkers();
+            removeSlaves();
         }
         hub.close();
 
         return mExitStatus;
+    }
+
+    private void removeSlaves() {
+        for (Slave slave: mSlavesToRemove) {
+            mWorkers.remove(slave);
+        }
+
+        mSlavesToRemove.clear();
     }
 
     private void kickWorkerIfReady(Worker worker) throws IOException {
