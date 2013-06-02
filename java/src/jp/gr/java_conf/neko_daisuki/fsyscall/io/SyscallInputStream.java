@@ -4,9 +4,21 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
+import jp.gr.java_conf.neko_daisuki.fsyscall.L;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 
 public class SyscallInputStream {
+
+    private static class Logger {
+
+        public static void info(String message) {
+            L.info(buildMessage(message));
+        }
+
+        private static String buildMessage(String message) {
+            return String.format("SyscallInputStream: %s", message);
+        }
+    }
 
     private enum Status {
         OPEN,
@@ -25,7 +37,14 @@ public class SyscallInputStream {
     }
 
     public Command readCommand() throws IOException {
-        return Command.fromInteger(readInteger());
+        int n = readInteger();
+        String fmt = "numeric representation of the command is %d.";
+        Logger.info(String.format(fmt, n));
+
+        Command command = Command.fromInteger(n);
+        Logger.info(String.format("command is %s.", command));
+
+        return Command.fromInteger(n);
     }
 
     public void close() throws IOException {
