@@ -68,6 +68,12 @@ public class SyscallInputStream {
 
         return buffer;
     }
+
+    public String readString() throws IOException {
+        int len = readInteger();
+        byte[] bytes = read(len);
+        return new String(bytes, "UTF-8");
+    }
 }
 
 /**
