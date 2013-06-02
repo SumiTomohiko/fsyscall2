@@ -124,20 +124,22 @@ def make_params_reading(syscall):
 def build_proc_of_protocol(syscalls):
     procs = []
     for syscall in syscalls:
-
         fmt = """private class {proc} extends CommandDispatcher.Proc {{
 
         public void call(Command command) throws IOException {{
             {args} args = new {args}();
             {params}
             SyscallResult result = do{name}(args);
+            writeResultGeneric(Command.{cmd}, result);
         }}
     }}"""
         proc = make_proc(syscall)
         args = make_args_class(syscall)
         params = make_params_reading(syscall)
         name = make_class_prefix(syscall)
+        cmd = syscall.ret_name
         procs.append(fmt.format(**locals()))
+
     return ("\n\n" + make_indent(4)).join(procs)
 
 def build_dispatch_of_protocol(syscalls):

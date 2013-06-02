@@ -176,6 +176,15 @@ public class Slave extends Worker {
         @DISPATCHES@;
         return dispatcher;
     }
+
+    private void writeResultGeneric(Command command, SyscallResult result) throws IOException {
+        mOut.writeCommand(command);
+        mOut.writeInteger(result.n);
+        if (result.n != -1) {
+            return;
+        }
+        mOut.writeInteger(result.errno);
+    }
 }
 
 /**
