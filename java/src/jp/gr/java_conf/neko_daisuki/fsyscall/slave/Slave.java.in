@@ -37,6 +37,15 @@ public class Slave extends Worker {
 
     @PROCS@
 
+    private class ExitProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            ExitArgs args = new ExitArgs();
+            args.rval = mIn.readInteger();
+            doExit(args);
+        }
+    }
+
     private static final int UNIX_FILE_NUM = 256;
 
     private Application mApplication;

@@ -124,6 +124,9 @@ def make_params_reading(syscall):
 def build_proc_of_protocol(syscalls):
     procs = []
     for syscall in syscalls:
+        if syscall.name == "fmaster_exit":
+            continue
+
         fmt = """private class {proc} extends CommandDispatcher.Proc {{
 
         public void call(Command command) throws IOException {{
