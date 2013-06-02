@@ -18,6 +18,17 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
 public class Slave extends Worker {
 
+    private static class Logger {
+
+        public static void info(String message) {
+            L.info(buildMessage(message));
+        }
+
+        private static String buildMessage(String message) {
+            return String.format("Slave: %s", message);
+        }
+    }
+
     private static class UnixFile {
 
         public InputStream in;
@@ -40,7 +51,7 @@ public class Slave extends Worker {
     private CommandDispatcher mDispatcher;
 
     public Slave(Application application, InputStream in, OutputStream out) throws IOException {
-        L.info("a slave is starting.");
+        Logger.info("a slave is starting.");
 
         mApplication = application;
         mIn = new SyscallInputStream(in);
@@ -52,7 +63,7 @@ public class Slave extends Worker {
         mResult = new SyscallResult();
 
         writeOpenedFileDescriptors();
-        L.info("file descripters were transfered from the slave.");
+        Logger.info("file descripters were transfered from the slave.");
     }
 
     public boolean isReady() throws IOException {
@@ -60,8 +71,10 @@ public class Slave extends Worker {
     }
 
     public void work() throws IOException {
+        Logger.info("performing the work.");
+
         Command command = mIn.readCommand();
-        L.info(String.format("read command: %s", command.toString()));
+        Logger.info(String.format("read command: %s", command.toString()));
 
         CommandDispatcher.Proc proc = mDispatcher.get(command);
         if (proc == null) {
@@ -69,6 +82,8 @@ public class Slave extends Worker {
             throw new ProtocolError(String.format(fmt, command.toString()));
         }
         proc.call(command);
+
+        Logger.info("finished the work.");
     }
 
     public SyscallResult doOpen(OpenArgs args) throws IOException {
