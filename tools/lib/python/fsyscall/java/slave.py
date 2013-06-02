@@ -2,7 +2,7 @@
 from os.path import join
 
 from fsyscall.java.share import get_package_path
-from fsyscall.share import apply_template, drop_prefix
+from fsyscall.share import SYSCALLS, apply_template, drop_prefix, opt_of_syscall
 
 def make_indent(width):
     return " " * width
@@ -96,13 +96,30 @@ def make_proc(syscall):
 def make_params_reading(syscall):
     stmts = []
     for a in syscall.args:
+        opt = opt_of_syscall(SYSCALLS, syscall, a)
+        indent = (0 if opt is None else 4) * " "
+
         name = a.name
         if a.datatype == "int":
+            datatype = "int"
             meth = "readInteger"
+        elif a.datatype == "char *":
+            datatype = "String"
+            meth = "readString"
         else:
             continue
-        stmts.append("args.{name} = mIn.{meth}()".format(**locals()))
-    return ";\n    ".join(stmts)
+
+        if opt is not None:
+            stmts.append("if ({opt}) {{".format(**locals()))
+
+        stmts.append(
+                "{indent}{datatype} {name} = mIn.{meth}();".format(**locals()))
+        stmts.append("{indent}args.{name} = {name};".format(**locals()))
+
+        if opt is not None:
+            stmts.append("}")
+
+    return ("\n" + 12 * " ").join(stmts)
 
 def build_proc_of_protocol(syscalls):
     procs = []
@@ -112,7 +129,7 @@ def build_proc_of_protocol(syscalls):
 
         public void call(Command command) throws IOException {{
             {args} args = new {args}();
-            {params};
+            {params}
             SyscallResult result = do{name}(args);
         }}
     }}"""
