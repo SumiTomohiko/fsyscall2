@@ -178,12 +178,14 @@ public class Slave extends Worker {
     }
 
     private void writeResultGeneric(Command command, SyscallResult result) throws IOException {
+        byte[] returnedValue = Encoder.encodeInteger(result.n);
+        byte[] errno = result.n != -1 ? new byte[0] : Encoder.encodeInteger(result.errno);
+        int payloadSize = returnedValue.length + errno.length;
+
         mOut.writeCommand(command);
-        mOut.writeInteger(result.n);
-        if (result.n != -1) {
-            return;
-        }
-        mOut.writeInteger(result.errno);
+        mOut.writePayloadSize(returnedValue.length + errno.length);
+        mOut.write(returnedValue);
+        mOut.write(errno);
     }
 }
 
