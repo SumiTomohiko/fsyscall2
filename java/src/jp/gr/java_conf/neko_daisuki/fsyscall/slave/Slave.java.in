@@ -8,6 +8,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.L;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
@@ -206,10 +207,11 @@ public class Slave extends Worker {
     private void writeResultGeneric(Command command, SyscallResult result) throws IOException {
         byte[] returnedValue = Encoder.encodeInteger(result.n);
         byte[] errno = result.n != -1 ? new byte[0] : Encoder.encodeInteger(result.errno);
-        int payloadSize = returnedValue.length + errno.length;
+        int len = returnedValue.length + errno.length;
+        PayloadSize payloadSize = PayloadSize.fromInteger(len);
 
         mOut.writeCommand(command);
-        mOut.writePayloadSize(returnedValue.length + errno.length);
+        mOut.writePayloadSize(payloadSize);
         mOut.write(returnedValue);
         mOut.write(errno);
     }

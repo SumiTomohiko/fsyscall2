@@ -10,6 +10,7 @@ import java.util.Map;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.L;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
@@ -133,9 +134,9 @@ public class SlaveHub extends Worker {
 
         SyscallInputStream in = slave.getInputStream();
         Command command = in.readCommand();
-        int payloadSize = in.readPayloadSize();
+        PayloadSize payloadSize = in.readPayloadSize();
 
-        String fmt = "from the slave to the master: command=%s, payloadSize=%d";
+        String fmt = "from the slave to the master: command=%s, payloadSize=%s";
         Logger.info(String.format(fmt, command, payloadSize));
 
         SyscallOutputStream out = mMhub.getOutputStream();
@@ -171,9 +172,9 @@ public class SlaveHub extends Worker {
             return;
         }
 
-        int payloadSize = in.readPayloadSize();
+        PayloadSize payloadSize = in.readPayloadSize();
 
-        fmt = "from the master to the slave: command=%s, payloadSize=%d";
+        fmt = "from the master to the slave: command=%s, payloadSize=%s";
         Logger.info(String.format(fmt, command, payloadSize));
 
         out.writeCommand(command);

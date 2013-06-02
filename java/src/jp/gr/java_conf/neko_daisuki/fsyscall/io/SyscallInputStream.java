@@ -5,6 +5,7 @@ import java.io.InputStream;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.L;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 
 public class SyscallInputStream {
@@ -66,8 +67,8 @@ public class SyscallInputStream {
         return n + ((m & 0x7f) << shift);
     }
 
-    public int readPayloadSize() throws IOException {
-        return readInteger();
+    public PayloadSize readPayloadSize() throws IOException {
+        return PayloadSize.fromInteger(readInteger());
     }
 
     public byte readByte() throws IOException {

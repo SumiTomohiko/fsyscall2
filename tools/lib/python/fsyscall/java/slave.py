@@ -131,7 +131,7 @@ def build_proc_of_protocol(syscalls):
 
         public void call(Command command) throws IOException {{
             {args} args = new {args}();
-            int payloadSize = mIn.readPayloadSize();
+            PayloadSize payloadSize = mIn.readPayloadSize();
             {params}
             SyscallResult result = do{name}(args);
             writeResultGeneric(Command.{cmd}, result);
