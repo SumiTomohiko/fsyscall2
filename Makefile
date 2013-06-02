@@ -18,6 +18,9 @@ doc-clean:
 java:
 	@cd $(JAVADIR) && ant
 
+java-clean:
+	@rm -rf $(JAVADIR)/bin
+
 syscalls:
 	@python3 tools/makesyscalls.py
 
