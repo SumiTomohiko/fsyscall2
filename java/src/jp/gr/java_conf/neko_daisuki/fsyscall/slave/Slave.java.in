@@ -150,7 +150,9 @@ public class Slave extends Worker {
     }
 
     public SyscallResult doClose(CloseArgs args) throws IOException {
-        return null;
+        SyscallResult result = getSyscallResult();
+        result.n = 0;
+        return result;
     }
 
     public SyscallResult doWrite(WriteArgs args) throws IOException {
