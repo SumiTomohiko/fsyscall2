@@ -6,7 +6,7 @@ import java.util.Map;
 
 public class CommandDispatcher {
 
-    public abstract static class Proc implements UnixConstants {
+    public abstract static class Proc implements Unix.Constants {
 
         public abstract void call(Command command) throws IOException;
     }

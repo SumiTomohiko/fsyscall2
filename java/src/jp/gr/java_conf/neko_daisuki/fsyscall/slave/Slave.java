@@ -17,7 +17,6 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
-import jp.gr.java_conf.neko_daisuki.fsyscall.UnixConstants;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
@@ -172,11 +171,11 @@ public class Slave extends Worker {
 
         UnixFile file;
         try {
-            switch (flags & UnixConstants.O_ACCMODE) {
-            case UnixConstants.O_RDONLY:
+            switch (flags & Unix.Constants.O_ACCMODE) {
+            case Unix.Constants.O_RDONLY:
                 file = new UnixInputFile(new FileInputStream(path));
                 break;
-            case UnixConstants.O_WRONLY:
+            case Unix.Constants.O_WRONLY:
                 // XXX: Here ignores O_CREAT.
                 file = new UnixOutputFile(new FileOutputStream(path));
                 break;
