@@ -1,5 +1,8 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -7,11 +10,13 @@ import java.io.OutputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.L;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
+import jp.gr.java_conf.neko_daisuki.fsyscall.UnixConstants;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
@@ -30,10 +35,83 @@ public class Slave extends Worker {
         }
     }
 
-    private static class UnixFile {
+    private static class UnixException extends Exception {
 
-        public InputStream in;
-        public OutputStream out;
+        private Errno mErrno;
+
+        public UnixException(Errno errno, Throwable e) {
+            super(e);
+            initialize(errno);
+        }
+
+        public UnixException(Errno errno) {
+            initialize(errno);
+        }
+
+        public Errno getErrno() {
+            return mErrno;
+        }
+
+        private void initialize(Errno errno) {
+            mErrno = errno;
+        }
+    }
+
+    private interface UnixFile {
+
+        public int read(byte[] buffer) throws UnixException;
+        public void close() throws UnixException;
+    }
+
+    private static class UnixInputFile implements UnixFile {
+
+        private InputStream mIn;
+
+        public UnixInputFile(InputStream in) {
+            mIn = in;
+        }
+
+        public int read(byte[] buffer) throws UnixException {
+            int nBytes;
+            try {
+                nBytes = mIn.read(buffer);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            return nBytes != -1 ? nBytes : 0;
+        }
+
+        public void close() throws UnixException {
+            try {
+                mIn.close();
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EBADF, e);
+            }
+        }
+    }
+
+    private static class UnixOutputFile implements UnixFile {
+
+        private OutputStream mOut;
+
+        public UnixOutputFile(OutputStream out) {
+            mOut = out;
+        }
+
+        public int read(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.EBADF);
+        }
+
+        public void close() throws UnixException {
+            try {
+                mOut.close();
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EBADF, e);
+            }
+        }
     }
 
     @PROCS@
@@ -69,6 +147,9 @@ public class Slave extends Worker {
         mDispatcher = buildDispatcher();
 
         mFiles = new UnixFile[UNIX_FILE_NUM];
+        mFiles[0] = new UnixInputFile(System.in);
+        mFiles[1] = new UnixOutputFile(System.out);
+        mFiles[2] = new UnixOutputFile(System.err);
 
         mResult = new SyscallResult();
 
@@ -98,8 +179,46 @@ public class Slave extends Worker {
 
     public SyscallResult doOpen(OpenArgs args) throws IOException {
         SyscallResult result = getSyscallResult();
-        result.n = 0;
-        result.errno = 0;
+
+        int fd = findFreeSlotOfFile();
+        if (fd < 0) {
+            result.n = -1;
+            result.errno = Errno.ENFILE;
+            return result;
+        }
+
+        String path = args.path;
+        int accmode = args.flags & UnixConstants.O_ACCMODE;
+        UnixFile file;
+        try {
+            switch (accmode) {
+            case UnixConstants.O_RDONLY:
+                file = new UnixInputFile(new FileInputStream(path));
+                break;
+            case UnixConstants.O_WRONLY:
+                // XXX: Here ignores O_CREAT.
+                file = new UnixOutputFile(new FileOutputStream(path));
+                break;
+            default:
+                result.n = -1;
+                result.errno = Errno.EINVAL;
+                return result;
+            }
+        }
+        catch (FileNotFoundException e) {
+            result.n = -1;
+            result.errno = Errno.ENOENT;
+            return result;
+        }
+        catch (SecurityException e) {
+            result.n = -1;
+            result.errno = Errno.EPERM;
+            return result;
+        }
+
+        mFiles[fd] = file;
+
+        result.n = fd;
         return result;
     }
 
@@ -161,6 +280,24 @@ public class Slave extends Worker {
 
     public SyscallResult doClose(CloseArgs args) throws IOException {
         SyscallResult result = getSyscallResult();
+
+        int fd = args.fd;
+        try {
+            mFiles[fd].close();
+        }
+        catch (NullPointerException e) {
+            result.n = -1;
+            result.errno = Errno.EBADF;
+            return result;
+        }
+        catch (UnixException e) {
+            result.n = -1;
+            result.errno = e.getErrno();
+            return result;
+        }
+
+        mFiles[fd] = null;
+
         result.n = 0;
         return result;
     }
@@ -214,6 +351,14 @@ public class Slave extends Worker {
         mOut.writePayloadSize(payloadSize);
         mOut.write(returnedValue);
         mOut.write(errno);
+    }
+
+    private int findFreeSlotOfFile() {
+        int len = mFiles.length;
+        int i;
+        for (i = 0; (i < len) && (mFiles[i] != null); i++) {
+        }
+        return i < len ? i : -1;
     }
 }
 
