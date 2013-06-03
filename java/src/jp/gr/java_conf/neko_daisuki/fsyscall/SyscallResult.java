@@ -4,7 +4,7 @@ public class SyscallResult {
 
     public int n;
     public long l;
-    public int errno;
+    public Errno errno;
 }
 
 /**

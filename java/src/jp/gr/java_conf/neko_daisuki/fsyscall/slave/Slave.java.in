@@ -206,7 +206,7 @@ public class Slave extends Worker {
 
     private void writeResultGeneric(Command command, SyscallResult result) throws IOException {
         byte[] returnedValue = Encoder.encodeInteger(result.n);
-        byte[] errno = result.n != -1 ? new byte[0] : Encoder.encodeInteger(result.errno);
+        byte[] errno = result.n != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
         int len = returnedValue.length + errno.length;
         PayloadSize payloadSize = PayloadSize.fromInteger(len);
 
