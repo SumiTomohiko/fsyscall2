@@ -16,11 +16,10 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixConstants;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
-
-@IMPORTS@;
 
 public class Slave extends Worker {
 
@@ -114,17 +113,6 @@ public class Slave extends Worker {
         }
     }
 
-    @PROCS@
-
-    private class ExitProc extends CommandDispatcher.Proc {
-
-        public void call(Command command) throws IOException {
-            ExitArgs args = new ExitArgs();
-            args.rval = mIn.readInteger();
-            doExit(args);
-        }
-    }
-
     private static final int UNIX_FILE_NUM = 256;
 
     private Application mApplication;
@@ -136,7 +124,7 @@ public class Slave extends Worker {
     // Cache
     private SyscallResult mResult;
 
-    private CommandDispatcher mDispatcher;
+    private SlaveHelper mHelper;
 
     public Slave(Application application, InputStream in, OutputStream out) throws IOException {
         Logger.info("a slave is starting.");
@@ -144,7 +132,7 @@ public class Slave extends Worker {
         mApplication = application;
         mIn = new SyscallInputStream(in);
         mOut = new SyscallOutputStream(out);
-        mDispatcher = buildDispatcher();
+        mHelper = new SlaveHelper(this, mIn, mOut);
 
         mFiles = new UnixFile[UNIX_FILE_NUM];
         mFiles[0] = new UnixInputFile(System.in);
@@ -167,17 +155,12 @@ public class Slave extends Worker {
         Command command = mIn.readCommand();
         Logger.info(String.format("read command: %s", command.toString()));
 
-        CommandDispatcher.Proc proc = mDispatcher.get(command);
-        if (proc == null) {
-            String fmt = "cannot handle command of %s";
-            throw new ProtocolError(String.format(fmt, command.toString()));
-        }
-        proc.call(command);
+        mHelper.dispatchCommand(command);
 
         Logger.info("finished the work.");
     }
 
-    public SyscallResult doOpen(OpenArgs args) throws IOException {
+    public SyscallResult doOpen(String path, int flags, int mode) throws IOException {
         SyscallResult result = getSyscallResult();
 
         int fd = findFreeSlotOfFile();
@@ -187,11 +170,9 @@ public class Slave extends Worker {
             return result;
         }
 
-        String path = args.path;
-        int accmode = args.flags & UnixConstants.O_ACCMODE;
         UnixFile file;
         try {
-            switch (accmode) {
+            switch (flags & UnixConstants.O_ACCMODE) {
             case UnixConstants.O_RDONLY:
                 file = new UnixInputFile(new FileInputStream(path));
                 break;
@@ -222,66 +203,65 @@ public class Slave extends Worker {
         return result;
     }
 
-    public SyscallResult doRead(ReadArgs args) throws IOException {
+    public SyscallResult doRead(int fd, char[] buf, long nbytes) throws IOException {
         return null;
     }
 
-    public SyscallResult doLseek(LseekArgs args) throws IOException {
+    public SyscallResult doLseek(int fd, long offset, int whence) throws IOException {
         return null;
     }
 
-    public SyscallResult doMmap(MmapArgs args) throws IOException {
+    public SyscallResult doMmap(char[] addr, long len, int prot, int flags, int fd, long pos) throws IOException {
         return null;
     }
 
-    public SyscallResult doPread(PreadArgs args) throws IOException {
+    public SyscallResult doPread(int fd, char[] iovp, long iovcnt, long offset) throws IOException {
         return null;
     }
 
-    public SyscallResult doIssetugid(IssetugidArgs args) throws IOException {
+    public SyscallResult doIssetugid() throws IOException {
         return null;
     }
 
-    public SyscallResult doLstat(LstatArgs args) throws IOException {
+    public SyscallResult doLstat(String path, Unix.Stat stat) throws IOException {
         return null;
     }
 
-    public SyscallResult doFstat(FstatArgs args) throws IOException {
+    public SyscallResult doFstat(int fd, Unix.Stat stat) throws IOException {
         return null;
     }
 
-    public SyscallResult doStat(StatArgs args) throws IOException {
+    public SyscallResult doStat(String path, Unix.Stat stat) throws IOException {
         return null;
     }
 
-    public SyscallResult doWritev(WritevArgs args) throws IOException {
+    public SyscallResult doWritev(int fd, char[] iovp, long iovcnt) throws IOException {
         return null;
     }
 
-    public SyscallResult doSelect(SelectArgs args) throws IOException {
+    public SyscallResult doSelect(int nfds, Unix.FdSet in, Unix.FdSet ou, Unix.FdSet ex, Unix.TimeVal tv) throws IOException {
         return null;
     }
 
-    public SyscallResult doReadlink(ReadlinkArgs args) throws IOException {
+    public SyscallResult doReadlink(String path, String buf, long count) throws IOException {
         return null;
     }
 
-    public SyscallResult doIoctl(IoctlArgs args) throws IOException {
+    public SyscallResult doIoctl(int fd, long com, char[] data) throws IOException {
         return null;
     }
 
-    public SyscallResult doAccess(AccessArgs args) throws IOException {
+    public SyscallResult doAccess(String path, int flags) throws IOException {
         return null;
     }
 
-    public SyscallResult doLink(LinkArgs args) throws IOException {
+    public SyscallResult doLink(String path1, String path2) throws IOException {
         return null;
     }
 
-    public SyscallResult doClose(CloseArgs args) throws IOException {
+    public SyscallResult doClose(int fd) throws IOException {
         SyscallResult result = getSyscallResult();
 
-        int fd = args.fd;
         try {
             mFiles[fd].close();
         }
@@ -302,16 +282,28 @@ public class Slave extends Worker {
         return result;
     }
 
-    public SyscallResult doWrite(WriteArgs args) throws IOException {
+    public SyscallResult doWrite(int fd, char[] buf, long nbytes) throws IOException {
         return null;
     }
 
-    public SyscallResult doExit(ExitArgs args) throws IOException {
+    public SyscallResult doExit(int rval) throws IOException {
         mIn.close();
         mOut.close();
         mApplication.removeSlave(this);
-        mApplication.setExitStatus(args.rval);
+        mApplication.setExitStatus(rval);
         return null;
+    }
+
+    public void writeResultGeneric(Command command, SyscallResult result) throws IOException {
+        byte[] returnedValue = Encoder.encodeInteger(result.n);
+        byte[] errno = result.n != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
+        int len = returnedValue.length + errno.length;
+        PayloadSize payloadSize = PayloadSize.fromInteger(len);
+
+        mOut.writeCommand(command);
+        mOut.writePayloadSize(payloadSize);
+        mOut.write(returnedValue);
+        mOut.write(errno);
     }
 
     private SyscallResult getSyscallResult() {
@@ -333,24 +325,6 @@ public class Slave extends Worker {
         for (int i = 0; i < fds.length; i++) {
             mOut.write(buffers[i]);
         }
-    }
-
-    private CommandDispatcher buildDispatcher() {
-        CommandDispatcher dispatcher = new CommandDispatcher();
-        @DISPATCHES@;
-        return dispatcher;
-    }
-
-    private void writeResultGeneric(Command command, SyscallResult result) throws IOException {
-        byte[] returnedValue = Encoder.encodeInteger(result.n);
-        byte[] errno = result.n != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
-        int len = returnedValue.length + errno.length;
-        PayloadSize payloadSize = PayloadSize.fromInteger(len);
-
-        mOut.writeCommand(command);
-        mOut.writePayloadSize(payloadSize);
-        mOut.write(returnedValue);
-        mOut.write(errno);
     }
 
     private int findFreeSlotOfFile() {

@@ -67,31 +67,30 @@ def java_datatype_of_c_datatype(datatype):
 def make_class_prefix(syscall):
     return drop_prefix(syscall.name).title()
 
-def make_args_class(syscall):
-    return make_class_prefix(syscall) + "Args"
-
-def write_syscall_args(dirpath, syscalls):
-    tmpl = join(dirpath, "SyscallArgs.java.in")
-    for syscall in syscalls:
-        name = make_args_class(syscall)
-        members = []
-        for a in syscall.args:
-            datatype = java_datatype_of_c_datatype(a.datatype)
-            s = a.name
-            members.append("public {datatype} {s}".format(**locals()))
-        d = { "NAME": name, "MEMBERS": ";\n    ".join(members) }
-        apply_template(d, join(dirpath, "{name}.java".format(**locals())), tmpl)
-
-def build_args_import(syscalls):
-    imports = []
-    for syscall in syscalls:
-        fmt = "import jp.gr.java_conf.neko_daisuki.fsyscall.{clazz}"
-        clazz = make_args_class(syscall)
-        imports.append(fmt.format(**locals()))
-    return ";\n".join(sorted(imports))
-
 def make_proc(syscall):
     return make_class_prefix(syscall) + "Proc"
+
+def make_params_passing(syscall):
+    return ", ".join([a.name for a in syscall.args])
+
+def make_params_declarations(syscall):
+    stmts = []
+    for a in syscall.args:
+        opt = opt_of_syscall(SYSCALLS, syscall, a)
+
+        name = a.name
+        datatype = java_datatype_of_c_datatype(a.datatype)
+        initval = "" if opt is None else " = 0"
+        stmts.append("{datatype} {name}{initval}".format(**locals()))
+
+    return (";\n" + 12 * " ").join(stmts)
+
+READ_METHOD_OF_C_DATATYPE = {
+        "int": "readInteger",
+        "char *": "readString" }
+
+def read_method_of_c_datatype(datatype):
+    return READ_METHOD_OF_C_DATATYPE.get(datatype)
 
 def make_params_reading(syscall):
     stmts = []
@@ -100,22 +99,20 @@ def make_params_reading(syscall):
         indent = (0 if opt is None else 4) * " "
 
         name = a.name
-        if a.datatype == "int":
-            datatype = "int"
-            meth = "readInteger"
-        elif a.datatype == "char *":
-            datatype = "String"
-            meth = "readString"
-        else:
+        datatype = java_datatype_of_c_datatype(a.datatype)
+        meth = read_method_of_c_datatype(a.datatype)
+        if meth is None:
+            # TODO: Remove here. This is temporary escaping from compile error.
+            if (a.datatype[len(a.datatype) - 1] == "*") or (a.datatype == "caddr_t"):
+                initval = "null"
+            else:
+                initval = "0"
+            stmts.append("{indent}{name} = {initval};".format(**locals()))
             continue
 
         if opt is not None:
             stmts.append("if ({opt}) {{".format(**locals()))
-
-        stmts.append(
-                "{indent}{datatype} {name} = mIn.{meth}();".format(**locals()))
-        stmts.append("{indent}args.{name} = {name};".format(**locals()))
-
+        stmts.append("{indent}{name} = mIn.{meth}();".format(**locals()))
         if opt is not None:
             stmts.append("}")
 
@@ -130,17 +127,18 @@ def build_proc_of_protocol(syscalls):
         fmt = """private class {proc} extends CommandDispatcher.Proc {{
 
         public void call(Command command) throws IOException {{
-            {args} args = new {args}();
             PayloadSize payloadSize = mIn.readPayloadSize();
+            {decls};
             {params}
-            SyscallResult result = do{name}(args);
-            writeResultGeneric(Command.{cmd}, result);
+            SyscallResult result = mSlave.do{name}({args});
+            mSlave.writeResultGeneric(Command.{cmd}, result);
         }}
     }}"""
         proc = make_proc(syscall)
-        args = make_args_class(syscall)
+        decls = make_params_declarations(syscall)
         params = make_params_reading(syscall)
         name = make_class_prefix(syscall)
+        args = make_params_passing(syscall)
         cmd = syscall.ret_name
         procs.append(fmt.format(**locals()))
 
@@ -160,15 +158,13 @@ def get_slave_dir(dirpath):
 
 def write_slave(dirpath, syscalls):
     d = {
-            "IMPORTS": build_args_import(syscalls),
             "PROCS": build_proc_of_protocol(syscalls),
             "DISPATCHES": build_dispatch_of_protocol(syscalls) }
-    apply_template(d, join(get_slave_dir(dirpath), "Slave.java"))
+    apply_template(d, join(get_slave_dir(dirpath), "SlaveHelper.java"))
 
 def write(dirpath, syscalls):
     pkg_dir = get_package_path(dirpath)
     write_command_java(pkg_dir, syscalls)
-    write_syscall_args(pkg_dir, syscalls)
     write_slave(pkg_dir, syscalls)
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=python

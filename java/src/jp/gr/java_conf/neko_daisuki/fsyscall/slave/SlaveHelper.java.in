@@ -1,0 +1,59 @@
+package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
+
+import java.io.IOException;
+
+import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
+import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
+import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
+import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.FdSet;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.Stat;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.TimeVal;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
+
+public class SlaveHelper {
+
+    @PROCS@
+
+    private class ExitProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            mSlave.doExit(mIn.readInteger());
+        }
+    }
+
+    private Slave mSlave;
+    private SyscallInputStream mIn;
+    private SyscallOutputStream mOut;
+
+    private CommandDispatcher mDispatcher;
+
+    public SlaveHelper(Slave slave, SyscallInputStream in, SyscallOutputStream out) {
+        mSlave = slave;
+        mIn = in;
+        mOut = out;
+
+        mDispatcher = buildDispatcher();
+    }
+
+    public void dispatchCommand(Command command) throws IOException {
+        CommandDispatcher.Proc proc = mDispatcher.get(command);
+        if (proc == null) {
+            String fmt = "cannot handle command of %s";
+            throw new ProtocolError(String.format(fmt, command.toString()));
+        }
+        proc.call(command);
+    }
+
+    private CommandDispatcher buildDispatcher() {
+        CommandDispatcher dispatcher = new CommandDispatcher();
+        @DISPATCHES@;
+        return dispatcher;
+    }
+}
+
+/**
+ * vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=java
+ */
