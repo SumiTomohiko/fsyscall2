@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
@@ -61,11 +62,68 @@ public class Slave extends Worker {
         public void close() throws UnixException;
     }
 
-    private static class UnixInputFile implements UnixFile {
+    private abstract static class UnixRandomAccessFile implements UnixFile {
+
+        protected RandomAccessFile mFile;
+
+        protected UnixRandomAccessFile(String path, String mode) throws UnixException {
+            try {
+                mFile = new RandomAccessFile(path, mode);
+            }
+            catch (FileNotFoundException e) {
+                throw new UnixException(Errno.ENOENT, e);
+            }
+            catch (SecurityException e) {
+                throw new UnixException(Errno.EPERM, e);
+            }
+        }
+
+        public abstract int read(byte[] buffer) throws UnixException;
+
+        public void close() throws UnixException {
+            try {
+                mFile.close();
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EBADF, e);
+            }
+        }
+    }
+
+    private static class UnixInputFile extends UnixRandomAccessFile {
+
+        public UnixInputFile(String path) throws UnixException {
+            super(path, "r");
+        }
+
+        public int read(byte[] buffer) throws UnixException {
+            int nBytes;
+            try {
+                nBytes = mFile.read(buffer);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            return nBytes != -1 ? nBytes : 0;
+        }
+    }
+
+    private static class UnixOutputFile extends UnixRandomAccessFile {
+
+        public UnixOutputFile(String path) throws UnixException {
+            super(path, "rw");
+        }
+
+        public int read(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.EBADF);
+        }
+    }
+
+    private static class UnixInputStream implements UnixFile {
 
         private InputStream mIn;
 
-        public UnixInputFile(InputStream in) {
+        public UnixInputStream(InputStream in) {
             mIn = in;
         }
 
@@ -90,11 +148,11 @@ public class Slave extends Worker {
         }
     }
 
-    private static class UnixOutputFile implements UnixFile {
+    private static class UnixOutputStream implements UnixFile {
 
         private OutputStream mOut;
 
-        public UnixOutputFile(OutputStream out) {
+        public UnixOutputStream(OutputStream out) {
             mOut = out;
         }
 
@@ -134,9 +192,9 @@ public class Slave extends Worker {
         mHelper = new SlaveHelper(this, mIn, mOut);
 
         mFiles = new UnixFile[UNIX_FILE_NUM];
-        mFiles[0] = new UnixInputFile(System.in);
-        mFiles[1] = new UnixOutputFile(System.out);
-        mFiles[2] = new UnixOutputFile(System.err);
+        mFiles[0] = new UnixInputStream(System.in);
+        mFiles[1] = new UnixOutputStream(System.out);
+        mFiles[2] = new UnixOutputStream(System.err);
 
         mResult = new SyscallResult();
 
@@ -173,11 +231,11 @@ public class Slave extends Worker {
         try {
             switch (flags & Unix.Constants.O_ACCMODE) {
             case Unix.Constants.O_RDONLY:
-                file = new UnixInputFile(new FileInputStream(path));
+                file = new UnixInputFile(path);
                 break;
             case Unix.Constants.O_WRONLY:
                 // XXX: Here ignores O_CREAT.
-                file = new UnixOutputFile(new FileOutputStream(path));
+                file = new UnixOutputFile(path);
                 break;
             default:
                 result.n = -1;
@@ -185,14 +243,9 @@ public class Slave extends Worker {
                 return result;
             }
         }
-        catch (FileNotFoundException e) {
+        catch (UnixException e) {
             result.n = -1;
-            result.errno = Errno.ENOENT;
-            return result;
-        }
-        catch (SecurityException e) {
-            result.n = -1;
-            result.errno = Errno.EPERM;
+            result.errno = e.getErrno();
             return result;
         }
 
