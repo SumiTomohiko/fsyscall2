@@ -404,12 +404,11 @@ public class Slave extends Worker {
         return null;
     }
 
-    public SyscallResult.Generic32 doExit(int rval) throws IOException {
+    public void doExit(int rval) throws IOException {
         mIn.close();
         mOut.close();
         mApplication.removeSlave(this);
         mApplication.setExitStatus(rval);
-        return null;
     }
 
     public void writeResult(Command command, SyscallResult.Generic64 result) throws IOException {
