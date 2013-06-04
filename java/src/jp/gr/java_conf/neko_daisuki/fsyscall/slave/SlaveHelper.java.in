@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
+import jp.gr.java_conf.neko_daisuki.fsyscall.L;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
@@ -14,6 +15,17 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
 public class SlaveHelper {
+
+    private static class Logger {
+
+        public static void info(String message) {
+            L.info(buildMessage(message));
+        }
+
+        private static String buildMessage(String message) {
+            return String.format("SlaveHelper: %s", message);
+        }
+    }
 
     @PROCS@
 
@@ -38,12 +50,16 @@ public class SlaveHelper {
         mDispatcher = buildDispatcher();
     }
 
-    public void dispatchCommand(Command command) throws IOException {
+    public void runSlave() throws IOException {
+        Command command = mIn.readCommand();
+        Logger.info(String.format("read command: %s", command.toString()));
+
         CommandDispatcher.Proc proc = mDispatcher.get(command);
         if (proc == null) {
             String fmt = "cannot handle command of %s";
             throw new ProtocolError(String.format(fmt, command.toString()));
         }
+
         proc.call(command);
     }
 

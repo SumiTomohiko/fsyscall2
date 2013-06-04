@@ -252,12 +252,7 @@ public class Slave extends Worker {
 
     public void work() throws IOException {
         Logger.info("performing the work.");
-
-        Command command = mIn.readCommand();
-        Logger.info(String.format("read command: %s", command.toString()));
-
-        mHelper.dispatchCommand(command);
-
+        mHelper.runSlave();
         Logger.info("finished the work.");
     }
 
