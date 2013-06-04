@@ -261,13 +261,15 @@ public class Slave extends Worker {
     public SyscallResult doClose(int fd) throws IOException {
         SyscallResult result = getSyscallResult();
 
-        try {
-            mFiles[fd].close();
-        }
-        catch (NullPointerException e) {
+        UnixFile file = mFiles[fd];
+        if (file == null) {
             result.n = -1;
             result.errno = Errno.EBADF;
             return result;
+        }
+
+        try {
+            file.close();
         }
         catch (UnixException e) {
             result.n = -1;
