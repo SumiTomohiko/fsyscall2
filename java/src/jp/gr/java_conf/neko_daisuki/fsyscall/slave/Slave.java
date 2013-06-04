@@ -227,9 +227,6 @@ public class Slave extends Worker {
 
     private UnixFile[] mFiles;
 
-    // Cache
-    private SyscallResult mResult;
-
     private SlaveHelper mHelper;
 
     public Slave(Application application, InputStream in, OutputStream out) throws IOException {
@@ -244,8 +241,6 @@ public class Slave extends Worker {
         mFiles[0] = new UnixInputStream(System.in);
         mFiles[1] = new UnixOutputStream(System.out);
         mFiles[2] = new UnixOutputStream(System.err);
-
-        mResult = new SyscallResult();
 
         writeOpenedFileDescriptors();
         Logger.info("file descripters were transfered from the slave.");
@@ -266,12 +261,12 @@ public class Slave extends Worker {
         Logger.info("finished the work.");
     }
 
-    public SyscallResult doOpen(String path, int flags, int mode) throws IOException {
-        SyscallResult result = getSyscallResult();
+    public SyscallResult.Generic32 doOpen(String path, int flags, int mode) throws IOException {
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         int fd = findFreeSlotOfFile();
         if (fd < 0) {
-            result.n = -1;
+            result.retval = -1;
             result.errno = Errno.ENFILE;
             return result;
         }
@@ -287,33 +282,33 @@ public class Slave extends Worker {
                 file = new UnixOutputFile(path);
                 break;
             default:
-                result.n = -1;
+                result.retval = -1;
                 result.errno = Errno.EINVAL;
                 return result;
             }
         }
         catch (UnixException e) {
-            result.n = -1;
+            result.retval = -1;
             result.errno = e.getErrno();
             return result;
         }
 
         mFiles[fd] = file;
 
-        result.n = fd;
+        result.retval = fd;
         return result;
     }
 
-    public SyscallResult doRead(int fd, char[] buf, long nbytes) throws IOException {
+    public SyscallResult.Read doRead(int fd, long nbytes) throws IOException {
         return null;
     }
 
-    public SyscallResult doLseek(int fd, long offset, int whence) throws IOException {
-        SyscallResult result = getSyscallResult();
+    public SyscallResult.Generic64 doLseek(int fd, long offset, int whence) throws IOException {
+        SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
         UnixFile file = mFiles[fd];
         if (file == null) {
-            result.l = -1;
+            result.retval = -1;
             result.errno = Errno.EBADF;
             return result;
         }
@@ -323,69 +318,69 @@ public class Slave extends Worker {
             pos = file.lseek(offset, whence);
         }
         catch (UnixException e) {
-            result.l = -1;
+            result.retval =-1;
             result.errno = e.getErrno();
             return result;
         }
 
-        result.l = pos;
+        result.retval = pos;
         return result;
     }
 
-    public SyscallResult doMmap(char[] addr, long len, int prot, int flags, int fd, long pos) throws IOException {
+    public SyscallResult.Generic64 doMmap(char[] addr, long len, int prot, int flags, int fd, long pos) throws IOException {
         return null;
     }
 
-    public SyscallResult doPread(int fd, char[] iovp, long iovcnt, long offset) throws IOException {
+    public SyscallResult.Pread doPread(int fd, long iovcnt, long offset) throws IOException {
         return null;
     }
 
-    public SyscallResult doIssetugid() throws IOException {
+    public SyscallResult.Generic32 doIssetugid() throws IOException {
         return null;
     }
 
-    public SyscallResult doLstat(String path, Unix.Stat stat) throws IOException {
+    public SyscallResult.Lstat doLstat(String path) throws IOException {
         return null;
     }
 
-    public SyscallResult doFstat(int fd, Unix.Stat stat) throws IOException {
+    public SyscallResult.Fstat doFstat(int fd) throws IOException {
         return null;
     }
 
-    public SyscallResult doStat(String path, Unix.Stat stat) throws IOException {
+    public SyscallResult.Stat doStat(String path) throws IOException {
         return null;
     }
 
-    public SyscallResult doWritev(int fd, char[] iovp, long iovcnt) throws IOException {
+    public SyscallResult.Generic32 doWritev(int fd, char[] iovp, long iovcnt) throws IOException {
         return null;
     }
 
-    public SyscallResult doSelect(int nfds, Unix.FdSet in, Unix.FdSet ou, Unix.FdSet ex, Unix.TimeVal tv) throws IOException {
+    public SyscallResult.Generic32 doSelect(int nfds, Unix.FdSet in, Unix.FdSet ou, Unix.FdSet ex, Unix.TimeVal tv) throws IOException {
         return null;
     }
 
-    public SyscallResult doReadlink(String path, String buf, long count) throws IOException {
+    public SyscallResult.Readlink doReadlink(String path, long count) throws IOException {
         return null;
     }
 
-    public SyscallResult doIoctl(int fd, long com, char[] data) throws IOException {
+    public SyscallResult.Generic32 doIoctl(int fd, long com, char[] data) throws IOException {
         return null;
     }
 
-    public SyscallResult doAccess(String path, int flags) throws IOException {
+    public SyscallResult.Generic32 doAccess(String path, int flags) throws IOException {
         return null;
     }
 
-    public SyscallResult doLink(String path1, String path2) throws IOException {
+    public SyscallResult.Generic32 doLink(String path1, String path2) throws IOException {
         return null;
     }
 
-    public SyscallResult doClose(int fd) throws IOException {
-        SyscallResult result = getSyscallResult();
+    public SyscallResult.Generic32 doClose(int fd) throws IOException {
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         UnixFile file = mFiles[fd];
         if (file == null) {
-            result.n = -1;
+            result.retval = -1;
             result.errno = Errno.EBADF;
             return result;
         }
@@ -394,22 +389,22 @@ public class Slave extends Worker {
             file.close();
         }
         catch (UnixException e) {
-            result.n = -1;
+            result.retval = -1;
             result.errno = e.getErrno();
             return result;
         }
 
         mFiles[fd] = null;
 
-        result.n = 0;
+        result.retval = 0;
         return result;
     }
 
-    public SyscallResult doWrite(int fd, char[] buf, long nbytes) throws IOException {
+    public SyscallResult.Generic64 doWrite(int fd, char[] buf, long nbytes) throws IOException {
         return null;
     }
 
-    public SyscallResult doExit(int rval) throws IOException {
+    public SyscallResult.Generic32 doExit(int rval) throws IOException {
         mIn.close();
         mOut.close();
         mApplication.removeSlave(this);
@@ -417,22 +412,18 @@ public class Slave extends Worker {
         return null;
     }
 
-    public void writeResultGeneric64(Command command, SyscallResult result) throws IOException {
-        byte[] returnedValue = Encoder.encodeLong(result.l);
-        byte[] errno = result.l != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
+    public void writeResult(Command command, SyscallResult.Generic64 result) throws IOException {
+        byte[] returnedValue = Encoder.encodeLong(result.retval);
+        byte[] errno = result.retval != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
 
         writeResult(command, returnedValue, errno);
     }
 
-    public void writeResultGeneric32(Command command, SyscallResult result) throws IOException {
-        byte[] returnedValue = Encoder.encodeInteger(result.n);
-        byte[] errno = result.n != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
+    public void writeResult(Command command, SyscallResult.Generic32 result) throws IOException {
+        byte[] returnedValue = Encoder.encodeInteger(result.retval);
+        byte[] errno = result.retval != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
 
         writeResult(command, returnedValue, errno);
-    }
-
-    private SyscallResult getSyscallResult() {
-        return mResult;
     }
 
     private void writeOpenedFileDescriptors() throws IOException {

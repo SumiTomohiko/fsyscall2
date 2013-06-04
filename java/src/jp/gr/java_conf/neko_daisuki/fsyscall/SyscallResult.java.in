@@ -1,12 +1,27 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall;
 
-public class SyscallResult {
+import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.Stat;
 
-    public int n;
-    public long l;
-    public Errno errno;
+public interface SyscallResult {
+
+    public static class Base {
+
+        public Errno errno;
+    }
+
+    public static class Generic32 extends Base {
+
+        public int retval;
+    }
+
+    public static class Generic64 extends Base {
+
+        public long retval;
+    }
+
+    @RESULTS@
 }
 
 /**
- * vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4
+ * vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=java
  */

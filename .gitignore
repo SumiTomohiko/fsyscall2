@@ -75,6 +75,7 @@ include/fsyscall/private/command/name.h
 include/fsyscall/private/fslave/proto.h
 java/bin
 java/src/jp/gr/java_conf/neko_daisuki/fsyscall/Command.java
+java/src/jp/gr/java_conf/neko_daisuki/fsyscall/SyscallResult.java
 java/src/jp/gr/java_conf/neko_daisuki/fsyscall/slave/SlaveHelper.java
 jp.gr.java_conf.neko_daisuki.fsyscall
 jp.gr.java_conf.neko_daisuki.fsyscall.io

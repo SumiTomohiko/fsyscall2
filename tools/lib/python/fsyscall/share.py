@@ -150,6 +150,7 @@ def datasize_of_datatype(datatype):
     if datatype.split()[0] == "struct":
         return 64
     DATASIZE_OF_DATATYPE = {
+            "caddr_t": 64,
             "u_int": 32,
             "__dev_t": 32,
             "__int32_t": 32,
