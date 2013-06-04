@@ -60,6 +60,7 @@ public class Slave extends Worker {
 
         public int read(byte[] buffer) throws UnixException;
         public void close() throws UnixException;
+        public long lseek(long offset, int whence) throws UnixException;
     }
 
     private abstract static class UnixRandomAccessFile implements UnixFile {
@@ -87,6 +88,44 @@ public class Slave extends Worker {
             catch (IOException e) {
                 throw new UnixException(Errno.EBADF, e);
             }
+        }
+
+        public long lseek(long offset, int whence) throws UnixException {
+            long pos;
+            switch (whence) {
+            case Unix.Constants.SEEK_SET:
+                pos = offset;
+                break;
+            case Unix.Constants.SEEK_CUR:
+                try {
+                    pos = mFile.getFilePointer() + offset;
+                }
+                catch (IOException e) {
+                    throw new UnixException(Errno.EIO);
+                }
+                break;
+            case Unix.Constants.SEEK_END:
+                try {
+                    pos = mFile.length() + offset;
+                }
+                catch (IOException e) {
+                    throw new UnixException(Errno.EIO);
+                }
+                break;
+            case Unix.Constants.SEEK_DATA:
+            case Unix.Constants.SEEK_HOLE:
+            default:
+                throw new UnixException(Errno.EINVAL);
+            }
+
+            try {
+                mFile.seek(pos);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+
+            return pos;
         }
     }
 
@@ -119,7 +158,17 @@ public class Slave extends Worker {
         }
     }
 
-    private static class UnixInputStream implements UnixFile {
+    private abstract static class UnixStream implements UnixFile {
+
+        public abstract int read(byte[] buffer) throws UnixException;
+        public abstract void close() throws UnixException;
+
+        public long lseek(long offset, int whence) throws UnixException {
+            throw new UnixException(Errno.ESPIPE);
+        }
+    }
+
+    private static class UnixInputStream extends UnixStream {
 
         private InputStream mIn;
 
@@ -148,7 +197,7 @@ public class Slave extends Worker {
         }
     }
 
-    private static class UnixOutputStream implements UnixFile {
+    private static class UnixOutputStream extends UnixStream {
 
         private OutputStream mOut;
 
@@ -260,7 +309,27 @@ public class Slave extends Worker {
     }
 
     public SyscallResult doLseek(int fd, long offset, int whence) throws IOException {
-        return null;
+        SyscallResult result = getSyscallResult();
+
+        UnixFile file = mFiles[fd];
+        if (file == null) {
+            result.l = -1;
+            result.errno = Errno.EBADF;
+            return result;
+        }
+
+        long pos;
+        try {
+            pos = file.lseek(offset, whence);
+        }
+        catch (UnixException e) {
+            result.l = -1;
+            result.errno = e.getErrno();
+            return result;
+        }
+
+        result.l = pos;
+        return result;
     }
 
     public SyscallResult doMmap(char[] addr, long len, int prot, int flags, int fd, long pos) throws IOException {
@@ -348,16 +417,18 @@ public class Slave extends Worker {
         return null;
     }
 
-    public void writeResultGeneric(Command command, SyscallResult result) throws IOException {
+    public void writeResultGeneric64(Command command, SyscallResult result) throws IOException {
+        byte[] returnedValue = Encoder.encodeLong(result.l);
+        byte[] errno = result.l != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
+
+        writeResult(command, returnedValue, errno);
+    }
+
+    public void writeResultGeneric32(Command command, SyscallResult result) throws IOException {
         byte[] returnedValue = Encoder.encodeInteger(result.n);
         byte[] errno = result.n != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
-        int len = returnedValue.length + errno.length;
-        PayloadSize payloadSize = PayloadSize.fromInteger(len);
 
-        mOut.writeCommand(command);
-        mOut.writePayloadSize(payloadSize);
-        mOut.write(returnedValue);
-        mOut.write(errno);
+        writeResult(command, returnedValue, errno);
     }
 
     private SyscallResult getSyscallResult() {
@@ -387,6 +458,16 @@ public class Slave extends Worker {
         for (i = 0; (i < len) && (mFiles[i] != null); i++) {
         }
         return i < len ? i : -1;
+    }
+
+    private void writeResult(Command command, byte[] returnedValue, byte[] errno) throws IOException {
+        int len = returnedValue.length + errno.length;
+        PayloadSize payloadSize = PayloadSize.fromInteger(len);
+
+        mOut.writeCommand(command);
+        mOut.writePayloadSize(payloadSize);
+        mOut.write(returnedValue);
+        mOut.write(errno);
     }
 }
 

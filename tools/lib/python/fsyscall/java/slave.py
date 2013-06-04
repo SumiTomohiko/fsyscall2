@@ -131,7 +131,7 @@ def build_proc_of_protocol(syscalls):
             {decls};
             {params}
             SyscallResult result = mSlave.do{name}({args});
-            mSlave.writeResultGeneric(Command.{cmd}, result);
+            mSlave.writeResultGeneric{postfix}(Command.{cmd}, result);
         }}
     }}"""
         proc = make_proc(syscall)
@@ -139,6 +139,7 @@ def build_proc_of_protocol(syscalls):
         params = make_params_reading(syscall)
         name = make_class_prefix(syscall)
         args = make_params_passing(syscall)
+        postfix = 64 if syscall.rettype == "off_t" else 32
         cmd = syscall.ret_name
         procs.append(fmt.format(**locals()))
 

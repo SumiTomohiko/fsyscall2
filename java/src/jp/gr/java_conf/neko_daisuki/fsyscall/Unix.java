@@ -19,6 +19,12 @@ public class Unix {
         public static final int O_ACCMODE = 0x0003;
 
         public static final int O_CREAT = 0x200;
+
+        public static final int SEEK_SET = 0;
+        public static final int SEEK_CUR = 1;
+        public static final int SEEK_END = 2;
+        public static final int SEEK_DATA = 3;
+        public static final int SEEK_HOLE = 4;
     }
 }
 
