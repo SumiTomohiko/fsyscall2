@@ -8,7 +8,7 @@ from fsyscall.share import FMASTER_SYSCALLS, SYSCALLS, Variable,        \
                            data_of_argument, drop_prefix,               \
                            input_arguments_of_syscall, make_cmd_name,   \
                            make_payload_size_expr, opt_of_syscall,      \
-                           out_arguemnts_of_syscall, partial_print,     \
+                           output_arguments_of_syscall, partial_print,  \
                            pickup_sources, print_caution, print_locals, \
                            write_makefile
 
@@ -310,7 +310,7 @@ execute_return(struct thread *td, struct {name}_args *uap)
             ("payload_size_t", "payload_size"),
             (syscall.rettype, "retval")):
         local_vars.append(Variable(datatype, name))
-    out_arguments = out_arguemnts_of_syscall(syscall)
+    out_arguments = output_arguments_of_syscall(syscall)
     for a in out_arguments:
         if a.datatype in ("char *", "void *"):
             continue

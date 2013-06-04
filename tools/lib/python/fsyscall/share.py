@@ -340,7 +340,7 @@ def write_c_footer(p):
  */
 """)
 
-def out_arguemnts_of_syscall(syscall):
+def output_arguments_of_syscall(syscall):
     return [a for a in syscall.args if data_of_argument(syscall, a).out]
 
 RE_VAR = compile(r"@(?P<name>[A-Za-z_]\w*)@")
