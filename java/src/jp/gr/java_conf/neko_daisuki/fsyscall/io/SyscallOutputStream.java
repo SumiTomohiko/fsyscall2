@@ -25,28 +25,28 @@ public class SyscallOutputStream {
         }
     }
 
-    public void writeByte(byte n) throws IOException {
+    public void write(byte n) throws IOException {
         mOut.write(new byte[] { n });
     }
 
-    public void writeInteger(int n) throws IOException {
+    public void write(int n) throws IOException {
         write(Encoder.encodeInteger(n));
     }
 
-    public void writePayloadSize(PayloadSize size) throws IOException {
-        writeInteger(size.toInteger());
+    public void write(PayloadSize size) throws IOException {
+        write(size.toInteger());
     }
 
     public void write(byte buffer[]) throws IOException {
         mOut.write(buffer);
     }
 
-    public void writeCommand(Command command) throws IOException {
-        writeInteger(command.toInteger());
+    public void write(Command command) throws IOException {
+        write(command.toInteger());
     }
 
-    public void writePid(Pid pid) throws IOException {
-        writeInteger(pid.getInteger());
+    public void write(Pid pid) throws IOException {
+        write(pid.getInteger());
     }
 
     public void close() throws IOException {

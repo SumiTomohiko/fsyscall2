@@ -431,7 +431,7 @@ public class Slave extends Worker {
             len += buffers[i].length;
         }
 
-        mOut.writeInteger(len);
+        mOut.write(len);
         for (int i = 0; i < fds.length; i++) {
             mOut.write(buffers[i]);
         }
@@ -449,8 +449,8 @@ public class Slave extends Worker {
         int len = returnedValue.length + errno.length;
         PayloadSize payloadSize = PayloadSize.fromInteger(len);
 
-        mOut.writeCommand(command);
-        mOut.writePayloadSize(payloadSize);
+        mOut.write(command);
+        mOut.write(payloadSize);
         mOut.write(returnedValue);
         mOut.write(errno);
     }

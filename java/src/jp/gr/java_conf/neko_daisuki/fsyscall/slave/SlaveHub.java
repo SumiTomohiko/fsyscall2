@@ -140,9 +140,9 @@ public class SlaveHub extends Worker {
         Logger.info(String.format(fmt, command, payloadSize));
 
         SyscallOutputStream out = mMhub.getOutputStream();
-        out.writeCommand(command);
-        out.writePid(slave.getMasterPid());
-        out.writePayloadSize(payloadSize);
+        out.write(command);
+        out.write(slave.getMasterPid());
+        out.write(payloadSize);
         out.copyInputStream(in, payloadSize);
 
         Logger.info("the work for the slave was finished.");
@@ -165,8 +165,8 @@ public class SlaveHub extends Worker {
             int status = in.readInteger();
             Logger.info(String.format("exit status is %d.", status));
 
-            out.writeCommand(command);
-            out.writeInteger(status);
+            out.write(command);
+            out.write(status);
 
             mSlaves.remove(pid).close();
             return;
@@ -177,13 +177,13 @@ public class SlaveHub extends Worker {
         fmt = "from the master to the slave: command=%s, payloadSize=%s";
         Logger.info(String.format(fmt, command, payloadSize));
 
-        out.writeCommand(command);
-        out.writePayloadSize(payloadSize);
+        out.write(command);
+        out.write(payloadSize);
         out.copyInputStream(in, payloadSize);
     }
 
     private void negotiateVersion() throws IOException {
-        mMhub.getOutputStream().writeByte((byte)0);
+        mMhub.getOutputStream().write((byte)0);
 
         byte version = mMhub.getInputStream().readByte();
         if (version != 0) {
@@ -198,7 +198,7 @@ public class SlaveHub extends Worker {
         byte[] data = in.read(len);
 
         SyscallOutputStream out = mMhub.getOutputStream();
-        out.writeInteger(len);
+        out.write(len);
         out.write(data);
     }
 
