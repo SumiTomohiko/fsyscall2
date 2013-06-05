@@ -67,6 +67,17 @@ public class SyscallInputStream {
         return n + ((m & 0x7f) << shift);
     }
 
+    public long readLong() throws IOException {
+        long n = 0;
+        int shift = 0;
+        int m;
+        while (((m = mIn.read()) & 0x80) != 0) {
+            n += ((m & 0x7f) << shift);
+            shift += 7;
+        }
+        return n + ((m & 0x7f) << shift);
+    }
+
     public PayloadSize readPayloadSize() throws IOException {
         return PayloadSize.fromInteger(readInteger());
     }
