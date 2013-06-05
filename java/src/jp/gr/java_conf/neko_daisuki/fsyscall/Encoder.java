@@ -41,6 +41,10 @@ public class Encoder {
 
         return Arrays.copyOf(buffer, pos);
     }
+
+    public static byte[] encode(Errno errno) {
+        return encodeInteger(errno.toInteger());
+    }
 }
 
 /**
