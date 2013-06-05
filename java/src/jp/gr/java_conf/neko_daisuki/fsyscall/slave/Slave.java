@@ -406,20 +406,6 @@ public class Slave extends Worker {
         mApplication.setExitStatus(rval);
     }
 
-    public void writeResult(Command command, SyscallResult.Generic64 result) throws IOException {
-        byte[] returnedValue = Encoder.encodeLong(result.retval);
-        byte[] errno = result.retval != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
-
-        writeResult(command, returnedValue, errno);
-    }
-
-    public void writeResult(Command command, SyscallResult.Generic32 result) throws IOException {
-        byte[] returnedValue = Encoder.encodeInteger(result.retval);
-        byte[] errno = result.retval != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
-
-        writeResult(command, returnedValue, errno);
-    }
-
     private void writeOpenedFileDescriptors() throws IOException {
         int fds[] = { 0, 1, 2 };
         byte[][] buffers = new byte[fds.length][];
@@ -443,16 +429,6 @@ public class Slave extends Worker {
         for (i = 0; (i < len) && (mFiles[i] != null); i++) {
         }
         return i < len ? i : -1;
-    }
-
-    private void writeResult(Command command, byte[] returnedValue, byte[] errno) throws IOException {
-        int len = returnedValue.length + errno.length;
-        PayloadSize payloadSize = PayloadSize.fromInteger(len);
-
-        mOut.write(command);
-        mOut.write(payloadSize);
-        mOut.write(returnedValue);
-        mOut.write(errno);
     }
 }
 

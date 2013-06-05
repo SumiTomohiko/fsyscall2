@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.L;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
@@ -67,6 +68,30 @@ public class SlaveHelper {
         CommandDispatcher dispatcher = new CommandDispatcher();
         @DISPATCHES@;
         return dispatcher;
+    }
+
+    private void writeResult(Command command, SyscallResult.Generic64 result) throws IOException {
+        byte[] returnedValue = Encoder.encodeLong(result.retval);
+        byte[] errno = result.retval != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
+
+        writeResult(command, returnedValue, errno);
+    }
+
+    private void writeResult(Command command, SyscallResult.Generic32 result) throws IOException {
+        byte[] returnedValue = Encoder.encodeInteger(result.retval);
+        byte[] errno = result.retval != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
+
+        writeResult(command, returnedValue, errno);
+    }
+
+    private void writeResult(Command command, byte[] returnedValue, byte[] errno) throws IOException {
+        int len = returnedValue.length + errno.length;
+        PayloadSize payloadSize = PayloadSize.fromInteger(len);
+
+        mOut.write(command);
+        mOut.write(payloadSize);
+        mOut.write(returnedValue);
+        mOut.write(errno);
     }
 }
 

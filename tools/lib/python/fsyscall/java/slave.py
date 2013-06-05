@@ -145,7 +145,7 @@ def build_proc_of_protocol(syscalls):
             {decls};
             {params}
             SyscallResult.{rettype} result = mSlave.do{name}({args});
-            mSlave.writeResult(Command.{cmd}, result);
+            writeResult(Command.{cmd}, result);
         }}
     }}"""
         proc = make_proc(syscall)
