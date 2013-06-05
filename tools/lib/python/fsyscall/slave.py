@@ -2,16 +2,13 @@
 from os import mkdir
 from os.path import join
 
-from fsyscall.share import FMASTER_SYSCALLS, FSLAVE_SYSCALLS, SYSCALLS, \
-                           Variable, bufsize_of_datatype,               \
-                           data_of_argument,                            \
-                           concrete_datatype_of_abstract_datatype,      \
-                           drop_pointer, drop_prefix,                   \
-                           input_arguments_of_syscall, make_cmd_name,   \
-                           make_decl, make_payload_size_expr,           \
-                           opt_of_syscall, output_arguments_of_syscall, \
-                           partial_print, pickup_sources,               \
-                           print_caution, print_locals, write_c_footer, \
+from fsyscall.share import FMASTER_SYSCALLS, FSLAVE_SYSCALLS, SYSCALLS,     \
+                           Variable, bufsize_of_datatype, data_of_argument, \
+                           concrete_datatype_of_abstract_datatype,          \
+                           drop_pointer, drop_prefix, make_cmd_name,        \
+                           make_decl, make_payload_size_expr,               \
+                           opt_of_syscall, partial_print, pickup_sources,   \
+                           print_caution, print_locals, write_c_footer,     \
                            write_makefile
 
 def make_execute_call_format_argument(a):
@@ -22,7 +19,7 @@ def make_execute_call_format_argument(a):
 
 def print_fslave_head(p, syscall):
     args = ["struct slave *slave", "int *retval", "int *errnum"]
-    for a in output_arguments_of_syscall(syscall):
+    for a in syscall.output_args:
         st = data_of_argument(syscall, a).struct
         if st is not None:
             args.append("{datatype}{name}".format(**vars(a)))
@@ -79,7 +76,7 @@ def print_fslave_call(p, print_newline, syscall):
             ("payload_size_t", "actual_payload_size"),
             ("int", "rfd")):
         local_vars.append(Variable(datatype, name))
-    input_arguments = input_arguments_of_syscall(syscall)
+    input_arguments = syscall.input_args
     for a in input_arguments:
         if a.datatype == "void *":
             local_vars.append(Variable(a.datatype, a.name))
@@ -175,7 +172,7 @@ def print_fslave_call(p, print_newline, syscall):
     print_newline()
 
     malloced = False
-    out_arguments = output_arguments_of_syscall(syscall)
+    out_arguments = syscall.output_args
     for a in out_arguments:
         if a.datatype not in ("char *", "void *"):
             continue
@@ -213,7 +210,7 @@ def get_fslave_return_func(syscall):
     return "return_int" if syscall.rettype == "int" else "return_ssize"
 
 def print_fslave_return(p, print_newline, syscall):
-    output_args = output_arguments_of_syscall(syscall)
+    output_args = syscall.output_args
     args = ", ".join([make_decl(a) for a in output_args])
     p("""\
 static void
@@ -226,7 +223,7 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
         ("char", "retval_buf", bufsize_of_datatype(syscall.rettype)),
         ("int", "retval_len", None),
         ("int", "wfd", None))]
-    out_arguments = output_arguments_of_syscall(syscall)
+    out_arguments = syscall.output_args
     for a in out_arguments:
         datatype = a.datatype
         if a.datatype in ("char *", "void *"):
@@ -330,7 +327,7 @@ process_{name}(struct slave *slave)
     for datatype, name in (("int", "retval"), ("int", "errnum")):
         local_vars.append(Variable(datatype, name))
 
-    out_arguments = output_arguments_of_syscall(syscall)
+    out_arguments = syscall.output_args
     if len(out_arguments) == 0:
         cmd_name = make_cmd_name(syscall.name)
         print_locals(p, local_vars)
@@ -367,7 +364,7 @@ def write_fslave(dirpath, syscalls):
             print_fslave_head(p, syscall)
             print_fslave_call(p, print_newline, syscall)
             print_newline()
-            if 0 < len(output_arguments_of_syscall(syscall)):
+            if 0 < len(syscall.output_args):
                 print_fslave_return(p, print_newline, syscall)
                 print_newline()
             print_fslave_main(p, print_newline, syscall)

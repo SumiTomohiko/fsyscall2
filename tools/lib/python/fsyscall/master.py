@@ -2,15 +2,13 @@
 from functools import partial
 from os.path import join
 
-from fsyscall.share import FMASTER_SYSCALLS, SYSCALLS, Variable,        \
-                           bufsize_of_datatype,                         \
-                           concrete_datatype_of_abstract_datatype,      \
-                           data_of_argument, drop_prefix,               \
-                           input_arguments_of_syscall, make_cmd_name,   \
-                           make_payload_size_expr, opt_of_syscall,      \
-                           output_arguments_of_syscall, partial_print,  \
-                           pickup_sources, print_caution, print_locals, \
-                           write_makefile
+from fsyscall.share import FMASTER_SYSCALLS, SYSCALLS, Variable,            \
+                           bufsize_of_datatype,                             \
+                           concrete_datatype_of_abstract_datatype,          \
+                           data_of_argument, drop_prefix, make_cmd_name,    \
+                           make_payload_size_expr, opt_of_syscall,          \
+                           partial_print, pickup_sources, print_caution,    \
+                           print_locals, write_makefile
 
 def make_string_locals(name):
     a = []
@@ -116,7 +114,7 @@ def print_write(p, print_newline, syscall):
 \t\treturn (error);
 """.format(**locals()))
 
-    input_arguments = input_arguments_of_syscall(syscall)
+    input_arguments = syscall.input_args
     for a in [a for a in input_arguments if a.datatype == "struct iovec *"]:
         name = a.name
         size = data_of_argument(syscall, a).size
@@ -310,7 +308,7 @@ execute_return(struct thread *td, struct {name}_args *uap)
             ("payload_size_t", "payload_size"),
             (syscall.rettype, "retval")):
         local_vars.append(Variable(datatype, name))
-    out_arguments = output_arguments_of_syscall(syscall)
+    out_arguments = syscall.output_args
     for a in out_arguments:
         if a.datatype in ("char *", "void *"):
             continue

@@ -269,9 +269,6 @@ def make_cmd_name(name):
     assert name[:len(prefix)] == prefix
     return name[len(prefix):].upper()
 
-def input_arguments_of_syscall(syscall):
-    return [a for a in syscall.args if not data_of_argument(syscall, a).out]
-
 def make_payload_size_expr(syscall, args, bufsize="size"):
     if len(args) == 0:
         return "0"
@@ -340,9 +337,6 @@ def write_c_footer(p):
  * vim: filetype=c
  */
 """)
-
-def output_arguments_of_syscall(syscall):
-    return [a for a in syscall.args if data_of_argument(syscall, a).out]
 
 RE_VAR = compile(r"@(?P<name>[A-Za-z_]\w*)@")
 

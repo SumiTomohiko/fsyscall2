@@ -2,7 +2,7 @@
 from os.path import exists, join
 from re import search, sub
 
-from fsyscall.share import Variable, drop_prefix
+from fsyscall.share import Variable, data_of_argument, drop_prefix
 
 class Syscall:
 
@@ -30,6 +30,16 @@ class Syscall:
         return "RET_" + self.get_const_name()
 
     ret_name = property(get_ret_name)
+
+    def get_output_args(self):
+        return [a for a in self.args if data_of_argument(self, a).out]
+
+    output_args = property(get_output_args)
+
+    def get_input_args(self):
+        return [a for a in self.args if not data_of_argument(self, a).out]
+
+    input_args = property(get_input_args)
 
     def __str__(self):
         args = ", ".join([str(a) for a in self.args])

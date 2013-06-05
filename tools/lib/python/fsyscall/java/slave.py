@@ -4,8 +4,7 @@ from re import search
 
 from fsyscall.java.share import get_package_path
 from fsyscall.share import SYSCALLS, apply_template, datasize_of_datatype,  \
-                           drop_prefix, input_arguments_of_syscall,         \
-                           opt_of_syscall, output_arguments_of_syscall
+                           drop_prefix, opt_of_syscall
 
 class Global:
 
@@ -80,11 +79,11 @@ def make_proc(syscall):
     return make_class_prefix(syscall) + "Proc"
 
 def make_params_passing(syscall):
-    return ", ".join([a.name for a in input_arguments_of_syscall(syscall)])
+    return ", ".join([a.name for a in syscall.input_args])
 
 def make_params_declarations(syscall):
     stmts = []
-    for a in input_arguments_of_syscall(syscall):
+    for a in syscall.input_args:
         opt = opt_of_syscall(SYSCALLS, syscall, a)
 
         name = a.name
@@ -103,7 +102,7 @@ def read_method_of_c_datatype(datatype):
 
 def make_params_reading(syscall):
     stmts = []
-    for a in input_arguments_of_syscall(syscall):
+    for a in syscall.input_args:
         opt = opt_of_syscall(SYSCALLS, syscall, a)
         indent = (0 if opt is None else 4) * " "
 
@@ -128,7 +127,7 @@ def make_params_reading(syscall):
     return ("\n" + 12 * " ").join(stmts)
 
 def rettype_class_of_syscall(syscall):
-    if len(output_arguments_of_syscall(syscall)) == 0:
+    if len(syscall.output_args) == 0:
         fmt = "Generic{size}"
         return fmt.format(size=datasize_of_datatype(syscall.rettype))
     return drop_prefix(syscall.name).capitalize()
@@ -183,7 +182,7 @@ def write_slave(g, syscalls):
 
 def build_members_of_result(syscall):
     stmts = []
-    for a in output_arguments_of_syscall(syscall):
+    for a in syscall.output_args:
         datatype = java_datatype_of_c_datatype(a.datatype)
         name = a.name
         stmts.append("public {datatype} {name}".format(**locals()))
@@ -194,7 +193,7 @@ def build_syscall_results(g, syscalls):
     for syscall in syscalls:
         if syscall.name in g.manually_defined_syscalls:
             continue
-        if len(output_arguments_of_syscall(syscall)) == 0:
+        if len(syscall.output_args) == 0:
             continue
         name = drop_prefix(syscall.name).capitalize()
         size = datasize_of_datatype(syscall.rettype)
