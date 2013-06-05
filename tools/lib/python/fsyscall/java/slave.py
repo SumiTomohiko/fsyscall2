@@ -174,7 +174,7 @@ def get_slave_dir(dirpath):
 def get_helper_path(g):
     return join(get_slave_dir(g.pkg_dir), "SlaveHelper.java")
 
-def write_slave(g, syscalls):
+def write_slave_helper(g, syscalls):
     d = {
             "PROCS": build_proc_of_protocol(syscalls),
             "DISPATCHES": build_dispatch_of_protocol(syscalls) }
@@ -229,7 +229,7 @@ def write(dirpath, syscalls):
     g.manually_defined_syscalls = find_manually_defined_syscalls(g)
 
     write_command_java(g, syscalls)
-    write_slave(g, syscalls)
+    write_slave_helper(g, syscalls)
     write_syscall_result(g, syscalls)
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=python
