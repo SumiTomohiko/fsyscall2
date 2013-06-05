@@ -395,7 +395,7 @@ public class Slave extends Worker {
         return result;
     }
 
-    public SyscallResult.Generic64 doWrite(int fd, char[] buf, long nbytes) throws IOException {
+    public SyscallResult.Generic64 doWrite(int fd, byte[] buf, long nbytes) throws IOException {
         return null;
     }
 

@@ -56,7 +56,7 @@ def write_command_java(g, syscalls):
 JAVA_DATATYPE_OF_C_DATATYPE = {
         "char *": "String",
         "int": "int",
-        "void *": "char[]",
+        "void *": "byte[]",
         "size_t": "long",
         # FIXME: u_long must be unsigned long. But Java does not have it.
         "u_long": "long",
