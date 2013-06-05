@@ -93,12 +93,16 @@ def make_params_declarations(syscall):
 
     return (";\n" + 12 * " ").join(stmts)
 
-READ_METHOD_OF_C_DATATYPE = {
-        "int": "readInteger",
-        "char *": "readString" }
-
 def read_method_of_c_datatype(datatype):
-    return READ_METHOD_OF_C_DATATYPE.get(datatype)
+    if datatype == "char *":
+        return "readString"
+    if (datatype[len(datatype) - 1] == "*") or (datatype == "caddr_t"):
+        return None
+    try:
+        datasize = datasize_of_datatype(datatype)
+    except KeyError:
+        return None
+    return { 32: "readInteger", 64: "readLong" }[datasize]
 
 def make_params_reading(syscall):
     stmts = []
@@ -186,11 +190,8 @@ def build_proc_of_writing_result(syscalls):
             stmts.append("private void writeResult(SyscallResult.{rettype} _) throws IOException {{}}".format(**locals()))
             continue
 
-        d = {
-                "command": syscall.ret_name,
-                "rettype": rettype }
-        stmts.append("""private void writeResult(SyscallResult.{rettype} result) throws IOException {{
-        Command command = Command.{command};
+        d = { "rettype": rettype }
+        stmts.append("""private void writeResult(Command command, SyscallResult.{rettype} result) throws IOException {{
         byte[] retval = Encoder.encodeLong(result.retval);
         if (result.retval == -1) {{
             byte[] errno = Encoder.encode(result.errno);

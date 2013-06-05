@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
+import java.util.Arrays;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
@@ -295,7 +296,39 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Read doRead(int fd, long nbytes) throws IOException {
-        return null;
+        SyscallResult.Read result = new SyscallResult.Read();
+
+        UnixFile file;
+        try {
+            file = mFiles[fd];
+        }
+        catch (IndexOutOfBoundsException e) {
+            result.retval = -1;
+            result.errno = Errno.EBADF;
+            return result;
+        }
+        if (file == null) {
+            result.retval = -1;
+            result.errno = Errno.EBADF;
+            return result;
+        }
+
+        /*
+         * This implementation cannot handle the nbytes parameter which is
+         * greater than maximum value of int (2^30 - 1).
+         */
+        byte[] buffer = new byte[(int)nbytes];
+        try {
+            result.retval = file.read(buffer);
+        }
+        catch (UnixException e) {
+            result.retval = -1;
+            result.errno = e.getErrno();
+            return result;
+        }
+
+        result.buf = Arrays.copyOf(buffer, (int)result.retval);
+        return result;
     }
 
     public SyscallResult.Generic64 doLseek(int fd, long offset, int whence) throws IOException {
