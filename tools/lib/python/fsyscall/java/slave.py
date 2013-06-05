@@ -3,8 +3,8 @@ from os.path import join
 from re import search
 
 from fsyscall.java.share import get_package_path
-from fsyscall.share import SYSCALLS, apply_template, datasize_of_datatype,  \
-                           drop_prefix, opt_of_syscall
+from fsyscall.share import SYSCALLS, apply_template, data_of_argument,  \
+                           datasize_of_datatype, drop_prefix, opt_of_syscall
 
 class Global:
 
@@ -174,10 +174,45 @@ def get_slave_dir(dirpath):
 def get_helper_path(g):
     return join(get_slave_dir(g.pkg_dir), "SlaveHelper.java")
 
+def build_proc_of_writing_result(syscalls):
+    stmts = []
+    for syscall in syscalls:
+        rettype = rettype_class_of_syscall(syscall)
+        if rettype in ["Generic32", "Generic64"]:
+            continue
+
+        # XXX: Temporary escaping
+        if syscall.name != "fmaster_read":
+            stmts.append("private void writeResult(SyscallResult.{rettype} _) throws IOException {{}}".format(**locals()))
+            continue
+
+        d = {
+                "command": syscall.ret_name,
+                "rettype": rettype }
+        stmts.append("""private void writeResult(SyscallResult.{rettype} result) throws IOException {{
+        Command command = Command.{command};
+        byte[] retval = Encoder.encodeLong(result.retval);
+        if (result.retval == -1) {{
+            byte[] errno = Encoder.encode(result.errno);
+            writeResult(command, retval, errno);
+            return;
+        }}
+
+        int len = retval.length + result.buf.length;
+        PayloadSize payloadSize = PayloadSize.fromInteger(len);
+        mOut.write(command);
+        mOut.write(payloadSize);
+        mOut.write(retval);
+        mOut.write(result.buf);
+    }}""".format(**d))
+
+    return "\n\n    ".join(stmts)
+
 def write_slave_helper(g, syscalls):
     d = {
             "PROCS": build_proc_of_protocol(syscalls),
-            "DISPATCHES": build_dispatch_of_protocol(syscalls) }
+            "DISPATCHES": build_dispatch_of_protocol(syscalls),
+            "WRITE_RESULT": build_proc_of_writing_result(syscalls) }
     apply_template(d, get_helper_path(g))
 
 def build_members_of_result(syscall):

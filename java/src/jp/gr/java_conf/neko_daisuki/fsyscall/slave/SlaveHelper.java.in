@@ -93,6 +93,8 @@ public class SlaveHelper {
         mOut.write(returnedValue);
         mOut.write(errno);
     }
+
+    @WRITE_RESULT@
 }
 
 /**
