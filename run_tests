@@ -100,7 +100,7 @@ do
 
 	exe="${tests_dir}/${arch}/${cmd}"
 	stdout_log="${tmp_dir}/stdout.log"
-	"${tester}" "${tester_opts}" "${exe}" ${args} > "${stdout_log}"
+	"${tester}" ${tester_opts} "${exe}" ${args} > "${stdout_log}"
 	status="${?}"
 
 	if [ -n "$(isset expected_status)" ]; then
