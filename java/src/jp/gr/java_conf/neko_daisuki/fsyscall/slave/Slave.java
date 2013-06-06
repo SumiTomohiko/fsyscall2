@@ -298,15 +298,7 @@ public class Slave extends Worker {
     public SyscallResult.Read doRead(int fd, long nbytes) throws IOException {
         SyscallResult.Read result = new SyscallResult.Read();
 
-        UnixFile file;
-        try {
-            file = mFiles[fd];
-        }
-        catch (IndexOutOfBoundsException e) {
-            result.retval = -1;
-            result.errno = Errno.EBADF;
-            return result;
-        }
+        UnixFile file = getFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
@@ -334,7 +326,7 @@ public class Slave extends Worker {
     public SyscallResult.Generic64 doLseek(int fd, long offset, int whence) throws IOException {
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
-        UnixFile file = mFiles[fd];
+        UnixFile file = getFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
@@ -406,7 +398,7 @@ public class Slave extends Worker {
     public SyscallResult.Generic32 doClose(int fd) throws IOException {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        UnixFile file = mFiles[fd];
+        UnixFile file = getFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
@@ -462,6 +454,15 @@ public class Slave extends Worker {
         for (i = 0; (i < len) && (mFiles[i] != null); i++) {
         }
         return i < len ? i : -1;
+    }
+
+    private UnixFile getFile(int fd) {
+        try {
+            return mFiles[fd];
+        }
+        catch (IndexOutOfBoundsException _) {
+            return null;
+        }
     }
 }
 
