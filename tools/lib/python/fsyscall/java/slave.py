@@ -79,7 +79,10 @@ def make_proc(syscall):
     return make_class_prefix(syscall) + "Proc"
 
 def make_params_passing(syscall):
-    return ", ".join([a.name for a in syscall.input_args])
+    args = [a.name
+            for a in syscall.args
+            if not data_of_argument(syscall, a).out]
+    return ", ".join(args)
 
 def make_params_declarations(syscall):
     stmts = []
