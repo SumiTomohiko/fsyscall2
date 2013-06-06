@@ -96,7 +96,7 @@ def make_params_declarations(syscall):
 def read_method_of_c_datatype(datatype):
     if datatype == "char *":
         return "readString"
-    if (datatype[len(datatype) - 1] == "*") or (datatype == "caddr_t"):
+    if (datatype[-1] == "*") or (datatype == "caddr_t"):
         return None
     try:
         datasize = datasize_of_datatype(datatype)
@@ -115,7 +115,7 @@ def make_params_reading(syscall):
         meth = read_method_of_c_datatype(a.datatype)
         if meth is None:
             # TODO: Remove here. This is temporary escaping from compile error.
-            if (a.datatype[len(a.datatype) - 1] == "*") or (a.datatype == "caddr_t"):
+            if (a.datatype[-1] == "*") or (a.datatype == "caddr_t"):
                 initval = "null"
             else:
                 initval = "0"
