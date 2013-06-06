@@ -60,6 +60,7 @@ public class Slave extends Worker {
     private interface UnixFile {
 
         public int read(byte[] buffer) throws UnixException;
+        public int write(byte[] buffer) throws UnixException;
         public void close() throws UnixException;
         public long lseek(long offset, int whence) throws UnixException;
     }
@@ -81,6 +82,7 @@ public class Slave extends Worker {
         }
 
         public abstract int read(byte[] buffer) throws UnixException;
+        public abstract int write(byte[] buffer) throws UnixException;
 
         public void close() throws UnixException {
             try {
@@ -146,6 +148,10 @@ public class Slave extends Worker {
             }
             return nBytes != -1 ? nBytes : 0;
         }
+
+        public int write(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.EBADF);
+        }
     }
 
     private static class UnixOutputFile extends UnixRandomAccessFile {
@@ -157,11 +163,22 @@ public class Slave extends Worker {
         public int read(byte[] buffer) throws UnixException {
             throw new UnixException(Errno.EBADF);
         }
+
+        public int write(byte[] buffer) throws UnixException {
+            try {
+                mFile.write(buffer);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            return buffer.length;
+        }
     }
 
     private abstract static class UnixStream implements UnixFile {
 
         public abstract int read(byte[] buffer) throws UnixException;
+        public abstract int write(byte[] buffer) throws UnixException;
         public abstract void close() throws UnixException;
 
         public long lseek(long offset, int whence) throws UnixException {
@@ -188,6 +205,10 @@ public class Slave extends Worker {
             return nBytes != -1 ? nBytes : 0;
         }
 
+        public int write(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.EBADF);
+        }
+
         public void close() throws UnixException {
             try {
                 mIn.close();
@@ -208,6 +229,16 @@ public class Slave extends Worker {
 
         public int read(byte[] buffer) throws UnixException {
             throw new UnixException(Errno.EBADF);
+        }
+
+        public int write(byte[] buffer) throws UnixException {
+            try {
+                mOut.write(buffer);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            return buffer.length;
         }
 
         public void close() throws UnixException {
@@ -421,7 +452,26 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Generic64 doWrite(int fd, byte[] buf, long nbytes) throws IOException {
-        return null;
+        Logger.info(String.format("doWrite(fd=%d, buf, nbytes=%d)", fd, nbytes));
+        SyscallResult.Generic64 result = new SyscallResult.Generic64();
+
+        UnixFile file = getFile(fd);
+        if (file == null) {
+            result.retval = -1;
+            result.errno = Errno.EBADF;
+            return result;
+        }
+
+        try {
+            result.retval = file.write(buf);
+        }
+        catch (UnixException e) {
+            result.retval = -1;
+            result.errno = e.getErrno();
+            return result;
+        }
+
+        return result;
     }
 
     public void doExit(int rval) throws IOException {
