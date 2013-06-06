@@ -114,6 +114,12 @@ def make_params_reading(syscall):
         indent = (0 if opt is None else 4) * " "
 
         name = a.name
+        if a.datatype == "void *":
+            fmt = "{indent}{name} = mIn.read((int){size});"
+            size = SYSCALLS[syscall.name][name].size
+            stmts.append(fmt.format(**locals()))
+            continue
+
         datatype = java_datatype_of_c_datatype(a.datatype)
         meth = read_method_of_c_datatype(a.datatype)
         if meth is None:
