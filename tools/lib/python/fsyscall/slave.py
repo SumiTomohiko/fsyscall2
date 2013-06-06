@@ -106,9 +106,7 @@ def print_fslave_call(p, print_newline, syscall):
 \tpayload_size = read_payload_size(rfd);
 """)
     print_newline()
-    for a in syscall.sending_order_args:
-        if data_of_argument(syscall, a).out:
-            continue
+    for a in syscall.input_args:
         name = a.name
         if a.datatype == "void *":
             size = SYSCALLS[syscall.name][name].size

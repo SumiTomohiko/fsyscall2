@@ -32,12 +32,16 @@ class Syscall:
     ret_name = property(get_ret_name)
 
     def get_output_args(self):
-        return [a for a in self.args if data_of_argument(self, a).out]
+        return [a
+                for a in self.sending_order_args
+                if data_of_argument(self, a).out]
 
     output_args = property(get_output_args)
 
     def get_input_args(self):
-        return [a for a in self.args if not data_of_argument(self, a).out]
+        return [a
+                for a in self.sending_order_args
+                if not data_of_argument(self, a).out]
 
     input_args = property(get_input_args)
 

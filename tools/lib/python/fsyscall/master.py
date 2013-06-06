@@ -46,8 +46,8 @@ execute_call(struct thread *td, struct {name}_args *uap)
 """.format(**locals()))
 
 def print_encoding(p, syscall):
-    for a in syscall.sending_order_args:
-        if (a.datatype == "void *") or data_of_argument(syscall, a).out:
+    for a in syscall.input_args:
+        if a.datatype == "void *":
             continue
 
         p("\t{name} = uap->{name};\n".format(**vars(a)))
@@ -137,10 +137,7 @@ def print_write(p, print_newline, syscall):
     p("""\
 \twfd = fmaster_wfd_of_thread(td);
 """.format(**locals()))
-    for a in syscall.sending_order_args:
-        if data_of_argument(syscall, a).out:
-            continue
-
+    for a in syscall.input_args:
         if a.datatype == "char *":
             buf = "{name}_len_buf".format(**vars(a))
             size = "{name}_len_len".format(**vars(a))
