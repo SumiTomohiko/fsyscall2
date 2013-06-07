@@ -5,7 +5,7 @@ import java.io.IOException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
-import jp.gr.java_conf.neko_daisuki.fsyscall.L;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
@@ -17,17 +17,6 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
 public class SlaveHelper {
 
-    private static class Logger {
-
-        public static void info(String message) {
-            L.info(buildMessage(message));
-        }
-
-        private static String buildMessage(String message) {
-            return String.format("SlaveHelper: %s", message);
-        }
-    }
-
     @PROCS@
 
     private class ExitProc extends CommandDispatcher.Proc {
@@ -36,6 +25,8 @@ public class SlaveHelper {
             mSlave.doExit(mIn.readInteger());
         }
     }
+
+    private static Logging.Logger mLogger;
 
     private Slave mSlave;
     private SyscallInputStream mIn;
@@ -53,7 +44,7 @@ public class SlaveHelper {
 
     public void runSlave() throws IOException {
         Command command = mIn.readCommand();
-        Logger.info(String.format("read command: %s", command.toString()));
+        mLogger.info(String.format("read command: %s", command.toString()));
 
         CommandDispatcher.Proc proc = mDispatcher.get(command);
         if (proc == null) {
@@ -95,6 +86,10 @@ public class SlaveHelper {
     }
 
     @WRITE_RESULT@
+
+    static {
+        mLogger = new Logging.Logger("SlaveHelper");
+    }
 }
 
 /**

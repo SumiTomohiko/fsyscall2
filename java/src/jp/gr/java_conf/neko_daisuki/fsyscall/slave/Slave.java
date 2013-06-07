@@ -13,7 +13,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
-import jp.gr.java_conf.neko_daisuki.fsyscall.L;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
@@ -23,17 +23,6 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
 public class Slave extends Worker {
-
-    private static class Logger {
-
-        public static void info(String message) {
-            L.info(buildMessage(message));
-        }
-
-        private static String buildMessage(String message) {
-            return String.format("Slave: %s", message);
-        }
-    }
 
     private static class UnixException extends Exception {
 
@@ -253,6 +242,8 @@ public class Slave extends Worker {
 
     private static final int UNIX_FILE_NUM = 256;
 
+    private static Logging.Logger mLogger;
+
     private Application mApplication;
     private SyscallInputStream mIn;
     private SyscallOutputStream mOut;
@@ -262,7 +253,7 @@ public class Slave extends Worker {
     private SlaveHelper mHelper;
 
     public Slave(Application application, InputStream in, OutputStream out) throws IOException {
-        Logger.info("a slave is starting.");
+        mLogger.info("a slave is starting.");
 
         mApplication = application;
         mIn = new SyscallInputStream(in);
@@ -275,7 +266,7 @@ public class Slave extends Worker {
         mFiles[2] = new UnixOutputStream(System.err);
 
         writeOpenedFileDescriptors();
-        Logger.info("file descripters were transfered from the slave.");
+        mLogger.info("file descripters were transfered from the slave.");
     }
 
     public boolean isReady() throws IOException {
@@ -283,9 +274,9 @@ public class Slave extends Worker {
     }
 
     public void work() throws IOException {
-        Logger.info("performing the work.");
+        mLogger.info("performing the work.");
         mHelper.runSlave();
-        Logger.info("finished the work.");
+        mLogger.info("finished the work.");
     }
 
     public SyscallResult.Generic32 doOpen(String path, int flags, int mode) throws IOException {
@@ -452,7 +443,7 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Generic64 doWrite(int fd, byte[] buf, long nbytes) throws IOException {
-        Logger.info(String.format("doWrite(fd=%d, buf, nbytes=%d)", fd, nbytes));
+        mLogger.info(String.format("doWrite(fd=%d, buf, nbytes=%d)", fd, nbytes));
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
         UnixFile file = getFile(fd);
@@ -513,6 +504,10 @@ public class Slave extends Worker {
         catch (IndexOutOfBoundsException _) {
             return null;
         }
+    }
+
+    static {
+        mLogger = new Logging.Logger("Slave");
     }
 }
 

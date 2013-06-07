@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
-import jp.gr.java_conf.neko_daisuki.fsyscall.L;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
@@ -15,17 +15,6 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
 public class SlaveHub extends Worker {
-
-    private static class Logger {
-
-        public static void info(String message) {
-            L.info(buildMessage(message));
-        }
-
-        private static String buildMessage(String message) {
-            return String.format("SlaveHub: %s", message);
-        }
-    }
 
     private static class Peer {
 
@@ -65,27 +54,29 @@ public class SlaveHub extends Worker {
         }
     }
 
+    private static Logging.Logger mLogger;
+
     private Peer mMhub;
     private Map<Pid, SlavePeer> mSlaves;
 
     public SlaveHub(Application application, InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) throws IOException {
-        Logger.info("a slave hub is starting.");
+        mLogger.info("a slave hub is starting.");
 
         mMhub = new Peer(
                 new SyscallInputStream(mhubIn),
                 new SyscallOutputStream(mhubOut));
 
         negotiateVersion();
-        Logger.info("version negotiation finished.");
+        mLogger.info("version negotiation finished.");
 
         Pid masterPid = mMhub.getInputStream().readPid();
-        Logger.info(String.format("master pid is %s.", masterPid));
+        mLogger.info(String.format("master pid is %s.", masterPid));
 
         mSlaves = new HashMap<Pid, SlavePeer>();
         SlavePeer slave = addSlave(slaveIn, slaveOut, masterPid);
 
         transportFileDescriptors(slave);
-        Logger.info("file descriptors were transfered from the slave hub.");
+        mLogger.info("file descriptors were transfered from the slave hub.");
     }
 
     public boolean isReady() throws IOException {
@@ -113,7 +104,7 @@ public class SlaveHub extends Worker {
     }
 
     public void work() throws IOException {
-        Logger.info("works of the slave hub are being processed.");
+        mLogger.info("works of the slave hub are being processed.");
 
         if (mMhub.getInputStream().isReady()) {
             processMasterHub();
@@ -124,18 +115,18 @@ public class SlaveHub extends Worker {
             }
         }
 
-        Logger.info("works of the slave hub were finished.");
+        mLogger.info("works of the slave hub were finished.");
     }
 
     private void processSlave(SlavePeer slave) throws IOException {
-        Logger.info("the work for the slave is being processed.");
+        mLogger.info("the work for the slave is being processed.");
 
         SyscallInputStream in = slave.getInputStream();
         Command command = in.readCommand();
         PayloadSize payloadSize = in.readPayloadSize();
 
         String fmt = "from the slave to the master: command=%s, payloadSize=%s";
-        Logger.info(String.format(fmt, command, payloadSize));
+        mLogger.info(String.format(fmt, command, payloadSize));
 
         SyscallOutputStream out = mMhub.getOutputStream();
         out.write(command);
@@ -143,25 +134,25 @@ public class SlaveHub extends Worker {
         out.write(payloadSize);
         out.copyInputStream(in, payloadSize);
 
-        Logger.info("the work for the slave was finished.");
+        mLogger.info("the work for the slave was finished.");
     }
 
     private void processMasterHub() throws IOException {
-        Logger.info("the work for the master hub is being processed.");
+        mLogger.info("the work for the master hub is being processed.");
 
         SyscallInputStream in = mMhub.getInputStream();
         Command command = in.readCommand();
         Pid pid = in.readPid();
         String fmt = "command received: command=%s, pid=%s";
-        Logger.info(String.format(fmt, command, pid));
+        mLogger.info(String.format(fmt, command, pid));
 
         SyscallOutputStream out = mSlaves.get(pid).getOutputStream();
 
         if (command == Command.CALL_EXIT) {
-            Logger.info("executing CALL_EXIT.");
+            mLogger.info("executing CALL_EXIT.");
 
             int status = in.readInteger();
-            Logger.info(String.format("exit status is %d.", status));
+            mLogger.info(String.format("exit status is %d.", status));
 
             out.write(command);
             out.write(status);
@@ -173,7 +164,7 @@ public class SlaveHub extends Worker {
         PayloadSize payloadSize = in.readPayloadSize();
 
         fmt = "from the master to the slave: command=%s, payloadSize=%s";
-        Logger.info(String.format(fmt, command, payloadSize));
+        mLogger.info(String.format(fmt, command, payloadSize));
 
         out.write(command);
         out.write(payloadSize);
@@ -211,6 +202,10 @@ public class SlaveHub extends Worker {
                 masterPid);
         mSlaves.put(masterPid, slave);
         return slave;
+    }
+
+    static {
+        mLogger = new Logging.Logger("SlaveHub");
     }
 }
 
