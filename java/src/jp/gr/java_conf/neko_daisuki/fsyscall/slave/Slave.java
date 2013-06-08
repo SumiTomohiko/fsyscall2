@@ -369,10 +369,6 @@ public class Slave extends Worker {
         return result;
     }
 
-    public SyscallResult.Generic64 doMmap(char[] addr, long len, int prot, int flags, int fd, long pos) throws IOException {
-        return null;
-    }
-
     public SyscallResult.Pread doPread(int fd, long iovcnt, long offset) throws IOException {
         return null;
     }

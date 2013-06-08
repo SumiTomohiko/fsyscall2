@@ -3,8 +3,9 @@ from os.path import join
 from re import search
 
 from fsyscall.java.share import get_package_path
-from fsyscall.share import SYSCALLS, apply_template, data_of_argument,  \
-                           datasize_of_datatype, drop_prefix, opt_of_syscall
+from fsyscall.share import FSLAVE_SYSCALLS, SYSCALLS, apply_template,   \
+                           data_of_argument, datasize_of_datatype,      \
+                           drop_prefix, opt_of_syscall
 
 class Global:
 
@@ -268,13 +269,17 @@ def find_manually_defined_syscalls(g):
 
     return syscalls
 
+def select_slave_syscalls(syscalls):
+    return [syscall for syscall in syscalls if syscall.name in FSLAVE_SYSCALLS]
+
 def write(dirpath, syscalls):
     g = Global()
     g.pkg_dir = get_package_path(dirpath)
     g.manually_defined_syscalls = find_manually_defined_syscalls(g)
 
-    write_command_java(g, syscalls)
-    write_slave_helper(g, syscalls)
-    write_syscall_result(g, syscalls)
+    slave_syscalls = select_slave_syscalls(syscalls)
+    write_command_java(g, slave_syscalls)
+    write_slave_helper(g, slave_syscalls)
+    write_syscall_result(g, slave_syscalls)
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=python
