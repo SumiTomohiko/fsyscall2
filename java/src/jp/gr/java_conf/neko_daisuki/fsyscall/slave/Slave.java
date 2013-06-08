@@ -377,8 +377,13 @@ public class Slave extends Worker {
         return null;
     }
 
+    /**
+     * System call handler for issetugid(2). This always returns zero.
+     */
     public SyscallResult.Generic32 doIssetugid() throws IOException {
-        return null;
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+        result.retval = 0;
+        return result;
     }
 
     public SyscallResult.Lstat doLstat(String path) throws IOException {
