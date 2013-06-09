@@ -47,11 +47,11 @@ def make_command2number(syscalls):
     return (";\n" + make_indent(8)).join(lines)
 
 def write_command_java(g, syscalls):
-    path = join(g.pkg_dir, "Command.java")
     d = {
             "ENUM_COMMAND": make_enum_command(syscalls),
             "NUMBER2COMMAND": make_number2command(syscalls),
             "COMMAND2NUMBER": make_command2number(syscalls) }
+    path = join(g.pkg_dir, "Command.java")
     apply_template(d, path)
 
 JAVA_DATATYPE_OF_C_DATATYPE = {
