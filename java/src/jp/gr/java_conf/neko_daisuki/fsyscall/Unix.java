@@ -2,6 +2,12 @@ package jp.gr.java_conf.neko_daisuki.fsyscall;
 
 public interface Unix {
 
+    public static class IoVec {
+
+        public byte[] iov_base;
+        public long iov_len;
+    }
+
     public static class Stat {
     }
 

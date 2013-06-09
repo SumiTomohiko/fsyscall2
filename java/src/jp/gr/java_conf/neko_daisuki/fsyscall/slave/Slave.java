@@ -447,8 +447,38 @@ public class Slave extends Worker {
         return null;
     }
 
-    public SyscallResult.Generic32 doWritev(int fd, char[] iovp, long iovcnt) throws IOException {
-        return null;
+    public SyscallResult.Generic32 doWritev(int fd, Unix.IoVec[] iovec) throws IOException {
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        UnixFile file = getFile(fd);
+        if (file == null) {
+            result.retval = -1;
+            result.errno = Errno.EBADF;
+            return result;
+        }
+
+        int nBytes = 0;
+        for (Unix.IoVec v: iovec) {
+            nBytes += v.iov_base.length;
+        }
+        byte[] buffer = new byte[nBytes];
+        int pos = 0;
+        for (Unix.IoVec v: iovec) {
+            int len = v.iov_base.length;
+            System.arraycopy(v.iov_base, 0, buffer, pos, len);
+            pos += len;
+        }
+
+        try {
+            result.retval = file.write(buffer);
+        }
+        catch (UnixException e) {
+            result.retval = -1;
+            result.errno = e.getErrno();
+            return result;
+        }
+
+        return result;
     }
 
     public SyscallResult.Generic32 doSelect(int nfds, Unix.FdSet in, Unix.FdSet ou, Unix.FdSet ex, Unix.TimeVal tv) throws IOException {

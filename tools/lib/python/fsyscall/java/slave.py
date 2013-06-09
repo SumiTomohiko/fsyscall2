@@ -146,10 +146,10 @@ def rettype_class_of_syscall(syscall):
         return fmt.format(size=datasize_of_datatype(syscall.rettype))
     return drop_prefix(syscall.name).capitalize()
 
-def build_proc_of_protocol(syscalls):
+def build_proc_of_protocol(g, syscalls):
     procs = []
     for syscall in syscalls:
-        if syscall.name == "fmaster_exit":
+        if drop_prefix(syscall.name) in g.manually_defined_syscalls:
             continue
 
         fmt = """private class {proc} extends CommandDispatcher.Proc {{
@@ -221,7 +221,7 @@ def build_proc_of_writing_result(syscalls):
 
 def write_slave_helper(g, syscalls):
     d = {
-            "PROCS": build_proc_of_protocol(syscalls),
+            "PROCS": build_proc_of_protocol(g, syscalls),
             "DISPATCHES": build_dispatch_of_protocol(syscalls),
             "WRITE_RESULT": build_proc_of_writing_result(syscalls) }
     apply_template(d, get_helper_path(g))

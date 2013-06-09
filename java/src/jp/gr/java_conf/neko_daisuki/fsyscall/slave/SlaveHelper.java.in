@@ -10,6 +10,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.FdSet;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.IoVec;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.Stat;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.TimeVal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
@@ -18,6 +19,21 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 public class SlaveHelper {
 
     @PROCS@
+
+    private class WritevProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int fd = mIn.readInteger();
+            int iovcnt = mIn.readInteger();
+            IoVec[] iovec = new IoVec[iovcnt];
+            for (int i = 0; i < iovcnt; i++) {
+                iovec[i] = mIn.readIoVec();
+            }
+            SyscallResult.Generic32 result = mSlave.doWritev(fd, iovec);
+            writeResult(Command.RET_WRITEV, result);
+        }
+    }
 
     private class ExitProc extends CommandDispatcher.Proc {
 

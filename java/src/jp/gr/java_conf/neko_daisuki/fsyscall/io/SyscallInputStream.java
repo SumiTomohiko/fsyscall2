@@ -7,6 +7,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.IoVec;
 
 public class SyscallInputStream {
 
@@ -95,6 +96,14 @@ public class SyscallInputStream {
         int len = readInteger();
         byte[] bytes = read(len);
         return new String(bytes, "UTF-8");
+    }
+
+    public IoVec readIoVec() throws IOException {
+        IoVec iovec = new IoVec();
+        long len = readLong();
+        iovec.iov_len = len;
+        iovec.iov_base = read((int)len);
+        return iovec;
     }
 
     static {
