@@ -196,7 +196,7 @@ def build_proc_of_writing_result(syscalls):
             continue
 
         # XXX: Temporary escaping
-        if syscall.name != "fmaster_read":
+        if drop_prefix(syscall.name) not in ["pread", "read"]:
             stmts.append("private void writeResult(SyscallResult.{rettype} _) throws IOException {{}}".format(**locals()))
             continue
 

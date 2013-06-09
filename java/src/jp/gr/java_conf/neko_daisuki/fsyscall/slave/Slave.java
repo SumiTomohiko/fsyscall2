@@ -49,6 +49,7 @@ public class Slave extends Worker {
     private interface UnixFile {
 
         public int read(byte[] buffer) throws UnixException;
+        public long pread(byte[] buffer, long offset) throws UnixException;
         public int write(byte[] buffer) throws UnixException;
         public void close() throws UnixException;
         public long lseek(long offset, int whence) throws UnixException;
@@ -71,6 +72,7 @@ public class Slave extends Worker {
         }
 
         public abstract int read(byte[] buffer) throws UnixException;
+        public abstract long pread(byte[] buffer, long offset) throws UnixException;
         public abstract int write(byte[] buffer) throws UnixException;
 
         public void close() throws UnixException {
@@ -138,6 +140,24 @@ public class Slave extends Worker {
             return nBytes != -1 ? nBytes : 0;
         }
 
+        public long pread(byte[] buffer, long offset) throws UnixException {
+            int nBytes;
+            try {
+                long initialPosition = mFile.getFilePointer();
+                mFile.seek(offset);
+                try {
+                    nBytes = mFile.read(buffer);
+                }
+                finally {
+                    mFile.seek(initialPosition);
+                }
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            return nBytes == -1 ? 0 : nBytes;
+        }
+
         public int write(byte[] buffer) throws UnixException {
             throw new UnixException(Errno.EBADF);
         }
@@ -150,6 +170,10 @@ public class Slave extends Worker {
         }
 
         public int read(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.EBADF);
+        }
+
+        public long pread(byte[] buffer, long offset) throws UnixException {
             throw new UnixException(Errno.EBADF);
         }
 
@@ -167,6 +191,7 @@ public class Slave extends Worker {
     private abstract static class UnixStream implements UnixFile {
 
         public abstract int read(byte[] buffer) throws UnixException;
+        public abstract long pread(byte[] buffer, long offset) throws UnixException;
         public abstract int write(byte[] buffer) throws UnixException;
         public abstract void close() throws UnixException;
 
@@ -194,6 +219,10 @@ public class Slave extends Worker {
             return nBytes != -1 ? nBytes : 0;
         }
 
+        public long pread(byte[] buffer, long offset) throws UnixException {
+            throw new UnixException(Errno.ESPIPE);
+        }
+
         public int write(byte[] buffer) throws UnixException {
             throw new UnixException(Errno.EBADF);
         }
@@ -218,6 +247,10 @@ public class Slave extends Worker {
 
         public int read(byte[] buffer) throws UnixException {
             throw new UnixException(Errno.EBADF);
+        }
+
+        public long pread(byte[] buffer, long offset) throws UnixException {
+            throw new UnixException(Errno.ESPIPE);
         }
 
         public int write(byte[] buffer) throws UnixException {
@@ -369,8 +402,28 @@ public class Slave extends Worker {
         return result;
     }
 
-    public SyscallResult.Pread doPread(int fd, long iovcnt, long offset) throws IOException {
-        return null;
+    public SyscallResult.Pread doPread(int fd, long nbyte, long offset) throws IOException {
+        SyscallResult.Pread result = new SyscallResult.Pread();
+
+        UnixFile file = getFile(fd);
+        if (file == null) {
+            result.retval = -1;
+            result.errno = Errno.EBADF;
+            return result;
+        }
+
+        byte[] buffer = new byte[(int)nbyte];
+        try {
+            result.retval = file.pread(buffer, offset);
+        }
+        catch (UnixException e) {
+            result.retval = -1;
+            result.errno = e.getErrno();
+            return result;
+        }
+
+        result.buf = Arrays.copyOf(buffer, (int)result.retval);
+        return result;
     }
 
     /**
