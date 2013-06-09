@@ -57,6 +57,7 @@ public class SlaveHelper {
 
     private CommandDispatcher buildDispatcher() {
         CommandDispatcher dispatcher = new CommandDispatcher();
+        dispatcher.addEntry(Command.CALL_EXIT, new ExitProc());
         @DISPATCHES@;
         return dispatcher;
     }
