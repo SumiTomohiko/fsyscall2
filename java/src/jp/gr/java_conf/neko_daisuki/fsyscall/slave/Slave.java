@@ -489,10 +489,6 @@ public class Slave extends Worker {
         return null;
     }
 
-    public SyscallResult.Generic32 doIoctl(int fd, long com, char[] data) throws IOException {
-        return null;
-    }
-
     public SyscallResult.Generic32 doAccess(String path, int flags) throws IOException {
         return null;
     }
