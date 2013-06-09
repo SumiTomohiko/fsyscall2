@@ -277,8 +277,9 @@ def write(dirpath, syscalls):
     g.pkg_dir = get_package_path(dirpath)
     g.manually_defined_syscalls = find_manually_defined_syscalls(g)
 
+    write_command_java(g, syscalls)
+
     slave_syscalls = select_slave_syscalls(syscalls)
-    write_command_java(g, slave_syscalls)
     write_slave_helper(g, slave_syscalls)
     write_syscall_result(g, slave_syscalls)
 
