@@ -5,6 +5,9 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class Logging {
 
@@ -20,10 +23,12 @@ public class Logging {
     private static class FileDestination extends Destination {
 
         private PrintWriter mWriter;
+        private DateFormat mDateFormatter;
 
         public FileDestination(String path) throws IOException {
             Writer out = new BufferedWriter(new FileWriter(path, true));
             mWriter = new PrintWriter(out, true);
+            mDateFormatter = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
         }
 
         public void verbose(String message) {
@@ -47,7 +52,8 @@ public class Logging {
         }
 
         private String formatMessage(String level, String message) {
-            return String.format("%s: %s", level, message);
+            String timestamp = mDateFormatter.format(new Date());
+            return String.format("[%s] %s: %s", timestamp, level, message);
         }
     }
 
