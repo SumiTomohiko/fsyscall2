@@ -8,6 +8,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
@@ -23,6 +25,31 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
 public class Slave extends Worker {
+
+    private static interface TimeoutDetector {
+
+        public boolean isTimeout(long usec);
+    }
+
+    private static class FakeTimeoutDetector implements TimeoutDetector {
+
+        public boolean isTimeout(long usec) {
+            return false;
+        }
+    }
+
+    private static class TrueTimeoutDetector implements TimeoutDetector {
+
+        private Unix.TimeVal mTimeout;
+
+        public TrueTimeoutDetector(Unix.TimeVal timeout) {
+            mTimeout = timeout;
+        }
+
+        public boolean isTimeout(long usec) {
+            return 1000000 * mTimeout.tv_sec + mTimeout.tv_usec <= usec;
+        }
+    }
 
     private static class UnixException extends Exception {
 
@@ -48,6 +75,8 @@ public class Slave extends Worker {
 
     private interface UnixFile {
 
+        public boolean isReadyToRead() throws UnixException;
+        public boolean isReadyToWrite() throws UnixException;
         public int read(byte[] buffer) throws UnixException;
         public long pread(byte[] buffer, long offset) throws UnixException;
         public int write(byte[] buffer) throws UnixException;
@@ -71,6 +100,8 @@ public class Slave extends Worker {
             }
         }
 
+        public abstract boolean isReadyToRead() throws UnixException;
+        public abstract boolean isReadyToWrite() throws UnixException;
         public abstract int read(byte[] buffer) throws UnixException;
         public abstract long pread(byte[] buffer, long offset) throws UnixException;
         public abstract int write(byte[] buffer) throws UnixException;
@@ -129,6 +160,19 @@ public class Slave extends Worker {
             super(path, "r");
         }
 
+        public boolean isReadyToRead() throws UnixException {
+            try {
+                return mFile.getFilePointer() < mFile.length();
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+        }
+
+        public boolean isReadyToWrite() throws UnixException {
+            return false;
+        }
+
         public int read(byte[] buffer) throws UnixException {
             int nBytes;
             try {
@@ -169,6 +213,14 @@ public class Slave extends Worker {
             super(path, "rw");
         }
 
+        public boolean isReadyToRead() throws UnixException {
+            return false;
+        }
+
+        public boolean isReadyToWrite() throws UnixException {
+            return true;
+        }
+
         public int read(byte[] buffer) throws UnixException {
             throw new UnixException(Errno.EBADF);
         }
@@ -190,6 +242,8 @@ public class Slave extends Worker {
 
     private abstract static class UnixStream implements UnixFile {
 
+        public abstract boolean isReadyToRead() throws UnixException;
+        public abstract boolean isReadyToWrite() throws UnixException;
         public abstract int read(byte[] buffer) throws UnixException;
         public abstract long pread(byte[] buffer, long offset) throws UnixException;
         public abstract int write(byte[] buffer) throws UnixException;
@@ -206,6 +260,19 @@ public class Slave extends Worker {
 
         public UnixInputStream(InputStream in) {
             mIn = in;
+        }
+
+        public boolean isReadyToRead() throws UnixException {
+            try {
+                return 0 < mIn.available();
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+        }
+
+        public boolean isReadyToWrite() throws UnixException {
+            return false;
         }
 
         public int read(byte[] buffer) throws UnixException {
@@ -243,6 +310,14 @@ public class Slave extends Worker {
 
         public UnixOutputStream(OutputStream out) {
             mOut = out;
+        }
+
+        public boolean isReadyToRead() throws UnixException {
+            return false;
+        }
+
+        public boolean isReadyToWrite() throws UnixException {
+            return true;
         }
 
         public int read(byte[] buffer) throws UnixException {
@@ -481,8 +556,83 @@ public class Slave extends Worker {
         return result;
     }
 
-    public SyscallResult.Generic32 doSelect(int nfds, Unix.FdSet in, Unix.FdSet ou, Unix.FdSet ex, Unix.TimeVal tv) throws IOException {
-        return null;
+    public SyscallResult.Select doSelect(int nfds, Collection<Integer> in, Collection<Integer> ou, Collection<Integer> ex, Unix.TimeVal timeout) throws IOException {
+        SyscallResult.Select result = new SyscallResult.Select();
+
+        TimeoutDetector timeoutDetector = timeout != null ? new TrueTimeoutDetector(timeout) : new FakeTimeoutDetector();
+
+        long usecInterval = 100 * 1000;
+
+        Collection<Integer> inReady = new HashSet<Integer>();
+        Collection<Integer> ouReady = new HashSet<Integer>();
+        Collection<Integer> exReady = new HashSet<Integer>();
+        long usecTime = 0;
+        int nReadyFds = 0;
+        while (!timeoutDetector.isTimeout(usecTime) && (nReadyFds == 0)) {
+            inReady.clear();
+            ouReady.clear();
+            exReady.clear();
+
+            for (Integer fd: in) {
+                UnixFile file = getFile(fd.intValue());
+                if (file == null) {
+                    result.retval = -1;
+                    result.errno = Errno.EBADF;
+                    return result;
+                }
+                try {
+                    if (file.isReadyToRead()) {
+                        inReady.add(fd);
+                    }
+                }
+                catch (UnixException e) {
+                    result.retval = -1;
+                    result.errno = e.getErrno();
+                    return result;
+                }
+            }
+            for (Integer fd: ou) {
+                UnixFile file = getFile(fd.intValue());
+                if (file == null) {
+                    result.retval = -1;
+                    result.errno = Errno.EBADF;
+                    return result;
+                }
+                try {
+                    if (file.isReadyToWrite()) {
+                        ouReady.add(fd);
+                    }
+                }
+                catch (UnixException e) {
+                    result.retval = -1;
+                    result.errno = e.getErrno();
+                    return result;
+                }
+            }
+            // TODO: Perform for ex (But how?).
+
+            try {
+                Thread.sleep(usecInterval / 1000);
+            }
+            catch (InterruptedException e) {
+                result.retval = -1;
+                result.errno = Errno.EINTR;
+                return result;
+            }
+            usecTime += usecInterval;
+
+            nReadyFds = inReady.size() + ouReady.size() + exReady.size();
+        }
+
+        result.retval = nReadyFds;
+        if (nReadyFds == 0) {
+            return result;
+        }
+
+        result.in = inReady;
+        result.ou = ouReady;
+        result.ex = exReady;
+        return result;
     }
 
     public SyscallResult.Readlink doReadlink(String path, long count) throws IOException {

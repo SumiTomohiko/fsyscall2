@@ -1,5 +1,7 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall;
 
+import java.util.Collection;
+
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.Stat;
 
 public interface SyscallResult {
@@ -17,6 +19,13 @@ public interface SyscallResult {
     public static class Generic64 extends Base {
 
         public long retval;
+    }
+
+    public static class Select extends Generic32 {
+
+        public Collection<Integer> in;
+        public Collection<Integer> ou;
+        public Collection<Integer> ex;
     }
 
     @RESULTS@

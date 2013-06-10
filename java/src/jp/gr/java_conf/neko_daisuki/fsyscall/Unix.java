@@ -11,10 +11,10 @@ public interface Unix {
     public static class Stat {
     }
 
-    public static class FdSet {
-    }
-
     public static class TimeVal {
+
+        public long tv_sec;
+        public long tv_usec;
     }
 
     public interface Constants {

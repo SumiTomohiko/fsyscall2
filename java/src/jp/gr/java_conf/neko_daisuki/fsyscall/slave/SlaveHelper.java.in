@@ -1,6 +1,10 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
 import java.io.IOException;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
@@ -9,7 +13,6 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
-import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.FdSet;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.IoVec;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.Stat;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.TimeVal;
@@ -18,7 +21,81 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
 public class SlaveHelper {
 
+    private static class Payload {
+
+        private List<byte[]> mData;
+
+        public Payload() {
+            mData = new LinkedList<byte[]>();
+        }
+
+        public PayloadSize size() {
+            return PayloadSize.fromInteger(computeSize());
+        }
+
+        public void add(int n) {
+            mData.add(Encoder.encodeInteger(n));
+        }
+
+        public void add(Collection<Integer> fds) {
+            add(fds.size());
+            for (Integer fd: fds) {
+                add(fd.intValue());
+            }
+        }
+
+        public byte[] toArray() {
+            byte[] data = new byte[computeSize()];
+            int pos = 0;
+            for (byte[] a: mData) {
+                int len = a.length;
+                System.arraycopy(a, 0, data, pos, len);
+                pos += len;
+            }
+            return data;
+        }
+
+        private int computeSize() {
+            int size = 0;
+            for (byte[] data: mData) {
+                size += data.length;
+            }
+            return size;
+        }
+    }
+
     @PROCS@
+
+    private class SelectProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int nfds = mIn.readInteger();
+            Collection<Integer> in = readFds();
+            Collection<Integer> ou = readFds();
+            Collection<Integer> ex = readFds();
+            int flag = mIn.readInteger();
+            TimeVal timeout = flag == 0 ? null : readTimeVal();
+            SyscallResult.Select result = mSlave.doSelect(nfds, in, ou, ex, timeout);
+            writeResult(Command.RET_SELECT, result);
+        }
+
+        private TimeVal readTimeVal() throws IOException {
+            TimeVal tv = new TimeVal();
+            tv.tv_sec = mIn.readLong();
+            tv.tv_usec = mIn.readLong();
+            return tv;
+        }
+
+        private Collection<Integer> readFds() throws IOException {
+            Collection<Integer> fds = new HashSet<Integer>();
+            int n = mIn.readInteger();
+            for (int i = 0; i < n; i++) {
+                fds.add(Integer.valueOf(mIn.readInteger()));
+            }
+            return fds;
+        }
+    }
 
     private class WritevProc extends CommandDispatcher.Proc {
 
@@ -74,6 +151,7 @@ public class SlaveHelper {
     private CommandDispatcher buildDispatcher() {
         CommandDispatcher dispatcher = new CommandDispatcher();
         dispatcher.addEntry(Command.CALL_EXIT, new ExitProc());
+        dispatcher.addEntry(Command.CALL_SELECT, new SelectProc());
         @DISPATCHES@;
         return dispatcher;
     }
@@ -100,6 +178,28 @@ public class SlaveHelper {
         mOut.write(payloadSize);
         mOut.write(returnedValue);
         mOut.write(errno);
+    }
+
+    private void writeResult(Command command, SyscallResult.Select result) throws IOException {
+        if (result.retval == -1) {
+            SyscallResult.Generic32 e = new SyscallResult.Generic32();
+            e.retval = result.retval;
+            e.errno = result.errno;
+            writeResult(command, e);
+            return;
+        }
+
+        Payload payload = new Payload();
+        payload.add(result.retval);
+        if (0 < result.retval) {
+            payload.add(result.in);
+            payload.add(result.ou);
+            payload.add(result.ex);
+        }
+
+        mOut.write(command);
+        mOut.write(payload.size());
+        mOut.write(payload.toArray());
     }
 
     @WRITE_RESULT@
