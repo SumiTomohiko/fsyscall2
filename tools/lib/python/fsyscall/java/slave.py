@@ -62,11 +62,11 @@ JAVA_DATATYPE_OF_C_DATATYPE = {
         # FIXME: u_long must be unsigned long. But Java does not have it.
         "u_long": "long",
         "caddr_t": "char[]",
-        "fd_set *": "FdSet",
-        "struct timeval *": "TimeVal",
+        "fd_set *": "Unix.FdSet",
+        "struct timeval *": "Unix.TimeVal",
         "struct iovec *": "char[]",
         "u_int": "long",
-        "struct stat *": "Stat",
+        "struct stat *": "Unix.Stat",
         "off_t": "long"
         }
 
