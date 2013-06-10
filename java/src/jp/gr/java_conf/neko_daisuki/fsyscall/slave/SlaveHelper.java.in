@@ -13,9 +13,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
-import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.IoVec;
-import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.Stat;
-import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.TimeVal;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
@@ -75,13 +73,13 @@ public class SlaveHelper {
             Collection<Integer> ou = readFds();
             Collection<Integer> ex = readFds();
             int flag = mIn.readInteger();
-            TimeVal timeout = flag == 0 ? null : readTimeVal();
+            Unix.TimeVal timeout = flag == 0 ? null : readTimeVal();
             SyscallResult.Select result = mSlave.doSelect(nfds, in, ou, ex, timeout);
             writeResult(Command.RET_SELECT, result);
         }
 
-        private TimeVal readTimeVal() throws IOException {
-            TimeVal tv = new TimeVal();
+        private Unix.TimeVal readTimeVal() throws IOException {
+            Unix.TimeVal tv = new Unix.TimeVal();
             tv.tv_sec = mIn.readLong();
             tv.tv_usec = mIn.readLong();
             return tv;
@@ -103,7 +101,7 @@ public class SlaveHelper {
             PayloadSize payloadSize = mIn.readPayloadSize();
             int fd = mIn.readInteger();
             int iovcnt = mIn.readInteger();
-            IoVec[] iovec = new IoVec[iovcnt];
+            Unix.IoVec[] iovec = new Unix.IoVec[iovcnt];
             for (int i = 0; i < iovcnt; i++) {
                 iovec[i] = mIn.readIoVec();
             }
