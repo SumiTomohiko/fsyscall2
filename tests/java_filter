@@ -1,0 +1,15 @@
+#!/usr/local/bin/python
+
+from os.path import basename
+from re import compile
+from sys import argv, exit
+
+excludes = [
+        compile(r"\Atest_f?stat_(?!size)"),
+        compile(r"\Atest_lstat_.*\Z")
+        ]
+
+name = basename(argv[1])
+exit(1 if 0 < len([ex for ex in excludes if ex.match(name) is not None]) else 0)
+
+# vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4

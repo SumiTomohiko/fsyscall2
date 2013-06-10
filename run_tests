@@ -72,12 +72,17 @@ arch=$(uname -p)
 rm -rf "${tmp_dir}" || exit 1
 mkdir -p "${tmp_dir}" || exit 1
 
+filter="/usr/bin/true"
+tester_opts=""
 if [ "$1" = "--java" ]; then
 	tester_opts="--java"
 	shift
-else
-	tester_opts=""
 fi
+if [ "$1" = "--filter" ]; then
+	filter="$2"
+	shift 2
+fi
+
 if [ $# -eq 0 ]; then
 	tests=$(find "${tests_dir}" -name "test_*" | sort)
 else
@@ -89,6 +94,12 @@ summary=""
 for t in ${tests}
 do
 	show_title "=" "${t}"
+
+	"${filter}" "${t}"
+	if [ $? != 0 ]; then
+		print_result "${t}" "SKIP"
+		continue
+	fi
 
 	unset args cmd expected_status expected_stdout status unexpected_status
 	unset -f test_status
