@@ -26,6 +26,25 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
 public class Slave extends Worker {
 
+    private abstract static interface SelectPred {
+
+        public boolean isReady(UnixFile file) throws UnixException;
+    }
+
+    private static class WriteSelectPred implements SelectPred {
+
+        public boolean isReady(UnixFile file) throws UnixException {
+            return file.isReadyToWrite();
+        }
+    }
+
+    private static class ReadSelectPred implements SelectPred {
+
+        public boolean isReady(UnixFile file) throws UnixException {
+            return file.isReadyToRead();
+        }
+    }
+
     private static interface TimeoutDetector {
 
         public boolean isTimeout(long usec);
@@ -568,48 +587,23 @@ public class Slave extends Worker {
         Collection<Integer> exReady = new HashSet<Integer>();
         long usecTime = 0;
         int nReadyFds = 0;
+        SelectPred readPred = new ReadSelectPred();
+        SelectPred writePred = new WriteSelectPred();
         while (!timeoutDetector.isTimeout(usecTime) && (nReadyFds == 0)) {
             inReady.clear();
             ouReady.clear();
             exReady.clear();
 
-            for (Integer fd: in) {
-                UnixFile file = getFile(fd.intValue());
-                if (file == null) {
-                    result.retval = -1;
-                    result.errno = Errno.EBADF;
-                    return result;
-                }
-                try {
-                    if (file.isReadyToRead()) {
-                        inReady.add(fd);
-                    }
-                }
-                catch (UnixException e) {
-                    result.retval = -1;
-                    result.errno = e.getErrno();
-                    return result;
-                }
+            try {
+                selectFds(inReady, in, readPred);
+                selectFds(ouReady, ou, writePred);
+                // TODO: Perform for ex (But how?).
             }
-            for (Integer fd: ou) {
-                UnixFile file = getFile(fd.intValue());
-                if (file == null) {
-                    result.retval = -1;
-                    result.errno = Errno.EBADF;
-                    return result;
-                }
-                try {
-                    if (file.isReadyToWrite()) {
-                        ouReady.add(fd);
-                    }
-                }
-                catch (UnixException e) {
-                    result.retval = -1;
-                    result.errno = e.getErrno();
-                    return result;
-                }
+            catch (UnixException e) {
+                result.retval = -1;
+                result.errno = e.getErrno();
+                return result;
             }
-            // TODO: Perform for ex (But how?).
 
             try {
                 Thread.sleep(usecInterval / 1000);
@@ -733,6 +727,23 @@ public class Slave extends Worker {
         }
         catch (IndexOutOfBoundsException _) {
             return null;
+        }
+    }
+
+    private UnixFile getValidFile(int fd) throws UnixException {
+        UnixFile file = getFile(fd);
+        if (file == null) {
+            throw new UnixException(Errno.EBADF);
+        }
+        return file;
+    }
+
+    private void selectFds(Collection<Integer> dest, Collection<Integer> src, SelectPred pred) throws UnixException {
+        for (Integer fd: src) {
+            UnixFile file = getValidFile(fd.intValue());
+            if (pred.isReady(file)) {
+                dest.add(fd);
+            }
         }
     }
 
