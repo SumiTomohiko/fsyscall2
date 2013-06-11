@@ -196,7 +196,7 @@ def build_proc_of_writing_result(syscalls):
             continue
 
         name = drop_prefix(syscall.name)
-        if name in ["stat"]:
+        if name in ["fstat", "stat"]:
             d = {
                     "name": name.capitalize(),
                     "out": syscall.output_args[0].name }

@@ -102,6 +102,7 @@ public class Slave extends Worker {
         public int write(byte[] buffer) throws UnixException;
         public void close() throws UnixException;
         public long lseek(long offset, int whence) throws UnixException;
+        public Unix.Stat fstat() throws UnixException;
     }
 
     private abstract static class UnixRandomAccessFile implements UnixFile {
@@ -125,6 +126,19 @@ public class Slave extends Worker {
         public abstract int read(byte[] buffer) throws UnixException;
         public abstract long pread(byte[] buffer, long offset) throws UnixException;
         public abstract int write(byte[] buffer) throws UnixException;
+
+        public Unix.Stat fstat() throws UnixException {
+            Unix.Stat st = new Unix.Stat();
+
+            try {
+                st.st_size = mFile.length();
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+
+            return st;
+        }
 
         public void close() throws UnixException {
             try {
@@ -270,6 +284,10 @@ public class Slave extends Worker {
         public abstract void close() throws UnixException;
 
         public long lseek(long offset, int whence) throws UnixException {
+            throw new UnixException(Errno.ESPIPE);
+        }
+
+        public Unix.Stat fstat() throws UnixException {
             throw new UnixException(Errno.ESPIPE);
         }
     }
@@ -535,7 +553,26 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Fstat doFstat(int fd) throws IOException {
-        return null;
+        SyscallResult.Fstat result = new SyscallResult.Fstat();
+
+        UnixFile file = getFile(fd);
+        if (file == null) {
+            result.retval = -1;
+            result.errno = Errno.EBADF;
+            return result;
+        }
+
+        try {
+            result.sb = file.fstat();
+        }
+        catch (UnixException e) {
+            result.retval = -1;
+            result.errno = e.getErrno();
+            return result;
+        }
+
+        result.retval = 0;
+        return result;
     }
 
     public SyscallResult.Stat doStat(String path) throws IOException {
