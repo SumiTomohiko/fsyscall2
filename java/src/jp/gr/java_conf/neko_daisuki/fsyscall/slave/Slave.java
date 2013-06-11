@@ -711,7 +711,10 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Generic32 doLink(String path1, String path2) throws IOException {
-        return null;
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+        result.retval = -1;
+        result.errno = Errno.ENOSYS;
+        return result;
     }
 
     public SyscallResult.Generic32 doClose(int fd) throws IOException {
