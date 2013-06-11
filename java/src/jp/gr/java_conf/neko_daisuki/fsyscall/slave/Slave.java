@@ -548,8 +548,21 @@ public class Slave extends Worker {
         return result;
     }
 
+    /**
+     * Runs lstat(2). This lstat(2) behaves as same as stat(2) (This
+     * implementation does not return the infomation of the link itself).
+     * Because Java 1.6 does not handle symbolic links (Java 1.7 can do with the
+     * java.nio.files package).
+     */
     public SyscallResult.Lstat doLstat(String path) throws IOException {
-        return null;
+        SyscallResult.Lstat result = new SyscallResult.Lstat();
+
+        SyscallResult.Stat statResult = doStat(path);
+        result.retval = statResult.retval;
+        result.errno = statResult.errno;
+        result.ub = statResult.ub;
+
+        return result;
     }
 
     public SyscallResult.Fstat doFstat(int fd) throws IOException {

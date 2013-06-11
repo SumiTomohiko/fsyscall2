@@ -5,8 +5,7 @@ from re import compile
 from sys import argv, exit
 
 excludes = [
-        compile(r"\Atest_f?stat_(?!size)"),
-        compile(r"\Atest_lstat_.*\Z")
+        compile(r"\Atest_[fl]?stat_(?!size)")
         ]
 
 name = basename(argv[1])
