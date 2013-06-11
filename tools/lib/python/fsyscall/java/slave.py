@@ -195,13 +195,33 @@ def build_proc_of_writing_result(syscalls):
         if rettype in ["Generic32", "Generic64"]:
             continue
 
-        # XXX: Temporary escaping
-        if drop_prefix(syscall.name) not in ["pread", "read"]:
-            stmts.append("private void writeResult(SyscallResult.{rettype} _) throws IOException {{}}".format(**locals()))
+        name = drop_prefix(syscall.name)
+        if name in ["stat"]:
+            d = {
+                    "name": name.capitalize(),
+                    "out": syscall.output_args[0].name }
+            stmts.append("""private void writeResult(Command command, SyscallResult.{name} result) throws IOException {{
+        if (result.retval == -1) {{
+            SyscallResult.Generic32 e = new SyscallResult.Generic32();
+            e.retval = result.retval;
+            e.errno = result.errno;
+            writeResult(command, e);
+            return;
+        }}
+
+        Payload payload = new Payload();
+        payload.add(result.retval);
+        payload.add(result.{out});
+
+        mOut.write(command);
+        mOut.write(payload.size());
+        mOut.write(payload.toArray());
+    }}""".format(**d))
             continue
 
-        d = { "rettype": rettype }
-        stmts.append("""private void writeResult(Command command, SyscallResult.{rettype} result) throws IOException {{
+        if name in ["pread", "read"]:
+            d = { "rettype": rettype }
+            stmts.append("""private void writeResult(Command command, SyscallResult.{rettype} result) throws IOException {{
         byte[] retval = Encoder.encodeLong(result.retval);
         if (result.retval == -1) {{
             byte[] errno = Encoder.encode(result.errno);
@@ -216,6 +236,10 @@ def build_proc_of_writing_result(syscalls):
         mOut.write(retval);
         mOut.write(result.buf);
     }}""".format(**d))
+            continue
+
+        # XXX: Temporary escaping
+        stmts.append("private void writeResult(SyscallResult.{rettype} _) throws IOException {{}}".format(**locals()))
 
     return "\n\n    ".join(stmts)
 

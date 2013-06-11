@@ -1,5 +1,6 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -538,7 +539,21 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Stat doStat(String path) throws IOException {
-        return null;
+        SyscallResult.Stat result = new SyscallResult.Stat();
+        Unix.Stat stat = new Unix.Stat();
+
+        try {
+            stat.st_size = new File(path).length();
+        }
+        catch (SecurityException e) {
+            result.retval = -1;
+            result.errno = Errno.EPERM;
+            return result;
+        }
+
+        result.retval = 0;
+        result.ub = stat;
+        return result;
     }
 
     public SyscallResult.Generic32 doWritev(int fd, Unix.IoVec[] iovec) throws IOException {

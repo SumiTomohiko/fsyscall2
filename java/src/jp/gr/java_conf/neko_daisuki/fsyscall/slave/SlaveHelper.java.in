@@ -35,6 +35,26 @@ public class SlaveHelper {
             mData.add(Encoder.encodeInteger(n));
         }
 
+        public void add(long n) {
+            mData.add(Encoder.encodeLong(n));
+        }
+
+        public void add(Unix.Stat st) {
+            add(st.st_dev);
+            add(st.st_ino);
+            add(st.st_mode);
+            add(st.st_nlink);
+            add(st.st_uid);
+            add(st.st_gid);
+            add(st.st_rdev);
+            add(st.st_size);
+            add(st.st_blocks);
+            add(st.st_blksize);
+            add(st.st_flags);
+            add(st.st_gen);
+            add(st.st_lspare);
+        }
+
         public void add(Collection<Integer> fds) {
             add(fds.size());
             for (Integer fd: fds) {
