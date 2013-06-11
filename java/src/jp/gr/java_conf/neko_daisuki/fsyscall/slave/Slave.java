@@ -694,8 +694,16 @@ public class Slave extends Worker {
         return result;
     }
 
+    /**
+     * readlink(2) implementation. This returns always EINVAL. Because Java 1.6
+     * cannot handle symbolic links.
+     */
     public SyscallResult.Readlink doReadlink(String path, long count) throws IOException {
-        return null;
+        SyscallResult.Readlink result = new SyscallResult.Readlink();
+        result.retval = -1;
+        result.errno = Errno.EINVAL;
+
+        return result;
     }
 
     public SyscallResult.Generic32 doAccess(String path, int flags) throws IOException {

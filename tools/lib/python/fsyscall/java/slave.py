@@ -196,6 +196,16 @@ def build_proc_of_writing_result(syscalls):
             continue
 
         name = drop_prefix(syscall.name)
+        if name == "readlink":
+            d = { "name": name.capitalize() }
+            stmts.append("""private void writeResult(Command command, SyscallResult.{name} result) throws IOException {{
+        SyscallResult.Generic64 e = new SyscallResult.Generic64();
+        e.retval = result.retval;
+        e.errno = result.errno;
+        writeResult(command, e);
+    }}""".format(**d))
+            continue
+
         if name in ["fstat", "lstat", "stat"]:
             d = {
                     "name": name.capitalize(),
