@@ -706,8 +706,13 @@ public class Slave extends Worker {
         return result;
     }
 
+    /**
+     * The dummy implementation of access(2). This always returns zero.
+     */
     public SyscallResult.Generic32 doAccess(String path, int flags) throws IOException {
-        return null;
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+        result.retval = 0;
+        return result;
     }
 
     public SyscallResult.Generic32 doLink(String path1, String path2) throws IOException {
