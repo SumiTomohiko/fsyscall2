@@ -9,6 +9,7 @@ import java.util.List;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
@@ -39,6 +40,10 @@ public class SlaveHelper {
             mData.add(Encoder.encodeLong(n));
         }
 
+        public void add(Errno e) {
+            mData.add(Encoder.encodeInteger(e.toInteger()));
+        }
+
         public void add(Unix.Stat st) {
             add(st.st_dev);
             add(st.st_ino);
@@ -60,6 +65,10 @@ public class SlaveHelper {
             for (Integer fd: fds) {
                 add(fd.intValue());
             }
+        }
+
+        public void add(byte[] buffer) {
+            mData.add(buffer);
         }
 
         public byte[] toArray() {
@@ -174,36 +183,55 @@ public class SlaveHelper {
         return dispatcher;
     }
 
-    private void writeResult(Command command, SyscallResult.Generic64 result) throws IOException {
-        byte[] returnedValue = Encoder.encodeLong(result.retval);
-        byte[] errno = result.retval != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
+    private void writePayload(Command command, Payload payload) throws IOException {
+        mOut.write(command);
+        mOut.write(payload.size());
+        mOut.write(payload.toArray());
+    }
 
-        writeResult(command, returnedValue, errno);
+    private void writeError(Command command, SyscallResult.Generic32 result) throws IOException {
+        Payload payload = new Payload();
+        payload.add(result.retval);
+        payload.add(result.errno);
+
+        writePayload(command, payload);
+    }
+
+    private void writeError(Command command, SyscallResult.Generic64 result) throws IOException {
+        Payload payload = new Payload();
+        payload.add(result.retval);
+        payload.add(result.errno);
+
+        writePayload(command, payload);
+    }
+
+    private void writeResult(Command command, SyscallResult.Generic64 result) throws IOException {
+        if (result.retval == -1) {
+            writeError(command, result);
+            return;
+        }
+
+        Payload payload = new Payload();
+        payload.add(result.retval);
+
+        writePayload(command, payload);
     }
 
     private void writeResult(Command command, SyscallResult.Generic32 result) throws IOException {
-        byte[] returnedValue = Encoder.encodeInteger(result.retval);
-        byte[] errno = result.retval != -1 ? new byte[0] : Encoder.encodeInteger(result.errno.toInteger());
+        if (result.retval == -1) {
+            writeError(command, result);
+            return;
+        }
 
-        writeResult(command, returnedValue, errno);
-    }
+        Payload payload = new Payload();
+        payload.add(result.retval);
 
-    private void writeResult(Command command, byte[] returnedValue, byte[] errno) throws IOException {
-        int len = returnedValue.length + errno.length;
-        PayloadSize payloadSize = PayloadSize.fromInteger(len);
-
-        mOut.write(command);
-        mOut.write(payloadSize);
-        mOut.write(returnedValue);
-        mOut.write(errno);
+        writePayload(command, payload);
     }
 
     private void writeResult(Command command, SyscallResult.Select result) throws IOException {
         if (result.retval == -1) {
-            SyscallResult.Generic32 e = new SyscallResult.Generic32();
-            e.retval = result.retval;
-            e.errno = result.errno;
-            writeResult(command, e);
+            writeError(command, result);
             return;
         }
 
@@ -215,9 +243,7 @@ public class SlaveHelper {
             payload.add(result.ex);
         }
 
-        mOut.write(command);
-        mOut.write(payload.size());
-        mOut.write(payload.toArray());
+        writePayload(command, payload);
     }
 
     @WRITE_RESULT@

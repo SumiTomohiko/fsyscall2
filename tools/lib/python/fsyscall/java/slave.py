@@ -199,10 +199,7 @@ def build_proc_of_writing_result(syscalls):
         if name == "readlink":
             d = { "name": name.capitalize() }
             stmts.append("""private void writeResult(Command command, SyscallResult.{name} result) throws IOException {{
-        SyscallResult.Generic64 e = new SyscallResult.Generic64();
-        e.retval = result.retval;
-        e.errno = result.errno;
-        writeResult(command, e);
+        writeError(command, result);
     }}""".format(**d))
             continue
 
@@ -212,10 +209,7 @@ def build_proc_of_writing_result(syscalls):
                     "out": syscall.output_args[0].name }
             stmts.append("""private void writeResult(Command command, SyscallResult.{name} result) throws IOException {{
         if (result.retval == -1) {{
-            SyscallResult.Generic32 e = new SyscallResult.Generic32();
-            e.retval = result.retval;
-            e.errno = result.errno;
-            writeResult(command, e);
+            writeError(command, result);
             return;
         }}
 
@@ -223,28 +217,23 @@ def build_proc_of_writing_result(syscalls):
         payload.add(result.retval);
         payload.add(result.{out});
 
-        mOut.write(command);
-        mOut.write(payload.size());
-        mOut.write(payload.toArray());
+        writePayload(command, payload);
     }}""".format(**d))
             continue
 
         if name in ["pread", "read"]:
             d = { "rettype": rettype }
             stmts.append("""private void writeResult(Command command, SyscallResult.{rettype} result) throws IOException {{
-        byte[] retval = Encoder.encodeLong(result.retval);
         if (result.retval == -1) {{
-            byte[] errno = Encoder.encode(result.errno);
-            writeResult(command, retval, errno);
+            writeError(command, result);
             return;
         }}
 
-        int len = retval.length + result.buf.length;
-        PayloadSize payloadSize = PayloadSize.fromInteger(len);
-        mOut.write(command);
-        mOut.write(payloadSize);
-        mOut.write(retval);
-        mOut.write(result.buf);
+        Payload payload = new Payload();
+        payload.add(result.retval);
+        payload.add(result.buf);
+
+        writePayload(command, payload);
     }}""".format(**d))
             continue
 
