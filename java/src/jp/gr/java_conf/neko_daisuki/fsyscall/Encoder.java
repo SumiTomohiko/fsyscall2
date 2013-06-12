@@ -12,7 +12,7 @@ public class Encoder {
         byte[] buffer = new byte[64 / 7 + 1];
         long m = n;
         int pos = 0;
-        while (0 < m) {
+        while (m != 0) {
             long l = m >>> 7;
             buffer[pos] = (byte)((m & 0x7f) + (0 < l ? 0x80 : 0));
 
@@ -31,7 +31,7 @@ public class Encoder {
         byte[] buffer = new byte[32 / 7 + 1];
         int m = n;
         int pos = 0;
-        while (0 < m) {
+        while (m != 0) {
             int l = m >>> 7;
             buffer[pos] = (byte)((m & 0x7f) + (0 < l ? 0x80 : 0));
 
