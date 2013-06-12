@@ -6,7 +6,8 @@ from sys import argv, exit
 
 excludes = [
         compile(r"\Atest_[fl]?stat_(?!size)"),
-        compile(r"\Atest_readlink\Z")
+        compile(r"\Atest_readlink\Z"),
+        compile(r"\Atest_access2\Z")
         ]
 
 name = basename(argv[1])
