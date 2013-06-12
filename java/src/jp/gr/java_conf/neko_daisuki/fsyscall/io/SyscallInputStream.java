@@ -52,7 +52,7 @@ public class SyscallInputStream {
         int n = 0;
         int shift = 0;
         int m;
-        while (((m = mIn.read()) & 0x80) != 0) {
+        while (((m = readByte()) & 0x80) != 0) {
             n += ((m & 0x7f) << shift);
             shift += 7;
         }
@@ -63,7 +63,7 @@ public class SyscallInputStream {
         long n = 0;
         int shift = 0;
         int m;
-        while (((m = mIn.read()) & 0x80) != 0) {
+        while (((m = readByte()) & 0x80) != 0) {
             n += ((m & 0x7f) << shift);
             shift += 7;
         }
@@ -75,7 +75,11 @@ public class SyscallInputStream {
     }
 
     public byte readByte() throws IOException {
-        return (byte)mIn.read();
+        int n = mIn.read();
+        if ((n < 0) || (255 < n)) {
+            throw new IOException("disconnected unexpectedly");
+        }
+        return (byte)n;
     }
 
     public Pid readPid() throws IOException {
