@@ -20,6 +20,24 @@ public class Logging {
         public abstract void err(String message);
     }
 
+    private static class NullDestination extends Destination {
+
+        public void verbose(String message) {
+        }
+
+        public void debug(String message) {
+        }
+
+        public void info(String message) {
+        }
+
+        public void warn(String message) {
+        }
+
+        public void err(String message) {
+        }
+    }
+
     private static class FileDestination extends Destination {
 
         private PrintWriter mWriter;
@@ -97,6 +115,10 @@ public class Logging {
     }
 
     private Logging() {
+    }
+
+    static {
+        mDestination = new NullDestination();
     }
 }
 
