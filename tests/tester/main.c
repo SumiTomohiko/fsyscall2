@@ -43,7 +43,7 @@ start_java_slave(int rfd, int wfd, int _, char *__[])
 	snprintf(wbuf, sizeof(wbuf), "%d", wfd);
 	argv[0] = "java";
 	argv[1] = "-classpath";
-	argv[2] = "java/bin/fsyscall.slave.jar";
+	argv[2] = "java/bin/fsyscall-slave.jar";
 	argv[3] = "jp.gr.java_conf.neko_daisuki.fsyscall.slave.Application";
 	argv[4] = rbuf;
 	argv[5] = wbuf;

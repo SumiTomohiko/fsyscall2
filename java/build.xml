@@ -4,7 +4,7 @@
     <property name="destdir" value="${bindir}/classes"/>
 
     <target name="jar" depends="compile">
-        <jar basedir="${destdir}" destfile="${bindir}/fsyscall.slave.jar"/>
+        <jar basedir="${destdir}" destfile="${bindir}/fsyscall-slave.jar"/>
     </target>
 
     <target name="compile" depends="generate-source">
