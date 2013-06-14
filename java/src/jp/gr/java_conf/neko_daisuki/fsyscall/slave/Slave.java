@@ -398,7 +398,7 @@ public class Slave extends Worker {
 
     private SlaveHelper mHelper;
 
-    public Slave(Application application, InputStream in, OutputStream out) throws IOException {
+    public Slave(Application application, InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr) throws IOException {
         mLogger.info("a slave is starting.");
 
         mApplication = application;
@@ -407,9 +407,9 @@ public class Slave extends Worker {
         mHelper = new SlaveHelper(this, mIn, mOut);
 
         mFiles = new UnixFile[UNIX_FILE_NUM];
-        mFiles[0] = new UnixInputStream(System.in);
-        mFiles[1] = new UnixOutputStream(System.out);
-        mFiles[2] = new UnixOutputStream(System.err);
+        mFiles[0] = new UnixInputStream(stdin);
+        mFiles[1] = new UnixOutputStream(stdout);
+        mFiles[2] = new UnixOutputStream(stderr);
 
         writeOpenedFileDescriptors();
         mLogger.info("file descripters were transfered from the slave.");
