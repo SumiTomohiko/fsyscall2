@@ -146,7 +146,6 @@ public class Application {
             e.printStackTrace();
             System.exit(1);
         }
-        mLogger = new Logging.Logger("Application");
 
         int rfd, wfd;
         try {
@@ -187,6 +186,10 @@ public class Application {
             exitStatus = 1;
         }
         System.exit(exitStatus);
+    }
+
+    static {
+        mLogger = new Logging.Logger("Application");
     }
 }
 
