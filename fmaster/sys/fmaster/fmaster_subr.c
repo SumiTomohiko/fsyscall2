@@ -1,7 +1,7 @@
 #include <sys/cdefs.h>
-#include <sys/param.h>
 #include <sys/errno.h>
 #include <sys/limits.h>
+#include <sys/param.h>
 #include <sys/proc.h>
 #include <sys/syscallsubr.h>
 #include <sys/syslog.h>
