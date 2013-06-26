@@ -140,13 +140,16 @@ public class Application {
      * do not know if the same way is usable on other platforms.
      */
     public static void main(String[] args) {
+        Logging.Destination destination;
         try {
-            Logging.initialize();
+            destination = new Logging.FileDestination("fsyscall.log");
         }
         catch (IOException e) {
             e.printStackTrace();
             System.exit(1);
+            return; // This is needed to avoid the unreachable warning.
         }
+        Logging.setDestination(destination);
 
         int rfd, wfd;
         try {

@@ -110,15 +110,15 @@ public class Logging {
 
     private static Destination mDestination;
 
-    public static void initialize() throws IOException {
-        mDestination = new FileDestination("fsyscall.log");
+    public static void setDestination(Destination destination) {
+        mDestination = destination;
     }
 
     private Logging() {
     }
 
     static {
-        mDestination = new NullDestination();
+        setDestination(new NullDestination());
     }
 }
 
