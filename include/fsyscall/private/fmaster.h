@@ -76,6 +76,8 @@ int	fmaster_execute_return_generic32(struct thread *, command_t);
 int	fmaster_execute_return_generic64(struct thread *, command_t);
 int	fmaster_return_fd(struct thread *, enum fmaster_fd_type, int);
 
+int	fmaster_is_master_file(struct thread *, const char *);
+
 #define	LOG(td, pri, fmt, ...)	do {				\
 	const char *__fmt__ = "fmaster[%d]: " fmt "\n";		\
 	log((pri), __fmt__, (td)->td_proc->p_pid, __VA_ARGS__);	\

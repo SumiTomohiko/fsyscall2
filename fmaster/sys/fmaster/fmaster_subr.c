@@ -14,6 +14,22 @@
 #include <fsyscall/private/fmaster.h>
 
 int
+fmaster_is_master_file(struct thread *td, const char *path)
+{
+	int i;
+	const char *dirs[] = { "/lib/", "/usr/lib/", "/usr/local/lib/" };
+	const char *s;
+
+	for (i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++) {
+		s = dirs[i];
+		if (strncmp(path, s, strlen(s)) == 0)
+			return (1);
+	}
+
+	return (strcmp(path, "/var/run/ld-elf.so.hints") == 0 ? 1 : 0);
+}
+
+int
 fmaster_read(struct thread *td, int d, void *buf, size_t nbytes)
 {
 	struct uio auio;

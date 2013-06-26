@@ -24,11 +24,7 @@ int
 fmaster_open_pre_execute(struct thread *td, struct fmaster_open_args *uap, int *error)
 {
 
-	if (strstr(uap->path, "/lib") != NULL) {
-		*error = open_master(td, uap);
-		return (0);
-	}
-	if (strcmp(uap->path, "/var/run/ld-elf.so.hints") == 0) {
+	if (fmaster_is_master_file(td, uap->path)) {
 		*error = open_master(td, uap);
 		return (0);
 	}
