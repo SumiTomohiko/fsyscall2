@@ -426,6 +426,9 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Generic32 doOpen(String path, int flags, int mode) throws IOException {
+        String fmt = "doOpen(path=%s, flags=%d, mode=%d)";
+        mLogger.info(String.format(fmt, path, flags, mode));
+
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         int fd = findFreeSlotOfFile();
@@ -464,6 +467,8 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Read doRead(int fd, long nbytes) throws IOException {
+        mLogger.info(String.format("doRead(fd=%d, nbytes=%d)", fd, nbytes));
+
         SyscallResult.Read result = new SyscallResult.Read();
 
         UnixFile file = getFile(fd);
@@ -492,6 +497,9 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Generic64 doLseek(int fd, long offset, int whence) throws IOException {
+        String fmt = "doLseek(fd=%d, offset=%d, whence=%d)";
+        mLogger.info(String.format(fmt, fd, offset, whence));
+
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
         UnixFile file = getFile(fd);
@@ -516,6 +524,9 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Pread doPread(int fd, long nbyte, long offset) throws IOException {
+        String fmt = "doPread(fd=%d, nbyte=%d, offset=%d)";
+        mLogger.info(String.format(fmt, fd, nbyte, offset));
+
         SyscallResult.Pread result = new SyscallResult.Pread();
 
         UnixFile file = getFile(fd);
@@ -543,6 +554,8 @@ public class Slave extends Worker {
      * System call handler for issetugid(2). This always returns zero.
      */
     public SyscallResult.Generic32 doIssetugid() throws IOException {
+        mLogger.info("doIssetugid()");
+
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
         result.retval = 0;
         return result;
@@ -555,6 +568,8 @@ public class Slave extends Worker {
      * java.nio.files package).
      */
     public SyscallResult.Lstat doLstat(String path) throws IOException {
+        mLogger.info(String.format("doLstat(path=%s)", path));
+
         SyscallResult.Lstat result = new SyscallResult.Lstat();
 
         SyscallResult.Stat statResult = doStat(path);
@@ -566,6 +581,8 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Fstat doFstat(int fd) throws IOException {
+        mLogger.info(String.format("doFstat(fd=%d)", fd));
+
         SyscallResult.Fstat result = new SyscallResult.Fstat();
 
         UnixFile file = getFile(fd);
@@ -589,6 +606,8 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Stat doStat(String path) throws IOException {
+        mLogger.info(String.format("doStat(path=%s)", path));
+
         SyscallResult.Stat result = new SyscallResult.Stat();
         Unix.Stat stat = new Unix.Stat();
 
@@ -607,6 +626,8 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Generic32 doWritev(int fd, Unix.IoVec[] iovec) throws IOException {
+        mLogger.info(String.format("doWritev(fd=%d, iovec)", fd));
+
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         UnixFile file = getFile(fd);
@@ -641,6 +662,9 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Select doSelect(int nfds, Collection<Integer> in, Collection<Integer> ou, Collection<Integer> ex, Unix.TimeVal timeout) throws IOException {
+        String fmt = "doSelect(nfds=%d, in, ou, ex, timeout)";
+        mLogger.info(String.format(fmt, nfds));
+
         SyscallResult.Select result = new SyscallResult.Select();
 
         TimeoutDetector timeoutDetector = timeout != null ? new TrueTimeoutDetector(timeout) : new FakeTimeoutDetector();
@@ -699,6 +723,9 @@ public class Slave extends Worker {
      * cannot handle symbolic links.
      */
     public SyscallResult.Readlink doReadlink(String path, long count) throws IOException {
+        String fmt = "doReadlink(path=%s, count=%d)";
+        mLogger.info(String.format(fmt, path, count));
+
         SyscallResult.Readlink result = new SyscallResult.Readlink();
         result.retval = -1;
         result.errno = Errno.EINVAL;
@@ -719,6 +746,8 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Generic32 doLink(String path1, String path2) throws IOException {
+        mLogger.info(String.format("doLink(path1=%s, path2=%s)", path1, path2));
+
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
         result.retval = -1;
         result.errno = Errno.ENOSYS;
@@ -726,6 +755,8 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Generic32 doClose(int fd) throws IOException {
+        mLogger.info(String.format("doClose(fd=%d)", fd));
+
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         UnixFile file = getFile(fd);
@@ -774,6 +805,8 @@ public class Slave extends Worker {
     }
 
     public void doExit(int rval) throws IOException {
+        mLogger.info(String.format("doExit(rval=%d)", rval));
+
         mIn.close();
         mOut.close();
         mApplication.removeSlave(this);
