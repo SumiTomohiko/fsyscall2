@@ -710,6 +710,9 @@ public class Slave extends Worker {
      * The dummy implementation of access(2). This always returns zero.
      */
     public SyscallResult.Generic32 doAccess(String path, int flags) throws IOException {
+        String fmt = "doAccess(path=%s, flags=0x%02x)";
+        mLogger.info(String.format(fmt, path, flags));
+
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
         result.retval = 0;
         return result;
