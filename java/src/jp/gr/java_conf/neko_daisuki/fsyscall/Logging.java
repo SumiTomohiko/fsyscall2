@@ -11,7 +11,7 @@ import java.util.Date;
 
 public class Logging {
 
-    private abstract static class Destination {
+    public interface Destination {
 
         public abstract void verbose(String message);
         public abstract void debug(String message);
@@ -20,7 +20,7 @@ public class Logging {
         public abstract void err(String message);
     }
 
-    private static class NullDestination extends Destination {
+    private static class NullDestination implements Destination {
 
         public void verbose(String message) {
         }
@@ -38,7 +38,7 @@ public class Logging {
         }
     }
 
-    private static class FileDestination extends Destination {
+    public static class FileDestination implements Destination {
 
         private PrintWriter mWriter;
         private DateFormat mDateFormatter;
