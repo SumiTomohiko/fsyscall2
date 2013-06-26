@@ -13,11 +13,11 @@ public class Logging {
 
     public interface Destination {
 
-        public abstract void verbose(String message);
-        public abstract void debug(String message);
-        public abstract void info(String message);
-        public abstract void warn(String message);
-        public abstract void err(String message);
+        public void verbose(String message);
+        public void debug(String message);
+        public void info(String message);
+        public void warn(String message);
+        public void err(String message);
     }
 
     private static class NullDestination implements Destination {
