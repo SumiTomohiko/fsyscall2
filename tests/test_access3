@@ -1,0 +1,4 @@
+
+cmd="access/access"
+args="/lib/libc.so.7 0"
+expected_status="0"
