@@ -563,7 +563,7 @@ public class Slave extends Worker {
 
     /**
      * Runs lstat(2). This lstat(2) behaves as same as stat(2) (This
-     * implementation does not return the infomation of the link itself).
+     * implementation does not return the information of the link itself).
      * Because Java 1.6 does not handle symbolic links (Java 1.7 can do with the
      * java.nio.files package).
      */
