@@ -13,7 +13,8 @@ public class SyscallInputStream {
 
     private enum Status {
         OPEN,
-        CLOSED };
+        CLOSED
+    };
 
     private static Logging.Logger mLogger;
 
