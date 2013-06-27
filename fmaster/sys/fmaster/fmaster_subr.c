@@ -17,8 +17,7 @@ int
 fmaster_is_master_file(struct thread *td, const char *path)
 {
 	int i;
-	const char *dirs[] = { "/lib/", "/usr/lib/", "/usr/local/lib/" };
-	const char *s;
+	const char *dirs[] = { "/lib/", "/usr/lib/", "/usr/local/lib/" }, *s;
 
 	for (i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++) {
 		s = dirs[i];
