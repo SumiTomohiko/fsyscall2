@@ -206,18 +206,18 @@ public class SlaveHelper {
     }
 
     private void writeResult(Command command, SyscallResult.Generic64 result) throws IOException {
-        String logHead = "writeResult (Generic64)";
+        String logHead = "result (generic64)";
 
         long retval = result.retval;
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.debug(String.format(fmt, logHead, retval, result.errno));
+            mLogger.info(String.format(fmt, logHead, retval, result.errno));
 
             writeError(command, result);
             return;
         }
 
-        mLogger.debug(String.format("%s: retval=%d", logHead, retval));
+        mLogger.info(String.format("%s: retval=%d", logHead, retval));
 
         Payload payload = new Payload();
         payload.add(retval);
@@ -226,18 +226,18 @@ public class SlaveHelper {
     }
 
     private void writeResult(Command command, SyscallResult.Generic32 result) throws IOException {
-        String logHead = "writeResult (Generic32)";
+        String logHead = "result (generic32)";
 
         int retval = result.retval;
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.debug(String.format(fmt, logHead, retval, result.errno));
+            mLogger.info(String.format(fmt, logHead, retval, result.errno));
 
             writeError(command, result);
             return;
         }
 
-        mLogger.debug(String.format("%s: retval=%d", logHead, retval));
+        mLogger.info(String.format("%s: retval=%d", logHead, retval));
 
         Payload payload = new Payload();
         payload.add(retval);
@@ -246,18 +246,18 @@ public class SlaveHelper {
     }
 
     private void writeResult(Command command, SyscallResult.Select result) throws IOException {
-        String logHead = "writeResult (Select)";
+        String logHead = "result (select)";
 
         int retval = result.retval;
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.debug(String.format(fmt, logHead, retval, result.errno));
+            mLogger.info(String.format(fmt, logHead, retval, result.errno));
 
             writeError(command, result);
             return;
         }
 
-        mLogger.debug(String.format("%s: retval=%d", logHead, retval));
+        mLogger.info(String.format("%s: retval=%d", logHead, retval));
 
         Payload payload = new Payload();
         payload.add(retval);

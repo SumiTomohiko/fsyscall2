@@ -197,10 +197,10 @@ def build_proc_of_writing_result(syscalls):
 
         name = drop_prefix(syscall.name)
         if name == "readlink":
-            d = { "name": name.capitalize() }
+            d = { "annotation": name, "name": name.capitalize() }
             stmts.append("""private void writeResult(Command command, SyscallResult.{name} result) throws IOException {{
-        String fmt = \"writeResult ({name}): retval=%d, errno=%s\";
-        mLogger.debug(String.format(fmt, result.retval, result.errno));
+        String fmt = \"result ({annotation}): retval=%d, errno=%s\";
+        mLogger.info(String.format(fmt, result.retval, result.errno));
 
         writeError(command, result);
     }}""".format(**d))
@@ -208,21 +208,22 @@ def build_proc_of_writing_result(syscalls):
 
         if name in ["fstat", "lstat", "stat"]:
             d = {
+                    "annotation": name,
                     "name": name.capitalize(),
                     "out": syscall.output_args[0].name }
             stmts.append("""private void writeResult(Command command, SyscallResult.{name} result) throws IOException {{
-        String logHead = \"writeResult ({name})\";
+        String logHead = \"result ({annotation})\";
 
         if (result.retval == -1) {{
             String fmt = \"%s: retval=%d, errno=%s\";
             Errno errno = result.errno;
-            mLogger.debug(String.format(fmt, logHead, result.retval, errno));
+            mLogger.info(String.format(fmt, logHead, result.retval, errno));
 
             writeError(command, result);
             return;
         }}
 
-        mLogger.debug(String.format(\"%s: retval=%d\", logHead, result.retval));
+        mLogger.info(String.format(\"%s: retval=%d\", logHead, result.retval));
 
         Payload payload = new Payload();
         payload.add(result.retval);
@@ -233,20 +234,20 @@ def build_proc_of_writing_result(syscalls):
             continue
 
         if name in ["pread", "read"]:
-            d = { "rettype": rettype }
+            d = { "annotation": name, "rettype": rettype }
             stmts.append("""private void writeResult(Command command, SyscallResult.{rettype} result) throws IOException {{
-        String logHead = \"writeResult ({rettype})\";
+        String logHead = \"result ({annotation})\";
 
         if (result.retval == -1) {{
             String fmt = \"%s: retval=%d, errno=%s\";
             Errno errno = result.errno;
-            mLogger.debug(String.format(fmt, logHead, result.retval, errno));
+            mLogger.info(String.format(fmt, logHead, result.retval, errno));
 
             writeError(command, result);
             return;
         }}
 
-        mLogger.debug(String.format(\"%s: retval=%d\", logHead, result.retval));
+        mLogger.info(String.format(\"%s: retval=%d\", logHead, result.retval));
 
         Payload payload = new Payload();
         payload.add(result.retval);
