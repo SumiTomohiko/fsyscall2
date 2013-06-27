@@ -9,130 +9,347 @@ public class Errno {
      *     while (<>) {
      *         chomp;
      *         s/^#define\t+//;
-     *         s/\t*\/\*.*$//;
-     *         ($name, $value) = split /[ \t]+/;
-     *         printf "    public static final Errno %s = new Errno(%s);\n", $name, $value;
+     *         /(\w+)\s+([-\(\)\w]+)\s+\/\*\s+(.*) \*\//;
+     *         $name = $1;
+     *         $value = $2;
+     *         $message = $3;
+     *         $fmt = <<EOF;
+     *         public static final Errno %s = new Errno(
+     *                 \"%s\", %s,
+     *                 \"%s\");
+     *     EOF
+     *         printf $fmt, $name, $name, $value, $message;
      *     }
-     *     $ grep -w define /usr/include/errno.h | perl foo.pl
+     *     $ grep -w define /usr/include/errno.h | tail -n +3 | perl foo.pl
      */
-    public static final Errno EPERM = new Errno(1);
-    public static final Errno ENOENT = new Errno(2);
-    public static final Errno ESRCH = new Errno(3);
-    public static final Errno EINTR = new Errno(4);
-    public static final Errno EIO = new Errno(5);
-    public static final Errno ENXIO = new Errno(6);
-    public static final Errno E2BIG = new Errno(7);
-    public static final Errno ENOEXEC = new Errno(8);
-    public static final Errno EBADF = new Errno(9);
-    public static final Errno ECHILD = new Errno(10);
-    public static final Errno EDEADLK = new Errno(11);
-    public static final Errno ENOMEM = new Errno(12);
-    public static final Errno EACCES = new Errno(13);
-    public static final Errno EFAULT = new Errno(14);
-    public static final Errno ENOTBLK = new Errno(15);
-    public static final Errno EBUSY = new Errno(16);
-    public static final Errno EEXIST = new Errno(17);
-    public static final Errno EXDEV = new Errno(18);
-    public static final Errno ENODEV = new Errno(19);
-    public static final Errno ENOTDIR = new Errno(20);
-    public static final Errno EISDIR = new Errno(21);
-    public static final Errno EINVAL = new Errno(22);
-    public static final Errno ENFILE = new Errno(23);
-    public static final Errno EMFILE = new Errno(24);
-    public static final Errno ENOTTY = new Errno(25);
-    public static final Errno ETXTBSY = new Errno(26);
-    public static final Errno EFBIG = new Errno(27);
-    public static final Errno ENOSPC = new Errno(28);
-    public static final Errno ESPIPE = new Errno(29);
-    public static final Errno EROFS = new Errno(30);
-    public static final Errno EMLINK = new Errno(31);
-    public static final Errno EPIPE = new Errno(32);
-    public static final Errno EDOM = new Errno(33);
-    public static final Errno ERANGE = new Errno(34);
-    public static final Errno EAGAIN = new Errno(35);
-    public static final Errno EWOULDBLOCK = new Errno(EAGAIN);
-    public static final Errno EINPROGRESS = new Errno(36);
-    public static final Errno EALREADY = new Errno(37);
-    public static final Errno ENOTSOCK = new Errno(38);
-    public static final Errno EDESTADDRREQ = new Errno(39);
-    public static final Errno EMSGSIZE = new Errno(40);
-    public static final Errno EPROTOTYPE = new Errno(41);
-    public static final Errno ENOPROTOOPT = new Errno(42);
-    public static final Errno EPROTONOSUPPORT = new Errno(43);
-    public static final Errno ESOCKTNOSUPPORT = new Errno(44);
-    public static final Errno EOPNOTSUPP = new Errno(45);
-    public static final Errno ENOTSUP = new Errno(EOPNOTSUPP);
-    public static final Errno EPFNOSUPPORT = new Errno(46);
-    public static final Errno EAFNOSUPPORT = new Errno(47);
-    public static final Errno EADDRINUSE = new Errno(48);
-    public static final Errno EADDRNOTAVAIL = new Errno(49);
-    public static final Errno ENETDOWN = new Errno(50);
-    public static final Errno ENETUNREACH = new Errno(51);
-    public static final Errno ENETRESET = new Errno(52);
-    public static final Errno ECONNABORTED = new Errno(53);
-    public static final Errno ECONNRESET = new Errno(54);
-    public static final Errno ENOBUFS = new Errno(55);
-    public static final Errno EISCONN = new Errno(56);
-    public static final Errno ENOTCONN = new Errno(57);
-    public static final Errno ESHUTDOWN = new Errno(58);
-    public static final Errno ETOOMANYREFS = new Errno(59);
-    public static final Errno ETIMEDOUT = new Errno(60);
-    public static final Errno ECONNREFUSED = new Errno(61);
-    public static final Errno ELOOP = new Errno(62);
-    public static final Errno ENAMETOOLONG = new Errno(63);
-    public static final Errno EHOSTDOWN = new Errno(64);
-    public static final Errno EHOSTUNREACH = new Errno(65);
-    public static final Errno ENOTEMPTY = new Errno(66);
-    public static final Errno EPROCLIM = new Errno(67);
-    public static final Errno EUSERS = new Errno(68);
-    public static final Errno EDQUOT = new Errno(69);
-    public static final Errno ESTALE = new Errno(70);
-    public static final Errno EREMOTE = new Errno(71);
-    public static final Errno EBADRPC = new Errno(72);
-    public static final Errno ERPCMISMATCH = new Errno(73);
-    public static final Errno EPROGUNAVAIL = new Errno(74);
-    public static final Errno EPROGMISMATCH = new Errno(75);
-    public static final Errno EPROCUNAVAIL = new Errno(76);
-    public static final Errno ENOLCK = new Errno(77);
-    public static final Errno ENOSYS = new Errno(78);
-    public static final Errno EFTYPE = new Errno(79);
-    public static final Errno EAUTH = new Errno(80);
-    public static final Errno ENEEDAUTH = new Errno(81);
-    public static final Errno EIDRM = new Errno(82);
-    public static final Errno ENOMSG = new Errno(83);
-    public static final Errno EOVERFLOW = new Errno(84);
-    public static final Errno ECANCELED = new Errno(85);
-    public static final Errno EILSEQ = new Errno(86);
-    public static final Errno ENOATTR = new Errno(87);
-    public static final Errno EDOOFUS = new Errno(88);
-    public static final Errno EBADMSG = new Errno(89);
-    public static final Errno EMULTIHOP = new Errno(90);
-    public static final Errno ENOLINK = new Errno(91);
-    public static final Errno EPROTO = new Errno(92);
-    public static final Errno ENOTCAPABLE = new Errno(93);
-    public static final Errno ECAPMODE = new Errno(94);
-    public static final Errno ELAST = new Errno(94);
-    public static final Errno ERESTART = new Errno((-1));
-    public static final Errno EJUSTRETURN = new Errno((-2));
-    public static final Errno ENOIOCTL = new Errno((-3));
-    public static final Errno EDIRIOCTL = new Errno((-4));
+    public static final Errno EPERM = new Errno(
+            "EPERM", 1,
+            "Operation not permitted");
+    public static final Errno ENOENT = new Errno(
+            "ENOENT", 2,
+            "No such file or directory");
+    public static final Errno ESRCH = new Errno(
+            "ESRCH", 3,
+            "No such process");
+    public static final Errno EINTR = new Errno(
+            "EINTR", 4,
+            "Interrupted system call");
+    public static final Errno EIO = new Errno(
+            "EIO", 5,
+            "Input/output error");
+    public static final Errno ENXIO = new Errno(
+            "ENXIO", 6,
+            "Device not configured");
+    public static final Errno E2BIG = new Errno(
+            "E2BIG", 7,
+            "Argument list too long");
+    public static final Errno ENOEXEC = new Errno(
+            "ENOEXEC", 8,
+            "Exec format error");
+    public static final Errno EBADF = new Errno(
+            "EBADF", 9,
+            "Bad file descriptor");
+    public static final Errno ECHILD = new Errno(
+            "ECHILD", 10,
+            "No child processes");
+    public static final Errno EDEADLK = new Errno(
+            "EDEADLK", 11,
+            "Resource deadlock avoided");
+    public static final Errno ENOMEM = new Errno(
+            "ENOMEM", 12,
+            "Cannot allocate memory");
+    public static final Errno EACCES = new Errno(
+            "EACCES", 13,
+            "Permission denied");
+    public static final Errno EFAULT = new Errno(
+            "EFAULT", 14,
+            "Bad address");
+    public static final Errno ENOTBLK = new Errno(
+            "ENOTBLK", 15,
+            "Block device required");
+    public static final Errno EBUSY = new Errno(
+            "EBUSY", 16,
+            "Device busy");
+    public static final Errno EEXIST = new Errno(
+            "EEXIST", 17,
+            "File exists");
+    public static final Errno EXDEV = new Errno(
+            "EXDEV", 18,
+            "Cross-device link");
+    public static final Errno ENODEV = new Errno(
+            "ENODEV", 19,
+            "Operation not supported by device");
+    public static final Errno ENOTDIR = new Errno(
+            "ENOTDIR", 20,
+            "Not a directory");
+    public static final Errno EISDIR = new Errno(
+            "EISDIR", 21,
+            "Is a directory");
+    public static final Errno EINVAL = new Errno(
+            "EINVAL", 22,
+            "Invalid argument");
+    public static final Errno ENFILE = new Errno(
+            "ENFILE", 23,
+            "Too many open files in system");
+    public static final Errno EMFILE = new Errno(
+            "EMFILE", 24,
+            "Too many open files");
+    public static final Errno ENOTTY = new Errno(
+            "ENOTTY", 25,
+            "Inappropriate ioctl for device");
+    public static final Errno ETXTBSY = new Errno(
+            "ETXTBSY", 26,
+            "Text file busy");
+    public static final Errno EFBIG = new Errno(
+            "EFBIG", 27,
+            "File too large");
+    public static final Errno ENOSPC = new Errno(
+            "ENOSPC", 28,
+            "No space left on device");
+    public static final Errno ESPIPE = new Errno(
+            "ESPIPE", 29,
+            "Illegal seek");
+    public static final Errno EROFS = new Errno(
+            "EROFS", 30,
+            "Read-only filesystem");
+    public static final Errno EMLINK = new Errno(
+            "EMLINK", 31,
+            "Too many links");
+    public static final Errno EPIPE = new Errno(
+            "EPIPE", 32,
+            "Broken pipe");
+    public static final Errno EDOM = new Errno(
+            "EDOM", 33,
+            "Numerical argument out of domain");
+    public static final Errno ERANGE = new Errno(
+            "ERANGE", 34,
+            "Result too large");
+    public static final Errno EAGAIN = new Errno(
+            "EAGAIN", 35,
+            "Resource temporarily unavailable");
+    public static final Errno EWOULDBLOCK = new Errno(
+            "EWOULDBLOCK", EAGAIN,
+            "Operation would block");
+    public static final Errno EINPROGRESS = new Errno(
+            "EINPROGRESS", 36,
+            "Operation now in progress");
+    public static final Errno EALREADY = new Errno(
+            "EALREADY", 37,
+            "Operation already in progress");
+    public static final Errno ENOTSOCK = new Errno(
+            "ENOTSOCK", 38,
+            "Socket operation on non-socket");
+    public static final Errno EDESTADDRREQ = new Errno(
+            "EDESTADDRREQ", 39,
+            "Destination address required");
+    public static final Errno EMSGSIZE = new Errno(
+            "EMSGSIZE", 40,
+            "Message too long");
+    public static final Errno EPROTOTYPE = new Errno(
+            "EPROTOTYPE", 41,
+            "Protocol wrong type for socket");
+    public static final Errno ENOPROTOOPT = new Errno(
+            "ENOPROTOOPT", 42,
+            "Protocol not available");
+    public static final Errno EPROTONOSUPPORT = new Errno(
+            "EPROTONOSUPPORT", 43,
+            "Protocol not supported");
+    public static final Errno ESOCKTNOSUPPORT = new Errno(
+            "ESOCKTNOSUPPORT", 44,
+            "Socket type not supported");
+    public static final Errno EOPNOTSUPP = new Errno(
+            "EOPNOTSUPP", 45,
+            "Operation not supported");
+    public static final Errno ENOTSUP = new Errno(
+            "ENOTSUP", EOPNOTSUPP,
+            "Operation not supported");
+    public static final Errno EPFNOSUPPORT = new Errno(
+            "EPFNOSUPPORT", 46,
+            "Protocol family not supported");
+    public static final Errno EAFNOSUPPORT = new Errno(
+            "EAFNOSUPPORT", 47,
+            "Address family not supported by protocol family");
+    public static final Errno EADDRINUSE = new Errno(
+            "EADDRINUSE", 48,
+            "Address already in use");
+    public static final Errno EADDRNOTAVAIL = new Errno(
+            "EADDRNOTAVAIL", 49,
+            "Can't assign requested address");
+    public static final Errno ENETDOWN = new Errno(
+            "ENETDOWN", 50,
+            "Network is down");
+    public static final Errno ENETUNREACH = new Errno(
+            "ENETUNREACH", 51,
+            "Network is unreachable");
+    public static final Errno ENETRESET = new Errno(
+            "ENETRESET", 52,
+            "Network dropped connection on reset");
+    public static final Errno ECONNABORTED = new Errno(
+            "ECONNABORTED", 53,
+            "Software caused connection abort");
+    public static final Errno ECONNRESET = new Errno(
+            "ECONNRESET", 54,
+            "Connection reset by peer");
+    public static final Errno ENOBUFS = new Errno(
+            "ENOBUFS", 55,
+            "No buffer space available");
+    public static final Errno EISCONN = new Errno(
+            "EISCONN", 56,
+            "Socket is already connected");
+    public static final Errno ENOTCONN = new Errno(
+            "ENOTCONN", 57,
+            "Socket is not connected");
+    public static final Errno ESHUTDOWN = new Errno(
+            "ESHUTDOWN", 58,
+            "Can't send after socket shutdown");
+    public static final Errno ETOOMANYREFS = new Errno(
+            "ETOOMANYREFS", 59,
+            "Too many references: can't splice");
+    public static final Errno ETIMEDOUT = new Errno(
+            "ETIMEDOUT", 60,
+            "Operation timed out");
+    public static final Errno ECONNREFUSED = new Errno(
+            "ECONNREFUSED", 61,
+            "Connection refused");
+    public static final Errno ELOOP = new Errno(
+            "ELOOP", 62,
+            "Too many levels of symbolic links");
+    public static final Errno ENAMETOOLONG = new Errno(
+            "ENAMETOOLONG", 63,
+            "File name too long");
+    public static final Errno EHOSTDOWN = new Errno(
+            "EHOSTDOWN", 64,
+            "Host is down");
+    public static final Errno EHOSTUNREACH = new Errno(
+            "EHOSTUNREACH", 65,
+            "No route to host");
+    public static final Errno ENOTEMPTY = new Errno(
+            "ENOTEMPTY", 66,
+            "Directory not empty");
+    public static final Errno EPROCLIM = new Errno(
+            "EPROCLIM", 67,
+            "Too many processes");
+    public static final Errno EUSERS = new Errno(
+            "EUSERS", 68,
+            "Too many users");
+    public static final Errno EDQUOT = new Errno(
+            "EDQUOT", 69,
+            "Disc quota exceeded");
+    public static final Errno ESTALE = new Errno(
+            "ESTALE", 70,
+            "Stale NFS file handle");
+    public static final Errno EREMOTE = new Errno(
+            "EREMOTE", 71,
+            "Too many levels of remote in path");
+    public static final Errno EBADRPC = new Errno(
+            "EBADRPC", 72,
+            "RPC struct is bad");
+    public static final Errno ERPCMISMATCH = new Errno(
+            "ERPCMISMATCH", 73,
+            "RPC version wrong");
+    public static final Errno EPROGUNAVAIL = new Errno(
+            "EPROGUNAVAIL", 74,
+            "RPC prog. not avail");
+    public static final Errno EPROGMISMATCH = new Errno(
+            "EPROGMISMATCH", 75,
+            "Program version wrong");
+    public static final Errno EPROCUNAVAIL = new Errno(
+            "EPROCUNAVAIL", 76,
+            "Bad procedure for program");
+    public static final Errno ENOLCK = new Errno(
+            "ENOLCK", 77,
+            "No locks available");
+    public static final Errno ENOSYS = new Errno(
+            "ENOSYS", 78,
+            "Function not implemented");
+    public static final Errno EFTYPE = new Errno(
+            "EFTYPE", 79,
+            "Inappropriate file type or format");
+    public static final Errno EAUTH = new Errno(
+            "EAUTH", 80,
+            "Authentication error");
+    public static final Errno ENEEDAUTH = new Errno(
+            "ENEEDAUTH", 81,
+            "Need authenticator");
+    public static final Errno EIDRM = new Errno(
+            "EIDRM", 82,
+            "Identifier removed");
+    public static final Errno ENOMSG = new Errno(
+            "ENOMSG", 83,
+            "No message of desired type");
+    public static final Errno EOVERFLOW = new Errno(
+            "EOVERFLOW", 84,
+            "Value too large to be stored in data type");
+    public static final Errno ECANCELED = new Errno(
+            "ECANCELED", 85,
+            "Operation canceled");
+    public static final Errno EILSEQ = new Errno(
+            "EILSEQ", 86,
+            "Illegal byte sequence");
+    public static final Errno ENOATTR = new Errno(
+            "ENOATTR", 87,
+            "Attribute not found");
+    public static final Errno EDOOFUS = new Errno(
+            "EDOOFUS", 88,
+            "Programming error");
+    public static final Errno EBADMSG = new Errno(
+            "EBADMSG", 89,
+            "Bad message");
+    public static final Errno EMULTIHOP = new Errno(
+            "EMULTIHOP", 90,
+            "Multihop attempted");
+    public static final Errno ENOLINK = new Errno(
+            "ENOLINK", 91,
+            "Link has been severed");
+    public static final Errno EPROTO = new Errno(
+            "EPROTO", 92,
+            "Protocol error");
+    public static final Errno ENOTCAPABLE = new Errno(
+            "ENOTCAPABLE", 93,
+            "Capabilities insufficient");
+    public static final Errno ECAPMODE = new Errno(
+            "ECAPMODE", 94,
+            "Not permitted in capability mode");
+    public static final Errno ELAST = new Errno(
+            "ELAST", 94,
+            "Must be equal largest errno");
+    public static final Errno ERESTART = new Errno(
+            "ERESTART", (-1),
+            "restart syscall");
+    public static final Errno EJUSTRETURN = new Errno(
+            "EJUSTRETURN", (-2),
+            "don't modify regs, just return");
+    public static final Errno ENOIOCTL = new Errno(
+            "ENOIOCTL", (-3),
+            "ioctl not handled by this layer");
+    public static final Errno EDIRIOCTL = new Errno(
+            "EDIRIOCTL", (-4),
+            "do direct ioctl in GEOM");
 
+    private String mName;
     private int mValue;
+    private String mMessage;
 
     public int toInteger() {
         return mValue;
     }
 
-    private Errno(int value) {
-        initialize(value);
+    public String toString() {
+        return String.format("%s (%d: %s)", mName, mValue, mMessage);
     }
 
-    private Errno(Errno errno) {
-        initialize(errno.toInteger());
+    private Errno(String name, int value, String message) {
+        initialize(name, value, message);
     }
 
-    private void initialize(int value) {
+    private Errno(String name, Errno errno, String message) {
+        initialize(name, errno.toInteger(), message);
+    }
+
+    private void initialize(String name, int value, String message) {
+        mName = name;
         mValue = value;
+        mMessage = message;
     }
 }
 
