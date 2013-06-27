@@ -164,7 +164,7 @@ public class SlaveHelper {
 
     public void runSlave() throws IOException {
         Command command = mIn.readCommand();
-        mLogger.info(String.format("read command: %s", command.toString()));
+        mLogger.debug(String.format("read command: %s", command.toString()));
 
         CommandDispatcher.Proc proc = mDispatcher.get(command);
         if (proc == null) {

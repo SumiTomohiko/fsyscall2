@@ -78,7 +78,7 @@ public class Application {
         addWorker(hub);
         addWorker(slave);
 
-        mLogger.info("the main loop starts.");
+        mLogger.verbose("the main loop starts.");
 
         while (1 < mWorkers.size()) {
             waitReady();

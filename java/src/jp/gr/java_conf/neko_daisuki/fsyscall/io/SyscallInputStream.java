@@ -33,10 +33,10 @@ public class SyscallInputStream {
     public Command readCommand() throws IOException {
         int n = readInteger();
         String fmt = "numeric representation of the command is %d.";
-        mLogger.info(String.format(fmt, n));
+        mLogger.debug(String.format(fmt, n));
 
         Command command = Command.fromInteger(n);
-        mLogger.info(String.format("command is %s.", command));
+        mLogger.debug(String.format("command is %s.", command));
 
         return Command.fromInteger(n);
     }
