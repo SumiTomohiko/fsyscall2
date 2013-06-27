@@ -199,6 +199,9 @@ def build_proc_of_writing_result(syscalls):
         if name == "readlink":
             d = { "name": name.capitalize() }
             stmts.append("""private void writeResult(Command command, SyscallResult.{name} result) throws IOException {{
+        String fmt = \"writeResult ({name}): retval=%d, errno=%s\";
+        mLogger.debug(String.format(fmt, result.retval, result.errno));
+
         writeError(command, result);
     }}""".format(**d))
             continue
@@ -208,10 +211,18 @@ def build_proc_of_writing_result(syscalls):
                     "name": name.capitalize(),
                     "out": syscall.output_args[0].name }
             stmts.append("""private void writeResult(Command command, SyscallResult.{name} result) throws IOException {{
+        String logHead = \"writeResult ({name})\";
+
         if (result.retval == -1) {{
+            String fmt = \"%s: retval=%d, errno=%s\";
+            Errno errno = result.errno;
+            mLogger.debug(String.format(fmt, logHead, result.retval, errno));
+
             writeError(command, result);
             return;
         }}
+
+        mLogger.debug(String.format(\"%s: retval=%d\", logHead, result.retval));
 
         Payload payload = new Payload();
         payload.add(result.retval);
@@ -224,10 +235,18 @@ def build_proc_of_writing_result(syscalls):
         if name in ["pread", "read"]:
             d = { "rettype": rettype }
             stmts.append("""private void writeResult(Command command, SyscallResult.{rettype} result) throws IOException {{
+        String logHead = \"writeResult ({rettype})\";
+
         if (result.retval == -1) {{
+            String fmt = \"%s: retval=%d, errno=%s\";
+            Errno errno = result.errno;
+            mLogger.debug(String.format(fmt, logHead, result.retval, errno));
+
             writeError(command, result);
             return;
         }}
+
+        mLogger.debug(String.format(\"%s: retval=%d\", logHead, result.retval));
 
         Payload payload = new Payload();
         payload.add(result.retval);

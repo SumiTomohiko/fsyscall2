@@ -206,38 +206,62 @@ public class SlaveHelper {
     }
 
     private void writeResult(Command command, SyscallResult.Generic64 result) throws IOException {
-        if (result.retval == -1) {
+        String logHead = "writeResult (Generic64)";
+
+        long retval = result.retval;
+        if (retval == -1) {
+            String fmt = "%s: retval=%d, errno=%s";
+            mLogger.debug(String.format(fmt, logHead, retval, result.errno));
+
             writeError(command, result);
             return;
         }
 
+        mLogger.debug(String.format("%s: retval=%d", logHead, retval));
+
         Payload payload = new Payload();
-        payload.add(result.retval);
+        payload.add(retval);
 
         writePayload(command, payload);
     }
 
     private void writeResult(Command command, SyscallResult.Generic32 result) throws IOException {
-        if (result.retval == -1) {
+        String logHead = "writeResult (Generic32)";
+
+        int retval = result.retval;
+        if (retval == -1) {
+            String fmt = "%s: retval=%d, errno=%s";
+            mLogger.debug(String.format(fmt, logHead, retval, result.errno));
+
             writeError(command, result);
             return;
         }
 
+        mLogger.debug(String.format("%s: retval=%d", logHead, retval));
+
         Payload payload = new Payload();
-        payload.add(result.retval);
+        payload.add(retval);
 
         writePayload(command, payload);
     }
 
     private void writeResult(Command command, SyscallResult.Select result) throws IOException {
-        if (result.retval == -1) {
+        String logHead = "writeResult (Select)";
+
+        int retval = result.retval;
+        if (retval == -1) {
+            String fmt = "%s: retval=%d, errno=%s";
+            mLogger.debug(String.format(fmt, logHead, retval, result.errno));
+
             writeError(command, result);
             return;
         }
 
+        mLogger.debug(String.format("%s: retval=%d", logHead, retval));
+
         Payload payload = new Payload();
-        payload.add(result.retval);
-        if (0 < result.retval) {
+        payload.add(retval);
+        if (0 < retval) {
             payload.add(result.in);
             payload.add(result.ou);
             payload.add(result.ex);
