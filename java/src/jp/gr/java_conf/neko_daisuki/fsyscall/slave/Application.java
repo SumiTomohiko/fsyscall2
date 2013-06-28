@@ -1,12 +1,12 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -19,12 +19,44 @@ public class Application {
 
     private static class Pipe {
 
-        private PipedInputStream mIn;
-        private PipedOutputStream mOut;
+        private static class PrivateInputStream extends InputStream {
+
+            private ByteArrayOutputStream mOut;
+            private ByteArrayInputStream mBuffer;
+
+            public PrivateInputStream(ByteArrayOutputStream out) {
+                mOut = out;
+                mBuffer = new ByteArrayInputStream(new byte[0]);
+            }
+
+            public int read() throws IOException {
+                updateBuffer();
+                return mBuffer.read();
+            }
+
+            public int available() throws IOException {
+                updateBuffer();
+                return mBuffer.available();
+            }
+
+            private void updateBuffer() {
+                if ((0 < mBuffer.available()) || (mOut.size() == 0)) {
+                    return;
+                }
+                mBuffer = new ByteArrayInputStream(mOut.toByteArray());
+                mOut.reset();
+            }
+        }
+
+        private InputStream mIn;
+        private OutputStream mOut;
 
         public Pipe() throws IOException {
-            mIn = new PipedInputStream();
-            mOut = new PipedOutputStream(mIn);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            PrivateInputStream in = new PrivateInputStream(out);
+
+            mIn = in;
+            mOut = out;
         }
 
         public InputStream getInput() {
