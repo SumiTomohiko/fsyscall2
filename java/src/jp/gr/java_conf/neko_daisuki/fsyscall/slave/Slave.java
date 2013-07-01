@@ -393,17 +393,20 @@ public class Slave extends Worker {
     private Application mApplication;
     private SyscallInputStream mIn;
     private SyscallOutputStream mOut;
+    private Permissions mPermissions;
 
     private UnixFile[] mFiles;
 
     private SlaveHelper mHelper;
 
-    public Slave(Application application, InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr) throws IOException {
+    public Slave(Application application, InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions) throws IOException {
         mLogger.info("a slave is starting.");
 
         mApplication = application;
         mIn = new SyscallInputStream(in);
         mOut = new SyscallOutputStream(out);
+        mPermissions = permissions;
+
         mHelper = new SlaveHelper(this, mIn, mOut);
 
         mFiles = new UnixFile[UNIX_FILE_NUM];
@@ -430,6 +433,12 @@ public class Slave extends Worker {
         mLogger.info(String.format(fmt, path, flags, mode));
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        if (!mPermissions.isAllowed(path)) {
+            result.retval = -1;
+            result.errno = Errno.ENOENT;
+            return result;
+        }
 
         int fd = findFreeSlotOfFile();
         if (fd < 0) {
@@ -609,8 +618,14 @@ public class Slave extends Worker {
         mLogger.info(String.format("stat(path=%s)", path));
 
         SyscallResult.Stat result = new SyscallResult.Stat();
-        Unix.Stat stat = new Unix.Stat();
 
+        if (!mPermissions.isAllowed(path)) {
+            result.retval = -1;
+            result.errno = Errno.ENOENT;
+            return result;
+        }
+
+        Unix.Stat stat = new Unix.Stat();
         try {
             stat.st_size = new File(path).length();
         }
@@ -727,6 +742,13 @@ public class Slave extends Worker {
         mLogger.info(String.format(fmt, path, count));
 
         SyscallResult.Readlink result = new SyscallResult.Readlink();
+
+        if (!mPermissions.isAllowed(path)) {
+            result.retval = -1;
+            result.errno = Errno.ENOENT;
+            return result;
+        }
+
         result.retval = -1;
         result.errno = Errno.EINVAL;
 
@@ -734,13 +756,20 @@ public class Slave extends Worker {
     }
 
     /**
-     * The dummy implementation of access(2). This always returns zero.
+     * The dummy implementation of access(2).
      */
     public SyscallResult.Generic32 doAccess(String path, int flags) throws IOException {
         String fmt = "access(path=%s, flags=0x%02x)";
         mLogger.info(String.format(fmt, path, flags));
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        if (!mPermissions.isAllowed(path)) {
+            result.retval = -1;
+            result.errno = Errno.ENOENT;
+            return result;
+        }
+
         result.retval = 0;
         return result;
     }

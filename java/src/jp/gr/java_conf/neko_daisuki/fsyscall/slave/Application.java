@@ -94,7 +94,7 @@ public class Application {
         mExitStatus = exitStatus;
     }
 
-    public int run(InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr) throws IOException, InterruptedException {
+    public int run(InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions) throws IOException, InterruptedException {
         mLogger.info("starting a slave application");
 
         Pipe slave2hub = new Pipe();
@@ -102,7 +102,8 @@ public class Application {
         Slave slave = new Slave(
                 this,
                 hub2slave.getInput(), slave2hub.getOutput(),
-                stdin, stdout, stderr);
+                stdin, stdout, stderr,
+                permissions);
         SlaveHub hub = new SlaveHub(
                 this,
                 in, out,
@@ -215,8 +216,12 @@ public class Application {
 
         int exitStatus;
         Application app = new Application();
+        InputStream stdin = System.in;
+        OutputStream stdout = System.out;
+        OutputStream stderr = System.err;
+        Permissions perm = new Permissions(true);
         try {
-            exitStatus = app.run(in, out, System.in, System.out, System.err);
+            exitStatus = app.run(in, out, stdin, stdout, stderr, perm);
         }
         catch (Throwable e) {
             e.printStackTrace();
