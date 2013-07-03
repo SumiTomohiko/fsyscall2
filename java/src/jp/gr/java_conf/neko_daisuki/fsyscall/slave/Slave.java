@@ -394,18 +394,20 @@ public class Slave extends Worker {
     private SyscallInputStream mIn;
     private SyscallOutputStream mOut;
     private Permissions mPermissions;
+    private Links mLinks;
 
     private UnixFile[] mFiles;
 
     private SlaveHelper mHelper;
 
-    public Slave(Application application, InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions) throws IOException {
+    public Slave(Application application, InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links) throws IOException {
         mLogger.info("a slave is starting.");
 
         mApplication = application;
         mIn = new SyscallInputStream(in);
         mOut = new SyscallOutputStream(out);
         mPermissions = permissions;
+        mLinks = links;
 
         mHelper = new SlaveHelper(this, mIn, mOut);
 
@@ -432,47 +434,7 @@ public class Slave extends Worker {
         String fmt = "open(path=%s, flags=%d, mode=%d)";
         mLogger.info(String.format(fmt, path, flags, mode));
 
-        SyscallResult.Generic32 result = new SyscallResult.Generic32();
-
-        if (!mPermissions.isAllowed(path)) {
-            result.retval = -1;
-            result.errno = Errno.ENOENT;
-            return result;
-        }
-
-        int fd = findFreeSlotOfFile();
-        if (fd < 0) {
-            result.retval = -1;
-            result.errno = Errno.ENFILE;
-            return result;
-        }
-
-        UnixFile file;
-        try {
-            switch (flags & Unix.Constants.O_ACCMODE) {
-            case Unix.Constants.O_RDONLY:
-                file = new UnixInputFile(path);
-                break;
-            case Unix.Constants.O_WRONLY:
-                // XXX: Here ignores O_CREAT.
-                file = new UnixOutputFile(path);
-                break;
-            default:
-                result.retval = -1;
-                result.errno = Errno.EINVAL;
-                return result;
-            }
-        }
-        catch (UnixException e) {
-            result.retval = -1;
-            result.errno = e.getErrno();
-            return result;
-        }
-
-        mFiles[fd] = file;
-
-        result.retval = fd;
-        return result;
+        return openActualFile(mLinks.get(path), flags, mode);
     }
 
     public SyscallResult.Read doRead(int fd, long nbytes) throws IOException {
@@ -617,27 +579,7 @@ public class Slave extends Worker {
     public SyscallResult.Stat doStat(String path) throws IOException {
         mLogger.info(String.format("stat(path=%s)", path));
 
-        SyscallResult.Stat result = new SyscallResult.Stat();
-
-        if (!mPermissions.isAllowed(path)) {
-            result.retval = -1;
-            result.errno = Errno.ENOENT;
-            return result;
-        }
-
-        Unix.Stat stat = new Unix.Stat();
-        try {
-            stat.st_size = new File(path).length();
-        }
-        catch (SecurityException e) {
-            result.retval = -1;
-            result.errno = Errno.EPERM;
-            return result;
-        }
-
-        result.retval = 0;
-        result.ub = stat;
-        return result;
+        return statActualFile(mLinks.get(path));
     }
 
     public SyscallResult.Generic32 doWritev(int fd, Unix.IoVec[] iovec) throws IOException {
@@ -741,18 +683,7 @@ public class Slave extends Worker {
         String fmt = "readlink(path=%s, count=%d)";
         mLogger.info(String.format(fmt, path, count));
 
-        SyscallResult.Readlink result = new SyscallResult.Readlink();
-
-        if (!mPermissions.isAllowed(path)) {
-            result.retval = -1;
-            result.errno = Errno.ENOENT;
-            return result;
-        }
-
-        result.retval = -1;
-        result.errno = Errno.EINVAL;
-
-        return result;
+        return readlinkActualFile(mLinks.get(path), count);
     }
 
     /**
@@ -762,16 +693,7 @@ public class Slave extends Worker {
         String fmt = "access(path=%s, flags=0x%02x)";
         mLogger.info(String.format(fmt, path, flags));
 
-        SyscallResult.Generic32 result = new SyscallResult.Generic32();
-
-        if (!mPermissions.isAllowed(path)) {
-            result.retval = -1;
-            result.errno = Errno.ENOENT;
-            return result;
-        }
-
-        result.retval = 0;
-        return result;
+        return accessActualFile(mLinks.get(path), flags);
     }
 
     public SyscallResult.Generic32 doLink(String path1, String path2) throws IOException {
@@ -892,6 +814,111 @@ public class Slave extends Worker {
                 dest.add(fd);
             }
         }
+    }
+
+    private SyscallResult.Generic32 openActualFile(String path, int flags, int mode) throws IOException {
+        String fmt = "open actual file: %s";
+        mLogger.info(String.format(fmt, path, flags, mode));
+
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        if (!mPermissions.isAllowed(path)) {
+            result.retval = -1;
+            result.errno = Errno.ENOENT;
+            return result;
+        }
+
+        int fd = findFreeSlotOfFile();
+        if (fd < 0) {
+            result.retval = -1;
+            result.errno = Errno.ENFILE;
+            return result;
+        }
+
+        UnixFile file;
+        try {
+            switch (flags & Unix.Constants.O_ACCMODE) {
+            case Unix.Constants.O_RDONLY:
+                file = new UnixInputFile(path);
+                break;
+            case Unix.Constants.O_WRONLY:
+                // XXX: Here ignores O_CREAT.
+                file = new UnixOutputFile(path);
+                break;
+            default:
+                result.retval = -1;
+                result.errno = Errno.EINVAL;
+                return result;
+            }
+        }
+        catch (UnixException e) {
+            result.retval = -1;
+            result.errno = e.getErrno();
+            return result;
+        }
+
+        mFiles[fd] = file;
+
+        result.retval = fd;
+        return result;
+    }
+
+    private SyscallResult.Stat statActualFile(String path) throws IOException {
+        mLogger.info(String.format("stat actual file: %s", path));
+
+        SyscallResult.Stat result = new SyscallResult.Stat();
+
+        if (!mPermissions.isAllowed(path)) {
+            result.retval = -1;
+            result.errno = Errno.ENOENT;
+            return result;
+        }
+
+        Unix.Stat stat = new Unix.Stat();
+        try {
+            stat.st_size = new File(path).length();
+        }
+        catch (SecurityException e) {
+            result.retval = -1;
+            result.errno = Errno.EPERM;
+            return result;
+        }
+
+        result.retval = 0;
+        result.ub = stat;
+        return result;
+    }
+
+    private SyscallResult.Readlink readlinkActualFile(String path, long count) throws IOException {
+        mLogger.info(String.format("readlink actual file: %s", path));
+
+        SyscallResult.Readlink result = new SyscallResult.Readlink();
+
+        if (!mPermissions.isAllowed(path)) {
+            result.retval = -1;
+            result.errno = Errno.ENOENT;
+            return result;
+        }
+
+        result.retval = -1;
+        result.errno = Errno.EINVAL;
+
+        return result;
+    }
+
+    private SyscallResult.Generic32 accessActualFile(String path, int flags) throws IOException {
+        mLogger.info(String.format("access actual file: %s", path));
+
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        if (!mPermissions.isAllowed(path)) {
+            result.retval = -1;
+            result.errno = Errno.ENOENT;
+            return result;
+        }
+
+        result.retval = 0;
+        return result;
     }
 
     static {
