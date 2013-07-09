@@ -79,8 +79,7 @@ a slave. The client of nexec_ connects to a server which works as a master.
 
 .. image:: a_local_machine_as_a_slave.png
 
-If your machine is Android and someone implements slave side of fsyscall
-protocol for Android, you will be able to use your Android tablet like a FreeBSD
+If your machine is Android, you can use your Android tablet like a FreeBSD
 machine.
 
 Structure
