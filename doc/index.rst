@@ -192,11 +192,6 @@ lock of connection between master process and master hub is needed.
 Problems
 ========
 
-Security
---------
-
-fslave must have access control mechanism.
-
 Performance
 -----------
 
