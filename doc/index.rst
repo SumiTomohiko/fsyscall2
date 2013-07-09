@@ -79,8 +79,13 @@ a slave. The client of nexec_ connects to a server which works as a master.
 
 .. image:: a_local_machine_as_a_slave.png
 
-If your machine is Android, you can use your Android tablet like a FreeBSD
-machine.
+`Android client of nexec
+<https://github.com/SumiTomohiko/android-nexec-client.git>`_ is ready (which
+uses `Java version of the fsyscall slave
+<https://github.com/SumiTomohiko/fsyscall2/tree/master/java>`_ and
+`Java version of nexec client
+<https://github.com/SumiTomohiko/nexec/tree/master/java>`_). If your machine is
+Android, you can use your Android tablet like a FreeBSD machine.
 
 Structure
 =========
@@ -164,7 +169,7 @@ Slave hub (fshub)
 -----------------
 
 All fshub does is transfering messages as described in the above section. fshub
-is a simple application.
+Is a simple application.
 
 Slave process (fslave)
 ----------------------
