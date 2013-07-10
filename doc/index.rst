@@ -204,6 +204,14 @@ When the author tried `ffmpeg <http://www.ffmpeg.org/>`_ through fsyscall, it
 took 1,000 times time than that in the case without fsyscall. Caching a new file
 in a master machine may fix this problem.
 
+Supported applications
+======================
+
+fsyscall supports the following applications explicitly.
+
+* /bin/echo
+* /usr/local/bin/ffmpeg
+
 Supported system calls
 ======================
 
