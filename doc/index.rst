@@ -79,13 +79,16 @@ a slave. The client of nexec_ connects to a server which works as a master.
 
 .. image:: a_local_machine_as_a_slave.png
 
-`Android client of nexec
-<https://github.com/SumiTomohiko/android-nexec-client.git>`_ is ready (which
-uses `Java version of the fsyscall slave
-<https://github.com/SumiTomohiko/fsyscall2/tree/master/java>`_ and
-`Java version of nexec client
-<https://github.com/SumiTomohiko/nexec/tree/master/java>`_). If your machine is
-Android, you can use your Android tablet like a FreeBSD machine.
+`Android client of nexec`_ is ready (which uses
+`Java version of the fsyscall slave`_ and `Java version of nexec client`_). If
+your machine is Android, you can use your Android tablet like a FreeBSD machine.
+
+.. _Android client of nexec:
+    http://neko-daisuki.ddo.jp/~SumiTomohiko/android-nexec-client/index.html
+.. _Java version of the fsyscall slave:
+    https://github.com/SumiTomohiko/fsyscall2/tree/master/java
+.. _Java version of nexec client:
+    https://github.com/SumiTomohiko/nexec/tree/master/java
 
 Structure
 =========
@@ -1147,7 +1150,10 @@ Anything else
 License
 -------
 
-fsyscall is under `the MIT license <https://github.com/SumiTomohiko/fsyscall2/blob/master/COPYING.rst#mit-license>`_.
+fsyscall is under `the MIT license`_.
+
+.. _the MIT license:
+    https://github.com/SumiTomohiko/fsyscall2/blob/master/COPYING.rst#mit-license
 
 GitHub repository
 -----------------
