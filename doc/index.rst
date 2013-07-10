@@ -79,7 +79,7 @@ a slave. The client of nexec_ connects to a server which works as a master.
 
 .. image:: a_local_machine_as_a_slave.png
 
-`Android client of nexec`_ is ready (which uses
+Moreover, `Android client of nexec`_ is ready (which uses
 `Java version of the fsyscall slave`_ and `Java version of nexec client`_). If
 your machine is Android, you can use your Android tablet like a FreeBSD machine.
 
