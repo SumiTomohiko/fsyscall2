@@ -1117,6 +1117,39 @@ run_tests can run all tests::
     $ sync; sync; sync
     $ ./run_tests
 
+How to compile (Java version)
+=============================
+
+Requirements
+------------
+
+The following software are required to compile the Java version of the fsyscall
+slave.
+
+* `OpenJDK`_ 1.6.0
+* `Apache Ant`_ 1.8.4
+
+.. _Open JDK: http://openjdk.java.net/
+.. _Apache Ant: http://ant.apache.org/
+
+Compile the slave
+-----------------
+
+The command to compile is::
+
+    $ make java
+
+You will have fsyscall-slave.jar in the java/bin directory.
+
+Test
+----
+
+java_tests can run all tests::
+
+    $ sudo kldload fmaster/fmaster.ko
+    $ sync; sync; sync
+    $ ./java_tests
+
 How to use
 ==========
 
