@@ -1126,7 +1126,7 @@ Requirements
 The following software are required to compile the Java version of the fsyscall
 slave.
 
-* `OpenJDK`_ 1.6.0
+* `Open JDK`_ 1.6.0
 * `Apache Ant`_ 1.8.4
 
 .. _Open JDK: http://openjdk.java.net/
