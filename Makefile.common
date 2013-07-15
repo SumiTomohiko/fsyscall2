@@ -1,2 +1,4 @@
 
+BINDIR?=	/bin
+DESTDIR?=	/usr
 CFLAGS+=	-g -Wall -Werror
