@@ -20,6 +20,6 @@ fsyscall_start_master(int shub2mhub, int mhub2shub, int argc, char* argv[])
 	args[3 + i] = NULL;
 
 	execv(args[0], args);
-	die(-1, "cannot execvp %s", args[0]);
+	die(-1, "cannot execv %s", args[0]);
 	/* NOTREACHED */
 }
