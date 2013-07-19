@@ -20,7 +20,7 @@ static void
 die_with_message(int eval, const char *dying_message)
 {
 	output(dying_message);
-	output("Died.");
+	output("died.");
 	exit(eval);
 	/* NOTREACHED */
 }
