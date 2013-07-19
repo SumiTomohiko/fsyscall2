@@ -12,14 +12,14 @@ fsyscall_start_master(int shub2mhub, int mhub2shub, int argc, char* argv[])
 	char **args;
 
 	args = (char**)alloca(sizeof(char*) * (argc + 4));
-	args[0] = "fmhub";
+	args[0] = "/usr/local/bin/fmhub";
 	ALLOC_FD(args[1], shub2mhub);
 	ALLOC_FD(args[2], mhub2shub);
 	for (i = 0; i < argc; i++)
 		args[3 + i] = argv[i];
 	args[3 + i] = NULL;
 
-	execvp(args[0], args);
+	execv(args[0], args);
 	die(-1, "cannot execvp %s", args[0]);
 	/* NOTREACHED */
 }
