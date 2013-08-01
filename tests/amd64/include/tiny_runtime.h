@@ -2,6 +2,7 @@
 #define TINY_RUNTIME_H_INCLUDED
 
 #include <stddef.h>
+#include <string.h>
 #include <sys/select.h>
 #include <sys/types.h>
 #include <unistd.h>
