@@ -1,0 +1,4 @@
+
+cmd="dup/dup"
+args="foobarbazquux"
+expected_stdout="${args}"
