@@ -97,7 +97,8 @@ SYSCALLS = {
         "fmaster_writev": {
             "iovp": Argument(size="iovcnt")
             },
-        "fmaster_getuid": {}
+        "fmaster_getuid": {},
+        "fmaster_getgid": {}
         }
 
 FMASTER_SYSCALLS = SYSCALLS

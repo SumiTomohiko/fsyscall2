@@ -124,7 +124,7 @@
 45	AUE_KTRACE	UNIMPL	{ int fmaster_ktrace(const char *fname, \
 				    int ops, int facs, int pid); }
 46	AUE_SIGACTION	OBSOL	sigaction
-47	AUE_GETGID	UNIMPL	{ gid_t fmaster_getgid(void); }
+47	AUE_GETGID	STD	{ gid_t fmaster_getgid(void); }
 48	AUE_SIGPROCMASK	OBSOL	sigprocmask
 49	AUE_GETLOGIN	UNIMPL	{ int fmaster_getlogin(char *namebuf, u_int \
 				    namelen); }
