@@ -1,0 +1,3 @@
+
+cmd="getpid/getpid"
+expected_status="0"
