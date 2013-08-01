@@ -10,6 +10,7 @@
 %define	sys.close	6
 %define	sys.getuid	24
 %define	sys.access	33
+%define	sys.getgid	47
 %define	sys.ioctl	54
 %define	sys.readlink	58
 %define	sys.select	93
