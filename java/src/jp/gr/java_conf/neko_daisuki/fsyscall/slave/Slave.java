@@ -12,6 +12,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 
+import com.sun.security.auth.module.UnixSystem;
+
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
@@ -729,6 +731,41 @@ public class Slave extends Worker {
         mFiles[fd] = null;
 
         result.retval = 0;
+        return result;
+    }
+
+    /**
+     * Fake implementation of getpid(2). Java does not have any compatible ways
+     * to getpid(2). So this method returns the dummy value.
+     */
+    public SyscallResult.Generic32 doGetpid() throws IOException {
+        mLogger.info("getpid()");
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+        result.retval = 0xbeefcafe;
+        return result;
+    }
+
+    public SyscallResult.Generic32 doGeteuid() throws IOException {
+        mLogger.info("geteuid()");
+        return doGetuid();
+    }
+
+    public SyscallResult.Generic32 doGetegid() throws IOException {
+        mLogger.info("getegid()");
+        return doGetgid();
+    }
+
+    public SyscallResult.Generic32 doGetgid() throws IOException {
+        mLogger.info("getgid()");
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+        result.retval = (int)(new UnixSystem().getGid());
+        return result;
+    }
+
+    public SyscallResult.Generic32 doGetuid() throws IOException {
+        mLogger.info("getuid()");
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+        result.retval = (int)(new UnixSystem().getUid());
         return result;
     }
 
