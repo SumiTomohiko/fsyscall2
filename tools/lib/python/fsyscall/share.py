@@ -99,7 +99,8 @@ SYSCALLS = {
             },
         "fmaster_getuid": {},
         "fmaster_geteuid": {},
-        "fmaster_getgid": {}
+        "fmaster_getgid": {},
+        "fmaster_getegid": {}
         }
 
 FMASTER_SYSCALLS = SYSCALLS

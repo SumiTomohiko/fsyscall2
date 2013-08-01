@@ -29,6 +29,7 @@ fmaster/machine
 fmaster/sys/fmaster/fmaster_access.c
 fmaster/sys/fmaster/fmaster_close.c
 fmaster/sys/fmaster/fmaster_fstat.c
+fmaster/sys/fmaster/fmaster_getegid.c
 fmaster/sys/fmaster/fmaster_geteuid.c
 fmaster/sys/fmaster/fmaster_getgid.c
 fmaster/sys/fmaster/fmaster_getuid.c
@@ -62,6 +63,7 @@ fslave/fslave
 fslave/fslave_access.c
 fslave/fslave_close.c
 fslave/fslave_fstat.c
+fslave/fslave_getegid.c
 fslave/fslave_geteuid.c
 fslave/fslave_getgid.c
 fslave/fslave_getuid.c

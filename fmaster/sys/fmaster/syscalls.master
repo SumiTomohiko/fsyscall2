@@ -118,7 +118,7 @@
 40	AUE_LSTAT	OBSOL	lstat
 41	AUE_DUP		UNIMPL	{ int fmaster_dup(u_int fd); }
 42	AUE_PIPE	UNIMPL	{ int fmaster_pipe(void); }
-43	AUE_GETEGID	UNIMPL	{ gid_t fmaster_getegid(void); }
+43	AUE_GETEGID	STD	{ gid_t fmaster_getegid(void); }
 44	AUE_PROFILE	UNIMPL	{ int fmaster_profil(caddr_t samples, \
 				    size_t size, size_t offset, u_int scale); }
 45	AUE_KTRACE	UNIMPL	{ int fmaster_ktrace(const char *fname, \
