@@ -8,6 +8,7 @@
 %define	sys.write	4
 %define	sys.open	5
 %define	sys.close	6
+%define	sys.getpid	20
 %define	sys.getuid	24
 %define	sys.geteuid	25
 %define	sys.access	33
