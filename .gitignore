@@ -90,6 +90,7 @@ tests/*/read/read
 tests/*/write/write
 tests/amd64/close_twice/close_twice
 tests/amd64/fstat/fstat
+tests/amd64/getgid/getgid
 tests/amd64/getuid/getuid
 tests/amd64/ioctl/ioctl
 tests/amd64/issetugid/issetugid
