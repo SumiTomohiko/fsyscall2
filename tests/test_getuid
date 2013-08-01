@@ -1,0 +1,3 @@
+
+cmd="getuid/getuid"
+expected_stdout="$(id -u)"
