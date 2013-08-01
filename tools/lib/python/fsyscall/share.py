@@ -98,6 +98,7 @@ SYSCALLS = {
             "iovp": Argument(size="iovcnt")
             },
         "fmaster_getuid": {},
+        "fmaster_geteuid": {},
         "fmaster_getgid": {}
         }
 

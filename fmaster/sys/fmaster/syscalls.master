@@ -88,7 +88,7 @@
 22	AUE_UMOUNT	UNIMPL	{ int fmaster_unmount(char *path, int flags); }
 23	AUE_SETUID	UNIMPL	{ int fmaster_setuid(uid_t uid); }
 24	AUE_GETUID	STD	{ uid_t fmaster_getuid(void); }
-25	AUE_GETEUID	UNIMPL	{ uid_t fmaster_geteuid(void); }
+25	AUE_GETEUID	STD	{ uid_t fmaster_geteuid(void); }
 26	AUE_PTRACE	UNIMPL	{ int fmaster_ptrace(int req, pid_t pid, \
 				    caddr_t addr, int data); }
 27	AUE_RECVMSG	UNIMPL	{ int fmaster_recvmsg(int s, \
