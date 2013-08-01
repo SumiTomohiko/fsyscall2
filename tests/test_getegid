@@ -1,0 +1,3 @@
+
+cmd="getegid/getegid"
+expected_stdout="$(id -g)"
