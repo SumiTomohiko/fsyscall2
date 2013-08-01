@@ -38,6 +38,15 @@ select:
 .exit:
 	ret
 
+global getuid
+getuid:
+	mov rax, sys.getuid
+	syscall
+	jnc .exit
+	mov rax, -1
+.exit:
+	ret
+
 global _start
 _start:
 	mov rbp, rsp

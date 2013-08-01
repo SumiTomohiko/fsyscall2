@@ -8,6 +8,7 @@
 %define	sys.write	4
 %define	sys.open	5
 %define	sys.close	6
+%define	sys.getuid	24
 %define	sys.access	33
 %define	sys.ioctl	54
 %define	sys.readlink	58
