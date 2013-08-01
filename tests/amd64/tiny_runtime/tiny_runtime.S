@@ -81,6 +81,15 @@ getuid:
 .exit:
 	ret
 
+global dup
+dup:
+	mov rax, sys.dup
+	syscall
+	jnc .exit
+	mov rax, -1
+.exit:
+	ret
+
 global _start
 _start:
 	mov rbp, rsp
