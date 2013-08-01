@@ -47,6 +47,15 @@ geteuid:
 .exit:
 	ret
 
+global getegid
+getegid:
+	mov rax, sys.getegid
+	syscall
+	jnc .exit
+	mov rax, -1
+.exit:
+	ret
+
 global getgid
 getgid:
 	mov rax, sys.getgid
