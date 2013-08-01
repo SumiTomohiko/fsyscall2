@@ -1,4 +1,5 @@
 %include "sys.inc"
+%include "../lib/print_num.S"
 
 extern main
 

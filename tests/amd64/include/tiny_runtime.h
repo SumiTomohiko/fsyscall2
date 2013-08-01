@@ -4,4 +4,6 @@
 #include <stddef.h>
 #include <sys/select.h>
 
+void	print_num(long);
+
 #endif
