@@ -97,6 +97,7 @@ SYSCALLS = {
         "fmaster_writev": {
             "iovp": Argument(size="iovcnt")
             },
+        "fmaster_getpid": {},
         "fmaster_getuid": {},
         "fmaster_geteuid": {},
         "fmaster_getgid": {},
@@ -176,8 +177,8 @@ def datasize_of_datatype(datatype):
             "ssize_t": 64,
             "uid_t": 32,
             "uint64_t": 64,
-            "void": 64
-            }
+            "void": 64,
+            "pid_t": 32 }
     m = RE_ARRAY_DATATYPE.match(datatype)
     if m is None:
         return DATASIZE_OF_DATATYPE[datatype]

@@ -82,7 +82,7 @@
 				    obreak_args int
 18	AUE_GETFSSTAT	OBSOL	getfsstat
 19	AUE_LSEEK	OBSOL	lseek
-20	AUE_GETPID	UNIMPL	{ pid_t fmaster_getpid(void); }
+20	AUE_GETPID	STD	{ pid_t fmaster_getpid(void); }
 21	AUE_MOUNT	UNIMPL	{ int fmaster_mount(char *type, char *path, \
 				    int flags, caddr_t data); }
 22	AUE_UMOUNT	UNIMPL	{ int fmaster_unmount(char *path, int flags); }

@@ -32,6 +32,7 @@ fmaster/sys/fmaster/fmaster_fstat.c
 fmaster/sys/fmaster/fmaster_getegid.c
 fmaster/sys/fmaster/fmaster_geteuid.c
 fmaster/sys/fmaster/fmaster_getgid.c
+fmaster/sys/fmaster/fmaster_getpid.c
 fmaster/sys/fmaster/fmaster_getuid.c
 fmaster/sys/fmaster/fmaster_issetugid.c
 fmaster/sys/fmaster/fmaster_link.c
@@ -66,6 +67,7 @@ fslave/fslave_fstat.c
 fslave/fslave_getegid.c
 fslave/fslave_geteuid.c
 fslave/fslave_getgid.c
+fslave/fslave_getpid.c
 fslave/fslave_getuid.c
 fslave/fslave_issetugid.c
 fslave/fslave_link.c
