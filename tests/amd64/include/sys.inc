@@ -9,6 +9,7 @@
 %define	sys.open	5
 %define	sys.close	6
 %define	sys.getuid	24
+%define	sys.geteuid	25
 %define	sys.access	33
 %define	sys.getgid	47
 %define	sys.ioctl	54
