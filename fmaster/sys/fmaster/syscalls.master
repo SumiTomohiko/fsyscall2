@@ -184,7 +184,7 @@
 89	AUE_GETDTABLESIZE	UNIMPL	{ int fmaster_getdtablesize(void); }
 90	AUE_DUP2	UNIMPL	{ int fmaster_dup2(u_int from, u_int to); }
 91	AUE_NULL	UNIMPL	getdopt
-92	AUE_FCNTL	UNIMPL	{ int fmaster_fcntl(int fd, int cmd, \
+92	AUE_FCNTL	STD	{ int fmaster_fcntl(int fd, int cmd, \
 				    long arg); }
 93	AUE_SELECT	STD	{ int fmaster_select(int nd, fd_set *in, \
 				    fd_set *ou, fd_set *ex, \
