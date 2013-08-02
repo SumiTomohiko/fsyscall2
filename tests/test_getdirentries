@@ -1,0 +1,3 @@
+
+cmd="getdirentries/getdirentries"
+expected_status="0"
