@@ -100,6 +100,7 @@ tests/*/read/read
 tests/*/write/write
 tests/amd64/close_twice/close_twice
 tests/amd64/dup/dup
+tests/amd64/fcntl/fcntl
 tests/amd64/fstat/fstat
 tests/amd64/getegid/getegid
 tests/amd64/geteuid/geteuid
