@@ -1,4 +1,6 @@
 
 cmd="dup/dup"
-args="foobarbazquux"
-expected_stdout="${args}"
+file="/lib/libc.so.7"
+nbytes="32"
+args="${file} ${nbytes}"
+expected_stdout="$(head -c ${nbytes} ${file})"
