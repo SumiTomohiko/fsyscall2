@@ -11,6 +11,15 @@ _exit:
 	syscall
 	; NOTREACHED
 
+global fstatfs
+fstatfs:
+	mov rax, sys.fstatfs
+	syscall
+	jnc .exit
+	mov rax, -1
+.exit:
+	ret
+
 global fcntl
 fcntl:
 	mov rax, sys.fcntl

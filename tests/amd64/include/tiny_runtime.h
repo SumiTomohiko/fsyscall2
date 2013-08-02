@@ -4,6 +4,8 @@
 #include <fcntl.h>
 #include <stddef.h>
 #include <string.h>
+#include <sys/mount.h>
+#include <sys/param.h>
 #include <sys/select.h>
 #include <sys/types.h>
 #include <unistd.h>
