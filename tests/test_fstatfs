@@ -1,0 +1,3 @@
+
+cmd="fstatfs/fstatfs"
+expected_status="0"
