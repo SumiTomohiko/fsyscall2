@@ -11,6 +11,15 @@ _exit:
 	syscall
 	; NOTREACHED
 
+global getdirentries
+getdirentries:
+	mov rax, sys.getdirentries
+	syscall
+	jnc .exit
+	mov rax, -1
+.exit:
+	ret
+
 global fstatfs
 fstatfs:
 	mov rax, sys.fstatfs

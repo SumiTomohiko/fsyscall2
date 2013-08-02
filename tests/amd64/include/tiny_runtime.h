@@ -1,6 +1,7 @@
 #if !defined(TINY_RUNTIME_H_INCLUDED)
 #define TINY_RUNTIME_H_INCLUDED
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <stddef.h>
 #include <string.h>
