@@ -1,0 +1,6 @@
+
+cmd="dup/dup"
+file="${tests_dir}/song"
+nbytes="8"
+args="${file} ${nbytes}"
+expected_stdout="$(head -c ${nbytes} ${file})"
