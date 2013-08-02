@@ -1,0 +1,3 @@
+
+cmd="fcntl/fcntl"
+expected_status="0"
