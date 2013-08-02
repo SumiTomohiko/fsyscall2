@@ -677,7 +677,7 @@
 				    long bufsize, int flags); }
 396	AUE_STATFS	UNIMPL	{ int fmaster_statfs(char *path, \
 				    struct statfs *buf); }
-397	AUE_FSTATFS	UNIMPL	{ int fmaster_fstatfs(int fd, \
+397	AUE_FSTATFS	STD	{ int fmaster_fstatfs(int fd, \
 				    struct statfs *buf); }
 398	AUE_FHSTATFS	UNIMPL	{ int fmaster_fhstatfs(\
 				    const struct fhandle *u_fhp, \
