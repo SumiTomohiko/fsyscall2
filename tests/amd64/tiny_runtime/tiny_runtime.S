@@ -11,6 +11,15 @@ _exit:
 	syscall
 	; NOTREACHED
 
+global fcntl
+fcntl:
+	mov rax, sys.fcntl
+	syscall
+	jnc .exit
+	mov rax, -1
+.exit:
+	ret
+
 global open
 open:
 	mov rax, sys.open

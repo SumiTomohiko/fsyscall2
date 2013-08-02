@@ -17,6 +17,7 @@
 %define	sys.getgid	47
 %define	sys.ioctl	54
 %define	sys.readlink	58
+%define	sys.fcntl	92
 %define	sys.select	93
 %define	sys.writev	121
 %define	sys.stat	188
