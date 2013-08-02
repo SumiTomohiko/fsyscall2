@@ -11,6 +11,24 @@ _exit:
 	syscall
 	; NOTREACHED
 
+global open
+open:
+	mov rax, sys.open
+	syscall
+	jnc .exit
+	mov rax, -1
+.exit:
+	ret
+
+global read
+read:
+	mov rax, sys.read
+	syscall
+	jne .exit
+	mov rax, -1
+.exit:
+	ret
+
 global write
 write:
 	mov rax, sys.write
