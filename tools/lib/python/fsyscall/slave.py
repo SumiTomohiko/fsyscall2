@@ -132,6 +132,7 @@ def print_fslave_call(p, print_newline, syscall):
 
         f = {
                 "char *": "read_string",
+                "long": "read_int64",
                 "int": "read_int32",
                 "u_int": "read_uint32",
                 "off_t": "read_int64",

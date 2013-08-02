@@ -137,6 +137,7 @@ def concrete_datatype_of_abstract_datatype(datatype):
             "size_t": "uint64",
             "ssize_t": "int64",
             "void *": "int64",
+            "long": "int64",
             "int": "int32" }[datatype]
 
 def bufsize_of_datatype(datatype):
@@ -168,6 +169,7 @@ def datasize_of_datatype(datatype):
             "fflags_t": 32,
             "gid_t": 32,
             "ino_t": 32,
+            "long": 64,
             "int": 32,
             "int64_t": 64,
             "mode_t": 16,

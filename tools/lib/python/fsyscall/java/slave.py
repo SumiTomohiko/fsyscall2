@@ -56,6 +56,7 @@ def write_command_java(g, syscalls):
 
 JAVA_DATATYPE_OF_C_DATATYPE = {
         "char *": "String",
+        "long": "long",
         "int": "int",
         "void *": "byte[]",
         "size_t": "long",
