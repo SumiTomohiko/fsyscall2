@@ -254,9 +254,13 @@ def make_args_format(syscall):
     msg_fmt = "{name}={fmt}"
     for a in syscall.args:
         name = a.name
-        datatype = a.datatype
-        if (a in syscall.output_args) or (datatype[-1] == "*"):
+        if a in syscall.output_args:
             fmt = "%p"
+            msgs.append(msg_fmt.format(**locals()))
+            continue
+        datatype = a.datatype
+        if datatype[-1] == "*":
+            fmt = "\\\"%s\\\"" if datatype == "char *" else "%p"
             msgs.append(msg_fmt.format(**locals()))
             continue
         type_ = concrete_datatype_of_abstract_datatype(datatype)
