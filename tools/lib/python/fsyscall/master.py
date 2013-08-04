@@ -29,7 +29,9 @@ def print_head(p, name):
 #include <sys/libkern.h>
 #include <sys/proc.h>
 #include <sys/stat.h>
+#include <sys/syslog.h>
 #include <sys/sysproto.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 
@@ -239,14 +241,71 @@ def print_master_call(p, print_newline, syscall):
 """.format(**locals()))
     print_newline()
 
+def make_log_args(syscall):
+    args = []
+    for a in syscall.args:
+        args.append("uap->{name}".format(**vars(a)))
+    delim = ", "
+    s = delim.join(args)
+    return delim + s if 0 < len(s) else ""
+
+def make_args_format(syscall):
+    msgs = []
+    msg_fmt = "{name}={fmt}"
+    for a in syscall.args:
+        name = a.name
+        datatype = a.datatype
+        if (a in syscall.output_args) or (datatype[-1] == "*"):
+            fmt = "%p"
+            msgs.append(msg_fmt.format(**locals()))
+            continue
+        type_ = concrete_datatype_of_abstract_datatype(datatype)
+        fmt = {
+                "int32": "%d",
+                "uint32": "%u",
+                "int64": "%ld",
+                "uint64": "%lu" }[type_]
+        msgs.append(msg_fmt.format(**locals()))
+    s = ", ".join(msgs)
+    return ": {s}".format(**locals()) if 0 < len(s) else ""
+
+def print_wrapper(p, print_newline, syscall):
+    name = syscall.name
+    syscall_name = drop_prefix(name)
+    fmt_args = make_args_format(syscall)
+    args = make_log_args(syscall)
+    p("""
+int
+sys_{name}(struct thread *td, struct {name}_args *uap)
+{{
+\tstruct timeval time_start, time_end;
+\tsuseconds_t sec, t;
+\tpid_t pid;
+\tint error;
+
+\tpid = td->td_proc->p_pid;
+\tlog(LOG_DEBUG, \"fmaster[%d]: {syscall_name}: started{fmt_args}\\n\", pid{args});
+\tmicrotime(&time_start);
+
+\terror = {name}_main(td, uap);
+
+\tmicrotime(&time_end);
+\tsec = time_end.tv_sec - time_start.tv_sec;
+\tt = 1000000 * sec + (time_end.tv_usec - time_start.tv_usec);
+\tlog(LOG_DEBUG, \"fmaster[%d]: {syscall_name}: ended: %ld[usec]\\n\", pid, t);
+
+\treturn (error);
+}}
+""".format(**locals()))
+
 def print_generic_tail(p, print_newline, syscall):
     print_call_tail(p, print_newline)
 
     local_vars = make_basic_local_vars(syscall)
     name = syscall.name
     p("""\
-int
-sys_{name}(struct thread *td, struct {name}_args *uap)
+static int
+{name}_main(struct thread *td, struct {name}_args *uap)
 {{
 """.format(**locals()))
     print_locals(p, local_vars)
@@ -284,6 +343,7 @@ sys_{name}(struct thread *td, struct {name}_args *uap)
 \treturn (0);
 }}
 """.format(**locals()))
+    print_wrapper(p, print_newline, syscall)
 
 def print_execute_return(p, print_newline, syscall):
     name = syscall.name
@@ -399,8 +459,8 @@ def print_syscall(p, print_newline, syscall):
     local_vars = make_basic_local_vars(syscall)
     name = syscall.name
     p("""\
-int
-sys_{name}(struct thread *td, struct {name}_args *uap)
+static int
+{name}_main(struct thread *td, struct {name}_args *uap)
 {{
 """.format(**locals()))
     print_locals(p, local_vars)
@@ -413,6 +473,7 @@ sys_{name}(struct thread *td, struct {name}_args *uap)
 \treturn (execute_return(td, uap));
 }}
 """.format(**locals()))
+    print_wrapper(p, print_newline, syscall)
 
 def print_tail(p, print_newline, syscall):
     if len([a for a in syscall.args if data_of_argument(syscall, a).out]) == 0:
