@@ -1050,22 +1050,6 @@ To build fsyscall, you need
 * `Python <http://www.python.org/>`_ 3.3
 * `nasm <http://www.nasm.us/>`_ 2.10.3
 
-Generate declarations of system call entry
-------------------------------------------
-
-First of all, you must generate system call declarations. Do the following
-command at the top directory of the source tree::
-
-    $ (cd fmaster/sys/fmaster && make)
-
-Generate source code
---------------------
-
-Large parts of fsyscall implementation are automatically generated with the
-following command::
-
-    $ python3 tools/makesyscalls.py
-
 Compile a kernel
 ----------------
 
@@ -1079,6 +1063,22 @@ If you are using your own kernel, please change `KERNBUILDDIR` in
 fmaster/Makefile::
 
     KERNBUILDDIR=	/usr/obj/usr/src/sys/GENERIC
+
+Generate declarations of system call entry
+------------------------------------------
+
+The second step is generating system call declarations. Do the following command
+at the top directory of the source tree::
+
+    $ (cd fmaster/sys/fmaster && make)
+
+Generate source code
+--------------------
+
+Large parts of fsyscall implementation are automatically generated with the
+following command (This instruction needs python3.3 internally)::
+
+    $ make syscalls
 
 Compile fsyscall
 ----------------
