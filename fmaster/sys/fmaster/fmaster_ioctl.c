@@ -15,7 +15,7 @@ sys_fmaster_ioctl(struct thread *td, struct fmaster_ioctl_args *uap)
 	if (type == FD_CLOSED)
 		return (EBADF);
 	if (type == FD_SLAVE)
-		return (0);
+		return (ENOTTY);
 	a.fd = fmaster_fds_of_thread(td)[fd].fd_local;
 	a.com = uap->com;
 	a.data = uap->data;
