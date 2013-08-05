@@ -302,6 +302,15 @@ sys_{name}(struct thread *td, struct {name}_args *uap)
 }}
 """.format(**locals()))
 
+def print_pre_execute(p, print_newline, syscall):
+    if not syscall.pre_execute:
+        return
+    p("""\
+\tif ({name}_pre_execute(td, uap, &error) == 0)
+\t\treturn (error);
+""".format(**vars(syscall)))
+    print_newline()
+
 def print_generic_tail(p, print_newline, syscall):
     print_call_tail(p, print_newline)
 
@@ -315,12 +324,7 @@ static int
     print_locals(p, local_vars)
     print_newline()
     print_master_call(p, print_newline, syscall)
-    if syscall.pre_execute:
-        p("""\
-\tif ({name}_pre_execute(td, uap, &error) == 0)
-\t\treturn (error);
-""".format(**locals()))
-        print_newline()
+    print_pre_execute(p, print_newline, syscall)
     cmd_name = make_cmd_name(name)
     bit_num = 32 if syscall.rettype == "int" else 64
     p("""\
@@ -470,6 +474,7 @@ static int
     print_locals(p, local_vars)
     print_newline()
     print_master_call(p, print_newline, syscall)
+    print_pre_execute(p, print_newline, syscall)
     p("""\
 \terror = execute_call(td, uap);
 \tif (error != 0)
