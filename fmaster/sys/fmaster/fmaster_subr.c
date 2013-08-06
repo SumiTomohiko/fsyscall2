@@ -6,12 +6,31 @@
 #include <sys/syscallsubr.h>
 #include <sys/syslog.h>
 #include <sys/systm.h>
+#include <sys/time.h>
 #include <sys/uio.h>
 
 #include <fsyscall/private.h>
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fmaster.h>
+
+static long
+fmaster_subtract_timeval(const struct timeval *t1, const struct timeval *t2)
+{
+
+	return (1000000 * (t2->tv_sec - t1->tv_sec) + (t2->tv_usec - t1->tv_usec));
+}
+
+void
+fmaster_log_spent_time(struct thread *td, const char *msg, const struct timeval *t1)
+{
+	struct timeval t2;
+	long delta;
+
+	microtime(&t2);
+	delta = fmaster_subtract_timeval(t1, &t2);
+	log(LOG_DEBUG, "fmaster[%d]: %s: %ld[usec]\n", td->td_proc->p_pid, msg, delta);
+}
 
 int
 fmaster_is_master_file(struct thread *td, const char *path)

@@ -282,8 +282,7 @@ def print_wrapper(p, print_newline, syscall):
 int
 sys_{name}(struct thread *td, struct {name}_args *uap)
 {{
-\tstruct timeval time_start, time_end;
-\tsuseconds_t sec, t;
+\tstruct timeval time_start;
 \tpid_t pid;
 \tint error;
 
@@ -293,10 +292,7 @@ sys_{name}(struct thread *td, struct {name}_args *uap)
 
 \terror = {name}_main(td, uap);
 
-\tmicrotime(&time_end);
-\tsec = time_end.tv_sec - time_start.tv_sec;
-\tt = 1000000 * sec + (time_end.tv_usec - time_start.tv_usec);
-\tlog(LOG_DEBUG, \"fmaster[%d]: {syscall_name}: ended: %ld[usec]\\n\", pid, t);
+\tfmaster_log_spent_time(td, \"{syscall_name}: ended\", &time_start);
 
 \treturn (error);
 }}
