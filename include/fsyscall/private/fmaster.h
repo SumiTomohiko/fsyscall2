@@ -78,6 +78,8 @@ int	fmaster_return_fd(struct thread *, enum fmaster_fd_type, int);
 
 int	fmaster_is_master_file(struct thread *, const char *);
 
+void	fmaster_log_spent_time(struct thread *, const char *, const struct timeval *);
+
 #define	LOG(td, pri, fmt, ...)	do {				\
 	const char *__fmt__ = "fmaster[%d]: " fmt "\n";		\
 	log((pri), __fmt__, (td)->td_proc->p_pid, __VA_ARGS__);	\
