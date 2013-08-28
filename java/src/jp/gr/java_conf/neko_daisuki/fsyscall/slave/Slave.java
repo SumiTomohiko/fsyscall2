@@ -707,6 +707,15 @@ public class Slave extends Worker {
         return result;
     }
 
+    public SyscallResult.Generic32 doFcntl(int fd, int cmd, long arg) throws IOException {
+        String fmt = "fcntl(fd=%d, cmd=%d, arg=%d)";
+        mLogger.info(String.format(fmt, fd, cmd, arg));
+
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+        result.retval = 0;
+        return result;
+    }
+
     public SyscallResult.Generic32 doDup(long oldd) throws IOException {
         mLogger.info(String.format("dup(oldd=%d)", oldd));
 
