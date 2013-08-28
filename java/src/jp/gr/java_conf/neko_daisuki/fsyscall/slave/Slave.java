@@ -707,6 +707,31 @@ public class Slave extends Worker {
         return result;
     }
 
+    public SyscallResult.Generic32 doDup(long oldd) throws IOException {
+        mLogger.info(String.format("dup(oldd=%d)", oldd));
+
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+        int newfd = findFreeSlotOfFile();
+        if (newfd < 0) {
+            result.retval = -1;
+            result.errno = Errno.EMFILE;
+            return result;
+        }
+
+        int d = (int)oldd;
+        UnixFile file = mFiles[d];
+        if (file == null) {
+            result.retval = -1;
+            result.errno = Errno.EBADF;
+            return result;
+        }
+
+        mFiles[newfd] = file;
+
+        result.retval = newfd;
+        return result;
+    }
+
     public SyscallResult.Generic32 doClose(int fd) throws IOException {
         mLogger.info(String.format("close(fd=%d)", fd));
 
