@@ -4,13 +4,38 @@ from os.path import basename
 from re import compile
 from sys import argv, exit
 
+class Pattern:
+
+    def match(self, name):
+        raise NotImplementedError()
+
+class StrictPattern(Pattern):
+
+    def __init__(self, name):
+        self.name = name
+
+    def match(self, name):
+        return self.name == name
+
+class RegexpPattern(Pattern):
+
+    def __init__(self, regexp):
+        self.regexp = compile(regexp)
+
+    def match(self, name):
+        return self.regexp.match(name) is not None
+
 excludes = [
-        compile(r"\Atest_[fl]?stat_(?!size)"),
-        compile(r"\Atest_readlink\Z"),
-        compile(r"\Atest_access2\Z")
+        RegexpPattern(r"\Atest_[fl]?stat_(?!size)"),
+        RegexpPattern(r"\Atest_readlink\Z"),
+        RegexpPattern(r"\Atest_access2\Z"),
+        StrictPattern("test_uid"),
+        StrictPattern("test_gid"),
+        StrictPattern("test_euid"),
+        StrictPattern("test_egid")
         ]
 
 name = basename(argv[1])
-exit(1 if 0 < len([ex for ex in excludes if ex.match(name) is not None]) else 0)
+exit(1 if 0 < len([ex for ex in excludes if ex.match(name)]) else 0)
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4

@@ -12,7 +12,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 
-import com.sun.security.auth.module.UnixSystem;
+/*
+ * Android 3.2.1 does not have UnixSystem.
+ */
+//import com.sun.security.auth.module.UnixSystem;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
@@ -792,14 +795,16 @@ public class Slave extends Worker {
     public SyscallResult.Generic32 doGetgid() throws IOException {
         mLogger.info("getgid()");
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
-        result.retval = (int)(new UnixSystem().getGid());
+        //result.retval = (int)(new UnixSystem().getGid());
+        result.retval = 1001;
         return result;
     }
 
     public SyscallResult.Generic32 doGetuid() throws IOException {
         mLogger.info("getuid()");
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
-        result.retval = (int)(new UnixSystem().getUid());
+        //result.retval = (int)(new UnixSystem().getUid());
+        result.retval = 1001;
         return result;
     }
 
