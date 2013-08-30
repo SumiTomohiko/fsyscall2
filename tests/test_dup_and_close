@@ -1,0 +1,5 @@
+
+cmd="dup_and_close/dup_and_close"
+msg="foobarbazquux"
+args="1 ${msg}"
+expected_stdout="${msg}"
