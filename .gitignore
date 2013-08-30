@@ -102,6 +102,7 @@ tests/*/read/read
 tests/*/write/write
 tests/amd64/close_twice/close_twice
 tests/amd64/dup/dup
+tests/amd64/dup_and_close/dup_and_close
 tests/amd64/fcntl/fcntl
 tests/amd64/fstat/fstat
 tests/amd64/fstatfs/fstatfs
