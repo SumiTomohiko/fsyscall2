@@ -98,19 +98,57 @@ public class Slave extends Worker {
         }
     }
 
-    private interface UnixFile {
+    private abstract static class UnixFile {
 
-        public boolean isReadyToRead() throws UnixException;
-        public boolean isReadyToWrite() throws UnixException;
-        public int read(byte[] buffer) throws UnixException;
-        public long pread(byte[] buffer, long offset) throws UnixException;
-        public int write(byte[] buffer) throws UnixException;
-        public void close() throws UnixException;
-        public long lseek(long offset, int whence) throws UnixException;
-        public Unix.Stat fstat() throws UnixException;
+        private abstract class Closer {
+
+            public abstract void close() throws UnixException;
+        }
+
+        private class TrueCloser extends Closer {
+
+            public void close() throws UnixException {
+                doClose();
+            }
+        }
+
+        private class RefCountCloser extends Closer {
+
+            public void close() throws UnixException {
+                mRefCount--;
+                mCloser = mRefCount == 1 ? new TrueCloser() : mCloser;
+            }
+        }
+
+        private int mRefCount;
+        private Closer mCloser;
+
+        public UnixFile() {
+            mRefCount = 1;
+            mCloser = new TrueCloser();
+        }
+
+        public void acquire() {
+            mRefCount++;
+            mCloser = mRefCount == 2 ? new RefCountCloser() : mCloser;
+        }
+
+        public void close() throws UnixException {
+            mCloser.close();
+        }
+
+        public abstract boolean isReadyToRead() throws UnixException;
+        public abstract boolean isReadyToWrite() throws UnixException;
+        public abstract int read(byte[] buffer) throws UnixException;
+        public abstract long pread(byte[] buffer, long offset) throws UnixException;
+        public abstract int write(byte[] buffer) throws UnixException;
+        public abstract long lseek(long offset, int whence) throws UnixException;
+        public abstract Unix.Stat fstat() throws UnixException;
+
+        protected abstract void doClose() throws UnixException;
     }
 
-    private abstract static class UnixRandomAccessFile implements UnixFile {
+    private abstract static class UnixRandomAccessFile extends UnixFile {
 
         protected RandomAccessFile mFile;
 
@@ -126,12 +164,6 @@ public class Slave extends Worker {
             }
         }
 
-        public abstract boolean isReadyToRead() throws UnixException;
-        public abstract boolean isReadyToWrite() throws UnixException;
-        public abstract int read(byte[] buffer) throws UnixException;
-        public abstract long pread(byte[] buffer, long offset) throws UnixException;
-        public abstract int write(byte[] buffer) throws UnixException;
-
         public Unix.Stat fstat() throws UnixException {
             Unix.Stat st = new Unix.Stat();
 
@@ -143,15 +175,6 @@ public class Slave extends Worker {
             }
 
             return st;
-        }
-
-        public void close() throws UnixException {
-            try {
-                mFile.close();
-            }
-            catch (IOException e) {
-                throw new UnixException(Errno.EBADF, e);
-            }
         }
 
         public long lseek(long offset, int whence) throws UnixException {
@@ -190,6 +213,15 @@ public class Slave extends Worker {
             }
 
             return pos;
+        }
+
+        protected void doClose() throws UnixException {
+            try {
+                mFile.close();
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EBADF, e);
+            }
         }
     }
 
@@ -279,14 +311,7 @@ public class Slave extends Worker {
         }
     }
 
-    private abstract static class UnixStream implements UnixFile {
-
-        public abstract boolean isReadyToRead() throws UnixException;
-        public abstract boolean isReadyToWrite() throws UnixException;
-        public abstract int read(byte[] buffer) throws UnixException;
-        public abstract long pread(byte[] buffer, long offset) throws UnixException;
-        public abstract int write(byte[] buffer) throws UnixException;
-        public abstract void close() throws UnixException;
+    private abstract static class UnixStream extends UnixFile {
 
         public long lseek(long offset, int whence) throws UnixException {
             throw new UnixException(Errno.ESPIPE);
@@ -337,7 +362,7 @@ public class Slave extends Worker {
             throw new UnixException(Errno.EBADF);
         }
 
-        public void close() throws UnixException {
+        protected void doClose() throws UnixException {
             try {
                 mIn.close();
             }
@@ -381,7 +406,7 @@ public class Slave extends Worker {
             return buffer.length;
         }
 
-        public void close() throws UnixException {
+        protected void doClose() throws UnixException {
             try {
                 mOut.close();
             }
@@ -739,6 +764,7 @@ public class Slave extends Worker {
         }
 
         mFiles[newfd] = file;
+        file.acquire();
 
         result.retval = newfd;
         return result;
