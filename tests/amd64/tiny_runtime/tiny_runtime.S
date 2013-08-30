@@ -135,6 +135,15 @@ dup:
 .exit:
 	ret
 
+global close
+close:
+	mov rax, sys.close
+	syscall
+	jnc .exit
+	mov rax, -1
+.exit:
+	ret
+
 global _start
 _start:
 	mov rbp, rsp
