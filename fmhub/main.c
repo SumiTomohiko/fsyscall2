@@ -38,6 +38,11 @@ struct mhub {
 	struct list masters;
 };
 
+struct env {
+	struct env *next;
+	const char *pair;
+};
+
 static void
 usage()
 {
@@ -86,9 +91,9 @@ find_syscall()
 }
 
 static void
-exec_master(int syscall_num, int rfd, int wfd, int argc, char *argv[])
+exec_master(int syscall_num, int rfd, int wfd, int argc, char *argv[], const char *envp[])
 {
-	char **args, *envp[] = { NULL };
+	char **args;
 	int i;
 
 	args = (char **)alloca(sizeof(char *) * (argc + 1));
@@ -310,12 +315,52 @@ log_new_master(struct master *master)
 }
 
 static int
-mhub_main(struct mhub *mhub, int argc, char *argv[])
+count_env(struct env *penv)
+{
+	struct env *p;
+	int n = 0;
+
+	for (p = penv; p != NULL; p = p->next)
+		n++;
+
+	return (n);
+}
+
+static const char **
+build_envp(struct env *penv)
+{
+	struct env *p;
+	int i, nenv;
+	const char **envp;
+
+	nenv = count_env(penv);
+	envp = (const char **)malloc_or_die((nenv + 1) * sizeof(const char *));
+
+	for (p = penv, i = 0; p != NULL; p = p->next, i++)
+		envp[i] = p->pair;
+	envp[i] = NULL;
+
+	return (envp);
+}
+
+static void
+free_env(struct env *penv)
+{
+	struct env *next, *p;
+
+	for (p = penv; p != NULL; p = next) {
+		next = p->next;
+		free(p);
+	}
+}
+
+static int
+mhub_main(struct mhub *mhub, int argc, char *argv[], struct env *penv)
 {
 	struct master *master;
 	int hub2master[2], master2hub[2], rfd, syscall_num, wfd;
 	pid_t pid;
-	const char *verbose;
+	const char **envp, *verbose;
 
 	syscall_num = find_syscall();
 
@@ -329,9 +374,12 @@ mhub_main(struct mhub *mhub, int argc, char *argv[])
 
 		rfd = hub2master[R];
 		wfd = master2hub[W];
-		exec_master(syscall_num, rfd, wfd, argc, argv);
+		envp = build_envp(penv);
+		exec_master(syscall_num, rfd, wfd, argc, argv, envp);
 		/* NOTREACHED */
 	}
+
+	free_env(penv);
 
 	verbose = getenv(FSYSCALL_ENV_VERBOSE);
 	if ((verbose != NULL) && (strcmp(verbose, "1") == 0))
@@ -357,15 +405,28 @@ mhub_main(struct mhub *mhub, int argc, char *argv[])
 	return (0);
 }
 
+static struct env *
+create_env(const char *pair)
+{
+	struct env *penv;
+
+	penv = (struct env *)malloc_or_die(sizeof(struct env));
+	penv->pair = pair;
+
+	return (penv);
+}
+
 int
 main(int argc, char *argv[])
 {
 	struct option opts[] = {
+		{ "env", required_argument, NULL, 'e' },
 		{ "help", no_argument, NULL, 'h' },
 		{ "version", no_argument, NULL, 'v' },
 		{ NULL, 0, NULL, 0 }
 	};
 	struct mhub mhub;
+	struct env *p, *penv = NULL;
 	int opt, status;
 	char **args;
 
@@ -376,6 +437,11 @@ main(int argc, char *argv[])
 
 	while ((opt = getopt_long(argc, argv, "+", opts, NULL)) != -1)
 		switch (opt) {
+		case 'e':
+			p = create_env(optarg);
+			p->next = penv;
+			penv = p;
+			break;
 		case 'h':
 			usage();
 			return (0);
@@ -397,7 +463,7 @@ main(int argc, char *argv[])
 
 	initialize_list(&mhub.masters);
 
-	status = mhub_main(&mhub, argc - optind - 2, args + 2);
+	status = mhub_main(&mhub, argc - optind - 2, args + 2, penv);
 	log_graceful_exit(status);
 
 	return (status);
