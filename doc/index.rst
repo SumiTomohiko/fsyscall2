@@ -1050,7 +1050,7 @@ How to compile
 Requirements
 ------------
 
-To build fsyscall, you need
+Building fsyscall requires
 
 * `Python <http://www.python.org/>`_ 3.3
 * `nasm <http://www.nasm.us/>`_ 2.10.3
