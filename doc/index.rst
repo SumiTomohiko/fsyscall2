@@ -203,9 +203,16 @@ Problems
 Performance
 -----------
 
-When the author tried `ffmpeg <http://www.ffmpeg.org/>`_ through fsyscall, it
-took 1,000 times time than that in the case without fsyscall. Caching a new file
-in a master machine may fix this problem.
+Performance is the most important problem in fsyscall.
+
+The author measured how long time the echo command takes in two cases.
+
+1. The first case was executing the command usually (without nexec). It took
+   about 0.05[sec].
+2. The second case was executing with nexec. The nexecd was in the localhost. In
+   this case, executing the command took about 10[sec].
+
+So executing a command via nexec is about 200 times slower.
 
 Supported applications
 ======================
