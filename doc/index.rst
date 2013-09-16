@@ -18,7 +18,7 @@ through network.
 
 .. image:: overview.png
 
-The follwing three figures show you one example of fsyscall's work.
+The following three figures show you one example of fsyscall's work.
 
 1. When an application calls open(2), fsyscall sends it to another machine.
 2. The requested machine does open(2) actually.
