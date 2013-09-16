@@ -214,6 +214,7 @@ fsyscall supports the following applications explicitly.
 
 * /bin/echo
 * /usr/local/bin/ffmpeg
+* /usr/local/bin/python3.3
 
 Supported system calls
 ======================
