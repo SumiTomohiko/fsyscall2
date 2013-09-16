@@ -104,7 +104,15 @@ main(int argc, char *argv[])
 		close_or_die(shub2mhub[W]);
 		r = shub2mhub[R];
 		w = mhub2shub[W];
-		fsyscall_start_master(r, w, argc, argv);
+		/*
+		 * The man page of environ(7) does not tell which header
+		 * includes the declaration of environ. I found it in
+		 * /usr/include/roken.h, but it seems unused. Because
+		 * /usr/src/lib/libc/gen/exec.c does not include this header.
+		 * exec.c declares extern environ by itself.
+		 */
+		extern char **environ;
+		fsyscall_start_master(r, w, argc, argv, environ);
 		/* NOTREACHED */
 	}
 
