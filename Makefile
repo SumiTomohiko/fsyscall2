@@ -1,5 +1,6 @@
 
-SUBDIR= 	lib fmhub fmaster fshub fslave tests
+SLAVEDIR=	fshub fslave
+SUBDIR= 	lib fmhub fmaster $(SLAVEDIR) tests
 DOCDIR=		doc
 JAVADIR=	java
 
@@ -14,6 +15,18 @@ doc:
 
 doc-clean:
 	@cd $(DOCDIR) && $(MAKE) clean
+
+install-kmod:
+	@cd fmaster && $(MAKE) install
+
+install-master:
+	@cd fmhub && $(MAKE) install
+
+install-slave:
+	@for dir in $(SLAVEDIR);		\
+	do					\
+		(cd $$dir && $(MAKE) install);	\
+	done
 
 java:
 	@cd $(JAVADIR) && ant
