@@ -1,4 +1,5 @@
 #include <sys/param.h>
+#include <sys/select.h>
 #include <sys/uio.h>
 #include <assert.h>
 #include <ctype.h>
@@ -41,10 +42,25 @@ write_or_die(int fd, const void *buf, size_t nbytes)
 void
 read_or_die(int fd, const void *buf, size_t nbytes)
 {
+	fd_set fds;
+	struct timeval timeout;
 	size_t n = 0;
 	ssize_t m;
+	int l;
+
+	timeout.tv_sec = 8;	/* Caller must give this. */
+	timeout.tv_usec = 0;
 
 	while (n < nbytes) {
+		FD_ZERO(&fds);
+		FD_SET(fd, &fds);
+		l = select(fd + 1, &fds, NULL, NULL, &timeout);
+		if (l == -1)
+			die(-1, "select(2) failed");
+		if (l == 0) {
+			die_with_message(1, "select(2) timeout");
+		}
+
 		m = read(fd, (char *)buf + n, nbytes - n);
 		if (m == 0)
 			diex(-1, "end-of-file in reading");

@@ -2,6 +2,7 @@
 #define FSYSCALL_PRIVATE_DIE_H_INCLUDED
 
 void die(int, const char *, ...);
+void die_with_message(int, const char *);
 void diec(int, int, const char *, ...);
 void diex(int, const char *, ...);
 

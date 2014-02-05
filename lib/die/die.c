@@ -9,14 +9,14 @@
 
 #include <fsyscall/private.h>
 
-static void
+void
 output(const char *msg)
 {
 	fprintf(stderr, "%s[%d]: %s\n", getprogname(), getpid(), msg);
 	syslog(LOG_ERR, "%s", msg);
 }
 
-static void
+void
 die_with_message(int eval, const char *dying_message)
 {
 	output(dying_message);
