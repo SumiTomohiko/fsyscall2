@@ -30,6 +30,7 @@ def print_fslave_head(p, syscall):
     print_caution(p)
     p("""\
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <errno.h>

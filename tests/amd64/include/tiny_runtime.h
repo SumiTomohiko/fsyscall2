@@ -8,6 +8,7 @@
 #include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/select.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 

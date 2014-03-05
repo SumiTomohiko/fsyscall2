@@ -103,7 +103,8 @@ SYSCALLS = {
         "fmaster_getuid": {},
         "fmaster_geteuid": {},
         "fmaster_getgid": {},
-        "fmaster_getegid": {}
+        "fmaster_getegid": {},
+        "fmaster_socket": {}
         }
 
 FMASTER_SYSCALLS = SYSCALLS

@@ -46,6 +46,7 @@ fmaster/sys/fmaster/fmaster_pread.c
 fmaster/sys/fmaster/fmaster_proto.h
 fmaster/sys/fmaster/fmaster_read.c
 fmaster/sys/fmaster/fmaster_readlink.c
+fmaster/sys/fmaster/fmaster_socket.c
 fmaster/sys/fmaster/fmaster_stat.c
 fmaster/sys/fmaster/fmaster_syscall.h
 fmaster/sys/fmaster/fmaster_syscalls.c
@@ -81,6 +82,7 @@ fslave/fslave_open.c
 fslave/fslave_pread.c
 fslave/fslave_read.c
 fslave/fslave_readlink.c
+fslave/fslave_socket.c
 fslave/fslave_stat.c
 fslave/fslave_write.c
 fslave/fslave_writev.c
@@ -123,6 +125,7 @@ tests/amd64/print_stat_member/print_stat_layout
 tests/amd64/readlink/readlink
 tests/amd64/select/select
 tests/amd64/select2/select2
+tests/amd64/socket/socket
 tests/amd64/stat/stat
 tests/amd64/writev/writev
 tests/encode/pid/pid

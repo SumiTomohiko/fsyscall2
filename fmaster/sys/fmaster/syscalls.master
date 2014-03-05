@@ -193,7 +193,7 @@
 95	AUE_FSYNC	UNIMPL	{ int fmaster_fsync(int fd); }
 96	AUE_SETPRIORITY	UNIMPL	{ int fmaster_setpriority(int which, int who, \
 				    int prio); }
-97	AUE_SOCKET	UNIMPL	{ int fmaster_socket(int domain, int type, \
+97	AUE_SOCKET	STD	{ int fmaster_socket(int domain, int type, \
 				    int protocol); }
 98	AUE_CONNECT	UNIMPL	{ int fmaster_connect(int s, caddr_t name, \
 				    int namelen); }

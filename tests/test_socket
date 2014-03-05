@@ -1,0 +1,5 @@
+
+cmd="socket/socket"
+expected_status="0"
+
+# vim: filetype=sh

@@ -144,6 +144,15 @@ close:
 .exit:
 	ret
 
+global socket
+socket:
+	mov rax, sys.socket
+	syscall
+	jnc .exit
+	mov rax, -1
+.exit:
+	ret
+
 global _start
 _start:
 	mov rbp, rsp
