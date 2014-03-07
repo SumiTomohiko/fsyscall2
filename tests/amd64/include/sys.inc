@@ -1,3 +1,5 @@
+%ifndef SYS_INC_INCLUDED
+%define	SYS_INC_INCLUDED
 
 %define	sys.stdin	0
 %define	sys.stdout	1
@@ -35,4 +37,5 @@
 
 %define	flags.readonly	0
 
+%endif
 ; vim: filetype=nasm

@@ -1,3 +1,5 @@
+%ifndef MACRO_INC_INCLUDED
+%define	MACRO_INC_INCLUDED
 
 %macro test_argc 1
 	cmp	qword [rdi], %1
@@ -47,4 +49,5 @@
 
 %define	local(n)	qword [rbp - (callee_save_registers_num + n + 1) * 8]
 
+%endif
 ; vim: filetype=nasm
