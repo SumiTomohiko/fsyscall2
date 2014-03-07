@@ -1,0 +1,23 @@
+
+name="test_connect"
+sockfile="${tmp_dir}/${name}.sock"
+pidfile="${tmp_dir}/${name}.pid"
+cmd="connect/connect"
+args="${sockfile}"
+expected_status="0"
+
+precmd()
+{
+	local opts
+
+	opts="--socket-file=${sockfile} --pid-file=${pidfile}"
+	"${tests_dir}/socktestd/socktestd" ${opts}
+}
+
+postcmd()
+{
+	kill -TERM $(cat "${pidfile}")
+	rm -f "${sockfile}" "${pidfile}"
+}
+
+# vim: filetype=sh

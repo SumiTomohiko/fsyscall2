@@ -103,6 +103,7 @@ tests/*/open/open
 tests/*/read/read
 tests/*/write/write
 tests/amd64/close_twice/close_twice
+tests/amd64/connect/connect
 tests/amd64/dup/dup
 tests/amd64/dup_and_close/dup_and_close
 tests/amd64/fcntl/fcntl
@@ -132,6 +133,7 @@ tests/encode/pid/pid
 tests/fstat.rc
 tests/lstat.rc
 tests/o2d/o2d
+tests/socktestd/socktestd
 tests/stat.rc
 tests/test_fstat_*
 tests/test_lstat_*
