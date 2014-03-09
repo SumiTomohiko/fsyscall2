@@ -86,6 +86,7 @@ fslave/fslave_socket.c
 fslave/fslave_stat.c
 fslave/fslave_write.c
 fslave/fslave_writev.c
+include/fsyscall/private/command/name.h
 include/fsyscall/private/fslave/proto.h
 java/bin
 java/src/jp/gr/java_conf/neko_daisuki/fsyscall/Command.java
