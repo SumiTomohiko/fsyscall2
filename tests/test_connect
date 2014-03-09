@@ -1,7 +1,8 @@
 
 name="test_connect"
-sockfile="${tmp_dir}/${name}.sock"
-pidfile="${tmp_dir}/${name}.pid"
+dir="$PWD/${tmp_dir}"
+sockfile="${dir}/${name}.sock"
+pidfile="${dir}/${name}.pid"
 cmd="connect/connect"
 args="${sockfile}"
 expected_status="0"
