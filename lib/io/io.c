@@ -116,6 +116,7 @@ name(int fd, int *len)							\
 	return (decode(buf, *len));					\
 }
 
+IMPLEMENT_READ_X(int8_t, read_int8, FSYSCALL_BUFSIZE_INT8, decode_int8)
 IMPLEMENT_READ_X(int32_t, read_int32, FSYSCALL_BUFSIZE_INT32, decode_int32)
 IMPLEMENT_READ_X(int64_t, read_int64, FSYSCALL_BUFSIZE_INT64, decode_int64)
 

@@ -195,7 +195,7 @@
 				    int prio); }
 97	AUE_SOCKET	STD	{ int fmaster_socket(int domain, int type, \
 				    int protocol); }
-98	AUE_CONNECT	UNIMPL	{ int fmaster_connect(int s, caddr_t name, \
+98	AUE_CONNECT	STD	{ int fmaster_connect(int s, caddr_t name, \
 				    int namelen); }
 99	AUE_ACCEPT	OBSOL	accept
 100	AUE_GETPRIORITY	UNIMPL	{ int fmaster_getpriority(int which, int who); }

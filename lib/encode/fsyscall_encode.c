@@ -23,6 +23,7 @@ name(char *buf, int bufsize, type *dest)			\
 }
 
 IMPLEMENT_DECODE_X(command_t, fsyscall_decode_command)
+IMPLEMENT_DECODE_X(int8_t, fsyscall_decode_int8)
 IMPLEMENT_DECODE_X(int16_t, fsyscall_decode_int16)
 IMPLEMENT_DECODE_X(int32_t, fsyscall_decode_int32)
 IMPLEMENT_DECODE_X(int64_t, fsyscall_decode_int64)
@@ -39,6 +40,7 @@ name(char *buf, int bufsize)				\
 	return (dest);					\
 }
 IMPLEMENT_DECODE_OR_DIE_X(command_t, decode_command, fsyscall_decode_command)
+IMPLEMENT_DECODE_OR_DIE_X(int8_t, decode_int8, fsyscall_decode_int8)
 IMPLEMENT_DECODE_OR_DIE_X(int32_t, decode_int32, fsyscall_decode_int32)
 IMPLEMENT_DECODE_OR_DIE_X(int64_t, decode_int64, fsyscall_decode_int64)
 #endif
@@ -74,6 +76,7 @@ name(type n, char *buf, int bufsize)					\
 	return (m == 0 ? pos : -1);					\
 }
 
+IMPLEMENT_ENCODE_X(uint8_t, fsyscall_encode_uint8)
 IMPLEMENT_ENCODE_X(uint16_t, fsyscall_encode_uint16)
 IMPLEMENT_ENCODE_X(uint32_t, fsyscall_encode_uint32)
 IMPLEMENT_ENCODE_X(uint64_t, fsyscall_encode_uint64)
@@ -102,6 +105,7 @@ name(type n, char *dest, int dest_size)			\
 }
 IMPLEMENT_ENCODE_OR_DIE_X(int32_t, encode_int32, fsyscall_encode_int32)
 IMPLEMENT_ENCODE_OR_DIE_X(int64_t, encode_int64, fsyscall_encode_int64)
+IMPLEMENT_ENCODE_OR_DIE_X(uint8_t, encode_uint8, fsyscall_encode_uint8)
 IMPLEMENT_ENCODE_OR_DIE_X(uint16_t, encode_uint16, fsyscall_encode_uint16)
 IMPLEMENT_ENCODE_OR_DIE_X(uint32_t, encode_uint32, fsyscall_encode_uint32)
 IMPLEMENT_ENCODE_OR_DIE_X(uint64_t, encode_uint64, fsyscall_encode_uint64)

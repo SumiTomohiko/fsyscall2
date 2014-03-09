@@ -1,6 +1,8 @@
 #include <sys/select.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <sys/un.h>
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -11,6 +13,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <syslog.h>
 #include <unistd.h>
 
@@ -302,6 +305,60 @@ write_select_ready(struct slave *slave, int retval, int nfds, fd_set *readfds, f
 }
 
 static void
+read_connect_un(int rfd, payload_size_t *actual_payload_size, struct sockaddr *name)
+{
+	struct sockaddr_un *addr = (struct sockaddr_un *)name;
+	uint64_t path_len;
+	char *path;
+
+	path = read_string(rfd, &path_len);
+	*actual_payload_size += path_len;
+	strcpy(addr->sun_path, path);
+	free(path);
+}
+
+static void
+process_connect(struct slave *slave)
+{
+	struct sockaddr *name;
+	payload_size_t actual_payload_size, payload_size;
+	socklen_t namelen;
+	int family_len, len_len, namelen_len, retval, rfd, s, s_len;
+	sa_family_t family;
+
+	syslog(LOG_DEBUG, "processing CALL_CONNECT.");
+	rfd = slave->rfd;
+	actual_payload_size = 0;
+	payload_size = read_payload_size(rfd);
+
+	s = read_int32(rfd, &s_len);
+	actual_payload_size += s_len;
+
+	namelen = read_uint32(rfd, &namelen_len);
+	actual_payload_size += namelen_len;
+	name = (struct sockaddr *)alloca(namelen);
+
+	name->sa_len = read_uint8(rfd, &len_len);
+	actual_payload_size += len_len;
+
+	family = name->sa_family = read_uint8(rfd, &family_len);
+	actual_payload_size += family_len;
+
+	switch (family) {
+	case AF_UNIX:
+		read_connect_un(rfd, &actual_payload_size, name);
+		break;
+	default:
+		diec(-1, EINVAL, "unsupported protocol family");
+		break;
+	}
+	die_if_payload_size_mismatched(payload_size, actual_payload_size);
+
+	retval = connect(s, name, namelen);
+	return_int(slave, RET_CONNECT, retval, errno);
+}
+
+static void
 process_select(struct slave *slave)
 {
 	struct timeval *ptimeout, timeout;
@@ -357,6 +414,9 @@ mainloop(struct slave *slave)
 #include "dispatch.inc"
 		case CALL_SELECT:
 			process_select(slave);
+			break;
+		case CALL_CONNECT:
+			process_connect(slave);
 			break;
 		case CALL_EXIT:
 			return process_exit(slave);

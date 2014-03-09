@@ -6,11 +6,13 @@
 #include <fsyscall/private/command.h>
 
 command_t	read_command(int);
+int8_t		read_int8(int, int *);
 int32_t		read_int32(int, int *);
 int64_t		read_int64(int, int *);
 payload_size_t	read_payload_size(int);
 pid_t		read_pid(int);
 char *		read_string(int, uint64_t *);
+#define		read_uint8(fd, len)	((uint8_t)read_int8((fd), (len)))
 #define		read_uint32(fd, len)	((uint32_t)read_int32((fd), (len)))
 #define		read_uint64(fd, len)	((uint64_t)read_int64((fd), (len)))
 void		read_or_die(int, const void *, size_t);
