@@ -148,7 +148,7 @@ main(int argc, char *argv[])
 	if (daemon(1, 1) != 0)
 		die("daemon(3) failed");
 	openlog(basename(argv[0]), LOG_PID, LOG_DAEMON);
-	syslog(LOG_INFO, "started.");
+	syslog(LOG_INFO, "started: %s", socket_file);
 	die = die_syslog;
 	write_pid_file(pid_file);
 	signal(SIGTERM, sigterm_handler);
@@ -158,6 +158,7 @@ main(int argc, char *argv[])
 		s = accept(sock, paddr, &len);
 		if (s == -1)
 			die("accept(2) failed");
+		syslog(LOG_INFO, "accepted a client.");
 		fp = fdopen(s, "r");
 		if (fp == NULL)
 			die("fdopen(3) failed");
@@ -170,6 +171,7 @@ main(int argc, char *argv[])
 			die("fgets(3) failed");
 		if (fclose(fp) != 0)
 			die("fclose(3) for client failed");
+		syslog(LOG_INFO, "closed the client.");
 	}
 
 	if (close(sock) != 0)
