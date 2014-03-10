@@ -204,15 +204,32 @@ public class Slave extends Worker {
         }
 
         public int read(byte[] buffer) throws UnixException {
-            throw new UnixException(Errno.ENOSYS);
+            try {
+                return mCore.getInputStream().read(buffer);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
         }
 
         public long pread(byte[] buffer, long offset) throws UnixException {
-            throw new UnixException(Errno.ENOSYS);
+            int len = buffer.length;
+            try {
+                return mCore.getInputStream().read(buffer, (int)offset, len);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
         }
 
         public int write(byte[] buffer) throws UnixException {
-            throw new UnixException(Errno.ENOSYS);
+            try {
+                mCore.getOutputStream().write(buffer);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            return buffer.length;
         }
 
         public long lseek(long offset, int whence) throws UnixException {
@@ -224,7 +241,12 @@ public class Slave extends Worker {
         }
 
         protected void doClose() throws UnixException {
-            throw new UnixException(Errno.ENOSYS);
+            try {
+                mCore.close();
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
         }
     }
 
