@@ -148,6 +148,51 @@ public class Slave extends Worker {
         protected abstract void doClose() throws UnixException;
     }
 
+    private static class Socket extends UnixFile {
+
+        private int mDomain;
+        private int mType;
+        private int mProtocol;
+
+        public Socket(int domain, int type, int protocol) {
+            mDomain = domain;
+            mType = type;
+            mProtocol = protocol;
+        }
+
+        public boolean isReadyToRead() throws UnixException {
+            throw new UnixException(Errno.ENOSYS);
+        }
+
+        public boolean isReadyToWrite() throws UnixException {
+            throw new UnixException(Errno.ENOSYS);
+        }
+
+        public int read(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.ENOSYS);
+        }
+
+        public long pread(byte[] buffer, long offset) throws UnixException {
+            throw new UnixException(Errno.ENOSYS);
+        }
+
+        public int write(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.ENOSYS);
+        }
+
+        public long lseek(long offset, int whence) throws UnixException {
+            return offset;
+        }
+
+        public Unix.Stat fstat() throws UnixException {
+            throw new UnixException(Errno.ENOSYS);
+        }
+
+        protected void doClose() throws UnixException {
+            throw new UnixException(Errno.ENOSYS);
+        }
+    }
+
     private abstract static class UnixRandomAccessFile extends UnixFile {
 
         protected RandomAccessFile mFile;
@@ -645,6 +690,24 @@ public class Slave extends Worker {
             return result;
         }
 
+        return result;
+    }
+
+    public SyscallResult.Generic32 doSocket(int domain, int type, int protocol) throws IOException {
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        int fd = findFreeSlotOfFile();
+        if (fd < 0) {
+            result.retval = -1;
+            result.errno = Errno.ENFILE;
+            return result;
+        }
+
+        UnixFile file = new Socket(domain, type, protocol);
+        mFiles[fd] = file;
+        file.acquire();
+
+        result.retval = fd;
         return result;
     }
 
