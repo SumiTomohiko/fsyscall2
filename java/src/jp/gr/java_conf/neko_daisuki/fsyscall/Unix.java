@@ -45,6 +45,12 @@ public interface Unix {
         public static final int SEEK_END = 2;
         public static final int SEEK_DATA = 3;
         public static final int SEEK_HOLE = 4;
+
+        public static final int AF_LOCAL = 1;
+        public static final int AF_UNIX = AF_LOCAL;
+
+        public static final int PF_LOCAL = AF_LOCAL;
+        public static final int PF_UNIX = PF_LOCAL;
     }
 }
 

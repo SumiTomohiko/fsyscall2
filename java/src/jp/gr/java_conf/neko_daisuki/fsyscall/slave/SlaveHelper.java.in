@@ -2,9 +2,11 @@ package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
@@ -14,7 +16,9 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.Constants;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
+import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
@@ -124,6 +128,65 @@ public class SlaveHelper {
         }
     }
 
+    private class ConnectProc extends CommandDispatcher.Proc {
+
+        private abstract class FamilyProc {
+
+            public abstract SyscallResult.Generic32 run(int s, int len,
+                                                        int family,
+                                                        int namelen) throws IOException;
+        }
+
+        private class InvalidProc extends FamilyProc {
+
+            public SyscallResult.Generic32 run(int s, int len, int family,
+                                               int namelen) throws IOException {
+                SyscallResult.Generic32 result;
+                result = new SyscallResult.Generic32();
+                result.retval = -1;
+                result.errno = Errno.EINVAL;
+                return result;
+            }
+        }
+
+        private class UnixDomainProc extends FamilyProc {
+
+            public SyscallResult.Generic32 run(int s, int len, int family,
+                                               int namelen) throws IOException {
+                String path = mIn.readString();
+                UnixDomainAddress name;
+                name = new UnixDomainAddress(len, family, path);
+                return mSlave.doConnect(s, name, namelen);
+            }
+        }
+
+        private FamilyProc mInvalidProc;
+        private Map<Integer, FamilyProc> mFamilyProcs;
+
+        public ConnectProc() {
+            mFamilyProcs = new HashMap<Integer, FamilyProc>();
+            mFamilyProcs.put(Integer.valueOf(Constants.AF_LOCAL),
+                             new UnixDomainProc());
+            mInvalidProc = new InvalidProc();
+        }
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int s = mIn.readInteger();
+            int namelen = mIn.readInteger();
+            int len = mIn.readInteger();
+            int family = mIn.readInteger();
+            FamilyProc proc = getFamilyProc(family);
+            SyscallResult.Generic32 retval = proc.run(s, len, family, namelen);
+            writeResult(Command.RET_CONNECT, retval);
+        }
+
+        private FamilyProc getFamilyProc(int family) {
+            FamilyProc proc = mFamilyProcs.get(Integer.valueOf(family));
+            return proc != null ? proc : mInvalidProc;
+        }
+    }
+
     private class WritevProc extends CommandDispatcher.Proc {
 
         public void call(Command command) throws IOException {
@@ -179,6 +242,7 @@ public class SlaveHelper {
         CommandDispatcher dispatcher = new CommandDispatcher();
         dispatcher.addEntry(Command.CALL_EXIT, new ExitProc());
         dispatcher.addEntry(Command.CALL_SELECT, new SelectProc());
+        dispatcher.addEntry(Command.CALL_CONNECT, new ConnectProc());
         @DISPATCHES@;
         return dispatcher;
     }

@@ -25,12 +25,30 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
+import jp.gr.java_conf.neko_daisuki.fsyscall.SocketAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
+import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
 public class Slave extends Worker {
+
+    public interface Listener {
+
+        public static class NopListener implements Listener {
+
+            public SocketCore onConnect(int domain, int type, int protocol,
+                                        SocketAddress addr) {
+                return null;
+            }
+        }
+
+        public static final Listener NOP = new NopListener();
+
+        public SocketCore onConnect(int domain, int type, int protocol,
+                                    SocketAddress addr);
+    }
 
     private abstract static interface SelectPred {
 
@@ -153,11 +171,28 @@ public class Slave extends Worker {
         private int mDomain;
         private int mType;
         private int mProtocol;
+        private SocketCore mCore;
 
         public Socket(int domain, int type, int protocol) {
             mDomain = domain;
             mType = type;
             mProtocol = protocol;
+        }
+
+        public int getDomain() {
+            return mDomain;
+        }
+
+        public int getType() {
+            return mType;
+        }
+
+        public int getProtocol() {
+            return mProtocol;
+        }
+
+        public void setCore(SocketCore core) {
+            mCore = core;
         }
 
         public boolean isReadyToRead() throws UnixException {
@@ -470,12 +505,13 @@ public class Slave extends Worker {
     private SyscallOutputStream mOut;
     private Permissions mPermissions;
     private Links mLinks;
+    private Listener mListener;
 
     private UnixFile[] mFiles;
 
     private SlaveHelper mHelper;
 
-    public Slave(Application application, InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links) throws IOException {
+    public Slave(Application application, InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links, Listener listener) throws IOException {
         mLogger.info("a slave is starting.");
 
         mApplication = application;
@@ -483,6 +519,7 @@ public class Slave extends Worker {
         mOut = new SyscallOutputStream(out);
         mPermissions = permissions;
         mLinks = links;
+        setListener(listener);
 
         mHelper = new SlaveHelper(this, mIn, mOut);
 
@@ -657,6 +694,38 @@ public class Slave extends Worker {
         return statActualFile(mLinks.get(path));
     }
 
+    public SyscallResult.Generic32 doConnect(int s, UnixDomainAddress name,
+                                             int namelen) throws IOException {
+        String fmt = "connect(s=%d, name=%s, namelen=%d)";
+        mLogger.info(String.format(fmt, s, name, namelen));
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        UnixFile file = getFile(s);
+        if (file == null) {
+            result.retval = -1;
+            result.errno = Errno.EBADF;
+            return result;
+        }
+        if (!(file instanceof Socket)) {
+            result.retval = -1;
+            result.errno = Errno.ENOTSOCK;
+            return result;
+        }
+        Socket sock = (Socket)file;
+
+        SocketCore core = mListener.onConnect(sock.getDomain(), sock.getType(),
+                                              sock.getProtocol(), name);
+        if (core == null) {
+            result.retval = -1;
+            result.errno = Errno.ENOSYS;
+            return result;
+        }
+        sock.setCore(core);
+        result.retval = 0;
+
+        return result;
+    }
+
     public SyscallResult.Generic32 doWritev(int fd, Unix.IoVec[] iovec) throws IOException {
         mLogger.info(String.format("writev(fd=%d, iovec)", fd));
 
@@ -694,6 +763,8 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Generic32 doSocket(int domain, int type, int protocol) throws IOException {
+        String fmt = "socket(domain=%d, type=%d, protocol=%d)";
+        mLogger.info(String.format(fmt, domain, type, protocol));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         int fd = findFreeSlotOfFile();
@@ -1084,6 +1155,10 @@ public class Slave extends Worker {
 
         result.retval = 0;
         return result;
+    }
+
+    private void setListener(Listener listener) {
+        mListener = listener != null ? listener : Listener.NOP;
     }
 
     static {
