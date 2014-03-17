@@ -10,7 +10,9 @@ import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 
 /*
  * Android 3.2.1 does not have UnixSystem.
@@ -141,9 +143,19 @@ public class Slave extends Worker {
         private int mRefCount;
         private Closer mCloser;
 
+        private boolean mCloseOnExec = false;
+
         public UnixFile() {
             mRefCount = 1;
             mCloser = new TrueCloser();
+        }
+
+        public void setCloseOnExec(boolean closeOnExec) {
+            mCloseOnExec = closeOnExec;
+        }
+
+        public boolean getCloseOnExec() {
+            return mCloseOnExec;
         }
 
         public void acquire() {
@@ -518,6 +530,60 @@ public class Slave extends Worker {
         }
     }
 
+    private interface FcntlProc {
+
+        public static class Nop implements FcntlProc {
+
+            public void run(SyscallResult.Generic32 result, UnixFile file,
+                            int fd, int cmd, long arg) {
+                result.retval = 0;
+            }
+        }
+
+        public static final FcntlProc NOP = new Nop();
+
+        public void run(SyscallResult.Generic32 result, UnixFile file, int fd,
+                        int cmd, long arg);
+    }
+
+    private static class FcntlProcs {
+
+        private Map<Integer, FcntlProc> mProcs;
+
+        public FcntlProcs() {
+            mProcs = new HashMap<Integer, FcntlProc>();
+        }
+
+        public void put(int cmd, FcntlProc proc) {
+            mProcs.put(Integer.valueOf(cmd), proc);
+        }
+
+        public void run(SyscallResult.Generic32 result, UnixFile file, int fd,
+                        int cmd, long arg) {
+            FcntlProc proc = mProcs.get(Integer.valueOf(cmd));
+            FcntlProc f = proc != null ? proc : FcntlProc.NOP;
+            f.run(result, file, fd, cmd, arg);
+        }
+    }
+
+    private class FGetFdProc implements FcntlProc {
+
+        public void run(SyscallResult.Generic32 result, UnixFile file, int fd,
+                        int cmd, long arg) {
+            boolean closeOnExec = file.getCloseOnExec();
+            result.retval = closeOnExec ? Unix.Constants.FD_CLOEXEC : 0;
+        }
+    }
+
+    private class FSetFdProc implements FcntlProc {
+
+        public void run(SyscallResult.Generic32 result, UnixFile file, int fd,
+                        int cmd, long arg) {
+            file.setCloseOnExec(arg == Unix.Constants.FD_CLOEXEC);
+            result.retval = 0;
+        }
+    }
+
     private static final int UNIX_FILE_NUM = 256;
 
     private static Logging.Logger mLogger;
@@ -532,6 +598,7 @@ public class Slave extends Worker {
     private UnixFile[] mFiles;
 
     private SlaveHelper mHelper;
+    private FcntlProcs mFcntlProcs;
 
     public Slave(Application application, InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links, Listener listener) throws IOException {
         mLogger.info("a slave is starting.");
@@ -544,6 +611,9 @@ public class Slave extends Worker {
         setListener(listener);
 
         mHelper = new SlaveHelper(this, mIn, mOut);
+        mFcntlProcs = new FcntlProcs();
+        mFcntlProcs.put(Unix.Constants.F_GETFD, new FGetFdProc());
+        mFcntlProcs.put(Unix.Constants.F_SETFD, new FSetFdProc());
 
         mFiles = new UnixFile[UNIX_FILE_NUM];
         mFiles[0] = new UnixInputStream(stdin);
@@ -894,9 +964,17 @@ public class Slave extends Worker {
     public SyscallResult.Generic32 doFcntl(int fd, int cmd, long arg) throws IOException {
         String fmt = "fcntl(fd=%d, cmd=%d, arg=%d)";
         mLogger.info(String.format(fmt, fd, cmd, arg));
-
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
-        result.retval = 0;
+
+        UnixFile file = getFile(fd);
+        if (file == null) {
+            result.retval = -1;
+            result.errno = Errno.EBADF;
+            return result;
+        }
+
+        mFcntlProcs.run(result, file, fd, cmd, arg);
+
         return result;
     }
 

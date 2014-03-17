@@ -51,6 +51,37 @@ public interface Unix {
 
         public static final int PF_LOCAL = AF_LOCAL;
         public static final int PF_UNIX = PF_LOCAL;
+
+        public static final int F_DUPFD = 0;
+        public static final int F_GETFD = 1;
+        public static final int F_SETFD = 2;
+        public static final int F_GETFL = 3;
+        public static final int F_SETFL = 4;
+        public static final int F_GETOWN = 5;
+        public static final int F_SETOWN = 6;
+        public static final int F_OGETLK = 7;
+        public static final int F_OSETLK = 8;
+        public static final int F_OSETLKW = 9;
+        public static final int F_DUP2FD = 10;
+        public static final int F_GETLK = 11;
+        public static final int F_SETLK = 12;
+        public static final int F_SETLKW = 13;
+        public static final int F_SETLK_REMOTE = 14;
+        public static final int F_READAHEAD = 15;
+        public static final int F_RDAHEAD = 16;
+
+        public static final int FD_CLOEXEC = 1;
+
+        public static final int F_RDLCK = 1;
+        public static final int F_UNLCK = 2;
+        public static final int F_WRLCK = 3;
+        public static final int F_UNLCKSYS = 4;
+        public static final int F_CANCEL = 5;
+        public static final int F_WAIT = 0x010;
+        public static final int F_FLOCK = 0x020;
+        public static final int F_POSIX = 0x040;
+        public static final int F_REMOTE = 0x080;
+        public static final int F_NOINTR = 0x100;
     }
 }
 
