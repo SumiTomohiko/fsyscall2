@@ -95,6 +95,7 @@ java/src/jp/gr/java_conf/neko_daisuki/fsyscall/slave/SlaveHelper.java
 jp.gr.java_conf.neko_daisuki.fsyscall
 jp.gr.java_conf.neko_daisuki.fsyscall.io
 jp.gr.java_conf.neko_daisuki.fsyscall.slave
+log.txt
 tests/*/access/access
 tests/*/close/close
 tests/*/exit/exit
