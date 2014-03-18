@@ -3,6 +3,7 @@
 
 #include <dirent.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stddef.h>
 #include <string.h>
 #include <sys/mount.h>

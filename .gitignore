@@ -119,6 +119,9 @@ tests/amd64/ioctl/ioctl
 tests/amd64/issetugid/issetugid
 tests/amd64/lseek/lseek
 tests/amd64/lstat/lstat
+tests/amd64/poll_in/poll_in
+tests/amd64/poll_out/poll_out
+tests/amd64/poll_timeout/poll_timeout
 tests/amd64/pread/pread
 tests/amd64/print_stat_member/name.inc
 tests/amd64/print_stat_member/print.inc
@@ -139,5 +142,6 @@ tests/test_fstat_*
 tests/test_lstat_*
 tests/test_stat_*
 tests/tester/tester
+tests/timeouttestd/timeouttestd
 tools/lib/python/fsyscall/__pycache__
 tools/lib/python/fsyscall/java/__pycache__

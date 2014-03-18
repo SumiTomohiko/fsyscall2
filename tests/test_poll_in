@@ -1,0 +1,6 @@
+
+cmd="poll_in/poll_in"
+args="/dev/random"
+expected_status="0"
+
+# vim: filetype=sh

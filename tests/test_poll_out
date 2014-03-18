@@ -1,0 +1,6 @@
+
+cmd="poll_out/poll_out"
+args="/dev/null"
+expected_status="0"
+
+# vim: filetype=sh

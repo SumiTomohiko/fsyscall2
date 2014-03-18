@@ -163,6 +163,15 @@ connect:
 .exit:
 	ret
 
+global poll
+poll:
+	mov rax, sys.poll
+	syscall
+	jnc .exit
+	mov rax, -1
+.exit:
+	ret
+
 global _start
 _start:
 	mov rbp, rsp
