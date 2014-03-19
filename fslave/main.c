@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <limits.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -359,6 +360,62 @@ process_connect(struct slave *slave)
 }
 
 static void
+process_poll(struct slave *slave)
+{
+	struct pollfd *fds;
+	payload_size_t actual_payload_size, payload_size, return_payload_size;
+	size_t rest_size;
+	int events_len, fd_len, i, nfds, nfds_len, retval, retval_len;
+	int revents_len, rfd, timeout, timeout_len, wfd;
+	char buf[256], *p;
+
+	syslog(LOG_DEBUG, "processing CALL_POLL.");
+
+	rfd = slave->rfd;
+	payload_size = read_payload_size(rfd);
+	actual_payload_size = 0;
+
+	nfds = read_int32(rfd, &nfds_len);
+	actual_payload_size += nfds_len;
+	fds = (struct pollfd *)alloca(sizeof(*fds) * nfds);
+	for (i = 0; i < nfds; i++) {
+		fds[i].fd = read_int32(rfd, &fd_len);
+		actual_payload_size += fd_len;
+		fds[i].events = read_int16(rfd, &events_len);
+		actual_payload_size += events_len;
+		fds[i].revents = 0;
+	}
+	timeout = read_int32(rfd, &timeout_len);
+	actual_payload_size += timeout_len;
+
+	die_if_payload_size_mismatched(payload_size, actual_payload_size);
+
+	retval = poll(fds, nfds, timeout);
+
+	if ((retval == 0) || (retval == -1)) {
+		return_int(slave, RET_POLL, retval, errno);
+		return;
+	}
+
+	p = buf;
+	rest_size = sizeof(buf);
+	retval_len = encode_int32(retval, p, rest_size);
+	p += retval_len;
+	rest_size -= retval_len;
+	for (i = 0; i < nfds; i++) {
+		revents_len = encode_int16(fds[i].revents, p, rest_size);
+		p += revents_len;
+		rest_size -= revents_len;
+	}
+	return_payload_size = sizeof(buf) - rest_size;
+
+	wfd = slave->wfd;
+	write_command(wfd, RET_POLL);
+	write_payload_size(wfd, return_payload_size);
+	write_or_die(wfd, buf, return_payload_size);
+}
+
+static void
 process_select(struct slave *slave)
 {
 	struct timeval *ptimeout, timeout;
@@ -417,6 +474,9 @@ mainloop(struct slave *slave)
 			break;
 		case CALL_CONNECT:
 			process_connect(slave);
+			break;
+		case CALL_POLL:
+			process_poll(slave);
 			break;
 		case CALL_EXIT:
 			return process_exit(slave);

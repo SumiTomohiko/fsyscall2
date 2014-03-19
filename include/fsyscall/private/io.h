@@ -7,6 +7,7 @@
 
 command_t	read_command(int);
 int8_t		read_int8(int, int *);
+int16_t		read_int16(int, int *);
 int32_t		read_int32(int, int *);
 int64_t		read_int64(int, int *);
 payload_size_t	read_payload_size(int);

@@ -36,6 +36,7 @@ int		fsyscall_encode_uint64(uint64_t, char *, int);
 
 #if !defined(KLD_MODULE)
 #define		encode_command	encode_uint32
+int		encode_int16(int16_t, char *, int);
 int		encode_int32(int32_t, char *, int);
 int		encode_int64(int64_t, char *, int);
 int		encode_uint16(uint16_t, char *, int);
@@ -43,6 +44,7 @@ int		encode_uint32(uint32_t, char *, int);
 int		encode_uint64(uint64_t, char *, int);
 command_t	decode_command(char *, int);
 int8_t		decode_int8(char *, int);
+int16_t		decode_int16(char *, int);
 int32_t		decode_int32(char *, int);
 int64_t		decode_int64(char *, int);
 #define		decode_payload_size(buf, bufsize) \
