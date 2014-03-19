@@ -85,27 +85,31 @@ do_return(struct thread *td, struct pollfd *fds, int nfds)
 		return (error);
 	actual_payload_size += retval_len;
 
-	if (retval == -1) {
+	switch (retval) {
+	case -1:
 		error = fmaster_read_int32(td, &errnum, &errnum_len);
 		if (error != 0)
 			return (error);
 		actual_payload_size += errnum_len;
-		if (payload_size != actual_payload_size)
-			return (EPROTO);
-		return (errnum);
-	}
-
-	for (i = 0; i < nfds; i++) {
-		error = fmaster_read_int32(td, &revents, &revents_len);
-		if (error != 0)
-			return (error);
-		actual_payload_size += revents_len;
-		fds[i].revents = revents;
+		break;
+	case 0:
+		errnum = 0;
+		break;
+	default:
+		for (i = 0; i < nfds; i++) {
+			error = fmaster_read_int32(td, &revents, &revents_len);
+			if (error != 0)
+				return (error);
+			actual_payload_size += revents_len;
+			fds[i].revents = revents;
+		}
+		errnum = 0;
+		break;
 	}
 	if (payload_size != actual_payload_size)
 		return (EPROTO);
 
-	return (0);
+	return (errnum);
 }
 
 static int
