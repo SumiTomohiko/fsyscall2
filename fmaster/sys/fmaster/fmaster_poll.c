@@ -84,6 +84,7 @@ do_return(struct thread *td, struct pollfd *fds, int nfds)
 	if (error != 0)
 		return (error);
 	actual_payload_size += retval_len;
+	td->td_retval[0] = retval;
 
 	switch (retval) {
 	case -1:
