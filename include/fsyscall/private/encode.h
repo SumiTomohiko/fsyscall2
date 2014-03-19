@@ -14,6 +14,7 @@ int	fsyscall_decode_int64(char *, int, int64_t *);
 		fsyscall_decode_int32((buf), (bufsize), (int32_t *)(dest))
 
 #define		fsyscall_encode_command	fsyscall_encode_uint32
+int		fsyscall_encode_int16(int16_t, char *, int);
 int		fsyscall_encode_int32(int32_t, char *, int);
 int		fsyscall_encode_int64(int64_t, char *, int);
 int		fsyscall_encode_uint8(uint8_t, char *, int);

@@ -82,6 +82,12 @@ IMPLEMENT_ENCODE_X(uint32_t, fsyscall_encode_uint32)
 IMPLEMENT_ENCODE_X(uint64_t, fsyscall_encode_uint64)
 
 int
+fsyscall_encode_int16(int16_t n, char *buf, int bufsize)
+{
+	return (fsyscall_encode_uint16((uint16_t)n, buf, bufsize));
+}
+
+int
 fsyscall_encode_int32(int32_t n, char *buf, int bufsize)
 {
 	return (fsyscall_encode_uint32((uint32_t)n, buf, bufsize));

@@ -59,5 +59,7 @@
 #define	RET_SOCKET		97
 #define	CALL_CONNECT		98
 #define	RET_CONNECT		99
+#define	CALL_POLL		100
+#define	RET_POLL		101
 
 #endif
