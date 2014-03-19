@@ -159,6 +159,7 @@ process_mhub(struct shub *shub)
 	case CALL_EXIT:
 		process_exit(shub);
 		break;
+	case CALL_POLL:
 	case CALL_SELECT:
 	case CALL_CONNECT:
 #include "dispatch_call.inc"
@@ -201,6 +202,7 @@ process_slave(struct shub *shub, struct slave *slave)
 
 	cmd = read_command(slave->rfd);
 	switch (cmd) {
+	case RET_POLL:
 	case RET_SELECT:
 	case RET_CONNECT:
 #include "dispatch_ret.inc"

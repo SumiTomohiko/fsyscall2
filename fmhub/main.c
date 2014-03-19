@@ -159,6 +159,7 @@ process_shub(struct mhub *mhub)
 
 	cmd = read_command(mhub->shub.rfd);
 	switch (cmd) {
+	case RET_POLL:
 	case RET_SELECT:
 	case RET_CONNECT:
 #include "dispatch_ret.inc"
@@ -232,6 +233,7 @@ process_master(struct mhub *mhub, struct master *master)
 	case CALL_EXIT:
 		process_exit(mhub, master);
 		break;
+	case CALL_POLL:
 	case CALL_SELECT:
 	case CALL_CONNECT:
 #include "dispatch_call.inc"
