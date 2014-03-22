@@ -14,6 +14,8 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PollFds;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.Constants;
@@ -125,6 +127,37 @@ public class SlaveHelper {
                 fds.add(Integer.valueOf(mIn.readInteger()));
             }
             return fds;
+        }
+    }
+
+    private class PollProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int nfds = mIn.readInteger();
+            PollFds fds = new PollFds();
+            for (int i = 0; i < nfds; i++) {
+                int fd = mIn.readInteger();
+                int events = mIn.readInteger();
+                fds.add(new PollFd(fd, events));
+            }
+            int timeout = mIn.readInteger();
+            SyscallResult.Generic32 result = mSlave.doPoll(fds, nfds, timeout);
+            int retval = result.retval;
+            switch (retval) {
+            case -1:
+            case 0:
+                writeResult(Command.RET_POLL, result);
+                break;
+            default:
+                Payload payload = new Payload();
+                payload.add(retval);
+                for (int i = 0; i < nfds; i++) {
+                    payload.add(fds.get(i).getRevents());
+                }
+                writePayload(Command.RET_POLL, payload);
+                break;
+            }
         }
     }
 
@@ -243,6 +276,7 @@ public class SlaveHelper {
         dispatcher.addEntry(Command.CALL_EXIT, new ExitProc());
         dispatcher.addEntry(Command.CALL_SELECT, new SelectProc());
         dispatcher.addEntry(Command.CALL_CONNECT, new ConnectProc());
+        dispatcher.addEntry(Command.CALL_POLL, new PollProc());
         @DISPATCHES@;
         return dispatcher;
     }

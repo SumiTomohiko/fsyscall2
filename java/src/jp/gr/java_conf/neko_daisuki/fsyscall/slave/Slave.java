@@ -26,6 +26,8 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PollFds;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SocketAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
@@ -76,7 +78,18 @@ public class Slave extends Worker {
         public boolean isTimeout(long usec);
     }
 
-    private static class FakeTimeoutDetector implements TimeoutDetector {
+    private static class ZeroTimeoutDetector implements TimeoutDetector {
+
+        private int mCount = 0;
+
+        public boolean isTimeout(long usec) {
+            boolean timeouted = 0 < mCount;
+            mCount++;
+            return timeouted;
+        }
+    }
+
+    private static class InfinityTimeoutDetector implements TimeoutDetector {
 
         public boolean isTimeout(long usec) {
             return false;
@@ -85,14 +98,18 @@ public class Slave extends Worker {
 
     private static class TrueTimeoutDetector implements TimeoutDetector {
 
-        private Unix.TimeVal mTimeout;
+        private long mTime; // usec
 
         public TrueTimeoutDetector(Unix.TimeVal timeout) {
-            mTimeout = timeout;
+            mTime = 1000000 * timeout.tv_sec + timeout.tv_usec;
+        }
+
+        public TrueTimeoutDetector(long msec) {
+            mTime = 1000 * msec;
         }
 
         public boolean isTimeout(long usec) {
-            return 1000000 * mTimeout.tv_sec + mTimeout.tv_usec <= usec;
+            return mTime <= usec;
         }
     }
 
@@ -208,11 +225,16 @@ public class Slave extends Worker {
         }
 
         public boolean isReadyToRead() throws UnixException {
-            throw new UnixException(Errno.ENOSYS);
+            try {
+                return 0 < mCore.getInputStream().available();
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
         }
 
         public boolean isReadyToWrite() throws UnixException {
-            throw new UnixException(Errno.ENOSYS);
+            return true;
         }
 
         public int read(byte[] buffer) throws UnixException {
@@ -874,13 +896,78 @@ public class Slave extends Worker {
         return result;
     }
 
+    public SyscallResult.Generic32 doPoll(PollFds fds, int nfds, int timeout) throws IOException {
+        String fmt = "poll(fds=%s, nfds=%d, timeout=%d)";
+        mLogger.info(String.format(fmt, fds, nfds, timeout));
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        TimeoutDetector timeoutDetector;
+        switch (timeout) {
+        case Unix.Constants.INFTIM:
+            timeoutDetector = new InfinityTimeoutDetector();
+            break;
+        case 0:
+            timeoutDetector = new ZeroTimeoutDetector();
+            break;
+        default:
+            timeoutDetector = new TrueTimeoutDetector(timeout);
+            break;
+        }
+
+        long usecInterval = 100 * 1000;
+        long usecTime = 0;
+        while (!timeoutDetector.isTimeout(usecTime)) {
+            for (PollFd fd: fds) {
+                try {
+                    UnixFile file = getValidFile(fd.getFd());
+                    int events = fd.getEvents();
+                    if ((events & Unix.Constants.POLLIN) != 0) {
+                        if (file.isReadyToRead()) {
+                            fd.addRevents(Unix.Constants.POLLIN);
+                        }
+                    }
+                    if ((events & Unix.Constants.POLLOUT) != 0) {
+                        if (file.isReadyToWrite()) {
+                            fd.addRevents(Unix.Constants.POLLOUT);
+                        }
+                    }
+                }
+                catch (UnixException e) {
+                    result.retval = -1;
+                    result.errno = e.getErrno();
+                    return result;
+                }
+            }
+            int nReadyFds = 0;
+            for (PollFd fd: fds) {
+                nReadyFds += (fd.getRevents() != 0 ? 1 : 0);
+            }
+            if (0 < nReadyFds) {
+                result.retval = nReadyFds;
+                break;
+            }
+
+            try {
+                Thread.sleep(usecInterval / 1000);
+            }
+            catch (InterruptedException e) {
+                result.retval = -1;
+                result.errno = Errno.EINTR;
+                return result;
+            }
+            usecTime += usecInterval;
+        }
+
+        return result;
+    }
+
     public SyscallResult.Select doSelect(int nfds, Collection<Integer> in, Collection<Integer> ou, Collection<Integer> ex, Unix.TimeVal timeout) throws IOException {
         String fmt = "select(nfds=%d, in, ou, ex, timeout)";
         mLogger.info(String.format(fmt, nfds));
 
         SyscallResult.Select result = new SyscallResult.Select();
 
-        TimeoutDetector timeoutDetector = timeout != null ? new TrueTimeoutDetector(timeout) : new FakeTimeoutDetector();
+        TimeoutDetector timeoutDetector = timeout != null ? new TrueTimeoutDetector(timeout) : new InfinityTimeoutDetector();
 
         long usecInterval = 100 * 1000;
 
