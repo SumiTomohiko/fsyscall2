@@ -17,7 +17,8 @@ static int
 do_execute(struct thread *td, struct pollfd *fds, int nfds, int timeout)
 {
 	payload_size_t payload_size, rest_size;
-	int error, events_len, fd_len, i, nfds_len, timeout_len, wfd;
+	int error, events_len, fd, fd_len, i, nfds_len, sfd, timeout_len, wfd;
+	enum fmaster_fd_type type;
 	char *p, payload[256];
 
 	rest_size = sizeof(payload);
@@ -29,7 +30,12 @@ do_execute(struct thread *td, struct pollfd *fds, int nfds, int timeout)
 	p += nfds_len;
 
 	for (i = 0; i < nfds; i++) {
-		fd_len = fsyscall_encode_int32(fds[i].fd, p, rest_size);
+		fd = fds[i].fd;
+		type = fmaster_type_of_fd(td, fd);
+		if (type != FD_SLAVE)
+			return (EBADF);
+		sfd = fmaster_fds_of_thread(td)[fd].fd_local;
+		fd_len = fsyscall_encode_int32(sfd, p, rest_size);
 		if (fd_len == -1)
 			return (ENOMEM);
 		rest_size -= fd_len;
