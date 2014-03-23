@@ -95,7 +95,7 @@
 				    struct msghdr *msg, int flags); }
 28	AUE_SENDMSG	UNIMPL	{ int fmaster_sendmsg(int s, \
 				    struct msghdr *msg, int flags); }
-29	AUE_RECVFROM	UNIMPL	{ int fmaster_recvfrom(int s, caddr_t buf, \
+29	AUE_RECVFROM	STD	{ int fmaster_recvfrom(int s, caddr_t buf, \
 				    size_t len, int flags, \
 				    struct sockaddr * __restrict from, \
 				    __socklen_t * __restrict fromlenaddr); }

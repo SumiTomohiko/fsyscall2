@@ -61,5 +61,7 @@
 #define	RET_CONNECT		99
 #define	CALL_POLL		100
 #define	RET_POLL		101
+#define	CALL_RECVFROM		102
+#define	RET_RECVFROM		103
 
 #endif
