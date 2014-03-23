@@ -62,7 +62,7 @@ public interface Unix {
                 new Pair(POLLPRI, "POLLPRI"),
                 new Pair(POLLOUT, "POLLOUT"),
                 new Pair(POLLRDNORM, "POLLRDNORM"),
-                new Pair(POLLWRNORM, "POLLWRNORM"),
+                //new Pair(POLLWRNORM, "POLLWRNORM"),
                 new Pair(POLLRDBAND, "POLLRDBAND"),
                 new Pair(POLLWRBAND, "POLLWRBAND"),
                 new Pair(POLLINIGNEOF, "POLLINIGNEOF")
