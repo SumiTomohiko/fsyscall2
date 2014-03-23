@@ -150,6 +150,7 @@ public class SlaveHelper {
                 writeResult(Command.RET_POLL, result);
                 break;
             default:
+                mLogger.info(String.format("result (poll): retval=%d", retval));
                 Payload payload = new Payload();
                 payload.add(retval);
                 for (int i = 0; i < nfds; i++) {
