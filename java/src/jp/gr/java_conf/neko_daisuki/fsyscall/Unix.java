@@ -1,5 +1,8 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall;
 
+import java.util.LinkedList;
+import java.util.List;
+
 public interface Unix {
 
     public static class IoVec {
@@ -32,6 +35,60 @@ public interface Unix {
     }
 
     public interface Constants {
+
+        public static class Poll {
+
+            private static class Pair {
+
+                private int mEvent;
+                private String mName;
+
+                public Pair(int event, String name) {
+                    mEvent = event;
+                    mName = name;
+                }
+
+                public String getName() {
+                    return mName;
+                }
+
+                public boolean isMatched(int events) {
+                    return (events & mEvent) != 0;
+                }
+            }
+
+            private static final Pair[] PAIRS = {
+                new Pair(POLLIN, "POLLIN"),
+                new Pair(POLLPRI, "POLLPRI"),
+                new Pair(POLLOUT, "POLLOUT"),
+                new Pair(POLLRDNORM, "POLLRDNORM"),
+                new Pair(POLLWRNORM, "POLLWRNORM"),
+                new Pair(POLLRDBAND, "POLLRDBAND"),
+                new Pair(POLLWRBAND, "POLLWRBAND"),
+                new Pair(POLLINIGNEOF, "POLLINIGNEOF")
+            };
+
+            public static String toString(int events) {
+                List<String> sa = new LinkedList<String>();
+                int length = PAIRS.length;
+                for (int i = 0; i < length; i++) {
+                    Pair pair = PAIRS[i];
+                    if (pair.isMatched(events)) {
+                        sa.add(pair.getName());
+                    }
+                }
+                int size = sa.size();
+                if (size == 0) {
+                    return "";
+                }
+                StringBuilder builder = new StringBuilder(sa.get(0));
+                for (int i = 1; i < size; i++) {
+                    builder.append("|");
+                    builder.append(sa.get(i));
+                }
+                return builder.toString();
+            }
+        }
 
         public static final int O_RDONLY = 0x0000;
         public static final int O_WRONLY = 0x0001;

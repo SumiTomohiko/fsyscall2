@@ -28,8 +28,10 @@ public class PollFd {
     }
 
     public String toString() {
-        String fmt = "PollFd(fd=%d, events=%d, revents=%d)";
-        return String.format(fmt, mFd, mEvents, mRevents);
+        String fmt = "PollFd(fd=%d, events=%d (%s), revents=%d (%s))";
+        String events = Unix.Constants.Poll.toString(mEvents);
+        String revents = Unix.Constants.Poll.toString(mRevents);
+        return String.format(fmt, mFd, mEvents, events, mRevents, revents);
     }
 }
 
