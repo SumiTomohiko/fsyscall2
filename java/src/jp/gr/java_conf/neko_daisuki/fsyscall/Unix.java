@@ -36,45 +36,18 @@ public interface Unix {
 
     public interface Constants {
 
-        public static class Poll {
+        public static class Flag {
 
-            private static class Pair {
+            private long mMask;
+            private String mName;
 
-                private int mEvent;
-                private String mName;
-
-                public Pair(int event, String name) {
-                    mEvent = event;
-                    mName = name;
-                }
-
-                public String getName() {
-                    return mName;
-                }
-
-                public boolean isMatched(int events) {
-                    return (events & mEvent) != 0;
-                }
-            }
-
-            private static final Pair[] PAIRS = {
-                new Pair(POLLIN, "POLLIN"),
-                new Pair(POLLPRI, "POLLPRI"),
-                new Pair(POLLOUT, "POLLOUT"),
-                new Pair(POLLRDNORM, "POLLRDNORM"),
-                //new Pair(POLLWRNORM, "POLLWRNORM"),
-                new Pair(POLLRDBAND, "POLLRDBAND"),
-                new Pair(POLLWRBAND, "POLLWRBAND"),
-                new Pair(POLLINIGNEOF, "POLLINIGNEOF")
-            };
-
-            public static String toString(int events) {
+            public static String toString(Flag[] flags, long n) {
                 List<String> sa = new LinkedList<String>();
-                int length = PAIRS.length;
+                int length = flags.length;
                 for (int i = 0; i < length; i++) {
-                    Pair pair = PAIRS[i];
-                    if (pair.isMatched(events)) {
-                        sa.add(pair.getName());
+                    Flag flag = flags[i];
+                    if (flag.isMatched(n)) {
+                        sa.add(flag.getName());
                     }
                 }
                 int size = sa.size();
@@ -88,14 +61,63 @@ public interface Unix {
                 }
                 return builder.toString();
             }
+
+            public Flag(long mask, String name) {
+                mMask = mask;
+                mName = name;
+            }
+
+            private String getName() {
+                return mName;
+            }
+
+            private boolean isMatched(long n) {
+                return (n & mMask) != 0;
+            }
+        }
+
+        public static class Poll {
+
+            private static final Flag[] FLAGS = {
+                new Flag(POLLIN, "POLLIN"),
+                new Flag(POLLPRI, "POLLPRI"),
+                new Flag(POLLOUT, "POLLOUT"),
+                new Flag(POLLRDNORM, "POLLRDNORM"),
+                //new Flag(POLLWRNORM, "POLLWRNORM"),
+                new Flag(POLLRDBAND, "POLLRDBAND"),
+                new Flag(POLLWRBAND, "POLLWRBAND"),
+                new Flag(POLLINIGNEOF, "POLLINIGNEOF")
+            };
+
+            public static String toString(int events) {
+                return Flag.toString(FLAGS, events);
+            }
+        }
+
+        public static class Fsetfl {
+
+            private static final Flag[] FLAGS = {
+                new Flag(O_NONBLOCK, "O_NONBLOCK"),
+                new Flag(O_APPEND, "O_APPEND"),
+                new Flag(O_ASYNC, "O_ASYNC"),
+                new Flag(O_DIRECT, "O_DIRECT")
+            };
+
+            public static String toString(long arg) {
+                return Flag.toString(FLAGS, arg);
+            }
         }
 
         public static final int O_RDONLY = 0x0000;
         public static final int O_WRONLY = 0x0001;
         public static final int O_RDWR = 0x0002;
         public static final int O_ACCMODE = 0x0003;
-
         public static final int O_CREAT = 0x200;
+
+        public static final int O_NONBLOCK = 0x0004;
+        public static final int O_APPEND = 0x0008;
+        public static final int O_ASYNC = 0x0040;
+        public static final int O_DIRECT = 0x00010000;
 
         public static final int SEEK_SET = 0;
         public static final int SEEK_CUR = 1;

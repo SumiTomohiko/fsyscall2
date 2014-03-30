@@ -608,6 +608,7 @@ public class Slave extends Worker {
 
     private static final int UNIX_FILE_NUM = 256;
 
+    private static Map<Integer, String> mFcntlCommands;
     private static Logging.Logger mLogger;
 
     private Application mApplication;
@@ -1049,8 +1050,10 @@ public class Slave extends Worker {
     }
 
     public SyscallResult.Generic32 doFcntl(int fd, int cmd, long arg) throws IOException {
-        String fmt = "fcntl(fd=%d, cmd=%d, arg=%d)";
-        mLogger.info(String.format(fmt, fd, cmd, arg));
+        String fmt = "fcntl(fd=%d, cmd=%d (%s), arg=%d%s)";
+        String name = mFcntlCommands.get(cmd);
+        String s = makeFcntlArgString(cmd, arg);
+        mLogger.info(String.format(fmt, fd, cmd, name, arg, s));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         UnixFile file = getFile(fd);
@@ -1348,7 +1351,33 @@ public class Slave extends Worker {
         mListener = listener != null ? listener : Listener.NOP;
     }
 
+    private String makeFsetflString(long arg) {
+        return String.format(" (%s)", Unix.Constants.Fsetfl.toString(arg));
+    }
+
+    private String makeFcntlArgString(int cmd, long arg) {
+        return cmd != Unix.Constants.F_SETFL ?  "" : makeFsetflString(arg);
+    }
+
     static {
+        mFcntlCommands = new HashMap<Integer, String>();
+        mFcntlCommands.put(0, "F_DUPFD");
+        mFcntlCommands.put(1, "F_GETFD");
+        mFcntlCommands.put(2, "F_SETFD");
+        mFcntlCommands.put(3, "F_GETFL");
+        mFcntlCommands.put(4, "F_SETFL");
+        mFcntlCommands.put(5, "F_GETOWN");
+        mFcntlCommands.put(7, "F_OGETLK");
+        mFcntlCommands.put(8, "F_OSETLK");
+        mFcntlCommands.put(9, "F_OSETLKW");
+        mFcntlCommands.put(10, "F_DUP2FD");
+        mFcntlCommands.put(11, "F_GETLK");
+        mFcntlCommands.put(12, "F_SETLK");
+        mFcntlCommands.put(13, "F_SETLKW");
+        mFcntlCommands.put(14, "F_SETLK_REMOTE");
+        mFcntlCommands.put(15, "F_READAHEAD");
+        mFcntlCommands.put(16, "F_RDAHEAD");
+
         mLogger = new Logging.Logger("Slave");
     }
 }
