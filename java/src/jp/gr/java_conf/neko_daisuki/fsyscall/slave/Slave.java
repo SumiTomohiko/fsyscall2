@@ -159,7 +159,7 @@ public class Slave extends Worker {
 
         private int mRefCount;
         private Closer mCloser;
-
+        private boolean mNonBlocking = false;
         private boolean mCloseOnExec = false;
 
         public UnixFile() {
@@ -184,6 +184,10 @@ public class Slave extends Worker {
             mCloser.close();
         }
 
+        public void enableNonBlocking(boolean nonBlocking) {
+            mNonBlocking = nonBlocking;
+        }
+
         public abstract boolean isReadyToRead() throws UnixException;
         public abstract boolean isReadyToWrite() throws UnixException;
         public abstract int read(byte[] buffer) throws UnixException;
@@ -191,6 +195,10 @@ public class Slave extends Worker {
         public abstract int write(byte[] buffer) throws UnixException;
         public abstract long lseek(long offset, int whence) throws UnixException;
         public abstract Unix.Stat fstat() throws UnixException;
+
+        protected boolean isNonBlocking() {
+            return mNonBlocking;
+        }
 
         protected abstract void doClose() throws UnixException;
     }
@@ -238,6 +246,9 @@ public class Slave extends Worker {
         }
 
         public int read(byte[] buffer) throws UnixException {
+            if (isNonBlocking() && !isReadyToRead()) {
+                throw new UnixException(Errno.EAGAIN);
+            }
             try {
                 return mCore.getInputStream().read(buffer);
             }
@@ -588,6 +599,14 @@ public class Slave extends Worker {
         }
     }
 
+    private class FSetFlProc implements FcntlProc {
+
+        public void run(SyscallResult.Generic32 result, UnixFile file, int fd,
+                        int cmd, long arg) {
+            file.enableNonBlocking((Unix.Constants.O_NONBLOCK & arg) != 0);
+        }
+    }
+
     private class FGetFdProc implements FcntlProc {
 
         public void run(SyscallResult.Generic32 result, UnixFile file, int fd,
@@ -637,6 +656,7 @@ public class Slave extends Worker {
         mFcntlProcs = new FcntlProcs();
         mFcntlProcs.put(Unix.Constants.F_GETFD, new FGetFdProc());
         mFcntlProcs.put(Unix.Constants.F_SETFD, new FSetFdProc());
+        mFcntlProcs.put(Unix.Constants.F_SETFL, new FSetFlProc());
 
         mFiles = new UnixFile[UNIX_FILE_NUM];
         mFiles[0] = new UnixInputStream(stdin);
