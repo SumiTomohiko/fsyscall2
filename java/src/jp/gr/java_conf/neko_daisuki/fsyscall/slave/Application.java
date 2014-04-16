@@ -70,15 +70,15 @@ public class Application {
 
     private static Logging.Logger mLogger;
 
-    private List<Worker> mWorkers;
+    private List<Slave> mSlaves = new LinkedList<Slave>();
+    private Worker mSlaveHub;
     private int mExitStatus;
 
     private Collection<Slave> mSlavesToRemove;
+    private boolean mCancelled = false;
 
     public Application() {
-        mWorkers = new LinkedList<Worker>();
         mExitStatus = 0;
-
         mSlavesToRemove = new LinkedList<Slave>();
     }
 
@@ -86,8 +86,8 @@ public class Application {
         mSlavesToRemove.add(slave);
     }
 
-    public void addWorker(Worker worker) {
-        mWorkers.add(worker);
+    public void addSlave(Slave slave) {
+        mSlaves.add(slave);
     }
 
     public void setExitStatus(int exitStatus) {
@@ -104,28 +104,35 @@ public class Application {
                 hub2slave.getInput(), slave2hub.getOutput(),
                 stdin, stdout, stderr,
                 permissions, links, listener);
+        addSlave(slave);
         SlaveHub hub = new SlaveHub(
                 this,
                 in, out,
                 slave2hub.getInput(), hub2slave.getOutput());
-        addWorker(hub);
-        addWorker(slave);
+        mSlaveHub = hub;
 
         mLogger.verbose("the main loop starts.");
 
-        while (1 < mWorkers.size()) {
+        while ((0 < mSlaves.size()) && !mCancelled) {
             waitReady();
             kickWorkers();
             removeSlaves();
         }
         hub.close();
 
-        return mExitStatus;
+        return !mCancelled ? mExitStatus : 255;
+    }
+
+    public void cancel() {
+        mCancelled = true;
+        for (Slave slave: mSlaves) {
+            slave.cancel();
+        }
     }
 
     private void removeSlaves() {
         for (Slave slave: mSlavesToRemove) {
-            mWorkers.remove(slave);
+            mSlaves.remove(slave);
         }
 
         mSlavesToRemove.clear();
@@ -139,7 +146,8 @@ public class Application {
     }
 
     private void kickWorkers() throws IOException {
-        for (Worker worker: mWorkers) {
+        kickWorkerIfReady(mSlaveHub);
+        for (Worker worker: mSlaves) {
             kickWorkerIfReady(worker);
         }
     }
@@ -151,10 +159,10 @@ public class Application {
     }
 
     private boolean isReady() throws IOException {
-        boolean ready = false;
-        int size = mWorkers.size();
+        boolean ready = mSlaveHub.isReady();
+        int size = mSlaves.size();
         for (int i = 0; (i < size) && !ready; i++) {
-            ready = mWorkers.get(i).isReady();
+            ready = mSlaves.get(i).isReady();
         }
         return ready;
     }

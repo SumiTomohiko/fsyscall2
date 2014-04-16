@@ -641,6 +641,7 @@ public class Slave extends Worker {
 
     private SlaveHelper mHelper;
     private FcntlProcs mFcntlProcs;
+    private boolean mCancelled = false;
 
     public Slave(Application application, InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links, Listener listener) throws IOException {
         mLogger.info("a slave is starting.");
@@ -665,6 +666,10 @@ public class Slave extends Worker {
 
         writeOpenedFileDescriptors();
         mLogger.verbose("file descripters were transfered from the slave.");
+    }
+
+    public void cancel() {
+        mCancelled = true;
     }
 
     public boolean isReady() throws IOException {
@@ -937,7 +942,7 @@ public class Slave extends Worker {
 
         long usecInterval = 100 * 1000;
         long usecTime = 0;
-        while (!timeoutDetector.isTimeout(usecTime)) {
+        while (!timeoutDetector.isTimeout(usecTime) && !mCancelled) {
             for (PollFd fd: fds) {
                 try {
                     UnixFile file = getValidFile(fd.getFd());
@@ -999,7 +1004,7 @@ public class Slave extends Worker {
         int nReadyFds = 0;
         SelectPred readPred = new ReadSelectPred();
         SelectPred writePred = new WriteSelectPred();
-        while (!timeoutDetector.isTimeout(usecTime) && (nReadyFds == 0)) {
+        while (!timeoutDetector.isTimeout(usecTime) && (nReadyFds == 0) && !mCancelled) {
             inReady.clear();
             ouReady.clear();
             exReady.clear();
