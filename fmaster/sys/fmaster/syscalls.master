@@ -724,7 +724,7 @@
 418	AUE_NULL	UNIMPL	__xstat
 419	AUE_NULL	UNIMPL	__xfstat
 420	AUE_NULL	UNIMPL	__xlstat
-421	AUE_NULL	UNIMPL	{ int fmaster_getcontext(\
+421	AUE_NULL	NOPROTO	{ int getcontext(\
 				    struct __ucontext *ucp); }
 422	AUE_NULL	UNIMPL	{ int fmaster_setcontext( \
 				    const struct __ucontext *ucp); }
