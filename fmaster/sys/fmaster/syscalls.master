@@ -746,7 +746,7 @@
 430	AUE_NULL	UNIMPL	{ int fmaster_thr_create(ucontext_t *ctx, \
 				    long *id, int flags); }
 431	AUE_NULL	UNIMPL	{ void fmaster_thr_exit(long *state); }
-432	AUE_NULL	UNIMPL	{ int fmaster_thr_self(long *id); }
+432	AUE_NULL	NOPROTO	{ int thr_self(long *id); }
 433	AUE_NULL	UNIMPL	{ int fmaster_thr_kill(long id, int sig); }
 434	AUE_NULL	UNIMPL	{ int fmaster__umtx_lock(struct umtx *umtx); }
 435	AUE_NULL	UNIMPL	{ int fmaster__umtx_unlock(struct umtx *umtx); }
@@ -813,7 +813,7 @@
 				    const char *name); }
 465	AUE_NULL	UNIMPL	{ int fmaster_aio_fsync(int op, \
 				    struct aiocb *aiocbp); }
-466	AUE_RTPRIO	UNIMPL	{ int fmaster_rtprio_thread(int function, \
+466	AUE_RTPRIO	NOPROTO	{ int rtprio_thread(int function, \
 				    lwpid_t lwpid, struct rtprio *rtp); }
 467	AUE_NULL	UNIMPL	nosys
 468	AUE_NULL	UNIMPL	nosys
