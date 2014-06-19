@@ -936,17 +936,28 @@ fmaster_type_of_fd(struct thread *td, int d)
 }
 
 int
-fmaster_return_fd(struct thread *td, enum fmaster_fd_type type, int d)
+fmaster_register_fd(struct thread *td, enum fmaster_fd_type type, int d, int *virtual_fd)
 {
 	struct fmaster_fd *fd;
-	int virtual_fd;
 
-	virtual_fd = find_unused_fd(td);
-	if (virtual_fd == FD_NUM)
+	*virtual_fd = find_unused_fd(td);
+	if (*virtual_fd == FD_NUM)
 		return (EMFILE);
-	fd = &fmaster_fds_of_thread(td)[virtual_fd];
+	fd = &fmaster_fds_of_thread(td)[*virtual_fd];
 	fd->fd_type = type;
 	fd->fd_local = d;
+
+	return (0);
+}
+
+int
+fmaster_return_fd(struct thread *td, enum fmaster_fd_type type, int d)
+{
+	int error, virtual_fd;
+
+	error = fmaster_register_fd(td, type, d, &virtual_fd);
+	if (error != 0)
+		return (error);
 
 	td->td_retval[0] = virtual_fd;
 

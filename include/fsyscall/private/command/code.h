@@ -63,5 +63,7 @@
 #define	RET_POLL		101
 #define	CALL_RECVFROM		102
 #define	RET_RECVFROM		103
+#define	CALL_PIPE		104
+#define	RET_PIPE		105
 
 #endif

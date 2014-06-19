@@ -7,10 +7,11 @@ TOP_DIR=	..
 KMOD=		fmaster
 SRCS=		elf_machdep.c fmaster_connect.c fmaster_exit.c \
 		fmaster_fstatfs.c fmaster_getdirentries.c fmaster_ioctl.c \
-		fmaster_mmap.c fmaster_poll.c fmaster_recvfrom.c \
-		fmaster_select.c fmaster_syscalls.c fmaster_sysent.c \
-		fmaster_subr.c fsyscall_encode.c fsyscall_select.c \
-		imgact_elf32.c imgact_elf64.c kern_exec.c syscall.c
+		fmaster_mmap.c fmaster_pipe.c fmaster_poll.c \
+		fmaster_recvfrom.c fmaster_select.c fmaster_syscalls.c \
+		fmaster_sysent.c fmaster_subr.c fsyscall_encode.c \
+		fsyscall_select.c imgact_elf32.c imgact_elf64.c kern_exec.c \
+		syscall.c
 KERNBUILDDIR=	/usr/obj/usr/src/sys/GENERIC
 CFLAGS=		-Isys -I${TOP_DIR}/include -I/usr/src/sys -Werror
 
