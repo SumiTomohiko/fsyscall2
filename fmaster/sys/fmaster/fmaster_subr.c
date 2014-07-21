@@ -49,15 +49,37 @@ int
 fmaster_is_master_file(struct thread *td, const char *path)
 {
 	int i;
-	const char *dirs[] = { "/lib/", "/usr/lib/", "/usr/local/lib/" }, *s;
+	const char *dirs[] = {
+		"/lib/",
+		"/usr/lib/",
+		"/usr/local/etc/fonts/conf.d/",
+		"/usr/local/etc/pango/",
+		"/usr/local/lib/",
+		"/usr/local/share/fonts/",
+		"/var/db/fontconfig/",
+	};
+	const char *files[] = {
+		"/dev/urandom",
+		"/etc/nsswitch.conf",
+		"/etc/pwd.db",
+		"/usr/local/etc/fonts/fonts.conf",
+		"/usr/local/share/applications/gedit.desktop",
+		"/var/db/dbus/machine-id",
+		"/var/run/ld-elf.so.hints"
+	};
+	const char *s;
 
 	for (i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++) {
 		s = dirs[i];
 		if (strncmp(path, s, strlen(s)) == 0)
 			return (1);
 	}
+	for (i = 0; i < sizeof(files) / sizeof(files[0]); i++) {
+		if (strcmp(path, files[i]) == 0)
+			return (1);
+	}
 
-	return (strcmp(path, "/var/run/ld-elf.so.hints") == 0 ? 1 : 0);
+	return (0);
 }
 
 /*
