@@ -748,8 +748,8 @@
 431	AUE_NULL	UNIMPL	{ void fmaster_thr_exit(long *state); }
 432	AUE_NULL	NOPROTO	{ int thr_self(long *id); }
 433	AUE_NULL	UNIMPL	{ int fmaster_thr_kill(long id, int sig); }
-434	AUE_NULL	UNIMPL	{ int fmaster__umtx_lock(struct umtx *umtx); }
-435	AUE_NULL	UNIMPL	{ int fmaster__umtx_unlock(struct umtx *umtx); }
+434	AUE_NULL	NOPROTO	{ int _umtx_lock(struct umtx *umtx); }
+435	AUE_NULL	NOPROTO	{ int _umtx_unlock(struct umtx *umtx); }
 436	AUE_NULL	UNIMPL	{ int fmaster_jail_attach(int jid); }
 437	AUE_EXTATTR_LIST_FD	UNIMPL	{ ssize_t fmaster_extattr_list_fd(\
 				    int fd, int attrnamespace, void *data, \
@@ -785,7 +785,7 @@
 				    struct auditinfo_addr *auditinfo_addr, \
 				    u_int length); }
 453	AUE_AUDITCTL	UNIMPL	{ int fmaster_auditctl(char *path); }
-454	AUE_NULL	UNIMPL	{ int fmaster__umtx_op(void *obj, int op, \
+454	AUE_NULL	NOPROTO	{ int _umtx_op(void *obj, int op, \
 				    u_long val, void *uaddr1, void *uaddr2); }
 455	AUE_NULL	UNIMPL	{ int fmaster_thr_new(struct thr_param *param, \
 				    int param_size); }
