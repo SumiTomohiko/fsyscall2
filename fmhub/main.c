@@ -437,8 +437,6 @@ main(int argc, char *argv[])
 	openlog(argv[0], LOG_PID, LOG_USER);
 	log_start_message(argc, argv);
 
-	signal(SIGPIPE, SIG_IGN);
-
 	while ((opt = getopt_long(argc, argv, "+", opts, NULL)) != -1)
 		switch (opt) {
 		case 'e':

@@ -499,14 +499,6 @@ slave_main(struct slave *slave)
 	return (mainloop(slave));
 }
 
-static void
-signal_handler(int sig)
-{
-	assert(sig == SIGPIPE);
-	diex(-1, "signaled SIGPIPE.");
-	/* NOTREACHED */
-}
-
 int
 main(int argc, char* argv[])
 {
@@ -521,8 +513,6 @@ main(int argc, char* argv[])
 
 	openlog(argv[0], LOG_PID, LOG_USER);
 	log_start_message(argc, argv);
-
-	signal(SIGPIPE, signal_handler);
 
 	while ((opt = getopt_long(argc, argv, "+", opts, NULL)) != -1)
 		switch (opt) {
