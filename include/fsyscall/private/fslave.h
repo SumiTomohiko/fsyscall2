@@ -6,7 +6,7 @@
 struct slave {
 	int rfd;
 	int wfd;
-	const char *path;
+	const char *sock_path;
 };
 
 void die_if_payload_size_mismatched(int, int);

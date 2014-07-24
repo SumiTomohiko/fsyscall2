@@ -34,7 +34,7 @@
 static void
 usage()
 {
-	puts("fslave rfd wfd path");
+	puts("fslave rfd wfd sock_path");
 }
 
 void
@@ -534,7 +534,7 @@ main(int argc, char* argv[])
 	args = &argv[optind];
 	slave.rfd = atoi_or_die(args[0], "rfd");
 	slave.wfd = atoi_or_die(args[1], "wfd");
-	slave.path = args[2];
+	slave.sock_path = args[2];
 
 	status = slave_main(&slave);
 	log_graceful_exit(status);

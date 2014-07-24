@@ -40,7 +40,7 @@ dup_to_nonstd(int fd)
 }
 
 static void
-exec_fshub(int mhub2shub, int shub2mhub, int slave2hub, int hub2slave, char *path)
+exec_fshub(int mhub2shub, int shub2mhub, int slave2hub, int hub2slave, char *hub_path)
 {
 	char **args;
 
@@ -50,7 +50,7 @@ exec_fshub(int mhub2shub, int shub2mhub, int slave2hub, int hub2slave, char *pat
 	ALLOC_FD(args[2], shub2mhub);
 	ALLOC_FD(args[3], slave2hub);
 	ALLOC_FD(args[4], hub2slave);
-	args[5] = path;
+	args[5] = hub_path;
 	args[6] = NULL;
 	execvp(args[0], args);
 	die(-1, "cannot execvp %s", args[0]);
@@ -63,9 +63,9 @@ fsyscall_start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 	pid_t pid;
 	int slave2hub[2], hub2slave[2];
 	int digits, i;
-	char **args, *cmd, path[32], *verbose;
+	char **args, *cmd, hub_path[32], *verbose;
 
-	snprintf(path, sizeof(path), "/tmp/fshub.%d", getpid());
+	snprintf(hub_path, sizeof(hub_path), "/tmp/fshub.%d", getpid());
 
 	pipe_or_die(slave2hub);
 	pipe_or_die(hub2slave);
@@ -77,7 +77,7 @@ fsyscall_start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 		exec_fshub(
 			mhub2shub, shub2mhub,
 			slave2hub[R], hub2slave[W],
-			path);
+			hub_path);
 		/* NOTREACHED */
 	}
 
@@ -99,8 +99,8 @@ fsyscall_start_slave(int mhub2shub, int shub2mhub, int argc, char *argv[])
 	snprintf(args[1], digits, "%d", dup_to_nonstd(hub2slave[R]));
 	args[2] = (char *)alloca(sizeof(char) * digits);
 	snprintf(args[2], digits, "%d", dup_to_nonstd(slave2hub[W]));
-	args[3] = (char *)alloca(sizeof(char) * (strlen(path) + 1));
-	strcpy(args[3], path);
+	args[3] = (char *)alloca(sizeof(char) * (strlen(hub_path) + 1));
+	strcpy(args[3], hub_path);
 	for (i = 0; i < argc; i++)
 		args[4 + i] = argv[i];
 	args[4 + i] = NULL;

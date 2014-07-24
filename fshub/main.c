@@ -29,13 +29,13 @@ struct slave {
 struct shub {
 	struct connection mhub;
 	struct list slaves;
-	const char *path;
+	const char *sock_path;
 };
 
 static void
 usage()
 {
-	puts("fshub mhub_rfd mhub_wfd slave_rfd slave_wfd path");
+	puts("fshub mhub_rfd mhub_wfd slave_rfd slave_wfd sock_path");
 }
 
 static void
@@ -329,7 +329,7 @@ main(int argc, char *argv[])
 	slave->wfd = atoi_or_die(args[3], "slave_wfd");
 	PREPEND_ITEM(&shub.slaves, slave);
 
-	shub.path = args[4];
+	shub.sock_path = args[4];
 
 	status = shub_main(&shub);
 	log_graceful_exit(status);
