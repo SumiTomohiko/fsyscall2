@@ -3,6 +3,18 @@
 %include "../lib/strlen.S"
 %include "../lib/strcpy.S"
 
+; defsyscall name num
+%macro defsyscall 2
+global %1
+%1:
+	mov rax, %2
+	syscall
+	jnc .exit
+	mov rax, -1
+.exit:
+	ret
+%endmacro
+
 extern main
 
 global _exit
@@ -11,51 +23,6 @@ _exit:
 	mov rdi, rdi
 	syscall
 	; NOTREACHED
-
-global getdirentries
-getdirentries:
-	mov rax, sys.getdirentries
-	syscall
-	jnc .exit
-	mov rax, -1
-.exit:
-	ret
-
-global fstatfs
-fstatfs:
-	mov rax, sys.fstatfs
-	syscall
-	jnc .exit
-	mov rax, -1
-.exit:
-	ret
-
-global fcntl
-fcntl:
-	mov rax, sys.fcntl
-	syscall
-	jnc .exit
-	mov rax, -1
-.exit:
-	ret
-
-global open
-open:
-	mov rax, sys.open
-	syscall
-	jnc .exit
-	mov rax, -1
-.exit:
-	ret
-
-global read
-read:
-	mov rax, sys.read
-	syscall
-	jne .exit
-	mov rax, -1
-.exit:
-	ret
 
 global write
 write:
@@ -91,86 +58,20 @@ getpid:
 	syscall
 	ret
 
-global geteuid
-geteuid:
-	mov rax, sys.geteuid
-	syscall
-	jnc .exit
-	mov rax, -1
-.exit:
-	ret
-
-global getegid
-getegid:
-	mov rax, sys.getegid
-	syscall
-	jnc .exit
-	mov rax, -1
-.exit:
-	ret
-
-global getgid
-getgid:
-	mov rax, sys.getgid
-	syscall
-	jnc .exit
-	mov rax, -1
-.exit:
-	ret
-
-global getuid
-getuid:
-	mov rax, sys.getuid
-	syscall
-	jnc .exit
-	mov rax, -1
-.exit:
-	ret
-
-global dup
-dup:
-	mov rax, sys.dup
-	syscall
-	jnc .exit
-	mov rax, -1
-.exit:
-	ret
-
-global close
-close:
-	mov rax, sys.close
-	syscall
-	jnc .exit
-	mov rax, -1
-.exit:
-	ret
-
-global socket
-socket:
-	mov rax, sys.socket
-	syscall
-	jnc .exit
-	mov rax, -1
-.exit:
-	ret
-
-global connect
-connect:
-	mov rax, sys.connect
-	syscall
-	jnc .exit
-	mov rax, -1
-.exit:
-	ret
-
-global poll
-poll:
-	mov rax, sys.poll
-	syscall
-	jnc .exit
-	mov rax, -1
-.exit:
-	ret
+defsyscall getdirentries, sys.getdirentries
+defsyscall fstatfs, sys.fstatfs
+defsyscall fcntl, sys.fcntl
+defsyscall open, sys.open
+defsyscall read, sys.read
+defsyscall geteuid, sys.geteuid
+defsyscall getegid, sys.getegid
+defsyscall getgid, sys.getgid
+defsyscall getuid, sys.getuid
+defsyscall dup, sys.dup
+defsyscall close, sys.close
+defsyscall socket, sys.socket
+defsyscall connect, sys.connect
+defsyscall poll, sys.poll
 
 global _start
 _start:
