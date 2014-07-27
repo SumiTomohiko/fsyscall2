@@ -107,6 +107,7 @@ tests/amd64/connect/connect
 tests/amd64/dup/dup
 tests/amd64/dup_and_close/dup_and_close
 tests/amd64/fcntl/fcntl
+tests/amd64/fork/fork
 tests/amd64/fstat/fstat
 tests/amd64/fstatfs/fstatfs
 tests/amd64/getdirentries/getdirentries

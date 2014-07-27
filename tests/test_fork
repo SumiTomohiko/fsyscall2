@@ -1,0 +1,3 @@
+
+cmd="fork/fork"
+expected_stdout="FORK OK"

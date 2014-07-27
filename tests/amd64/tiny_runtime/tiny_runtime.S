@@ -72,6 +72,7 @@ defsyscall close, sys.close
 defsyscall socket, sys.socket
 defsyscall connect, sys.connect
 defsyscall poll, sys.poll
+defsyscall fork, sys.fork
 
 global _start
 _start:
