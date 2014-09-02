@@ -16,6 +16,8 @@ doc:
 doc-clean:
 	@cd $(DOCDIR) && $(MAKE) clean
 
+install-all: install-kmod install-master install-slave
+
 install-kmod:
 	@cd fmaster && $(MAKE) install
 
