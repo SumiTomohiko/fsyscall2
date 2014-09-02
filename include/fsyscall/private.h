@@ -19,4 +19,6 @@
 
 #define	array_sizeof(a)	(sizeof(a) / sizeof(a[0]))
 
+typedef uint64_t pair_id_t;
+
 #endif

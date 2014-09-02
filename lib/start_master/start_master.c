@@ -22,14 +22,14 @@ void
 fsyscall_start_master(int shub2mhub, int mhub2shub, int argc, char* argv[], char* const envp[])
 {
 	int i, nenv, offset;
-	char **args, *file, *opt_env, path[MAXPATHLEN];
+	char **args, *file, fork_sock[MAXPATHLEN], *opt_env, path[MAXPATHLEN];
 
 	file = "fmhub";
 	snprintf(path, sizeof(path), "/usr/local/bin/%s", file);
-
 	nenv = count_env(envp);
+	snprintf(fork_sock, sizeof(fork_sock), "/tmp/fmhub.%d", getpid());
 
-	args = (char**)alloca(sizeof(char*) * (argc + 2 * nenv + 4));
+	args = (char**)alloca(sizeof(char*) * (argc + 2 * nenv + 5));
 	args[0] = file;
 
 	opt_env = "--env";
@@ -41,9 +41,10 @@ fsyscall_start_master(int shub2mhub, int mhub2shub, int argc, char* argv[], char
 	offset = 1 + 2 * nenv;
 	ALLOC_FD(args[offset], shub2mhub);
 	ALLOC_FD(args[offset + 1], mhub2shub);
+	args[offset + 2] = fork_sock;
 	for (i = 0; i < argc; i++)
-		args[offset + 2 + i] = argv[i];
-	args[offset + 2 + i] = NULL;
+		args[offset + 3 + i] = argv[i];
+	args[offset + 3 + i] = NULL;
 
 	execv(path, args);
 	die(-1, "cannot execv %s", path);

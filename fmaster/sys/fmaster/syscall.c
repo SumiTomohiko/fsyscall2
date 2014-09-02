@@ -2,8 +2,10 @@
 #include <sys/errno.h>
 #include <sys/eventhandler.h>
 #include <sys/kernel.h>
+#include <sys/lock.h>
 #include <sys/malloc.h>
 #include <sys/module.h>
+#include <sys/mutex.h>
 #include <sys/proc.h>
 #include <sys/sysctl.h>
 #include <sys/sysent.h>
@@ -16,8 +18,6 @@
 SYSCTL_NODE(_kern, OID_AUTO, fmaster, CTLFLAG_RW, NULL, "");
 SYSCTL_NODE(_debug, OID_AUTO, fmaster, CTLFLAG_RW, NULL, "");
 SYSCTL_NODE(_security_bsd, OID_AUTO, fmaster, CTLFLAG_RW, NULL, "");
-
-MALLOC_DEFINE(M_FMASTER, "fmaster", "fmaster");
 
 /* The following code came from /usr/src/sys/sys/syscall.h */
 #define	PAD_(t)	(sizeof(register_t) <= sizeof(t) ? \
@@ -33,6 +33,7 @@ MALLOC_DEFINE(M_FMASTER, "fmaster", "fmaster");
 struct fmaster_execve_args {
 	char rfd_l[PADL_(int)]; int rfd; char rfd_r[PADR_(int)];
 	char wfd_l[PADL_(int)]; int wfd; char wfd_r[PADR_(int)];
+	char fork_sock_l[PADL_(const char *)]; const char *fork_sock; char fork_sock_r[PADR_(const char *)];
 	char path_l[PADL_(char *)]; char *path; char path_r[PADR_(char *)];
 	char argv_l[PADL_(char **)]; char **argv; char argv_r[PADR_(char **)];
 	char envp_l[PADL_(char **)]; char **envp; char envp_r[PADR_(char **)];
@@ -60,18 +61,24 @@ negotiate_version(struct thread *td, int rfd, int wfd)
 }
 
 static struct fmaster_data *
-create_data(struct thread *td, int rfd, int wfd)
+create_data(struct thread *td, int rfd, int wfd, const char *fork_sock)
 {
 	struct fmaster_data *data;
-	int i;
+	size_t len;
+	int error, i;
 
-	data = malloc(sizeof(*data), M_FMASTER, M_ZERO | M_NOWAIT);
+	data = fmaster_create_data(td);
 	if (data == NULL)
 		return (NULL);
 	data->rfd = rfd;
 	data->wfd = wfd;
 	for (i = 0; i < FD_NUM; i++)
 		data->fds[i].fd_type = FD_CLOSED;
+	len = sizeof(data->fork_sock);
+	error = copystr(fork_sock, data->fork_sock, len, NULL);
+	if (error != 0)
+		return (NULL);
+	log(LOG_DEBUG, "len=%ld, data->fork_sock=%s\n", len, data->fork_sock);
 
 	return (data);
 }
@@ -110,27 +117,31 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 	int error, i, rfd, wfd;
 	pid_t pid;
 	const char *name = "fmaster_execve";
-	const char *fmt = "%s: pid=%d, rfd=%d, wfd=%d, path=%s\n";
+	const char *fmt = "%s: pid=%d, rfd=%d, wfd=%d, fork_sock=%s, path=%s\n";
+	char fork_sock[MAXPATHLEN];
 
+	error = copyinstr(uap->fork_sock, fork_sock, sizeof(fork_sock), NULL);
+	if (error != 0)
+		return (error);
 	pid = td->td_proc->p_pid;
-	log(LOG_DEBUG, fmt, name, pid, uap->rfd, uap->wfd, uap->path);
+	rfd = uap->rfd;
+	wfd = uap->wfd;
+	log(LOG_DEBUG, fmt, name, pid, rfd, wfd, fork_sock, uap->path);
 	for (i = 0; uap->argv[i] != NULL; i++)
 		log(LOG_DEBUG, "%s: argv[%d]=%s\n", name, i, uap->argv[i]);
 	for (i = 0; uap->envp[i] != NULL; i++)
 		log(LOG_DEBUG, "%s: envp[%d]=%s\n", name, i, uap->envp[i]);
 
-	rfd = uap->rfd;
-	wfd = uap->wfd;
 	if ((error = negotiate_version(td, rfd, wfd)) != 0)
 		return (error);
 
-	data = create_data(td, rfd, wfd);
+	data = create_data(td, rfd, wfd, fork_sock);
 	if (data == NULL)
 		return (ENOMEM);
 	td->td_proc->p_emuldata = data;
 	error = read_fds(td, data);
 	if (error != 0) {
-		free(data, M_FMASTER);
+		fmaster_delete_data(data);
 		return (error);
 	}
 
@@ -141,7 +152,7 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
  * The `sysent' for the new syscall
  */
 static struct sysent se = {
-	5,				/* sy_narg */
+	6,				/* sy_narg */
 	(sy_call_t *)fmaster_execve	/* sy_call */
 };
 
@@ -159,7 +170,7 @@ process_exit(void *_, struct proc *p)
 {
 	if (p->p_sysent->sv_table != fmaster_sysent)
 		return;
-	free(p->p_emuldata, M_FMASTER);
+	fmaster_delete_data(p->p_emuldata);
 }
 
 /*

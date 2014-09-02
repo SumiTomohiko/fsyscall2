@@ -65,5 +65,7 @@
 #define	RET_RECVFROM		103
 #define	CALL_PIPE		104
 #define	RET_PIPE		105
+#define	CALL_FORK		106
+#define	RET_FORK		107
 
 #endif

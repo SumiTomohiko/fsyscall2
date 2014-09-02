@@ -24,6 +24,7 @@
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/encode.h>
+#include <fsyscall/private/fork_or_die.h>
 #include <fsyscall/private/fslave.h>
 #include <fsyscall/private/fslave/proto.h>
 #include <fsyscall/private/io.h>
@@ -34,7 +35,7 @@
 static void
 usage()
 {
-	puts("fslave rfd wfd sock_path");
+	puts("fslave rfd wfd fork_sock");
 }
 
 void
@@ -415,6 +416,74 @@ process_poll(struct slave *slave)
 	write_or_die(wfd, buf, return_payload_size);
 }
 
+#define	SIGNAL_FORKED	SIGUSR1
+
+static void
+child_main(struct slave *slave, const char *token, size_t token_size, pid_t parent)
+{
+	struct sockaddr_storage sockaddr;
+	struct sockaddr_un *addr;
+	int sock;
+	char len;
+
+	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
+	if (sock == -1)
+		die(1, "Cannot socket(2)");
+	addr = (struct sockaddr_un *)&sockaddr;
+	addr->sun_family = AF_LOCAL;
+	strncpy(addr->sun_path, slave->fork_sock, sizeof(addr->sun_path));
+	addr->sun_len = len = SUN_LEN(addr);
+	if (connect(sock, (struct sockaddr *)addr, len) != 0)
+		die(1, "Cannot connect(2)");
+
+	write_or_die(sock, token, token_size);
+	if (kill(parent, SIGNAL_FORKED) != 0)
+		die(1 ,"Cannot send the signal to the parent");
+
+	slave->rfd = slave->wfd = sock;
+	syslog(LOG_INFO, "A new child process has started.");
+}
+
+static void
+process_fork(struct slave *slave)
+{
+	struct timespec timeout;
+	payload_size_t len, payload_size;
+	pid_t parent_pid, pid;
+	sigset_t sigmask;
+	int rfd, wfd;
+	char buf[FSYSCALL_BUFSIZE_INT32], *token;
+
+	syslog(LOG_DEBUG, "processing CALL_FORK.");
+
+	rfd = slave->rfd;
+	payload_size = read_payload_size(rfd);
+	token = (char *)alloca(payload_size);
+	read_or_die(rfd, token, payload_size);
+
+	parent_pid = getpid();
+	pid = fork_or_die();
+	if (pid == 0) {
+		child_main(slave, token, payload_size, parent_pid);
+		return;
+	}
+	syslog(LOG_DEBUG, "forked: pid=%d", pid);
+
+	sigemptyset(&sigmask);
+	sigaddset(&sigmask, SIGNAL_FORKED);
+	timeout.tv_sec = 60;
+	timeout.tv_nsec = 0;
+	if (sigtimedwait(&sigmask, NULL, &timeout) == -1)
+		die(1, "sigtimedwait(2) failed");
+
+	len = encode_int32(pid, buf, sizeof(buf));
+
+	wfd = slave->wfd;
+	write_command(wfd, RET_FORK);
+	write_payload_size(wfd, len);
+	write_or_die(wfd, buf, len);
+}
+
 static void
 process_select(struct slave *slave)
 {
@@ -462,13 +531,14 @@ static int
 mainloop(struct slave *slave)
 {
 	command_t cmd;
-	int rfd;
 
-	rfd = slave->rfd;
 	for (;;) {
-		cmd = read_command(rfd);
+		cmd = read_command(slave->rfd);
 		switch (cmd) {
 #include "dispatch.inc"
+		case CALL_FORK:
+			process_fork(slave);
+			break;
 		case CALL_SELECT:
 			process_select(slave);
 			break;
@@ -493,7 +563,7 @@ static int
 slave_main(struct slave *slave)
 {
 	negotiate_version(slave);
-	write_pid(slave->wfd, getpid());
+	//write_pid(slave->wfd, getpid());
 	write_open_fds(slave);
 
 	return (mainloop(slave));
@@ -534,7 +604,7 @@ main(int argc, char* argv[])
 	args = &argv[optind];
 	slave.rfd = atoi_or_die(args[0], "rfd");
 	slave.wfd = atoi_or_die(args[1], "wfd");
-	slave.sock_path = args[2];
+	slave.fork_sock = args[2];
 
 	status = slave_main(&slave);
 	log_graceful_exit(status);

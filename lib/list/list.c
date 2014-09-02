@@ -2,6 +2,18 @@
 
 #include <fsyscall/private/list.h>
 
+struct item *
+list_search(struct list *list, bool (*cmp)(struct item *, void *), void *bonus)
+{
+	struct item *i;
+
+	i = FIRST_ITEM(list);
+	while (!IS_LAST(i) && !cmp(i, bonus))
+		i = ITEM_NEXT(i);
+
+	return (!IS_LAST(i) ? i : NULL);
+}
+
 void
 initialize_list(struct list *list)
 {

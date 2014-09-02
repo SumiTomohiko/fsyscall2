@@ -1,6 +1,14 @@
 #include <assert.h>
+#include <ctype.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <unistd.h>
 
+#include <fsyscall/private/close_or_die.h>
+#include <fsyscall/private/die.h>
 #include <fsyscall/private/io.h>
 
 void
@@ -16,4 +24,61 @@ transport_fds(int rfd, int wfd)
 
 	write_int32(wfd, n);
 	write_or_die(wfd, buf, n);
+}
+
+int
+hub_open_fork_socket(const char *path)
+{
+	struct sockaddr_storage sockaddr;
+	struct sockaddr_un *paddr = (struct sockaddr_un *)&sockaddr;
+	int sock;
+
+	unlink(path);
+	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
+	if (sock == -1)
+		die(1, "socket(2) failed");
+	paddr->sun_len = sizeof(sockaddr);
+	paddr->sun_family = AF_LOCAL;
+	strcpy(paddr->sun_path, path);
+	if (bind(sock, (struct sockaddr *)paddr, SUN_LEN(paddr)) != 0)
+		die(1, "bind(2) failed");
+	if (listen(sock, 0) != 0)
+		die(1, "listen(2) failed");
+
+	return (sock);
+}
+
+void
+hub_close_fork_socket(int sock)
+{
+	close_or_die(sock);
+}
+
+static char
+generate_printable()
+{
+	char c = 0;
+
+	while (!isprint(c))
+		c = arc4random_uniform(128);
+
+	return (c);
+}
+
+void
+hub_generate_token(char *token, size_t size)
+{
+	int i;
+
+	for (i = 0; i < size; i++)
+		token[i] = generate_printable();
+}
+
+void
+hub_close_fds_or_die(int rfd, int wfd)
+{
+
+	close_or_die(rfd);
+	if (rfd != wfd)
+		close_or_die(wfd);
 }

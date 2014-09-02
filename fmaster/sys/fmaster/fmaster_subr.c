@@ -14,6 +14,7 @@
 #include <sys/proc.h>
 #include <sys/select.h>
 #include <sys/selinfo.h>
+#include <sys/socket.h>
 #include <sys/syscallsubr.h>
 #include <sys/sysent.h>
 #include <sys/syslog.h>
@@ -21,17 +22,41 @@
 #include <sys/systm.h>
 #include <sys/time.h>
 #include <sys/uio.h>
+#include <sys/un.h>
 
 #include <fsyscall/private.h>
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fmaster.h>
 
+MALLOC_DEFINE(M_FMASTER, "fmaster", "fmaster");
+
+struct fmaster_data *
+fmaster_create_data(struct thread *td)
+{
+	struct fmaster_data *data;
+	int flags = M_ZERO | M_NOWAIT;
+
+	data = (struct fmaster_data *)malloc(sizeof(*data), M_FMASTER, flags);
+
+	return (data);
+}
+
+void
+fmaster_delete_data(struct fmaster_data *data)
+{
+
+	free(data, M_FMASTER);
+}
+
 static long
 fmaster_subtract_timeval(const struct timeval *t1, const struct timeval *t2)
 {
+	time_t diff;
 
-	return (1000000 * (t2->tv_sec - t1->tv_sec) + (t2->tv_usec - t1->tv_usec));
+	diff = t2->tv_sec - t1->tv_sec;
+
+	return (1000000 * diff + (t2->tv_usec - t1->tv_usec));
 }
 
 void
@@ -39,10 +64,11 @@ fmaster_log_spent_time(struct thread *td, const char *msg, const struct timeval 
 {
 	struct timeval t2;
 	long delta;
+	const char *fmt = "fmaster[%d]: %s: %ld[usec]\n";
 
 	microtime(&t2);
 	delta = fmaster_subtract_timeval(t1, &t2);
-	log(LOG_DEBUG, "fmaster[%d]: %s: %ld[usec]\n", td->td_proc->p_pid, msg, delta);
+	log(LOG_DEBUG, fmt, td->td_proc->p_pid, msg, delta);
 }
 
 int
@@ -788,8 +814,8 @@ fmaster_write(struct thread *td, int d, const void *buf, size_t nbytes)
 	return (write_aio(td, d, buf, nbytes, UIO_SYSSPACE));
 }
 
-static struct fmaster_data *
-data_of_thread(struct thread *td)
+struct fmaster_data *
+fmaster_data_of_thread(struct thread *td)
 {
 	return ((struct fmaster_data *)(td->td_proc->p_emuldata));
 }
@@ -797,19 +823,19 @@ data_of_thread(struct thread *td)
 int
 fmaster_rfd_of_thread(struct thread *td)
 {
-	return (data_of_thread(td)->rfd);
+	return (fmaster_data_of_thread(td)->rfd);
 }
 
 int
 fmaster_wfd_of_thread(struct thread *td)
 {
-	return (data_of_thread(td)->wfd);
+	return (fmaster_data_of_thread(td)->wfd);
 }
 
 struct fmaster_fd *
 fmaster_fds_of_thread(struct thread *td)
 {
-	return (data_of_thread(td)->fds);
+	return (fmaster_data_of_thread(td)->fds);
 }
 
 #define	IMPLEMENT_WRITE_X(type, name, bufsize, encode)	\
@@ -990,6 +1016,82 @@ void
 fmaster_close_fd(struct thread *td, int d)
 {
 	fmaster_fds_of_thread(td)[d].fd_type = FD_CLOSED;
+}
+
+static int
+socket(struct thread *td, int *sock)
+{
+	struct socket_args args;
+	int error;
+
+	args.domain = PF_LOCAL;
+	args.type = SOCK_STREAM;
+	args.protocol = 0;
+	error = sys_socket(td, &args);
+	if (error != 0)
+		return (error);
+
+	*sock = td->td_retval[0];
+
+	return (0);
+}
+
+#define SUN_LEN(su) \
+	(sizeof(*(su)) - sizeof((su)->sun_path) + strlen((su)->sun_path))
+
+static int
+connect(struct thread *td, int sock)
+{
+	struct sockaddr_storage addr;
+	struct sockaddr_un *paddr;
+	int error;
+	const char *path;
+
+	paddr = (struct sockaddr_un *)&addr;
+	paddr->sun_family = AF_LOCAL;
+	path = fmaster_data_of_thread(td)->fork_sock;
+	error = copystr(path, paddr->sun_path, sizeof(paddr->sun_path), NULL);
+	if (error != 0)
+		return (error);
+	paddr->sun_len = SUN_LEN(paddr);
+
+	error = kern_connect(td, sock, (struct sockaddr *)paddr);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+static int
+connect_to_mhub(struct thread *td)
+{
+	struct fmaster_data *data;
+	int error, sock;
+
+	error = socket(td, &sock);
+	if (error != 0)
+		return (error);
+	error = connect(td, sock);
+	if (error != 0)
+		return (error);
+
+	data = fmaster_data_of_thread(td);
+	data->rfd = data->wfd = sock;
+	error = fmaster_write(td, sock, data->token, data->token_size);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+void
+fmaster_schedtail(struct thread *td)
+{
+	int error;
+
+	error = connect_to_mhub(td);
+	if (error != 0)
+		log(LOG_ERR, "Cannot connect to mhub: error=%d\n", error);
 }
 
 static void selectinit(void *);

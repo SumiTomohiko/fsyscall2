@@ -56,7 +56,7 @@
 0	AUE_NULL	NOPROTO	{ int nosys(void); } syscall nosys_args int
 1	AUE_EXIT	STD	{ void fmaster_exit(int rval); } exit \
 				    fmaster_exit_args void
-2	AUE_FORK	UNIMPL	{ int fmaster_fork(void); }
+2	AUE_FORK	STD	{ int fmaster_fork(void); }
 3	AUE_NULL	STD	{ ssize_t fmaster_read(int fd, void *buf, \
 				    size_t nbytes); }
 4	AUE_NULL	STD	{ ssize_t fmaster_write(int fd, \

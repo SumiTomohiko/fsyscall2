@@ -63,7 +63,7 @@ read_or_die(int fd, const void *buf, size_t nbytes)
 
 		m = read(fd, (char *)buf + n, nbytes - n);
 		if (m == 0)
-			diex(-1, "end-of-file in reading");
+			diex(-1, "end-of-file in reading fd of %d", fd);
 		if (m < 0)
 			die(-1, "cannot read fd %d", fd);
 		n += m;
@@ -86,8 +86,18 @@ IMPLEMENT_WRITE_X(
 		write_command,
 		FSYSCALL_BUFSIZE_COMMAND,
 		encode_command)
+IMPLEMENT_WRITE_X(
+		payload_size_t,
+		write_payload_size,
+		FSYSCALL_BUFSIZE_PAYLOAD_SIZE,
+		encode_payload_size)
 IMPLEMENT_WRITE_X(int32_t, write_int32, FSYSCALL_BUFSIZE_INT32, encode_int32)
 IMPLEMENT_WRITE_X(int64_t, write_int64, FSYSCALL_BUFSIZE_INT64, encode_int64)
+IMPLEMENT_WRITE_X(
+		uint64_t,
+		write_uint64,
+		FSYSCALL_BUFSIZE_UINT64,
+		encode_uint64)
 
 int
 read_numeric_sequence(int fd, char *buf, int bufsize)
@@ -144,16 +154,16 @@ IMPLEMENT_READ_WITHOUT_LEN_X(
 		decode_payload_size)
 
 void
-write_pid(int fd, pid_t pid)
+write_pair_id(int fd, pair_id_t pair_id)
 {
-	write_int32(fd, pid);
+	write_uint64(fd, pair_id);
 }
 
-pid_t
-read_pid(int fd)
+pair_id_t
+read_pair_id(int fd)
 {
 	int _;
-	return (read_int32(fd, &_));
+	return (read_uint64(fd, &_));
 }
 
 void

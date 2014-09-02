@@ -3,7 +3,10 @@
 
 #include <sys/types.h>
 #include <sys/cdefs.h>
+#include <sys/lock.h>
 #include <sys/malloc.h>
+#include <sys/mutex.h>
+#include <sys/param.h>
 #include <sys/proc.h>
 #include <sys/syslog.h>
 #include <sys/systm.h>
@@ -23,6 +26,8 @@ struct fmaster_fd {
 	int fd_local;
 };
 
+#define	DATA_TOKEN_SIZE	64
+
 struct fmaster_data {
 	int rfd;
 	int wfd;
@@ -39,12 +44,17 @@ struct fmaster_data {
 	 * fmaster_data::fds.
 	 */
 	struct fmaster_fd fds[FD_NUM];
+
+	char fork_sock[MAXPATHLEN];
+	uint64_t token_size;
+	char token[DATA_TOKEN_SIZE];
 };
 
 int	fmaster_read_command(struct thread *, command_t *);
 int	fmaster_read_int16(struct thread *, int16_t *, int *);
 int	fmaster_read_int32(struct thread *, int32_t *, int *);
 int	fmaster_read_int64(struct thread *, int64_t *, int *);
+int	fmaster_read_uint64(struct thread *, uint64_t *, int *);
 int	fmaster_read_payload_size(struct thread *, payload_size_t *);
 int	fmaster_read(struct thread *, int, void *, size_t);
 int	fmaster_read_to_userspace(struct thread *, int, void *, size_t);
@@ -62,10 +72,16 @@ int	fmaster_write_int32(struct thread *, int32_t);
 int	fmaster_write_from_userspace(struct thread *, int, const void *, size_t);
 #define	fmaster_write_payload_size	fmaster_write_uint32
 
+struct fmaster_data *
+	fmaster_data_of_thread(struct thread *);
 int	fmaster_rfd_of_thread(struct thread *);
 int	fmaster_wfd_of_thread(struct thread *);
 struct fmaster_fd *
 	fmaster_fds_of_thread(struct thread *);
+
+struct fmaster_data *
+	fmaster_create_data(struct thread *);
+void	fmaster_delete_data(struct fmaster_data *);
 
 void	fmaster_close_fd(struct thread *, int);
 int	fmaster_fd_of_slave_fd(struct thread *, int, int *);
@@ -78,6 +94,7 @@ int	fmaster_register_fd(struct thread *, enum fmaster_fd_type, int, int *);
 int	fmaster_return_fd(struct thread *, enum fmaster_fd_type, int);
 
 int	fmaster_is_master_file(struct thread *, const char *);
+void	fmaster_schedtail(struct thread *);
 
 void	fmaster_log_spent_time(struct thread *, const char *, const struct timeval *);
 
