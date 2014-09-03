@@ -40,7 +40,6 @@ struct master {
 struct mhub {
 	struct connection shub;
 	struct list masters;
-	struct list forking_masters;
 	int fork_sock;
 	pair_id_t next_pair_id;
 	struct list fork_info;
@@ -151,19 +150,6 @@ compare_pair_id_of_master(struct item *item, void *bonus)
 	pair_id = (pair_id_t *)bonus;
 
 	return (master->pair_id == *pair_id);
-}
-
-static struct master *
-find_forking_master_of_pair_id(struct mhub *mhub, pair_id_t pair_id)
-{
-	struct list *list;
-	struct item *item;
-
-	list = &mhub->forking_masters;
-	item = list_search(list, compare_pair_id_of_master, &pair_id);
-	assert(item != NULL);
-
-	return ((struct master *)item);
 }
 
 static struct master *
@@ -279,7 +265,6 @@ create_master(struct mhub *mhub, pair_id_t pair_id, int rfd, int wfd)
 static void
 process_fork_return(struct mhub *mhub)
 {
-	struct master *master;
 	struct fork_info *fi;
 	struct payload *payload;
 	payload_size_t buf_size, payload_size;
@@ -308,9 +293,6 @@ process_fork_return(struct mhub *mhub)
 	write_or_die(wfd, buf, buf_size);
 
 	payload_dispose(payload);
-
-	master = create_master(mhub, fi->child_pair_id, INVALID_FD, INVALID_FD);
-	PREPEND_ITEM(&mhub->forking_masters, master);
 }
 
 static void
@@ -509,9 +491,7 @@ process_fork_socket(struct mhub *mhub)
 	assert(fi != NULL);
 	syslog(LOG_INFO, "A new master (%ld) has come.", fi->child_pair_id);
 
-	master = find_forking_master_of_pair_id(mhub, fi->child_pair_id);
-	master->rfd = master->wfd = sock;
-	REMOVE_ITEM(master);
+	master = create_master(mhub, fi->child_pair_id, sock, sock);
 	PREPEND_ITEM(&mhub->masters, master);
 
 	REMOVE_ITEM(fi);
@@ -571,7 +551,7 @@ process_fds(struct mhub *mhub)
 static void
 mainloop(struct mhub *mhub)
 {
-	while (!IS_EMPTY(&mhub->masters) || !IS_EMPTY(&mhub->forking_masters))
+	while (!IS_EMPTY(&mhub->masters) || !IS_EMPTY(&mhub->fork_info))
 		process_fds(mhub);
 }
 
@@ -717,7 +697,6 @@ main(int argc, char *argv[])
 	pmhub->shub.rfd = atoi_or_die(args[0], "rfd");
 	pmhub->shub.wfd = atoi_or_die(args[1], "wfd");
 	initialize_list(&pmhub->masters);
-	initialize_list(&pmhub->forking_masters);
 	pmhub->next_pair_id = 1;
 	initialize_list(&pmhub->fork_info);
 
