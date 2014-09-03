@@ -394,7 +394,7 @@ process_fds(struct shub *shub)
 static void
 mainloop(struct shub *shub)
 {
-	while (FIRST_ITEM(&shub->slaves)->next != NULL)
+	while (!IS_EMPTY(&shub->slaves) || !IS_EMPTY(&shub->fork_info))
 		process_fds(shub);
 }
 

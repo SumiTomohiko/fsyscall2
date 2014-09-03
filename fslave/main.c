@@ -416,8 +416,6 @@ process_poll(struct slave *slave)
 	write_or_die(wfd, buf, return_payload_size);
 }
 
-#define	SIGNAL_FORKED	SIGUSR1
-
 static void
 child_main(struct slave *slave, const char *token, size_t token_size, pid_t parent)
 {
@@ -437,8 +435,6 @@ child_main(struct slave *slave, const char *token, size_t token_size, pid_t pare
 		die(1, "Cannot connect(2)");
 
 	write_or_die(sock, token, token_size);
-	if (kill(parent, SIGNAL_FORKED) != 0)
-		die(1 ,"Cannot send the signal to the parent");
 
 	slave->rfd = slave->wfd = sock;
 	syslog(LOG_INFO, "A new child process has started.");
@@ -447,10 +443,8 @@ child_main(struct slave *slave, const char *token, size_t token_size, pid_t pare
 static void
 process_fork(struct slave *slave)
 {
-	struct timespec timeout;
 	payload_size_t len, payload_size;
 	pid_t parent_pid, pid;
-	sigset_t sigmask;
 	int rfd, wfd;
 	char buf[FSYSCALL_BUFSIZE_INT32], *token;
 
@@ -469,15 +463,7 @@ process_fork(struct slave *slave)
 	}
 	syslog(LOG_DEBUG, "forked: pid=%d", pid);
 
-	sigemptyset(&sigmask);
-	sigaddset(&sigmask, SIGNAL_FORKED);
-	timeout.tv_sec = 60;
-	timeout.tv_nsec = 0;
-	if (sigtimedwait(&sigmask, NULL, &timeout) == -1)
-		die(1, "sigtimedwait(2) failed");
-
 	len = encode_int32(pid, buf, sizeof(buf));
-
 	wfd = slave->wfd;
 	write_command(wfd, RET_FORK);
 	write_payload_size(wfd, len);
