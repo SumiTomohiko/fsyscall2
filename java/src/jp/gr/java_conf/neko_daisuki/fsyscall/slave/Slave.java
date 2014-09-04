@@ -113,96 +113,6 @@ public class Slave extends Worker {
         }
     }
 
-    private static class UnixException extends Exception {
-
-        private Errno mErrno;
-
-        public UnixException(Errno errno, Throwable e) {
-            super(e);
-            initialize(errno);
-        }
-
-        public UnixException(Errno errno) {
-            initialize(errno);
-        }
-
-        public Errno getErrno() {
-            return mErrno;
-        }
-
-        private void initialize(Errno errno) {
-            mErrno = errno;
-        }
-    }
-
-    private abstract static class UnixFile {
-
-        private abstract class Closer {
-
-            public abstract void close() throws UnixException;
-        }
-
-        private class TrueCloser extends Closer {
-
-            public void close() throws UnixException {
-                doClose();
-            }
-        }
-
-        private class RefCountCloser extends Closer {
-
-            public void close() throws UnixException {
-                mRefCount--;
-                mCloser = mRefCount == 1 ? new TrueCloser() : mCloser;
-            }
-        }
-
-        private int mRefCount;
-        private Closer mCloser;
-        private boolean mNonBlocking = false;
-        private boolean mCloseOnExec = false;
-
-        public UnixFile() {
-            mRefCount = 1;
-            mCloser = new TrueCloser();
-        }
-
-        public void setCloseOnExec(boolean closeOnExec) {
-            mCloseOnExec = closeOnExec;
-        }
-
-        public boolean getCloseOnExec() {
-            return mCloseOnExec;
-        }
-
-        public void acquire() {
-            mRefCount++;
-            mCloser = mRefCount == 2 ? new RefCountCloser() : mCloser;
-        }
-
-        public void close() throws UnixException {
-            mCloser.close();
-        }
-
-        public void enableNonBlocking(boolean nonBlocking) {
-            mNonBlocking = nonBlocking;
-        }
-
-        public abstract boolean isReadyToRead() throws UnixException;
-        public abstract boolean isReadyToWrite() throws UnixException;
-        public abstract int read(byte[] buffer) throws UnixException;
-        public abstract long pread(byte[] buffer, long offset) throws UnixException;
-        public abstract int write(byte[] buffer) throws UnixException;
-        public abstract long lseek(long offset, int whence) throws UnixException;
-        public abstract Unix.Stat fstat() throws UnixException;
-
-        protected boolean isNonBlocking() {
-            return mNonBlocking;
-        }
-
-        protected abstract void doClose() throws UnixException;
-    }
-
     private static class Socket extends UnixFile {
 
         private int mDomain;
@@ -643,29 +553,29 @@ public class Slave extends Worker {
     private FcntlProcs mFcntlProcs;
     private boolean mCancelled = false;
 
-    public Slave(Application application, InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links, Listener listener) throws IOException {
+    public Slave(Application application, InputStream hubIn, OutputStream hubOut, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links, Listener listener) throws IOException {
         mLogger.info("a slave is starting.");
 
-        mApplication = application;
-        mIn = new SyscallInputStream(in);
-        mOut = new SyscallOutputStream(out);
-        mPermissions = permissions;
-        mLinks = links;
-        setListener(listener);
+        UnixFile[] files = new UnixFile[UNIX_FILE_NUM];
+        files[0] = new UnixInputStream(stdin);
+        files[1] = new UnixOutputStream(stdout);
+        files[2] = new UnixOutputStream(stderr);
 
-        mHelper = new SlaveHelper(this, mIn, mOut);
-        mFcntlProcs = new FcntlProcs();
-        mFcntlProcs.put(Unix.Constants.F_GETFD, new FGetFdProc());
-        mFcntlProcs.put(Unix.Constants.F_SETFD, new FSetFdProc());
-        mFcntlProcs.put(Unix.Constants.F_SETFL, new FSetFlProc());
-
-        mFiles = new UnixFile[UNIX_FILE_NUM];
-        mFiles[0] = new UnixInputStream(stdin);
-        mFiles[1] = new UnixOutputStream(stdout);
-        mFiles[2] = new UnixOutputStream(stderr);
+        initialize(application, hubIn, hubOut, files, permissions, links,
+                   listener);
 
         writeOpenedFileDescriptors();
         mLogger.verbose("file descripters were transfered from the slave.");
+    }
+
+    /**
+     * Constructor for fork(2).
+     */
+    public Slave(Application application, InputStream hubIn,
+                 OutputStream hubOut, UnixFile[] files, Permissions permissions,
+                 Links links, Listener listener) {
+        initialize(application, hubIn, hubOut, files, permissions, links,
+                   listener);
     }
 
     public void cancel() {
@@ -1207,6 +1117,22 @@ public class Slave extends Worker {
         return result;
     }
 
+    public SyscallResult.Generic32 doFork(Pid pid) throws IOException {
+        mLogger.info(String.format("fork(pid=%s)", pid.toString()));
+
+        int len = mFiles.length;
+        UnixFile[] files = new UnixFile[len];
+        for (int i = 0; i < len; i++) {
+            files[i] = mFiles[i];
+        }
+        mApplication.addSlave(pid, files, mPermissions, mLinks, mListener);
+
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+        result.retval = pid.getInteger();
+
+        return result;
+    }
+
     public void doExit(int rval) throws IOException {
         mLogger.info(String.format("exit(rval=%d)", rval));
 
@@ -1382,6 +1308,25 @@ public class Slave extends Worker {
 
     private String makeFcntlArgString(int cmd, long arg) {
         return cmd != Unix.Constants.F_SETFL ?  "" : makeFsetflString(arg);
+    }
+
+    private void initialize(Application application, InputStream hubIn,
+                            OutputStream hubOut, UnixFile[] files,
+                            Permissions permissions, Links links,
+                            Listener listener) {
+        mApplication = application;
+        mIn = new SyscallInputStream(hubIn);
+        mOut = new SyscallOutputStream(hubOut);
+        mPermissions = permissions;
+        mLinks = links;
+        setListener(listener);
+        mFiles = files;
+
+        mHelper = new SlaveHelper(this, mIn, mOut);
+        mFcntlProcs = new FcntlProcs();
+        mFcntlProcs.put(Unix.Constants.F_GETFD, new FGetFdProc());
+        mFcntlProcs.put(Unix.Constants.F_SETFD, new FSetFdProc());
+        mFcntlProcs.put(Unix.Constants.F_SETFL, new FSetFlProc());
     }
 
     static {

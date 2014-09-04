@@ -118,6 +118,15 @@ public class SlaveHub extends Worker {
         mLogger.verbose("works of the slave hub were finished.");
     }
 
+    public SlavePeer addSlave(InputStream in, OutputStream out, Pid masterPid) {
+        SlavePeer slave = new SlavePeer(
+                new SyscallInputStream(in),
+                new SyscallOutputStream(out),
+                masterPid);
+        mSlaves.put(masterPid, slave);
+        return slave;
+    }
+
     private void processSlave(SlavePeer slave) throws IOException {
         mLogger.verbose("the work for the slave is being processed.");
 
@@ -189,19 +198,6 @@ public class SlaveHub extends Worker {
         SyscallOutputStream out = mMhub.getOutputStream();
         out.write(len);
         out.write(data);
-    }
-
-    private SlavePeer addSlave(InputStream in, OutputStream out, Pid masterPid) {
-        /*
-         * When fork(2) is implemented, make this method public, and call from
-         * Application.
-         */
-        SlavePeer slave = new SlavePeer(
-                new SyscallInputStream(in),
-                new SyscallOutputStream(out),
-                masterPid);
-        mSlaves.put(masterPid, slave);
-        return slave;
     }
 
     static {

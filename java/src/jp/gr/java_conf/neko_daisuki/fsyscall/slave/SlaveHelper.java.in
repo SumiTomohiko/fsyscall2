@@ -14,6 +14,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFds;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
@@ -98,6 +99,16 @@ public class SlaveHelper {
     }
 
     @PROCS@
+
+    private class ForkProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            Pid pid = new Pid(mIn.readInteger());
+            SyscallResult.Generic32 result = mSlave.doFork(pid);
+            writeResult(Command.RET_FORK, result);
+        }
+    }
 
     private class SelectProc extends CommandDispatcher.Proc {
 
@@ -279,6 +290,7 @@ public class SlaveHelper {
         dispatcher.addEntry(Command.CALL_SELECT, new SelectProc());
         dispatcher.addEntry(Command.CALL_CONNECT, new ConnectProc());
         dispatcher.addEntry(Command.CALL_POLL, new PollProc());
+        dispatcher.addEntry(Command.CALL_FORK, new ForkProc());
         @DISPATCHES@;
         return dispatcher;
     }

@@ -71,15 +71,17 @@ public class Application {
     private static Logging.Logger mLogger;
 
     private List<Slave> mSlaves = new LinkedList<Slave>();
-    private Worker mSlaveHub;
+    private SlaveHub mSlaveHub;
     private int mExitStatus;
 
     private Collection<Slave> mSlavesToRemove;
+    private Collection<Slave> mSlavesToAdd;
     private boolean mCancelled = false;
 
     public Application() {
         mExitStatus = 0;
         mSlavesToRemove = new LinkedList<Slave>();
+        mSlavesToAdd = new LinkedList<Slave>();
     }
 
     public void removeSlave(Slave slave) {
@@ -87,7 +89,23 @@ public class Application {
     }
 
     public void addSlave(Slave slave) {
-        mSlaves.add(slave);
+        mSlavesToAdd.add(slave);
+    }
+
+    public void addSlave(Pid pid, UnixFile[] files, Permissions permissions,
+                         Links links, Slave.Listener listener) throws IOException {
+        Pipe slave2hub = new Pipe();
+        Pipe hub2slave = new Pipe();
+
+        InputStream slaveIn = hub2slave.getInput();
+        OutputStream slaveOut = slave2hub.getOutput();
+        Slave slave = new Slave(this, slaveIn, slaveOut, files, permissions,
+                                links, listener);
+        addSlave(slave);
+
+        InputStream hubIn = slave2hub.getInput();
+        OutputStream hubOut = hub2slave.getOutput();
+        mSlaveHub.addSlave(hubIn, hubOut, pid);
     }
 
     public void setExitStatus(int exitStatus) {
@@ -113,10 +131,12 @@ public class Application {
 
         mLogger.verbose("the main loop starts.");
 
+        addSlaves();
         while ((0 < mSlaves.size()) && !mCancelled) {
             waitReady();
             kickWorkers();
             removeSlaves();
+            addSlaves();
         }
         hub.close();
 
@@ -130,11 +150,17 @@ public class Application {
         }
     }
 
+    private void addSlaves() {
+        for (Slave slave: mSlavesToAdd) {
+            mSlaves.add(slave);
+        }
+        mSlavesToAdd.clear();
+    }
+
     private void removeSlaves() {
         for (Slave slave: mSlavesToRemove) {
             mSlaves.remove(slave);
         }
-
         mSlavesToRemove.clear();
     }
 
