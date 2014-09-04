@@ -46,7 +46,7 @@ public class SyscallOutputStream {
     }
 
     public void write(Pid pid) throws IOException {
-        write(pid.getInteger());
+        write(pid.toInteger());
     }
 
     public void close() throws IOException {

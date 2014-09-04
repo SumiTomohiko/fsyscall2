@@ -9,10 +9,10 @@ public class Pid {
     }
 
     public Pid(Pid pid) {
-        mPid = pid.getInteger();
+        mPid = pid.toInteger();
     }
 
-    public int getInteger() {
+    public int toInteger() {
         return mPid;
     }
 
@@ -22,11 +22,11 @@ public class Pid {
 
     public boolean equals(Object obj) {
         Pid pid = (Pid)obj;
-        return getInteger() == pid.getInteger();
+        return toInteger() == pid.toInteger();
     }
 
     public String toString() {
-        return Integer.toString(getInteger());
+        return Integer.toString(toInteger());
     }
 }
 

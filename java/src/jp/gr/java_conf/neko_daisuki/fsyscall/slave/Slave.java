@@ -1128,7 +1128,7 @@ public class Slave extends Worker {
         mApplication.addSlave(pid, files, mPermissions, mLinks, mListener);
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
-        result.retval = pid.getInteger();
+        result.retval = pid.toInteger();
 
         return result;
     }
