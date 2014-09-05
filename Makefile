@@ -16,19 +16,20 @@ doc:
 doc-clean:
 	@cd $(DOCDIR) && $(MAKE) clean
 
-install-all: install-kmod install-master install-slave
+ia: install-all
 
-install-kmod:
-	@cd fmaster && $(MAKE) install
-	@sync
-	@sync
-	@sync
+install-all: install-master install-slave
+
+im: install-master
 
 install-master:
+	@cd fmaster && $(MAKE) install
 	@cd fmhub && $(MAKE) install
 	@sync
 	@sync
 	@sync
+
+is: install-slave
 
 install-slave:
 	@for dir in $(SLAVEDIR);		\
