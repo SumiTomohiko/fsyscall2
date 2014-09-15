@@ -109,7 +109,7 @@ def number_syscalls(syscalls, header):
             cols = split(r"\s+", line.rstrip())
             if (len(cols) != 3) or (cols[0] != "#define"):
                 continue
-            which, name = cols[1].split("_")
+            which, name = cols[1].split("_", 1)
             assert which in ["CALL", "RET"]
             syscall = find_syscall_of_name(syscalls, name)
             attr = "call_id" if which == "CALL" else "ret_id"

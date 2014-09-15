@@ -1,9 +1,10 @@
 
 from functools import partial
 from os.path import join
+from sys import exit
 
-from fsyscall.share import FMASTER_SYSCALLS, SYSCALLS, Variable,            \
-                           bufsize_of_datatype,                             \
+from fsyscall.share import DUMMY_SYSCALLS, FMASTER_SYSCALLS, SYSCALLS,      \
+                           Variable, bufsize_of_datatype,                   \
                            concrete_datatype_of_abstract_datatype,          \
                            data_of_argument, drop_prefix, make_cmd_name,    \
                            make_payload_size_expr, opt_of_syscall,          \
@@ -575,11 +576,43 @@ def write_fmaster_makefile(path, syscalls):
     for syscall in [syscall for syscall in syscalls if syscall.post_common]:
         name = syscall.name
         srcs.append("{name}_post_common.c".format(**locals()))
+    for name in DUMMY_SYSCALLS:
+        srcs.append("{name}.c".format(**locals()))
 
     write_makefile(path, srcs)
+
+def write_dummy(dirpath, name):
+    with open(join(dirpath, "{name}.c".format(**locals())), "w") as fp:
+        syscall = drop_prefix(name)
+        print("""\
+/*
+ * Dummy implementation generated automatically. DO NOT EDIT THIS!
+ */
+#include <sys/param.h>
+#include <sys/proc.h>
+#include <sys/syslog.h>
+#include <sys/systm.h>
+
+#include <sys/fmaster/fmaster_proto.h>
+
+int
+sys_{name}(struct thread *td, struct {name}_args *uap)
+{{
+
+\tlog(LOG_DEBUG, \"fmaster[%d]: {syscall}: dummy\\n\", td->td_proc->p_pid);
+
+\treturn (ENOSYS);
+}}""".format(**locals()), file=fp)
 
 def write_implementation(dirpath, syscalls):
     for syscall in [sc for sc in syscalls if sc.name in FMASTER_SYSCALLS]:
         write_syscall(dirpath, syscall)
+    for name in DUMMY_SYSCALLS:
+        if name in FMASTER_SYSCALLS:
+            fmt = """\
+{name} is given to both of fmaster and dummy. Remove one of two."""
+            print(fmt.format(**locals()))
+            exit(1)
+        write_dummy(dirpath, name)
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=python
