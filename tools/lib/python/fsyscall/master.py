@@ -496,7 +496,7 @@ def write_syscall(dirpath, syscall):
             ("payload_size_t", "payload_size"),
             ("int", "error")):
         local_vars.append(Variable(datatype, name))
-    if 0 < len(syscall.args):
+    if 0 < len(syscall.input_args):
         for datatyoe, name in (("int", "wfd"), ):
             local_vars.append(Variable(datatype, name))
     for a in syscall.args:
