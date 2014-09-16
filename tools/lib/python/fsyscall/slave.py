@@ -50,7 +50,7 @@ execute_call({args})
 """.format(args=", ".join(args)))
 
 def make_fslave_payload_size_expr(syscall):
-    if len(syscall.args) == 0:
+    if len(syscall.input_args) == 0:
         return "0"
 
     terms = []
