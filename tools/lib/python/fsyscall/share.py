@@ -55,6 +55,16 @@ stat = Struct([
     #Variable("struct timespec", "st_birthtim")
     ])
 
+timeval = Struct([
+    Variable("time_t", "tv_sec"),
+    Variable("suseconds_t", "tv_usec")
+    ])
+
+timezone = Struct([
+    Variable("int", "tz_minuteswest"),
+    Variable("int", "tz_dsttime")
+    ])
+
 class Argument:
 
     def __init__(self, opt=None, out=False, size=None, retsize=None, struct=None):
@@ -104,7 +114,11 @@ SYSCALLS = {
         "fmaster_geteuid": {},
         "fmaster_getgid": {},
         "fmaster_getegid": {},
-        "fmaster_socket": {}
+        "fmaster_socket": {},
+        "fmaster_gettimeofday": {
+            "tp": Argument(out=True, struct=timeval),
+            "tzp": Argument(out=True, struct=timezone)
+            }
         }
 
 FMASTER_SYSCALLS = SYSCALLS
@@ -124,15 +138,15 @@ DUMMY_SYSCALLS = [
         "fmaster_setpgid", "fmaster_setitimer", "fmaster_getitimer",
         "fmaster_dup2", "fmaster_fsync", "fmaster_setpriority",
         "fmaster_getpriority", "fmaster_bind", "fmaster_setsockopt",
-        "fmaster_listen", "fmaster_gettimeofday", "fmaster_getrusage",
-        "fmaster_getsockopt", "fmaster_readv", "fmaster_settimeofday",
-        "fmaster_fchown", "fmaster_fchmod", "fmaster_setreuid",
-        "fmaster_setregid", "fmaster_rename", "fmaster_flock", "fmaster_mkfifo",
-        "fmaster_sendto", "fmaster_shutdown", "fmaster_socketpair",
-        "fmaster_mkdir", "fmaster_rmdir", "fmaster_utimes", "fmaster_adjtime",
-        "fmaster_setsid", "fmaster_quotactl", "fmaster_nlm_syscall",
-        "fmaster_nfssvc", "fmaster_lgetfh", "fmaster_getfh", "fmaster_rtprio",
-        "fmaster_semsys", "fmaster_msgsys", "fmaster_shmsys", "fmaster_setfib",
+        "fmaster_listen", "fmaster_getrusage", "fmaster_getsockopt",
+        "fmaster_readv", "fmaster_settimeofday", "fmaster_fchown",
+        "fmaster_fchmod", "fmaster_setreuid", "fmaster_setregid",
+        "fmaster_rename", "fmaster_flock", "fmaster_mkfifo", "fmaster_sendto",
+        "fmaster_shutdown", "fmaster_socketpair", "fmaster_mkdir",
+        "fmaster_rmdir", "fmaster_utimes", "fmaster_adjtime", "fmaster_setsid",
+        "fmaster_quotactl", "fmaster_nlm_syscall", "fmaster_nfssvc",
+        "fmaster_lgetfh", "fmaster_getfh", "fmaster_rtprio", "fmaster_semsys",
+        "fmaster_msgsys", "fmaster_shmsys", "fmaster_setfib",
         "fmaster_ntp_adjtime", "fmaster_setgid", "fmaster_setegid",
         "fmaster_seteuid", "fmaster_pathconf", "fmaster_fpathconf",
         "fmaster_getrlimit", "fmaster_setrlimit", "fmaster_undelete",
@@ -191,7 +205,9 @@ def concrete_datatype_of_abstract_datatype(datatype):
             "ssize_t": "int64",
             "void *": "int64",
             "long": "int64",
-            "int": "int32" }[datatype]
+            "int": "int32",
+            "time_t": "int64",
+            "suseconds_t": "int64" }[datatype]
 
 def bufsize_of_datatype(datatype):
     concrete = concrete_datatype_of_abstract_datatype(datatype)
@@ -234,7 +250,9 @@ def datasize_of_datatype(datatype):
             "uid_t": 32,
             "uint64_t": 64,
             "void": 64,
-            "pid_t": 32 }
+            "pid_t": 32,
+            "time_t": 64,
+            "suseconds_t": 64 }
     m = RE_ARRAY_DATATYPE.match(datatype)
     if m is None:
         return DATASIZE_OF_DATATYPE[datatype]

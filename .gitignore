@@ -228,6 +228,7 @@ fslave/fslave_getegid.c
 fslave/fslave_geteuid.c
 fslave/fslave_getgid.c
 fslave/fslave_getpid.c
+fslave/fslave_gettimeofday.c
 fslave/fslave_getuid.c
 fslave/fslave_issetugid.c
 fslave/fslave_link.c

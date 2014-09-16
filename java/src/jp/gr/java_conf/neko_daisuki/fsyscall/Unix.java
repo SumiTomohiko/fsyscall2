@@ -28,6 +28,12 @@ public interface Unix {
         public int st_lspare;
     }
 
+    public static class TimeZone {
+
+        public int tz_minuteswest;
+        public int tz_dsttime;
+    }
+
     public static class TimeVal {
 
         public long tv_sec;
