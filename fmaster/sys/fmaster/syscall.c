@@ -78,7 +78,6 @@ create_data(struct thread *td, int rfd, int wfd, const char *fork_sock)
 	error = copystr(fork_sock, data->fork_sock, len, NULL);
 	if (error != 0)
 		return (NULL);
-	log(LOG_DEBUG, "len=%ld, data->fork_sock=%s\n", len, data->fork_sock);
 
 	return (data);
 }
