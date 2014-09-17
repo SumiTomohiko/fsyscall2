@@ -459,9 +459,11 @@ execute_return(struct thread *td, struct {name}_args *uap)
         if st is None:
             continue
         p("""\
-\terror = copyout(&{name}, uap->{name}, sizeof({name}));
-\tif (error != 0)
-\t\treturn (error);
+\tif (uap->{name} != NULL) {{
+\t\terror = copyout(&{name}, uap->{name}, sizeof({name}));
+\t\tif (error != 0)
+\t\t\treturn (error);
+\t}}
 """.format(**vars(a)))
     p("""\
 \ttd->td_retval[0] = retval;

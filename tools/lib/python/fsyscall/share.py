@@ -117,8 +117,8 @@ SYSCALLS = {
         "fmaster_getegid": {},
         "fmaster_socket": {},
         "fmaster_gettimeofday": {
-            "tp": Argument(out=True, struct=timeval),
-            "tzp": Argument(out=True, struct=timezone)
+            "tp": Argument(opt="tp != NULL", out=True, struct=timeval),
+            "tzp": Argument(opt="tzp != NULL", out=True, struct=timezone)
             }
         }
 
