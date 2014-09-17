@@ -1,0 +1,3 @@
+
+cmd="gettimeofday_usec/gettimeofday_usec"
+expected_status="0"

@@ -24,6 +24,7 @@
 %define	sys.select		93
 %define	sys.socket		97
 %define	sys.connect		98
+%define	sys.gettimeofday	116
 %define	sys.writev		121
 %define	sys.stat		188
 %define	sys.fstat		189

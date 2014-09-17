@@ -271,6 +271,10 @@ tests/amd64/getegid/getegid
 tests/amd64/geteuid/geteuid
 tests/amd64/getgid/getgid
 tests/amd64/getpid/getpid
+tests/amd64/gettimeofday_dsttime/gettimeofday_dsttime
+tests/amd64/gettimeofday_minuteswest/gettimeofday_minuteswest
+tests/amd64/gettimeofday_sec/gettimeofday_sec
+tests/amd64/gettimeofday_usec/gettimeofday_usec
 tests/amd64/getuid/getuid
 tests/amd64/ioctl/ioctl
 tests/amd64/issetugid/issetugid

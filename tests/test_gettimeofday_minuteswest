@@ -1,0 +1,3 @@
+
+cmd="gettimeofday_minuteswest/gettimeofday_minuteswest"
+expected_status="0"

@@ -1,0 +1,3 @@
+
+cmd="gettimeofday_dsttime/gettimeofday_dsttime"
+expected_status="0"

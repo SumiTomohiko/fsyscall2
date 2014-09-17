@@ -73,6 +73,7 @@ defsyscall socket, sys.socket
 defsyscall connect, sys.connect
 defsyscall poll, sys.poll
 defsyscall fork, sys.fork
+defsyscall gettimeofday, sys.gettimeofday
 
 global _start
 _start:
