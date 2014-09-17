@@ -8,7 +8,8 @@ RE_ARRAY_DATATYPE = compile(r"^(?P<type>.+) \(\*\)\[(?P<size>.+)\]$")
 
 class Struct:
 
-    def __init__(self, members):
+    def __init__(self, name, members):
+        self.name = name
         self.members = members
 
 def drop_pointer(datatype):
@@ -35,7 +36,7 @@ class Variable:
 
     __repr__ = __str__ = make_decl
 
-stat = Struct([
+stat = Struct("stat", [
     Variable("__dev_t", "st_dev"),
     Variable("ino_t", "st_ino"),
     Variable("mode_t", "st_mode"),
@@ -55,12 +56,12 @@ stat = Struct([
     #Variable("struct timespec", "st_birthtim")
     ])
 
-timeval = Struct([
+timeval = Struct("timeval", [
     Variable("time_t", "tv_sec"),
     Variable("suseconds_t", "tv_usec")
     ])
 
-timezone = Struct([
+timezone = Struct("timezone", [
     Variable("int", "tz_minuteswest"),
     Variable("int", "tz_dsttime")
     ])

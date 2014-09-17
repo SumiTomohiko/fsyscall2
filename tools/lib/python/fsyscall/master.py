@@ -350,6 +350,10 @@ static int
 """.format(**locals()))
     print_wrapper(p, print_newline, syscall)
 
+def drop_pointer(s):
+    assert s[-1] == "*"
+    return s[:-1].strip()
+
 def print_execute_return(p, print_newline, syscall):
     name = syscall.name
     p("""\
@@ -376,10 +380,8 @@ execute_return(struct thread *td, struct {name}_args *uap)
             continue
         st = data_of_argument(syscall, a).struct
         if st is not None:
-            local_vars.append(Variable(a.datatype, a.name))
-            for datatype, name in (
-                    ("int", "{name}_len"),
-                    ("{datatype}", "{name}")):
+            local_vars.append(Variable(drop_pointer(a.datatype), a.name))
+            for datatype, name in (("int", "{name}_len"), ):
                 for member in st.members:
                     s = "{arg}_{member}".format(arg=a.name, member=member.name)
                     d = { "datatype": member.datatype, "name": s }
@@ -433,19 +435,14 @@ execute_return(struct thread *td, struct {name}_args *uap)
             continue
         st = data_of_argument(syscall, a).struct
         if st is not None:
-            struct_name = a.name
-            p("""\
-\t{struct_name} = uap->{struct_name};
-""".format(**locals()))
             for member in st.members:
+                struct_name = a.name
                 t = concrete_datatype_of_abstract_datatype(member.datatype)
                 name = member.name
-                var = "{struct_name}_{name}".format(**locals())
                 p("""\
-\terror = fmaster_read_{t}(td, &{var}, &{var}_len);
+\terror = fmaster_read_{t}(td, &{struct_name}.{name}, &{struct_name}_{name}_len);
 \tif (error != 0)
 \t\treturn (error);
-\t{struct_name}->{name} = {var};
 """.format(**locals()))
     print_newline()
 
@@ -454,8 +451,21 @@ execute_return(struct thread *td, struct {name}_args *uap)
 \texpected_payload_size = retval_len + {expected_payload_size};
 \tif (expected_payload_size != payload_size)
 \t\treturn (EPROTO);
+""".format(**locals()))
+    print_newline()
 
+    for a in syscall.output_args:
+        st = data_of_argument(syscall, a).struct
+        if st is None:
+            continue
+        p("""\
+\terror = copyout(&{name}, uap->{name}, sizeof({name}));
+\tif (error != 0)
+\t\treturn (error);
+""".format(**vars(a)))
+    p("""\
 \ttd->td_retval[0] = retval;
+
 \treturn (0);
 }}
 """.format(**locals()))
