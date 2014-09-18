@@ -357,6 +357,31 @@ public class SlaveHelper {
         writePayload(command, payload);
     }
 
+    private void writeResult(Command command, SyscallResult.Gettimeofday result) throws IOException {
+        String logHead = "result (gettimeofday)";
+
+        int retval = result.retval;
+        if (retval == -1) {
+            String fmt = "%s: retval=%d, errno=%s";
+            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            writeError(command, result);
+            return;
+        }
+
+        String fmt = "%s: retval=%d, tp->tv_sec=%d, tp->tv_usec=%d, tzp->tz_minuteswest=%d, tzp->tz_dsttime=%d";
+        mLogger.info(String.format(fmt, logHead, retval, result.tp.tv_sec,
+                                   result.tp.tv_usec, result.tzp.tz_minuteswest,
+                                   result.tzp.tz_dsttime));
+
+        Payload payload = new Payload();
+        payload.add(retval);
+        payload.add(result.tp.tv_sec);
+        payload.add(result.tp.tv_usec);
+        payload.add(result.tzp.tz_minuteswest);
+        payload.add(result.tzp.tz_dsttime);
+        writePayload(command, payload);
+    }
+
     private void writeResult(Command command, SyscallResult.Select result) throws IOException {
         String logHead = "result (select)";
 

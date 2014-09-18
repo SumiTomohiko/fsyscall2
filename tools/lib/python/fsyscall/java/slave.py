@@ -259,9 +259,6 @@ def build_proc_of_writing_result(syscalls):
     }}""".format(**d))
             continue
 
-        # XXX: Temporary escaping
-        stmts.append("private void writeResult(SyscallResult.{rettype} _) throws IOException {{}}".format(**locals()))
-
     return "\n\n    ".join(stmts)
 
 def write_slave_helper(g, syscalls):

@@ -32,12 +32,25 @@ public interface Unix {
 
         public int tz_minuteswest;
         public int tz_dsttime;
+
+        public TimeZone(int minuteswest, int dsttime) {
+            tz_minuteswest = minuteswest;
+            tz_dsttime = dsttime;
+        }
     }
 
     public static class TimeVal {
 
         public long tv_sec;
         public long tv_usec;
+
+        public TimeVal(long sec, long usec) {
+            tv_sec = sec;
+            tv_usec = usec;
+        }
+
+        public TimeVal() {
+        }
     }
 
     public interface Constants {

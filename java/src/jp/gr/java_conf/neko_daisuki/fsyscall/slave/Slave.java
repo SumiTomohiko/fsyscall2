@@ -13,6 +13,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.TimeZone;
 
 /*
  * Android 3.2.1 does not have UnixSystem.
@@ -981,6 +982,24 @@ public class Slave extends Worker {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
         result.retval = -1;
         result.errno = Errno.ENOSYS;
+        return result;
+    }
+
+    public SyscallResult.Gettimeofday doGettimeofday() throws IOException {
+        mLogger.info("gettimeofday(tp, tzp)");
+
+        long millis = System.currentTimeMillis();
+        long sec = millis / 1000;
+        long usec = (millis % 1000) * 1000;
+        Unix.TimeVal tv = new Unix.TimeVal(sec, usec);
+        int minuteswest = TimeZone.getDefault().getRawOffset() / 1000 / 60;
+        Unix.TimeZone tz = new Unix.TimeZone(minuteswest, 0);
+
+        SyscallResult.Gettimeofday result = new SyscallResult.Gettimeofday();
+        result.tp = tv;
+        result.tzp = tz;
+        result.retval = 0;
+
         return result;
     }
 
