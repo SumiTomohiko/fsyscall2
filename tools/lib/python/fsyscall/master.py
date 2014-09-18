@@ -6,10 +6,10 @@ from sys import exit
 from fsyscall.share import DUMMY_SYSCALLS, FMASTER_SYSCALLS, SYSCALLS,      \
                            Variable, bufsize_of_datatype,                   \
                            concrete_datatype_of_abstract_datatype,          \
-                           data_of_argument, drop_prefix, make_cmd_name,    \
-                           make_payload_size_expr, opt_of_syscall,          \
-                           partial_print, pickup_sources, print_caution,    \
-                           print_locals, write_makefile
+                           data_of_argument, drop_pointer, drop_prefix,     \
+                           make_cmd_name, make_payload_size_expr,           \
+                           opt_of_syscall, partial_print, pickup_sources,   \
+                           print_caution, print_locals, write_makefile
 
 def make_string_locals(name):
     a = []
@@ -349,10 +349,6 @@ static int
 }}
 """.format(**locals()))
     print_wrapper(p, print_newline, syscall)
-
-def drop_pointer(s):
-    assert s[-1] == "*"
-    return s[:-1].strip()
 
 def print_execute_return(p, print_newline, syscall):
     name = syscall.name
