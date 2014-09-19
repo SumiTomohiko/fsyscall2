@@ -536,6 +536,7 @@ public class Slave extends Worker {
         }
     }
 
+    private static final int UID = 1001;
     private static final int UNIX_FILE_NUM = 256;
 
     private static Map<Integer, String> mFcntlCommands;
@@ -1104,11 +1105,19 @@ public class Slave extends Worker {
         return result;
     }
 
+    public SyscallResult.Getresuid doGetresuid() throws IOException {
+        mLogger.info("getresuid(*ruid, *euid, *suid)");
+        SyscallResult.Getresuid result = new SyscallResult.Getresuid();
+        result.ruid = result.euid = result.suid = UID;
+        result.retval = 0;
+        return result;
+    }
+
     public SyscallResult.Generic32 doGetuid() throws IOException {
         mLogger.info("getuid()");
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
         //result.retval = (int)(new UnixSystem().getUid());
-        result.retval = 1001;
+        result.retval = UID;
         return result;
     }
 

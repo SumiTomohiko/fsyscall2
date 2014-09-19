@@ -382,6 +382,27 @@ public class SlaveHelper {
         writePayload(command, payload);
     }
 
+    private void writeResult(Command command, SyscallResult.Getresuid result) throws IOException {
+        String logHead = "result (getresuid)";
+
+        int retval = result.retval;
+        if (retval == -1) {
+            String fmt = "%s: retval=%d, errno=%s";
+            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            writeError(command, result);
+            return;
+        }
+
+        mLogger.info(String.format("%s: retval=%d", logHead, retval));
+
+        Payload payload = new Payload();
+        payload.add(retval);
+        payload.add(result.ruid);
+        payload.add(result.euid);
+        payload.add(result.suid);
+        writePayload(command, payload);
+    }
+
     private void writeResult(Command command, SyscallResult.Select result) throws IOException {
         String logHead = "result (select)";
 
