@@ -1,0 +1,3 @@
+
+cmd="getresuid_suid/getresuid_suid"
+expected_status="0"

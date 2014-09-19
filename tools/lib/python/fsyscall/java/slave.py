@@ -69,7 +69,8 @@ JAVA_DATATYPE_OF_C_DATATYPE = {
         "u_int": "long",
         "struct stat *": "Unix.Stat",
         "off_t": "long",
-        "struct timezone *": "Unix.TimeZone"
+        "struct timezone *": "Unix.TimeZone",
+        "uid_t *": "long"
         }
 
 def java_datatype_of_c_datatype(datatype):
@@ -123,7 +124,6 @@ def make_params_reading(syscall):
             stmts.append(fmt.format(**locals()))
             continue
 
-        datatype = java_datatype_of_c_datatype(a.datatype)
         meth = read_method_of_c_datatype(a.datatype)
         if meth is None:
             # TODO: Remove here. This is temporary escaping from compile error.

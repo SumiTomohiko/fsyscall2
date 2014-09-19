@@ -74,6 +74,7 @@ defsyscall connect, sys.connect
 defsyscall poll, sys.poll
 defsyscall fork, sys.fork
 defsyscall gettimeofday, sys.gettimeofday
+defsyscall getresuid, sys.getresuid
 
 global _start
 _start:

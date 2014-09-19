@@ -75,6 +75,16 @@ class Argument:
         self.retsize = retsize
         self.struct = struct
 
+    def get_is_atom(self):
+        return (self.struct is None) and (self.size is None)
+
+    is_atom = property(get_is_atom)
+
+    def get_is_array(self):
+        return self.size is not None
+
+    is_array = property(get_is_array)
+
 SYSCALLS = {
         "fmaster_read": {
             "buf": Argument(out=True, size="nbytes", retsize="retval")
@@ -119,6 +129,11 @@ SYSCALLS = {
         "fmaster_gettimeofday": {
             "tp": Argument(opt="tp != NULL", out=True, struct=timeval),
             "tzp": Argument(opt="tzp != NULL", out=True, struct=timezone)
+            },
+        "fmaster_getresuid": {
+            "ruid": Argument(out=True),
+            "euid": Argument(out=True),
+            "suid": Argument(out=True)
             }
         }
 
@@ -160,20 +175,20 @@ DUMMY_SYSCALLS = [
         "fmaster_lutimes", "fmaster_nstat", "fmaster_nfstat", "fmaster_nlstat",
         "fmaster_preadv", "fmaster_pwritev", "fmaster_fhopen", "fmaster_fhstat",
         "fmaster_getsid", "fmaster_setresuid", "fmaster_setresgid",
-        "fmaster_getresuid", "fmaster_getresgid", "fmaster_lchflags",
-        "fmaster_sendfile", "fmaster_getfsstat", "fmaster_statfs",
-        "fmaster_fhstatfs", "fmaster_setcontext", "fmaster_swapcontext",
-        "fmaster_thr_create", "fmaster_thr_exit", "fmaster_thr_kill",
-        "fmaster_thr_suspend", "fmaster_thr_wake", "fmaster_thr_new",
-        "fmaster_abort2", "fmaster_thr_set_name", "fmaster_pwrite",
-        "fmaster_truncate", "fmaster_ftruncate", "fmaster_thr_kill2",
-        "fmaster_faccessat", "fmaster_fchmodat", "fmaster_fchownat",
-        "fmaster_fexecve", "fmaster_fstatat", "fmaster_futimesat",
-        "fmaster_linkat", "fmaster_mkdirat", "fmaster_mkfifoat",
-        "fmaster_mknodat", "fmaster_openat", "fmaster_readlinkat",
-        "fmaster_renameat", "fmaster_symlinkat", "fmaster_unlinkat",
-        "fmaster_posix_openpt", "fmaster_msgctl", "fmaster_lpathconf",
-        "fmaster_getloginclass", "fmaster_setloginclass"
+        "fmaster_getresgid", "fmaster_lchflags", "fmaster_sendfile",
+        "fmaster_getfsstat", "fmaster_statfs", "fmaster_fhstatfs",
+        "fmaster_setcontext", "fmaster_swapcontext", "fmaster_thr_create",
+        "fmaster_thr_exit", "fmaster_thr_kill", "fmaster_thr_suspend",
+        "fmaster_thr_wake", "fmaster_thr_new", "fmaster_abort2",
+        "fmaster_thr_set_name", "fmaster_pwrite", "fmaster_truncate",
+        "fmaster_ftruncate", "fmaster_thr_kill2", "fmaster_faccessat",
+        "fmaster_fchmodat", "fmaster_fchownat", "fmaster_fexecve",
+        "fmaster_fstatat", "fmaster_futimesat", "fmaster_linkat",
+        "fmaster_mkdirat", "fmaster_mkfifoat", "fmaster_mknodat",
+        "fmaster_openat", "fmaster_readlinkat", "fmaster_renameat",
+        "fmaster_symlinkat", "fmaster_unlinkat", "fmaster_posix_openpt",
+        "fmaster_msgctl", "fmaster_lpathconf", "fmaster_getloginclass",
+        "fmaster_setloginclass"
         ]
 
 DEFAULT_ARGUMENT = Argument()

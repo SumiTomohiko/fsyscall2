@@ -32,6 +32,7 @@
 %define	sys.getdirentries	196
 %define	sys.poll		209
 %define	sys.issetugid		253
+%define	sys.getresuid		360
 %define	sys.fstatfs		397
 %define	sys.pread		475
 %define	sys.lseek		478

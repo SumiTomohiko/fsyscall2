@@ -374,7 +374,8 @@ execute_return(struct thread *td, struct {name}_args *uap)
     for a in out_arguments:
         if a.datatype in ("char *", "void *"):
             continue
-        st = data_of_argument(syscall, a).struct
+        data = data_of_argument(syscall, a)
+        st = data.struct
         if st is not None:
             local_vars.append(Variable(drop_pointer(a.datatype), a.name))
             for datatype, name in (("int", "{name}_len"), ):
@@ -385,11 +386,10 @@ execute_return(struct thread *td, struct {name}_args *uap)
                     n = name.format(**d)
                     local_vars.append(Variable(t, n))
             continue
-        for datatype, name in (("int", "{name}_len"), ("{datatype}", "{name}")):
-            d = vars(a)
-            t = datatype.format(**d)
-            n = name.format(**d)
-            local_vars.append(Variable(t, n))
+        assert data_of_argument(syscall, a).is_atom
+        name = a.name
+        local_vars.append(Variable("int", "{name}_len".format(**locals())))
+        local_vars.append(Variable(drop_pointer(a.datatype), a.name))
     print_locals(p, local_vars)
     print_newline()
 
@@ -429,7 +429,8 @@ execute_return(struct thread *td, struct {name}_args *uap)
 \t\treturn (error);
 """.format(name=a.name, size=data_of_argument(syscall, a).retsize))
             continue
-        st = data_of_argument(syscall, a).struct
+        data = data_of_argument(syscall, a)
+        st = data.struct
         if st is not None:
             for member in st.members:
                 struct_name = a.name
@@ -437,6 +438,15 @@ execute_return(struct thread *td, struct {name}_args *uap)
                 name = member.name
                 p("""\
 \terror = fmaster_read_{t}(td, &{struct_name}.{name}, &{struct_name}_{name}_len);
+\tif (error != 0)
+\t\treturn (error);
+""".format(**locals()))
+            continue
+        assert data.is_atom
+        t = concrete_datatype_of_abstract_datatype(drop_pointer(a.datatype))
+        name = a.name
+        p("""\
+\terror = fmaster_read_{t}(td, &{name}, &{name}_len);
 \tif (error != 0)
 \t\treturn (error);
 """.format(**locals()))
@@ -451,8 +461,8 @@ execute_return(struct thread *td, struct {name}_args *uap)
     print_newline()
 
     for a in syscall.output_args:
-        st = data_of_argument(syscall, a).struct
-        if st is None:
+        data = data_of_argument(syscall, a)
+        if data.is_array:
             continue
         p("""\
 \tif (uap->{name} != NULL) {{
