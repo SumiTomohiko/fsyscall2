@@ -1,4 +1,9 @@
 
-LIB=	payload
+LIB=		payload
+SRCS=		fsyscall_payload.c
+TOP_DIR=	../..
+CFLAGS=		-I${TOP_DIR}/include
 
-.include "../Makefile.lib"
+install:
+
+.include <bsd.lib.mk>
