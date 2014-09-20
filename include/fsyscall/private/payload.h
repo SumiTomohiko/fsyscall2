@@ -10,14 +10,13 @@ struct payload;
 
 struct payload	*fsyscall_payload_create(void);
 int		fsyscall_payload_dispose(struct payload *);
-int		fsyscall_payload_add(struct payload *, const char *,
-				     payload_size_t);
 int		fsyscall_payload_add_int32(struct payload *, int32_t);
 int		fsyscall_payload_add_uint8(struct payload *, uint8_t);
 int		fsyscall_payload_add_uint32(struct payload *, uint32_t);
 int		fsyscall_payload_add_uint64(struct payload *, uint64_t);
 int		fsyscall_payload_add_sockaddr(struct payload *,
 					      struct sockaddr *);
+int		fsyscall_payload_add_string(struct payload *, const char *);
 char 		*fsyscall_payload_get(struct payload *);
 payload_size_t	fsyscall_payload_get_size(struct payload *);
 

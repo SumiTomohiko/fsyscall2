@@ -71,7 +71,7 @@ fsyscall_payload_get(struct payload *payload)
 	return (payload->buf);
 }
 
-int
+static int
 fsyscall_payload_add(struct payload *payload, const char *buf,
 		     payload_size_t size)
 {
@@ -90,7 +90,6 @@ int
 fsyscall_payload_add_sockaddr(struct payload *payload, struct sockaddr *name)
 {
 	struct sockaddr_un *addr = (struct sockaddr_un *)name;
-	size_t len;
 	int error;
 
 	if (name->sa_family != AF_LOCAL)
@@ -102,11 +101,7 @@ fsyscall_payload_add_sockaddr(struct payload *payload, struct sockaddr *name)
 	error = fsyscall_payload_add_uint8(payload, addr->sun_family);
 	if (error != 0)
 		return (error);
-	len = strlen(addr->sun_path);
-	error = fsyscall_payload_add_uint64(payload, len);
-	if (error != 0)
-		return (error);
-	error = fsyscall_payload_add(payload, addr->sun_path, len);
+	error = fsyscall_payload_add_string(payload, addr->sun_path);
 	if (error != 0)
 		return (error);
 
@@ -138,6 +133,23 @@ IMPLEMENT_ADD_X(fsyscall_payload_add_uint32, uint32_t, FSYSCALL_BUFSIZE_UINT32,
 IMPLEMENT_ADD_X(fsyscall_payload_add_uint64, uint64_t, FSYSCALL_BUFSIZE_UINT64,
 		fsyscall_encode_uint64)
 #undef IMPLEMENT_ADD_X
+
+int
+fsyscall_payload_add_string(struct payload *payload, const char *s)
+{
+	size_t len;
+	int error;
+
+	len = strlen(s);
+	error = fsyscall_payload_add_uint64(payload, len);
+	if (error != 0)
+		return (error);
+	error = fsyscall_payload_add(payload, s, len);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
 
 int
 fsyscall_payload_dispose(struct payload *payload)
