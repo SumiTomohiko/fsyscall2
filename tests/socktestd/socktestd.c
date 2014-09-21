@@ -55,10 +55,9 @@ usage()
 {
 
 	fprintf(stderr,
-		"usage: %s --socket-file=/path/to/socket --pid-file=/path/to/pi"
-		"d\n",
+		"usage: %s [--socket-file=/path/to/socket] [--pid-file=/path/to"
+		"/pid]\n",
 		getprogname());
-	exit(2);
 }
 
 static void
@@ -101,6 +100,7 @@ main(int argc, char *argv[])
 	struct sockaddr_storage addr, sockaddr;
 	struct sockaddr *paddr;
 	struct option longopts[] = {
+		{ "help", no_argument, NULL, 'h' },
 		{ "pid-file", required_argument, NULL, 'p' },
 		{ "socket-file", required_argument, NULL, 's' },
 		{ 0, 0, 0, 0 }
@@ -110,9 +110,13 @@ main(int argc, char *argv[])
 	int opt, s, sock;
 	char buf[8192], pid_file[8192], socket_file[8192];
 
-	pid_file[0] = socket_file[0] = '\0';
+	strncpy(pid_file, "/tmp/socktestd.pid", sizeof(pid_file));
+	strncpy(socket_file, "/tmp/socktestd.sock", sizeof(socket_file));
 	while ((opt = getopt_long(argc, argv, "+", longopts, NULL)) != -1)
 		switch (opt) {
+		case 'h':
+			usage();
+			return (0);
 		case 'p':
 			strncpy(pid_file, optarg, sizeof(pid_file));
 			break;
@@ -127,10 +131,12 @@ main(int argc, char *argv[])
 	if (strlen(pid_file) == 0) {
 		fprintf(stderr, "No pid path given\n");
 		usage();
+		return (2);
 	}
 	if (strlen(socket_file) == 0) {
 		fprintf(stderr, "No socket path given\n");
 		usage();
+		return (2);
 	}
 
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
