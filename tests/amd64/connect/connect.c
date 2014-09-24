@@ -20,9 +20,9 @@ main(int argc, char *argv[])
 		return (1);
 	paddr = (struct sockaddr_un *)&sockaddr;
 	sockfile = argv[1];
-	paddr->sun_len = len = sizeof(paddr->sun_len) + sizeof(paddr->sun_family) + strlen(sockfile) + 1;
 	paddr->sun_family = AF_UNIX;
 	strcpy(paddr->sun_path, sockfile);
+	paddr->sun_len = len = SUN_LEN(paddr);
 	if (connect(sock, (struct sockaddr *)paddr, len) != 0)
 		return (2);
 
