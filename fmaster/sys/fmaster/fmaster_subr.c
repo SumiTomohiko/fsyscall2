@@ -28,6 +28,7 @@
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fmaster.h>
+#include <fsyscall/private/read_sockaddr.h>
 
 MALLOC_DEFINE(M_FMASTER, "fmaster", "fmaster");
 
@@ -704,6 +705,85 @@ fmaster_read(struct thread *td, int d, void *buf, size_t nbytes)
 }
 
 static int
+rs_read_socklen(struct rsopts *opts, socklen_t *socklen, int *len)
+{
+	struct thread *td = (struct thread *)opts->rs_bonus;
+	int error;
+
+	error = fmaster_read_socklen(td, socklen, len);
+
+	return (error);
+}
+
+static int
+rs_read_uint64(struct rsopts *opts, uint64_t *n, int *len)
+{
+	struct thread *td = (struct thread *)opts->rs_bonus;
+	int error;
+
+	error = fmaster_read_uint64(td, n, len);
+
+	return (error);
+}
+
+static int
+rs_read_uint8(struct rsopts *opts, uint8_t *n, int *len)
+{
+	struct thread *td = (struct thread *)opts->rs_bonus;
+	int error;
+
+	error = fmaster_read_uint8(td, n, len);
+
+	return (error);
+}
+
+static int
+rs_read(struct rsopts *opts, char *buf, int len)
+{
+	struct thread *td = (struct thread *)opts->rs_bonus;
+	int error, rfd;
+
+	rfd = fmaster_rfd_of_thread(td);
+	error = fmaster_read(td, rfd, buf, len);
+
+	return (error);
+}
+
+static void *
+rs_malloc(struct rsopts *opts, size_t size)
+{
+
+	return malloc(size, M_TEMP, M_WAITOK | M_ZERO);
+}
+
+static void
+rs_free(struct rsopts *opts, void *ptr)
+{
+
+	free(ptr, M_TEMP);
+}
+
+int
+fmaster_read_sockaddr(struct thread *td, struct sockaddr_storage *addr,
+		      int *len)
+{
+	struct rsopts opts;
+	int error;
+
+	opts.rs_bonus = td;
+	opts.rs_read_socklen = rs_read_socklen;
+	opts.rs_read_uint8 = rs_read_uint8;
+	opts.rs_read_uint64 = rs_read_uint64;
+	opts.rs_read = rs_read;
+	opts.rs_malloc = rs_malloc;
+	opts.rs_free = rs_free;
+
+	error = fsyscall_read_sockaddr(&opts, addr, len);
+
+	return (error);
+}
+
+static int
 read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize, int *size)
 {
 	int error;
@@ -744,6 +824,11 @@ name(struct thread *td, type *dest, int *size)			\
 	return (decode(buf, *size, dest) != 0 ? EPROTO : 0);	\
 }
 
+IMPLEMENT_READ_X(
+	int8_t,
+	fmaster_read_int8,
+	FSYSCALL_BUFSIZE_INT8,
+	fsyscall_decode_int8)
 IMPLEMENT_READ_X(
 	int16_t,
 	fmaster_read_int16,

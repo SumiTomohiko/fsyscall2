@@ -75,6 +75,7 @@ defsyscall poll, sys.poll
 defsyscall fork, sys.fork
 defsyscall gettimeofday, sys.gettimeofday
 defsyscall getresuid, sys.getresuid
+defsyscall getpeername, sys.getpeername
 
 global _start
 _start:

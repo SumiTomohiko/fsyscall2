@@ -30,6 +30,8 @@
 #include <fsyscall/private/io.h>
 #include <fsyscall/private/log.h>
 #include <fsyscall/private/malloc_or_die.h>
+#include <fsyscall/private/payload.h>
+#include <fsyscall/private/read_sockaddr.h>
 #include <fsyscall/private/select.h>
 
 static void
@@ -307,16 +309,134 @@ write_select_ready(struct slave *slave, int retval, int nfds, fd_set *readfds, f
 }
 
 static void
-read_connect_un(int rfd, payload_size_t *actual_payload_size, struct sockaddr *name)
+read_getpeername_request(struct slave *slave, int *s)
 {
-	struct sockaddr_un *addr = (struct sockaddr_un *)name;
-	uint64_t path_len;
-	char *path;
+	payload_size_t actual_payload_size, payload_size;
+	int namelen_len, rfd, s_len;
 
-	path = read_string(rfd, &path_len);
-	*actual_payload_size += path_len;
-	strcpy(addr->sun_path, path);
-	free(path);
+	rfd = slave->rfd;
+	payload_size = read_payload_size(rfd);
+	*s = read_int(rfd, &s_len);
+	read_socklen(rfd, &namelen_len);	/* namelen. unused */
+	actual_payload_size = s_len + namelen_len;
+	die_if_payload_size_mismatched(payload_size, actual_payload_size);
+}
+
+static void
+write_getpeername_response(struct slave *slave, int retval,
+			   struct sockaddr *addr, socklen_t namelen)
+{
+	struct payload *payload;
+	payload_size_t payload_size;
+	int wfd;
+
+	payload = payload_create();
+	payload_add_int(payload, retval);
+	payload_add_socklen(payload, namelen);
+	payload_add_sockaddr(payload, addr);
+
+	wfd = slave->wfd;
+	payload_size = payload_get_size(payload);
+	write_command(wfd, RET_GETPEERNAME);
+	write_payload_size(wfd, payload_size);
+	write_or_die(wfd, payload_get(payload), payload_size);
+
+	payload_dispose(payload);
+}
+
+static void
+process_getpeername(struct slave *slave)
+{
+	struct sockaddr_storage addr;
+	struct sockaddr *paddr;
+	socklen_t namelen;
+	int retval, s;
+
+	syslog(LOG_DEBUG, "processing CALL_CONNECT.");
+
+	read_getpeername_request(slave, &s);
+	paddr = (struct sockaddr *)&addr;
+	namelen = sizeof(addr);
+	retval = getpeername(s, paddr, &namelen);
+	if (retval != 0) {
+		return_int(slave, RET_GETPEERNAME, retval, errno);
+		return;
+	}
+	write_getpeername_response(slave, retval, paddr, namelen);
+}
+
+static int
+rs_read_socklen(struct rsopts *opts, socklen_t *socklen, int *len)
+{
+	struct slave *slave = (struct slave *)opts->rs_bonus;
+
+	*socklen = read_socklen(slave->rfd, len);
+
+	return (0);
+}
+
+static int
+rs_read_uint8(struct rsopts *opts, uint8_t *n, int *len)
+{
+	struct slave *slave = (struct slave *)opts->rs_bonus;
+
+	*n = read_uint8(slave->rfd, len);
+
+	return (0);
+}
+
+static int
+rs_read_uint64(struct rsopts *opts, uint64_t *n, int *len)
+{
+	struct slave *slave = (struct slave *)opts->rs_bonus;
+
+	*n = read_uint64(slave->rfd, len);
+
+	return (0);
+}
+
+static int
+rs_read(struct rsopts *opts, char *buf, int len)
+{
+	struct slave *slave = (struct slave *)opts->rs_bonus;
+
+	read_or_die(slave->rfd, buf, len);
+
+	return (0);
+}
+
+static void *
+rs_malloc(struct rsopts *opts, size_t size)
+{
+
+	return malloc(size);
+}
+
+static void
+rs_free(struct rsopts *opts, void *ptr)
+{
+
+	free(ptr);
+}
+
+static void
+read_sockaddr(struct slave *slave, struct sockaddr *addr, int *addrlen)
+{
+	struct rsopts opts;
+	int error;
+
+	opts.rs_bonus = slave;
+	opts.rs_read_socklen = rs_read_socklen;
+	opts.rs_read_uint8 = rs_read_uint8;
+	opts.rs_read_uint64 = rs_read_uint64;
+	opts.rs_read = rs_read;
+	opts.rs_malloc = rs_malloc;
+	opts.rs_free = rs_free;
+
+	error = fsyscall_read_sockaddr(&opts, (struct sockaddr_storage *)addr,
+				       addrlen);
+	if (error != 0)
+		die(1, "failed to read sockaddr");
 }
 
 static void
@@ -325,8 +445,7 @@ process_connect(struct slave *slave)
 	struct sockaddr *name;
 	payload_size_t actual_payload_size, payload_size;
 	socklen_t namelen;
-	int family_len, len_len, namelen_len, retval, rfd, s, s_len;
-	sa_family_t family;
+	int namelen_len, retval, rfd, s, s_len, sockaddr_len;
 
 	syslog(LOG_DEBUG, "processing CALL_CONNECT.");
 	rfd = slave->rfd;
@@ -340,20 +459,9 @@ process_connect(struct slave *slave)
 	actual_payload_size += namelen_len;
 	name = (struct sockaddr *)alloca(namelen);
 
-	name->sa_len = read_uint8(rfd, &len_len);
-	actual_payload_size += len_len;
+	read_sockaddr(slave, name, &sockaddr_len);
+	actual_payload_size += sockaddr_len;
 
-	family = name->sa_family = read_uint8(rfd, &family_len);
-	actual_payload_size += family_len;
-
-	switch (family) {
-	case AF_UNIX:
-		read_connect_un(rfd, &actual_payload_size, name);
-		break;
-	default:
-		diec(-1, EINVAL, "unsupported protocol family");
-		break;
-	}
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
 
 	retval = connect(s, name, namelen);
@@ -530,6 +638,9 @@ mainloop(struct slave *slave)
 			break;
 		case CALL_CONNECT:
 			process_connect(slave);
+			break;
+		case CALL_GETPEERNAME:
+			process_getpeername(slave);
 			break;
 		case CALL_POLL:
 			process_poll(slave);

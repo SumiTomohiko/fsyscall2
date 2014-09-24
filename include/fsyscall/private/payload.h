@@ -19,14 +19,19 @@ int		fsyscall_payload_add_sockaddr(struct payload *,
 int		fsyscall_payload_add_string(struct payload *, const char *);
 char 		*fsyscall_payload_get(struct payload *);
 payload_size_t	fsyscall_payload_get_size(struct payload *);
+#define	fsyscall_payload_add_int	fsyscall_payload_add_int32
+#define	fsyscall_payload_add_socklen	fsyscall_payload_add_uint32
 
 #if !defined(KLD_MODULE)
 struct payload	*payload_create();
 void		payload_add(struct payload *, const char *, payload_size_t);
+void		payload_add_int32(struct payload *, int32_t);
 void		payload_add_uint8(struct payload *, uint8_t);
 void		payload_add_uint32(struct payload *, uint32_t);
 void		payload_add_uint64(struct payload *, uint64_t);
 void		payload_add_sockaddr(struct payload *, struct sockaddr *);
+#define	payload_add_int		payload_add_int32
+#define	payload_add_socklen	payload_add_uint32
 #define	payload_dispose		fsyscall_payload_dispose
 #define	payload_get		fsyscall_payload_get
 #define	payload_get_size	fsyscall_payload_get_size

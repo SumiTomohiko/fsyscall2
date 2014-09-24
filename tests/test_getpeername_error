@@ -1,0 +1,3 @@
+
+cmd="getpeername_error/getpeername_error"
+expected_status="0"

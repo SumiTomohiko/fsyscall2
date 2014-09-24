@@ -17,6 +17,8 @@ char *		read_string(int, uint64_t *);
 #define		read_uint8(fd, len)	((uint8_t)read_int8((fd), (len)))
 #define		read_uint32(fd, len)	((uint32_t)read_int32((fd), (len)))
 #define		read_uint64(fd, len)	((uint64_t)read_int64((fd), (len)))
+#define		read_int		read_int32
+#define		read_socklen		read_uint32
 void		read_or_die(int, const void *, size_t);
 int		read_numeric_sequence(int, char *, int);
 

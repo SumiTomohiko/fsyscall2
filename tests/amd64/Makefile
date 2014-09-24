@@ -1,7 +1,8 @@
 
 LIBDIR=	do_stat_test print_stat_member lib tiny_runtime
 SUBDIR=	${LIBDIR} access close close_twice connect dup dup_and_close exit \
-	fcntl fork fstat fstatfs getdirentries getegid geteuid getgid getpid \
+	fcntl fork fstat fstatfs getdirentries getegid geteuid getgid \
+	getpeername_error getpeername_family getpeername_path getpid \
 	getresuid_ruid getresuid_euid getresuid_suid gettimeofday_dsttime \
 	gettimeofday_minuteswest gettimeofday_sec gettimeofday_usec getuid \
 	ioctl issetugid lseek lstat open poll_in poll_out poll_timeout pread \

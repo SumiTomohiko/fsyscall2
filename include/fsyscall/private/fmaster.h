@@ -8,6 +8,7 @@
 #include <sys/mutex.h>
 #include <sys/param.h>
 #include <sys/proc.h>
+#include <sys/socket.h>
 #include <sys/syslog.h>
 #include <sys/systm.h>
 
@@ -51,19 +52,26 @@ struct fmaster_data {
 };
 
 int	fmaster_read_command(struct thread *, command_t *);
+int	fmaster_read_int8(struct thread *, int8_t *, int *);
 int	fmaster_read_int16(struct thread *, int16_t *, int *);
 int	fmaster_read_int32(struct thread *, int32_t *, int *);
 int	fmaster_read_int64(struct thread *, int64_t *, int *);
 int	fmaster_read_uint64(struct thread *, uint64_t *, int *);
 int	fmaster_read_payload_size(struct thread *, payload_size_t *);
+int	fmaster_read_sockaddr(struct thread *, struct sockaddr_storage *,
+			      int *);
 int	fmaster_read(struct thread *, int, void *, size_t);
 int	fmaster_read_to_userspace(struct thread *, int, void *, size_t);
+#define	fmaster_read_uint8(td, dest, size) \
+			fmaster_read_int8((td), (int8_t *)(dest), (size))
 #define	fmaster_read_uint16(td, dest, size) \
 			fmaster_read_int16((td), (int16_t *)(dest), (size))
 #define	fmaster_read_uint32(td, dest, size) \
 			fmaster_read_int32((td), (int32_t *)(dest), (size))
 #define	fmaster_read_uint64(td, dest, size) \
 			fmaster_read_int64((td), (int64_t *)(dest), (size))
+#define	fmaster_read_int	fmaster_read_int32
+#define	fmaster_read_socklen	fmaster_read_uint32
 
 int	fmaster_write(struct thread *, int, const void *, size_t);
 int	fmaster_write_command(struct thread *, command_t);

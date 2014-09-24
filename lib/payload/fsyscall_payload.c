@@ -223,9 +223,11 @@ payload_create()
 		if (error != 0)						\
 			die(1, "failed to add a datum to the payload");	\
 	}
+IMPLEMENT_ADD_X(payload_add_int32, int32_t)
 IMPLEMENT_ADD_X(payload_add_uint8, uint8_t)
 IMPLEMENT_ADD_X(payload_add_uint32, uint32_t)
 IMPLEMENT_ADD_X(payload_add_uint64, uint64_t)
+IMPLEMENT_ADD_X(payload_add_sockaddr, struct sockaddr *);
 #undef IMPLEMENT_ADD_X
 
 void

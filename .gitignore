@@ -75,7 +75,6 @@ fmaster/sys/fmaster/fmaster_getgroups.c
 fmaster/sys/fmaster/fmaster_getitimer.c
 fmaster/sys/fmaster/fmaster_getlogin.c
 fmaster/sys/fmaster/fmaster_getloginclass.c
-fmaster/sys/fmaster/fmaster_getpeername.c
 fmaster/sys/fmaster/fmaster_getpgid.c
 fmaster/sys/fmaster/fmaster_getpgrp.c
 fmaster/sys/fmaster/fmaster_getpid.c
@@ -271,6 +270,9 @@ tests/amd64/getdirentries/getdirentries
 tests/amd64/getegid/getegid
 tests/amd64/geteuid/geteuid
 tests/amd64/getgid/getgid
+tests/amd64/getpeername_error/getpeername_error
+tests/amd64/getpeername_family/getpeername_family
+tests/amd64/getpeername_path/getpeername_path
 tests/amd64/getpid/getpid
 tests/amd64/getresuid_euid/getresuid_euid
 tests/amd64/getresuid_ruid/getresuid_ruid

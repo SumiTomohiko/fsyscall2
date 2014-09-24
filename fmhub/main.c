@@ -308,6 +308,7 @@ process_shub(struct mhub *mhub)
 	case RET_POLL:
 	case RET_SELECT:
 	case RET_CONNECT:
+	case RET_GETPEERNAME:
 #include "dispatch_ret.inc"
 		transfer_payload_to_master(mhub, cmd);
 		break;
@@ -438,6 +439,7 @@ process_master(struct mhub *mhub, struct master *master)
 	case CALL_POLL:
 	case CALL_SELECT:
 	case CALL_CONNECT:
+	case CALL_GETPEERNAME:
 #include "dispatch_call.inc"
 		transfer_payload_from_master(mhub, master, cmd);
 		break;
