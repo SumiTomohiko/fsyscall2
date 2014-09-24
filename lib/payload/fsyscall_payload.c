@@ -1,13 +1,15 @@
-#if defined(KLD_MODULE)
 #include <sys/param.h>
+#if defined(KLD_MODULE)
 #include <sys/errno.h>
 #include <sys/kernel.h>
 #include <sys/malloc.h>
+#include <sys/stddef.h>
 #include <sys/systm.h>
 #include <sys/un.h>
 #else
 #include <sys/un.h>
 #include <errno.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #endif
@@ -86,11 +88,29 @@ fsyscall_payload_add(struct payload *payload, const char *buf,
 	return (0);
 }
 
+static int
+fsyscall_payload_add_data_with_length(struct payload *payload, const char *buf,
+				      uint64_t len)
+{
+	int error;
+
+	error = fsyscall_payload_add_uint64(payload, len);
+	if (error != 0)
+		return (error);
+	error = fsyscall_payload_add(payload, buf, len);
+	if (error != 0)
+		return (error);
+
+	return (error);
+}
+
 int
 fsyscall_payload_add_sockaddr(struct payload *payload, struct sockaddr *name)
 {
 	struct sockaddr_un *addr = (struct sockaddr_un *)name;
+	socklen_t len;
 	int error;
+	const char *path;
 
 	if (name->sa_family != AF_LOCAL)
 		return (EOPNOTSUPP);
@@ -101,7 +121,9 @@ fsyscall_payload_add_sockaddr(struct payload *payload, struct sockaddr *name)
 	error = fsyscall_payload_add_uint8(payload, addr->sun_family);
 	if (error != 0)
 		return (error);
-	error = fsyscall_payload_add_string(payload, addr->sun_path);
+	path = addr->sun_path;
+	len = addr->sun_len - offsetof(struct sockaddr_un, sun_path);
+	error = fsyscall_payload_add_data_with_length(payload, path, len);
 	if (error != 0)
 		return (error);
 
@@ -137,14 +159,9 @@ IMPLEMENT_ADD_X(fsyscall_payload_add_uint64, uint64_t, FSYSCALL_BUFSIZE_UINT64,
 int
 fsyscall_payload_add_string(struct payload *payload, const char *s)
 {
-	size_t len;
 	int error;
 
-	len = strlen(s);
-	error = fsyscall_payload_add_uint64(payload, len);
-	if (error != 0)
-		return (error);
-	error = fsyscall_payload_add(payload, s, len);
+	error = fsyscall_payload_add_data_with_length(payload, s, strlen(s));
 	if (error != 0)
 		return (error);
 
