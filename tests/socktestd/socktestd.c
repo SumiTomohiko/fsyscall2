@@ -2,6 +2,7 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <err.h>
 #include <errno.h>
 #include <getopt.h>
 #include <libgen.h>
@@ -181,11 +182,11 @@ main(int argc, char *argv[])
 	}
 
 	if (close(sock) != 0)
-		die("close(2) for daemon failed");
+		warn("close(2) for daemon failed");
 	if (unlink(socket_file) != 0)
-		die("unlink(2) failed: %s", socket_file);
+		warn("unlink(2) failed: %s", socket_file);
 	if (unlink(pid_file) != 0)
-		die("unlink(2) failed: %s", pid_file);
+		warn("unlink(2) failed: %s", pid_file);
 	syslog(LOG_INFO, "terminated.");
 	closelog();
 
