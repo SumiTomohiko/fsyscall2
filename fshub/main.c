@@ -231,6 +231,7 @@ process_mhub(struct shub *shub)
 	case CALL_SELECT:
 	case CALL_CONNECT:
 	case CALL_GETPEERNAME:
+	case CALL_GETSOCKNAME:
 #include "dispatch_call.inc"
 		transfer_payload_to_slave(shub, cmd);
 		break;
@@ -277,6 +278,7 @@ process_slave(struct shub *shub, struct slave *slave)
 	case RET_SELECT:
 	case RET_CONNECT:
 	case RET_GETPEERNAME:
+	case RET_GETSOCKNAME:
 #include "dispatch_ret.inc"
 		transfer_payload_from_slave(shub, slave, cmd);
 		break;

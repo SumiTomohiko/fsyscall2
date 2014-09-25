@@ -309,7 +309,7 @@ write_select_ready(struct slave *slave, int retval, int nfds, fd_set *readfds, f
 }
 
 static void
-read_getpeername_request(struct slave *slave, int *s)
+read_getsockname_protocol_request(struct slave *slave, int *s)
 {
 	payload_size_t actual_payload_size, payload_size;
 	int namelen_len, rfd, s_len;
@@ -323,8 +323,9 @@ read_getpeername_request(struct slave *slave, int *s)
 }
 
 static void
-write_getpeername_response(struct slave *slave, int retval,
-			   struct sockaddr *addr, socklen_t namelen)
+write_getsockname_protocol_response(struct slave *slave,
+				    command_t return_command, int retval,
+				    struct sockaddr *addr, socklen_t namelen)
 {
 	struct payload *payload;
 	payload_size_t payload_size;
@@ -337,32 +338,37 @@ write_getpeername_response(struct slave *slave, int retval,
 
 	wfd = slave->wfd;
 	payload_size = payload_get_size(payload);
-	write_command(wfd, RET_GETPEERNAME);
+	write_command(wfd, return_command);
 	write_payload_size(wfd, payload_size);
 	write_or_die(wfd, payload_get(payload), payload_size);
 
 	payload_dispose(payload);
 }
 
+typedef int (*getsockname_syscall)(int, struct sockaddr *, socklen_t *);
+
 static void
-process_getpeername(struct slave *slave)
+process_getsockname_protocol(struct slave *slave, command_t call_command,
+			     command_t return_command,
+			     getsockname_syscall syscall)
 {
 	struct sockaddr_storage addr;
 	struct sockaddr *paddr;
 	socklen_t namelen;
 	int retval, s;
 
-	syslog(LOG_DEBUG, "processing CALL_CONNECT.");
+	syslog(LOG_DEBUG, "processing %s.", get_command_name(call_command));
 
-	read_getpeername_request(slave, &s);
+	read_getsockname_protocol_request(slave, &s);
 	paddr = (struct sockaddr *)&addr;
 	namelen = sizeof(addr);
-	retval = getpeername(s, paddr, &namelen);
+	retval = syscall(s, paddr, &namelen);
 	if (retval != 0) {
-		return_int(slave, RET_GETPEERNAME, retval, errno);
+		return_int(slave, return_command, retval, errno);
 		return;
 	}
-	write_getpeername_response(slave, retval, paddr, namelen);
+	write_getsockname_protocol_response(slave, return_command, retval,
+					    paddr, namelen);
 }
 
 static int
@@ -640,7 +646,14 @@ mainloop(struct slave *slave)
 			process_connect(slave);
 			break;
 		case CALL_GETPEERNAME:
-			process_getpeername(slave);
+			process_getsockname_protocol(slave, CALL_GETPEERNAME,
+						     RET_GETPEERNAME,
+						     getpeername);
+			break;
+		case CALL_GETSOCKNAME:
+			process_getsockname_protocol(slave, CALL_GETSOCKNAME,
+						     RET_GETSOCKNAME,
+						     getsockname);
 			break;
 		case CALL_POLL:
 			process_poll(slave);

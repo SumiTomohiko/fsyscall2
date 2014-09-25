@@ -28,6 +28,7 @@
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fmaster.h>
+#include <fsyscall/private/payload.h>
 #include <fsyscall/private/read_sockaddr.h>
 
 MALLOC_DEFINE(M_FMASTER, "fmaster", "fmaster");
@@ -1101,6 +1102,147 @@ void
 fmaster_close_fd(struct thread *td, int d)
 {
 	fmaster_fds_of_thread(td)[d].fd_type = FD_CLOSED;
+}
+
+static int
+execute_getsockname_call(struct thread *td, command_t call_command, int s,
+			 socklen_t namelen)
+{
+	struct payload *payload;
+	payload_size_t payload_size;
+	int error, wfd;
+	const char *buf;
+
+	payload = fsyscall_payload_create();
+	if (payload == NULL)
+		return (ENOMEM);
+
+	error = fsyscall_payload_add_int(payload, s);
+	if (error != 0)
+		goto exit;
+	error = fsyscall_payload_add_socklen(payload, namelen);
+	if (error != 0)
+		goto exit;
+
+	error = fmaster_write_command(td, call_command);
+	if (error != 0)
+		goto exit;
+	payload_size = fsyscall_payload_get_size(payload);
+	error = fmaster_write_payload_size(td, payload_size);
+	if (error != 0)
+		goto exit;
+	wfd = fmaster_wfd_of_thread(td);
+	buf = fsyscall_payload_get(payload);
+	error = fmaster_write(td, wfd, buf, payload_size);
+	if (error != 0)
+		goto exit;
+
+exit:
+	fsyscall_payload_dispose(payload);
+
+	return (error);
+}
+
+static int
+execute_getsockname_return(struct thread *td, command_t return_command,
+			   struct sockaddr_storage *addr, socklen_t *namelen)
+{
+	payload_size_t actual_payload_size, payload_size;
+	command_t cmd;
+	int addr_len, errnum, errnum_len, error, namelen_len, retval;
+	int retval_len;
+
+	error = fmaster_read_command(td, &cmd);
+	if (error != 0)
+		return (error);
+	if (cmd != return_command)
+		return (EPROTO);
+
+	error = fmaster_read_payload_size(td, &payload_size);
+	if (error != 0)
+		return (error);
+
+	error = fmaster_read_int(td, &retval, &retval_len);
+	if (error != 0)
+		return (error);
+	actual_payload_size = retval_len;
+	if (retval != 0) {
+		error = fmaster_read_int(td, &errnum, &errnum_len);
+		if (error != 0)
+			return (error);
+		actual_payload_size += errnum_len;
+		if (payload_size != actual_payload_size)
+			return (EPROTO);
+		return (errnum);
+	}
+
+	error = fmaster_read_socklen(td, namelen, &namelen_len);
+	if (error != 0)
+		return (error);
+	actual_payload_size += retval_len;
+	error = fmaster_read_sockaddr(td, addr, &addr_len);
+	if (error != 0)
+		return (error);
+	actual_payload_size += addr_len;
+	if (payload_size != actual_payload_size)
+		return (EPROTO);
+	td->td_retval[0] = retval;
+
+	return (0);
+}
+
+static int
+getsockname_main(struct thread *td, command_t call_command,
+		 command_t return_command, int s, struct sockaddr *name,
+		 socklen_t *namelen)
+{
+	struct sockaddr_storage addr;
+	socklen_t actual_namelen, knamelen, len;
+	int error;
+
+	error = copyin(namelen, &knamelen, sizeof(knamelen));
+	if (error != 0)
+		return (error);
+	error = execute_getsockname_call(td, call_command, s, knamelen);
+	if (error != 0)
+		return (error);
+	error = execute_getsockname_return(td, return_command, &addr,
+					   &actual_namelen);
+	if (error != 0)
+		return (error);
+	len = MIN(MIN(sizeof(addr), knamelen), actual_namelen);
+	error = copyout(&addr, name, len);
+	if (error != 0)
+		return (error);
+	error = copyout(&actual_namelen, namelen, sizeof(actual_namelen));
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+fmaster_execute_getsockname_protocol(struct thread *td, const char *command,
+				     command_t call_command,
+				     command_t return_command, int s,
+				     struct sockaddr *name, socklen_t *namelen)
+{
+	struct timeval time_start;
+	int error;
+	const char *fmt = "fmaster[%d]: %s: started: s=%d, name=%p, namelen=%p"
+			  "\n";
+	char msg[256];
+
+	log(LOG_DEBUG, fmt, td->td_proc->p_pid, command, s, name, namelen);
+	microtime(&time_start);
+
+	error = getsockname_main(td, call_command, return_command, s, name,
+				 namelen);
+
+	snprintf(msg, sizeof(msg), "%s: ended", command);
+	fmaster_log_spent_time(td, msg, &time_start);
+
+	return (error);
 }
 
 static int

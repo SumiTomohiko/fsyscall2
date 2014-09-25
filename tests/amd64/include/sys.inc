@@ -15,6 +15,7 @@
 %define	sys.getuid		24
 %define	sys.geteuid		25
 %define	sys.getpeername		31
+%define	sys.getsockname		32
 %define	sys.access		33
 %define	sys.dup			41
 %define	sys.getegid		43

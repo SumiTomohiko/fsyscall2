@@ -98,6 +98,9 @@ enum fmaster_fd_type
 
 int	fmaster_execute_return_generic32(struct thread *, command_t);
 int	fmaster_execute_return_generic64(struct thread *, command_t);
+int	fmaster_execute_getsockname_protocol(struct thread *, const char *,
+					     command_t, command_t, int,
+					     struct sockaddr *, socklen_t *);
 int	fmaster_register_fd(struct thread *, enum fmaster_fd_type, int, int *);
 int	fmaster_return_fd(struct thread *, enum fmaster_fd_type, int);
 
