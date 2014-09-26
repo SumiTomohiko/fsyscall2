@@ -323,9 +323,9 @@
 191	AUE_PATHCONF	STD	{ int fmaster_pathconf(char *path, int name); }
 192	AUE_FPATHCONF	STD	{ int fmaster_fpathconf(int fd, int name); }
 193	AUE_NULL	UNIMPL	nosys
-194	AUE_GETRLIMIT	STD	{ int fmaster_getrlimit(u_int which, \
+194	AUE_GETRLIMIT	NOPROTO	{ int getrlimit(u_int which, \
 				    struct rlimit *rlp); } getrlimit \
-				    fmaster_getrlimit_args int
+				    __getrlimit_args int
 195	AUE_SETRLIMIT	STD	{ int fmaster_setrlimit(u_int which, \
 				    struct rlimit *rlp); } setrlimit \
 				    fmaster_setrlimit_args int
