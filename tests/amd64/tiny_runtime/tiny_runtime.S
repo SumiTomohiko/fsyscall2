@@ -77,6 +77,7 @@ defsyscall gettimeofday, sys.gettimeofday
 defsyscall getresuid, sys.getresuid
 defsyscall getpeername, sys.getpeername
 defsyscall getsockname, sys.getsockname
+defsyscall bind, sys.bind
 
 global _start
 _start:

@@ -445,15 +445,18 @@ read_sockaddr(struct slave *slave, struct sockaddr *addr, int *addrlen)
 		die(1, "failed to read sockaddr");
 }
 
+typedef int (*connect_syscall)(int, const struct sockaddr *, socklen_t);
+
 static void
-process_connect(struct slave *slave)
+process_connect_protocol(struct slave *slave, command_t call_command,
+			 command_t return_command, connect_syscall syscall)
 {
 	struct sockaddr *name;
 	payload_size_t actual_payload_size, payload_size;
 	socklen_t namelen;
 	int namelen_len, retval, rfd, s, s_len, sockaddr_len;
 
-	syslog(LOG_DEBUG, "processing CALL_CONNECT.");
+	syslog(LOG_DEBUG, "processing %s.", get_command_name(call_command));
 	rfd = slave->rfd;
 	actual_payload_size = 0;
 	payload_size = read_payload_size(rfd);
@@ -470,8 +473,8 @@ process_connect(struct slave *slave)
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
 
-	retval = connect(s, name, namelen);
-	return_int(slave, RET_CONNECT, retval, errno);
+	retval = syscall(s, name, namelen);
+	return_int(slave, return_command, retval, errno);
 }
 
 static void
@@ -643,7 +646,12 @@ mainloop(struct slave *slave)
 			process_select(slave);
 			break;
 		case CALL_CONNECT:
-			process_connect(slave);
+			process_connect_protocol(slave, CALL_CONNECT,
+						 RET_CONNECT, connect);
+			break;
+		case CALL_BIND:
+			process_connect_protocol(slave, CALL_BIND, RET_BIND,
+						 bind);
 			break;
 		case CALL_GETPEERNAME:
 			process_getsockname_protocol(slave, CALL_GETPEERNAME,

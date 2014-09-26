@@ -1246,6 +1246,101 @@ fmaster_execute_getsockname_protocol(struct thread *td, const char *command,
 }
 
 static int
+execute_connect_call(struct thread *td, command_t call_command, int s,
+		     struct sockaddr *name, socklen_t namelen)
+{
+	struct sockaddr_storage addr;
+	struct payload *payload;
+	payload_size_t payload_size;
+	int error, wfd;
+	const char *buf;
+
+	if (sizeof(addr) < namelen)
+		return (EINVAL);
+	bzero(&addr, sizeof(addr));
+	error = copyin(name, &addr, namelen);
+	if (error != 0)
+		return (error);
+	if (addr.ss_family != AF_LOCAL)
+		return (EPROTONOSUPPORT);
+
+	payload = fsyscall_payload_create();
+	if (payload == NULL)
+		return (ENOMEM);
+
+	error = fsyscall_payload_add_int32(payload, s);
+	if (error != 0)
+		goto exit;
+	error = fsyscall_payload_add_uint32(payload, namelen);
+	if (error != 0)
+		goto exit;
+	error = fsyscall_payload_add_sockaddr(payload,
+					      (struct sockaddr *)&addr);
+	if (error != 0)
+		goto exit;
+
+	error = fmaster_write_command(td, call_command);
+	if (error != 0)
+		goto exit;
+	payload_size = fsyscall_payload_get_size(payload);
+	error = fmaster_write_payload_size(td, payload_size);
+	if (error != 0)
+		goto exit;
+	wfd = fmaster_wfd_of_thread(td);
+	buf = fsyscall_payload_get(payload);
+	error = fmaster_write(td, wfd, buf, payload_size);
+	if (error != 0)
+		goto exit;
+
+exit:
+	fsyscall_payload_dispose(payload);
+
+	return (error);
+}
+
+static int
+connect_main(struct thread *td, command_t call_command,
+	     command_t return_command, int s, struct sockaddr *name,
+	     socklen_t namelen)
+{
+	int error;
+
+	error = execute_connect_call(td, call_command, s, name, namelen);
+	if (error != 0)
+		return (error);
+	error = fmaster_execute_return_generic32(td, return_command);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+fmaster_execute_connect_protocol(struct thread *td, const char *command,
+				 command_t call_command,
+				 command_t return_command, int s,
+				 struct sockaddr *name, socklen_t namelen)
+{
+	struct timeval time_start;
+	int error;
+	const char *fmt = "fmaster[%d]: %s: started: s=%d, name=%p, namelen=%d"
+			  "\n";
+	char msg[256];
+
+	log(LOG_DEBUG, fmt, td->td_proc->p_pid, command, s, name, namelen);
+	microtime(&time_start);
+
+	error = connect_main(td, call_command, return_command, s, name,
+			     namelen);
+
+	snprintf(msg, sizeof(msg), "%s: ended", command);
+	fmaster_log_spent_time(td, msg, &time_start);
+
+	return (error);
+}
+
+
+static int
 socket(struct thread *td, int *sock)
 {
 	struct socket_args args;

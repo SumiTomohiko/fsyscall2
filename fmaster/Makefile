@@ -6,8 +6,8 @@ TOP_DIR=	..
 		sys/kern sys/${MACHINE}/${MACHINE} /usr/src/sys/kern
 
 KMOD=		fmaster
-SRCS=		elf_machdep.c fmaster_connect.c fmaster_exit.c fmaster_fork.c \
-		fmaster_fstatfs.c fmaster_getdirentries.c \
+SRCS=		elf_machdep.c fmaster_bind.c fmaster_connect.c fmaster_exit.c \
+		fmaster_fork.c fmaster_fstatfs.c fmaster_getdirentries.c \
 		fmaster_getpeername.c fmaster_getsockname.c fmaster_ioctl.c \
 		fmaster_mmap.c fmaster_pipe.c fmaster_poll.c \
 		fmaster_recvfrom.c fmaster_select.c fmaster_syscalls.c \

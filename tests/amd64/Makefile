@@ -1,6 +1,6 @@
 
 LIBDIR=	do_stat_test print_stat_member lib tiny_runtime
-SUBDIR=	${LIBDIR} access close close_twice connect dup dup_and_close exit \
+SUBDIR=	${LIBDIR} access bind close close_twice connect dup dup_and_close exit \
 	fcntl fork fstat fstatfs getdirentries getegid geteuid getgid \
 	getpeername_error getpeername_family getpeername_path getpid \
 	getresuid_ruid getresuid_euid getresuid_suid getsockname_family \

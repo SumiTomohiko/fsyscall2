@@ -308,6 +308,7 @@ process_shub(struct mhub *mhub)
 	case RET_POLL:
 	case RET_SELECT:
 	case RET_CONNECT:
+	case RET_BIND:
 	case RET_GETPEERNAME:
 	case RET_GETSOCKNAME:
 #include "dispatch_ret.inc"
@@ -440,6 +441,7 @@ process_master(struct mhub *mhub, struct master *master)
 	case CALL_POLL:
 	case CALL_SELECT:
 	case CALL_CONNECT:
+	case CALL_BIND:
 	case CALL_GETPEERNAME:
 	case CALL_GETSOCKNAME:
 #include "dispatch_call.inc"
