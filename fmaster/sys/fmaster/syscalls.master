@@ -747,7 +747,7 @@
 				    long *id, int flags); }
 431	AUE_NULL	STD	{ void fmaster_thr_exit(long *state); }
 432	AUE_NULL	NOPROTO	{ int thr_self(long *id); }
-433	AUE_NULL	STD	{ int fmaster_thr_kill(long id, int sig); }
+433	AUE_NULL	NOPROTO	{ int thr_kill(long id, int sig); }
 434	AUE_NULL	NOPROTO	{ int _umtx_lock(struct umtx *umtx); }
 435	AUE_NULL	NOPROTO	{ int _umtx_unlock(struct umtx *umtx); }
 436	AUE_NULL	UNIMPL	{ int fmaster_jail_attach(int jid); }
