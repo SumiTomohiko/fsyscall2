@@ -317,8 +317,8 @@
 #define	RET_THR_CREATE		355
 #define	CALL_THR_EXIT		356
 #define	RET_THR_EXIT		357
-#define	CALL_THR_KILL		358
-#define	RET_THR_KILL		359
+/*#define	CALL_THR_KILL		358*/
+/*#define	RET_THR_KILL		359*/
 #define	CALL_THR_SUSPEND	360
 #define	RET_THR_SUSPEND		361
 #define	CALL_THR_WAKE		362
