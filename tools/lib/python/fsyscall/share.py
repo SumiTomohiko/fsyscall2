@@ -66,6 +66,25 @@ timezone = Struct("timezone", [
     Variable("int", "tz_dsttime")
     ])
 
+rusage = Struct("rusage", [
+    Variable(timeval, "ru_utime"),
+    Variable(timeval, "ru_stime"),
+    Variable("long", "ru_maxrss"),
+    Variable("long", "ru_ixrss"),
+    Variable("long", "ru_idrss"),
+    Variable("long", "ru_isrss"),
+    Variable("long", "ru_minflt"),
+    Variable("long", "ru_majflt"),
+    Variable("long", "ru_nswap"),
+    Variable("long", "ru_inblock"),
+    Variable("long", "ru_oublock"),
+    Variable("long", "ru_msgsnd"),
+    Variable("long", "ru_msgrcv"),
+    Variable("long", "ru_nsignals"),
+    Variable("long", "ru_nvcsw"),
+    Variable("long", "ru_nivcsw")
+    ])
+
 class Argument:
 
     def __init__(self, opt=None, out=False, size=None, retsize=None, struct=None):
@@ -134,6 +153,10 @@ SYSCALLS = {
             "ruid": Argument(out=True),
             "euid": Argument(out=True),
             "suid": Argument(out=True)
+            },
+        "fmaster_wait4": {
+            "status": Argument(out=True),
+            "rusage": Argument(out=True, struct=rusage)
             }
         }
 
