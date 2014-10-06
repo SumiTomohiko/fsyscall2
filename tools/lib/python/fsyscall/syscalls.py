@@ -101,7 +101,16 @@ def get_pre_execute_path(dirpath, syscall):
     return get_hook_path(dirpath, syscall, "{name}_pre_execute.c")
 
 def find_syscall_of_name(syscalls, name):
-    return [syscall for syscall in syscalls if syscall.const_name == name][0]
+    a = [syscall for syscall in syscalls if syscall.const_name == name]
+    try:
+        return a[0]
+    except IndexError:
+        fmt = """\
+In numbering the syscalls, {name} not found in syscalls.master. You must remove
+it from include/fsyscall/private/command/code.h manually.
+"""
+        print(fmt.format(**locals()))
+        exit(1)
 
 def number_syscalls(syscalls, header):
     with open(header) as fp:
