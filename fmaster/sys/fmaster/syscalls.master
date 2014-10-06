@@ -675,7 +675,7 @@
 				    int call, void *arg); }
 395	AUE_GETFSSTAT	STD	{ int fmaster_getfsstat(struct statfs *buf, \
 				    long bufsize, int flags); }
-396	AUE_STATFS	STD	{ int fmaster_statfs(char *path, \
+396	AUE_STATFS	NOPROTO	{ int statfs(char *path, \
 				    struct statfs *buf); }
 397	AUE_FSTATFS	STD	{ int fmaster_fstatfs(int fd, \
 				    struct statfs *buf); }
