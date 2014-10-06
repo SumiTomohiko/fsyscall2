@@ -303,8 +303,8 @@
 #define	RET_LCHFLAGS		341
 #define	CALL_SENDFILE		342
 #define	RET_SENDFILE		343
-#define	CALL_GETFSSTAT		344
-#define	RET_GETFSSTAT		345
+/*#define	CALL_GETFSSTAT		344*/
+/*#define	RET_GETFSSTAT		345*/
 /*#define	CALL_STATFS		346*/
 /*#define	RET_STATFS		347*/
 #define	CALL_FHSTATFS		348
