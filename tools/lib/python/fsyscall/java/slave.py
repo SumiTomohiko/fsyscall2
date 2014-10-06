@@ -70,7 +70,9 @@ JAVA_DATATYPE_OF_C_DATATYPE = {
         "struct stat *": "Unix.Stat",
         "off_t": "long",
         "struct timezone *": "Unix.TimeZone",
-        "uid_t *": "long"
+        "uid_t *": "long",
+        "int *": "int",
+        "struct rusage *": "Unix.Rusage"
         }
 
 def java_datatype_of_c_datatype(datatype):

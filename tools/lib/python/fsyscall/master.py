@@ -378,13 +378,10 @@ execute_return(struct thread *td, struct {name}_args *uap)
         st = data.struct
         if st is not None:
             local_vars.append(Variable(drop_pointer(a.datatype), a.name))
-            for datatype, name in (("int", "{name}_len"), ):
-                for member in st.members:
-                    s = "{arg}_{member}".format(arg=a.name, member=member.name)
-                    d = { "datatype": member.datatype, "name": s }
-                    t = datatype.format(**d)
-                    n = name.format(**d)
-                    local_vars.append(Variable(t, n))
+
+            for _, name in st.expand_all_members(a.name):
+                n = "{name}_len".format(**locals())
+                local_vars.append(Variable("int", n))
             continue
         assert data_of_argument(syscall, a).is_atom
         name = a.name
@@ -432,12 +429,10 @@ execute_return(struct thread *td, struct {name}_args *uap)
         data = data_of_argument(syscall, a)
         st = data.struct
         if st is not None:
-            for member in st.members:
-                struct_name = a.name
-                t = concrete_datatype_of_abstract_datatype(member.datatype)
-                name = member.name
+            for datatype, var, name in st.zip_members(a.name):
+                t = concrete_datatype_of_abstract_datatype(datatype)
                 p("""\
-\terror = fmaster_read_{t}(td, &{struct_name}.{name}, &{struct_name}_{name}_len);
+\terror = fmaster_read_{t}(td, &{name}, &{var}_len);
 \tif (error != 0)
 \t\treturn (error);
 """.format(**locals()))

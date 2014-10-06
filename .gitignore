@@ -240,6 +240,7 @@ fslave/fslave_read.c
 fslave/fslave_readlink.c
 fslave/fslave_socket.c
 fslave/fslave_stat.c
+fslave/fslave_wait4.c
 fslave/fslave_write.c
 fslave/fslave_writev.c
 include/fsyscall/private/command/name.h
@@ -300,6 +301,9 @@ tests/amd64/select/select
 tests/amd64/select2/select2
 tests/amd64/socket/socket
 tests/amd64/stat/stat
+tests/amd64/wait4_rusage/wait4_rusage
+tests/amd64/wait4_status/wait4_status
+tests/amd64/wait4_successful/wait4_successful
 tests/amd64/writev/writev
 tests/encode/pid/pid
 tests/fstat.rc

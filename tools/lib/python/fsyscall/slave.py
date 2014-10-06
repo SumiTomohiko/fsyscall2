@@ -26,9 +26,12 @@ def print_fslave_head(p, syscall):
     print_caution(p)
     p("""\
 #include <sys/types.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/uio.h>
+#include <sys/wait.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -238,14 +241,12 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
         st = data_of_argument(syscall, a).struct
         append = local_vars.append
         if st is not None:
-            for member in st.members:
-                fmt = "{struct_name}_{name}_len"
-                struct_name = a.name
-                name = member.name
+            for datatype, name in st.expand_all_members(a.name):
+                fmt = "{name}_len"
                 append(Variable("int", fmt.format(**locals())))
 
-                fmt = "{struct_name}_{name}_buf"
-                size = bufsize_of_datatype(member.datatype)
+                fmt = "{name}_buf"
+                size = bufsize_of_datatype(datatype)
                 append(Variable("char", fmt.format(**locals()), size))
             continue
 
@@ -273,13 +274,11 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
             continue
         st = data_of_argument(syscall, a).struct
         if st is not None:
-            for member in st.members:
+            for datatype, var, name in st.zip_members(a.name, "->"):
                 struct_name = a.name
-                name = member.name
-                dt = member.datatype
-                datatype = concrete_datatype_of_abstract_datatype(dt)
+                t = concrete_datatype_of_abstract_datatype(datatype)
                 p("""\
-\t{struct_name}_{name}_len = encode_{datatype}({struct_name}->{name}, {struct_name}_{name}_buf, array_sizeof({struct_name}_{name}_buf));
+\t{var}_len = encode_{t}({name}, {var}_buf, array_sizeof({var}_buf));
 """.format(**locals()))
             continue
         name = a.name
@@ -308,11 +307,10 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
             continue
         st = data_of_argument(syscall, a).struct
         if st is not None:
-            for member in st.members:
-                fmt = "{struct_name}_{name}"
+            for _, name in st.expand_all_members(a.name):
                 p("""\
 \twrite_or_die(wfd, {name}_buf, {name}_len);
-""".format(name=fmt.format(struct_name=a.name, name=member.name)))
+""".format(**locals()))
             continue
         name = a.name
         p("""\

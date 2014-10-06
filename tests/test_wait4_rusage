@@ -1,0 +1,3 @@
+
+cmd="wait4_rusage/wait4_rusage"
+expected_status="0"

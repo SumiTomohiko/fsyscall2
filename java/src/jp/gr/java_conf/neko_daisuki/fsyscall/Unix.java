@@ -53,6 +53,26 @@ public interface Unix {
         }
     }
 
+    public static class Rusage {
+
+        public TimeVal ru_utime = new TimeVal();
+        public TimeVal ru_stime = new TimeVal();
+        public long ru_maxrss;
+        public long ru_ixrss;
+        public long ru_idrss;
+        public long ru_isrss;
+        public long ru_minflt;
+        public long ru_majflt;
+        public long ru_nswap;
+        public long ru_inblock;
+        public long ru_oublock;
+        public long ru_msgsnd;
+        public long ru_msgrcv;
+        public long ru_nsignals;
+        public long ru_nvcsw;
+        public long ru_nivcsw;
+    }
+
     public interface Constants {
 
         public static class Flag {

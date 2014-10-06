@@ -12,6 +12,34 @@ class Struct:
         self.name = name
         self.members = members
 
+    def _list_all_members(self, prefix, sep, first_sep=None):
+        if first_sep is None:
+            return self._list_all_members(prefix, sep, sep)
+
+        a = []
+        for member in self.members:
+            s = first_sep.join([prefix, member.name])
+            datatype = member.datatype
+            if isinstance(datatype, Struct):
+                a.extend(datatype._list_all_members(s, sep, sep))
+                continue
+            a.append((datatype, s))
+        return a
+
+    def expand_all_members(self, prefix):
+        return self._list_all_members(prefix, "_")
+
+    def list_all_members(self, prefix, first_sep):
+        return self._list_all_members(prefix, ".", first_sep)
+
+    def zip_members(self, prefix, first_sep=None):
+        a = self.expand_all_members(prefix)
+        b = self.list_all_members(prefix, first_sep)
+        c = []
+        for p, q in zip(a, b):
+            c.append((p[0], p[1], q[1]))
+        return c
+
 def drop_pointer(datatype):
     return datatype if datatype[-1] != "*" else datatype[:-2]
 
@@ -163,25 +191,25 @@ SYSCALLS = {
 FMASTER_SYSCALLS = SYSCALLS
 FSLAVE_SYSCALLS = SYSCALLS
 DUMMY_SYSCALLS = [
-        "fmaster_wait4", "fmaster_unlink", "fmaster_chdir", "fmaster_fchdir",
-        "fmaster_mknod", "fmaster_chmod", "fmaster_chown", "fmaster_mount",
-        "fmaster_unmount", "fmaster_setuid", "fmaster_ptrace",
-        "fmaster_recvmsg", "fmaster_sendmsg", "fmaster_accept",
-        "fmaster_chflags", "fmaster_fchflags", "fmaster_sync", "fmaster_kill",
-        "fmaster_getppid", "fmaster_profil", "fmaster_ktrace",
-        "fmaster_getlogin", "fmaster_setlogin", "fmaster_acct",
-        "fmaster_reboot", "fmaster_revoke", "fmaster_symlink", "fmaster_execve",
-        "fmaster_umask", "fmaster_chroot", "fmaster_msync", "fmaster_vfork",
-        "fmaster_ovadvise", "fmaster_getgroups", "fmaster_setgroups",
-        "fmaster_getpgrp", "fmaster_setpgid", "fmaster_setitimer",
-        "fmaster_getitimer", "fmaster_dup2", "fmaster_fsync",
-        "fmaster_setpriority", "fmaster_getpriority", "fmaster_setsockopt",
-        "fmaster_listen", "fmaster_getrusage", "fmaster_getsockopt",
-        "fmaster_readv", "fmaster_settimeofday", "fmaster_fchown",
-        "fmaster_fchmod", "fmaster_setreuid", "fmaster_setregid",
-        "fmaster_rename", "fmaster_flock", "fmaster_mkfifo", "fmaster_sendto",
-        "fmaster_shutdown", "fmaster_socketpair", "fmaster_mkdir",
-        "fmaster_rmdir", "fmaster_utimes", "fmaster_adjtime", "fmaster_setsid",
+        "fmaster_unlink", "fmaster_chdir", "fmaster_fchdir", "fmaster_mknod",
+        "fmaster_chmod", "fmaster_chown", "fmaster_mount", "fmaster_unmount",
+        "fmaster_setuid", "fmaster_ptrace", "fmaster_recvmsg",
+        "fmaster_sendmsg", "fmaster_accept", "fmaster_chflags",
+        "fmaster_fchflags", "fmaster_sync", "fmaster_kill", "fmaster_getppid",
+        "fmaster_profil", "fmaster_ktrace", "fmaster_getlogin",
+        "fmaster_setlogin", "fmaster_acct", "fmaster_reboot", "fmaster_revoke",
+        "fmaster_symlink", "fmaster_execve", "fmaster_umask", "fmaster_chroot",
+        "fmaster_msync", "fmaster_vfork", "fmaster_ovadvise",
+        "fmaster_getgroups", "fmaster_setgroups", "fmaster_getpgrp",
+        "fmaster_setpgid", "fmaster_setitimer", "fmaster_getitimer",
+        "fmaster_dup2", "fmaster_fsync", "fmaster_setpriority",
+        "fmaster_getpriority", "fmaster_setsockopt", "fmaster_listen",
+        "fmaster_getrusage", "fmaster_getsockopt", "fmaster_readv",
+        "fmaster_settimeofday", "fmaster_fchown", "fmaster_fchmod",
+        "fmaster_setreuid", "fmaster_setregid", "fmaster_rename",
+        "fmaster_flock", "fmaster_mkfifo", "fmaster_sendto", "fmaster_shutdown",
+        "fmaster_socketpair", "fmaster_mkdir", "fmaster_rmdir",
+        "fmaster_utimes", "fmaster_adjtime", "fmaster_setsid",
         "fmaster_quotactl", "fmaster_nlm_syscall", "fmaster_nfssvc",
         "fmaster_lgetfh", "fmaster_getfh", "fmaster_rtprio", "fmaster_semsys",
         "fmaster_msgsys", "fmaster_shmsys", "fmaster_setfib",
@@ -399,10 +427,8 @@ def make_payload_size_expr(syscall, args, bufsize="size"):
 
         st = data_of_argument(syscall, a).struct
         if st is not None:
-            struct_name = a.name
-            for member in st.members:
-                name = member.name
-                terms.append("{struct_name}_{name}_len".format(**locals()))
+            for _, name in st.expand_all_members(a.name):
+                terms.append("{name}_len".format(**locals()))
             continue
 
         if a.datatype == "struct iovec *":

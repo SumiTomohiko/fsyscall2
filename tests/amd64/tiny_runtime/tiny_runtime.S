@@ -78,6 +78,7 @@ defsyscall getresuid, sys.getresuid
 defsyscall getpeername, sys.getpeername
 defsyscall getsockname, sys.getsockname
 defsyscall bind, sys.bind
+defsyscall wait4, sys.wait4
 
 global _start
 _start:

@@ -1,0 +1,3 @@
+
+cmd="wait4_status/wait4_status"
+expected_status="0"
