@@ -259,7 +259,7 @@
 144	AUE_GETRLIMIT	OBSOL	getrlimit
 145	AUE_SETRLIMIT	OBSOL	setrlimit
 146	AUE_KILLPG	OBSOL	killpg
-147	AUE_SETSID	STD	{ int fmaster_setsid(void); }
+147	AUE_SETSID	NOPROTO	{ int setsid(void); }
 148	AUE_QUOTACTL	STD	{ int fmaster_quotactl(char *path, int cmd, \
 				    int uid, caddr_t arg); }
 149	AUE_O_QUOTA	OBSOL	quota

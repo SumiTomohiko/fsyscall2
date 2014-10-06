@@ -201,8 +201,8 @@
 #define	RET_UTIMES		239
 #define	CALL_ADJTIME		240
 #define	RET_ADJTIME		241
-#define	CALL_SETSID		242
-#define	RET_SETSID		243
+/*#define	CALL_SETSID		242*/
+/*#define	RET_SETSID		243*/
 #define	CALL_QUOTACTL		244
 #define	RET_QUOTACTL		245
 #define	CALL_NLM_SYSCALL	246
