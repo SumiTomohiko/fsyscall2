@@ -3,7 +3,7 @@ package jp.gr.java_conf.neko_daisuki.fsyscall;
 import java.util.LinkedList;
 import java.util.List;
 
-public interface Unix {
+public class Unix {
 
     public static class IoVec {
 
@@ -211,6 +211,16 @@ public interface Unix {
         public static final int POLLRDBAND = 0x0080;
         public static final int POLLWRBAND = 0x0100;
         public static final int POLLINIGNEOF = 0x2000;
+    }
+
+    public static final int _WSTOPPED = 0177;
+
+    public static int W_EXITCODE(int ret, int sig) {
+        return (ret << 8) | sig;
+    }
+
+    public static int W_STOPCODE(int sig) {
+        return (sig << 8) | _WSTOPPED;
     }
 }
 

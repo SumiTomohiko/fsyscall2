@@ -1,5 +1,8 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall;
 
+/**
+ * Process Id. This is different from PairId.
+ */
 public class Pid {
 
     private int mPid;

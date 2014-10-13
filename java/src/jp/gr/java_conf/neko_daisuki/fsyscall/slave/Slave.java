@@ -25,6 +25,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
@@ -549,13 +550,15 @@ public class Slave extends Worker {
     private Links mLinks;
     private Listener mListener;
 
+    private Pid mPid;
     private UnixFile[] mFiles;
+    private Integer mExitStatus;
 
     private SlaveHelper mHelper;
     private FcntlProcs mFcntlProcs;
     private boolean mCancelled = false;
 
-    public Slave(Application application, InputStream hubIn, OutputStream hubOut, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links, Listener listener) throws IOException {
+    public Slave(Application application, Pid pid, InputStream hubIn, OutputStream hubOut, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links, Listener listener) throws IOException {
         mLogger.info("a slave is starting.");
 
         UnixFile[] files = new UnixFile[UNIX_FILE_NUM];
@@ -563,7 +566,7 @@ public class Slave extends Worker {
         files[1] = new UnixOutputStream(stdout);
         files[2] = new UnixOutputStream(stderr);
 
-        initialize(application, hubIn, hubOut, files, permissions, links,
+        initialize(application, pid, hubIn, hubOut, files, permissions, links,
                    listener);
 
         writeOpenedFileDescriptors();
@@ -573,15 +576,19 @@ public class Slave extends Worker {
     /**
      * Constructor for fork(2).
      */
-    public Slave(Application application, InputStream hubIn,
+    public Slave(Application application, Pid pid, InputStream hubIn,
                  OutputStream hubOut, UnixFile[] files, Permissions permissions,
                  Links links, Listener listener) {
-        initialize(application, hubIn, hubOut, files, permissions, links,
+        initialize(application, pid, hubIn, hubOut, files, permissions, links,
                    listener);
     }
 
     public void cancel() {
         mCancelled = true;
+    }
+
+    public Pid getPid() {
+        return mPid;
     }
 
     public boolean isReady() throws IOException {
@@ -1083,7 +1090,7 @@ public class Slave extends Worker {
     public SyscallResult.Generic32 doGetpid() throws IOException {
         mLogger.info("getpid()");
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
-        result.retval = 0xbeefcafe;
+        result.retval = mPid.toInteger();
         return result;
     }
 
@@ -1145,18 +1152,19 @@ public class Slave extends Worker {
         return result;
     }
 
-    public SyscallResult.Generic32 doFork(Pid pid) throws IOException {
-        mLogger.info(String.format("fork(pid=%s)", pid.toString()));
+    public SyscallResult.Generic32 doFork(PairId pairId) throws IOException {
+        mLogger.info(String.format("fork(pairId=%s)", pairId.toString()));
 
         int len = mFiles.length;
         UnixFile[] files = new UnixFile[len];
         for (int i = 0; i < len; i++) {
             files[i] = mFiles[i];
         }
-        mApplication.addSlave(pid, files, mPermissions, mLinks, mListener);
+        Slave slave = mApplication.addSlave(files, mPermissions, mLinks,
+                                            mListener);
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
-        result.retval = pid.toInteger();
+        result.retval = slave.getPid().toInteger();
 
         return result;
     }
@@ -1164,10 +1172,33 @@ public class Slave extends Worker {
     public void doExit(int rval) throws IOException {
         mLogger.info(String.format("exit(rval=%d)", rval));
 
+        mExitStatus = Integer.valueOf(rval);
         mIn.close();
         mOut.close();
-        mApplication.removeSlave(this);
-        mApplication.setExitStatus(rval);
+        //mApplication.removeSlave(this);
+        //mApplication.setExitStatus(rval);
+        mApplication.onSlaveExited(this);
+    }
+
+    public SyscallResult.Wait4 doWait4(int pid, int options) throws IOException {
+        mLogger.info(String.format("wait4(pid=%d, options=%d)", pid, options));
+        SyscallResult.Wait4 result = new SyscallResult.Wait4();
+
+        Slave slave;
+        try {
+            slave = mApplication.waitExit(new Pid(pid));
+        }
+        catch (InterruptedException _) {
+            result.retval = -1;
+            result.errno = Errno.EINTR;
+            return result;
+        }
+
+        result.retval = slave.getPid().toInteger();
+        result.status = Unix.W_EXITCODE(mExitStatus.intValue(), 0);
+        result.rusage = new Unix.Rusage();
+
+        return result;
     }
 
     private void writeOpenedFileDescriptors() throws IOException {
@@ -1338,11 +1369,12 @@ public class Slave extends Worker {
         return cmd != Unix.Constants.F_SETFL ?  "" : makeFsetflString(arg);
     }
 
-    private void initialize(Application application, InputStream hubIn,
+    private void initialize(Application application, Pid pid, InputStream hubIn,
                             OutputStream hubOut, UnixFile[] files,
                             Permissions permissions, Links links,
                             Listener listener) {
         mApplication = application;
+        mPid = pid;
         mIn = new SyscallInputStream(hubIn);
         mOut = new SyscallOutputStream(hubOut);
         mPermissions = permissions;

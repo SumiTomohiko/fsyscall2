@@ -13,6 +13,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
@@ -104,8 +105,8 @@ public class SlaveHelper {
 
         public void call(Command command) throws IOException {
             PayloadSize payloadSize = mIn.readPayloadSize();
-            Pid pid = new Pid(mIn.readInteger());
-            SyscallResult.Generic32 result = mSlave.doFork(pid);
+            PairId pairId = new PairId(mIn.readInteger());
+            SyscallResult.Generic32 result = mSlave.doFork(pairId);
             writeResult(Command.RET_FORK, result);
         }
     }

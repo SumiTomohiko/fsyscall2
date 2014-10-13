@@ -9,13 +9,33 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 
 public class Application {
+
+    private static class ZombieSlaves {
+
+        private Map<Pid, Slave> mSlaves = new HashMap<Pid, Slave>();
+
+        public synchronized void add(Slave slave) {
+            mSlaves.put(slave.getPid(), slave);
+            notifyAll();
+        }
+
+        public synchronized Slave waitExit(Pid pid) throws InterruptedException {
+            while (mSlaves.get(pid) == null) {
+                wait();
+            }
+            return mSlaves.remove(pid);
+        }
+    }
 
     private static class Pipe {
 
@@ -68,11 +88,39 @@ public class Application {
         }
     }
 
+    private static class PidGenerator {
+
+        private static final int MIN = 1000000;
+        private static final int MAX = 1000010;
+
+        private int mNext = MIN;
+        private Collection<Integer> mUsed = new HashSet<Integer>();
+
+        public synchronized Pid generate() {
+            int pid = mNext;
+            while (!mUsed.contains(Integer.valueOf(pid))) {
+                pid = nextOf(pid);
+            }
+            mNext = nextOf(pid);
+            return new Pid(pid);
+        }
+
+        public synchronized void release(Pid pid) {
+            mUsed.remove(Integer.valueOf(pid.toInteger()));
+        }
+
+        private int nextOf(int pid) {
+            return pid < MAX ? pid + 1 : MIN;
+        }
+    }
+
     private static Logging.Logger mLogger;
 
     private List<Slave> mSlaves = new LinkedList<Slave>();
     private SlaveHub mSlaveHub;
     private int mExitStatus;
+    private ZombieSlaves mZombieSlaves = new ZombieSlaves();
+    private PidGenerator mPidGenerator = new PidGenerator();
 
     private Collection<Slave> mSlavesToRemove;
     private Collection<Slave> mSlavesToAdd;
@@ -92,20 +140,22 @@ public class Application {
         mSlavesToAdd.add(slave);
     }
 
-    public void addSlave(Pid pid, UnixFile[] files, Permissions permissions,
-                         Links links, Slave.Listener listener) throws IOException {
+    public Slave addSlave(UnixFile[] files, Permissions permissions,
+                          Links links, Slave.Listener listener) throws IOException {
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
 
         InputStream slaveIn = hub2slave.getInput();
         OutputStream slaveOut = slave2hub.getOutput();
-        Slave slave = new Slave(this, slaveIn, slaveOut, files, permissions,
-                                links, listener);
+        Slave slave = new Slave(this, mPidGenerator.generate(), slaveIn,
+                                slaveOut, files, permissions, links, listener);
         addSlave(slave);
 
         InputStream hubIn = slave2hub.getInput();
         OutputStream hubOut = hub2slave.getOutput();
-        mSlaveHub.addSlave(hubIn, hubOut, pid);
+        mSlaveHub.addSlave(hubIn, hubOut, slave.getPid());
+
+        return slave;
     }
 
     public void setExitStatus(int exitStatus) {
@@ -118,7 +168,7 @@ public class Application {
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
         Slave slave = new Slave(
-                this,
+                this, mPidGenerator.generate(),
                 hub2slave.getInput(), slave2hub.getOutput(),
                 stdin, stdout, stderr,
                 permissions, links, listener);
@@ -148,6 +198,14 @@ public class Application {
         for (Slave slave: mSlaves) {
             slave.cancel();
         }
+    }
+
+    public Slave waitExit(Pid pid) throws InterruptedException {
+        return mZombieSlaves.waitExit(pid);
+    }
+
+    public void onSlaveExited(Slave slave) {
+        mZombieSlaves.add(slave);
     }
 
     private void addSlaves() {
