@@ -16,11 +16,7 @@ doc:
 doc-clean:
 	@cd $(DOCDIR) && $(MAKE) clean
 
-ia: install-all
-
 install-all: install-master install-slave
-
-im: install-master
 
 install-master:
 	@cd fmaster && $(MAKE) install
@@ -28,8 +24,6 @@ install-master:
 	@sync
 	@sync
 	@sync
-
-is: install-slave
 
 install-slave:
 	@for dir in $(SLAVEDIR);		\
@@ -50,5 +44,11 @@ syscalls:
 	@python3 tools/makesyscalls.py
 
 .PHONY: $(DOCDIR) $(JAVADIR)
+
+# shortcuts
+ia: install-all
+im: install-master
+is: install-slave
+j: java
 
 .include <bsd.subdir.mk>
