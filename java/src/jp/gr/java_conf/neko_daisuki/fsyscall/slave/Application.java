@@ -7,76 +7,82 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 
 public class Application {
 
-    private static class ZombieSlaves {
-
-        private Map<Pid, Slave> mSlaves = new HashMap<Pid, Slave>();
-
-        public synchronized void add(Slave slave) {
-            mSlaves.put(slave.getPid(), slave);
-            notifyAll();
-        }
-
-        public synchronized Slave waitExit(Pid pid) throws InterruptedException {
-            while (mSlaves.get(pid) == null) {
-                wait();
-            }
-            return mSlaves.remove(pid);
-        }
-    }
-
     private static class Pipe {
 
-        private static class PrivateInputStream extends InputStream {
+        private class StatefulOutputStream extends OutputStream {
 
-            private ByteArrayOutputStream mOut;
-            private ByteArrayInputStream mBuffer;
+            private OutputStream mOut;
 
-            public PrivateInputStream(ByteArrayOutputStream out) {
+            public StatefulOutputStream(PipedOutputStream out) {
                 mOut = out;
-                mBuffer = new ByteArrayInputStream(new byte[0]);
             }
 
+            @Override
+            public void close() throws IOException {
+                mOut.close();
+                mClosed = true;
+            }
+
+            @Override
+            public void write(int b) throws IOException {
+                mOut.write(b);
+            }
+        }
+
+        private class StatefulInputStream extends InputStream {
+
+            private InputStream mIn;
+
+            public StatefulInputStream(PipedInputStream in) {
+                mIn = in;
+            }
+
+            @Override
             public int read() throws IOException {
-                updateBuffer();
-                return mBuffer.read();
+                return mIn.read();
             }
 
+            /**
+             * Returns a number of available bytes. This method throws an
+             * IOException when the OutputStream is closed.
+             */
+            @Override
             public int available() throws IOException {
-                updateBuffer();
-                return mBuffer.available();
-            }
-
-            private void updateBuffer() {
-                if ((0 < mBuffer.available()) || (mOut.size() == 0)) {
-                    return;
+                int nbytes = mIn.available();
+                if ((nbytes == 0) && mClosed) {
+                    throw new IOException("closed pipe");
                 }
-                mBuffer = new ByteArrayInputStream(mOut.toByteArray());
-                mOut.reset();
+                return nbytes;
             }
         }
 
         private InputStream mIn;
         private OutputStream mOut;
+        private boolean mClosed;
 
         public Pipe() throws IOException {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            PrivateInputStream in = new PrivateInputStream(out);
-
-            mIn = in;
-            mOut = out;
+            PipedInputStream pin = new PipedInputStream();
+            PipedOutputStream pout = new PipedOutputStream(pin);
+            mIn = new StatefulInputStream(pin);
+            mOut = new StatefulOutputStream(pout);
+            mClosed = false;
         }
 
         public InputStream getInput() {
@@ -88,6 +94,54 @@ public class Application {
         }
     }
 
+    private static class Slaves implements Iterable<Slave> {
+
+        private static class SlaveIterator implements Iterator<Slave> {
+
+            private Slave[] mSlaves;
+            private int mPosition;
+
+            public SlaveIterator(Slave[] slaves) {
+                mSlaves = slaves;
+            }
+
+            @Override
+            public boolean hasNext() {
+                return mPosition < mSlaves.length;
+            }
+
+            @Override
+            public Slave next() {
+                Slave slave = mSlaves[mPosition];
+                mPosition++;
+                return slave;
+            }
+
+            @Override
+            public void remove() {
+            }
+        }
+
+        private Map<Pid, Slave> mSlaves = new HashMap<Pid, Slave>();
+
+        public synchronized void add(Slave slave) {
+            mSlaves.put(slave.getPid(), slave);
+        }
+
+        public Slave get(Pid pid) {
+            return mSlaves.get(pid);
+        }
+
+        public synchronized void remove(Pid pid) {
+            mSlaves.remove(pid);
+        }
+
+        @Override
+        public synchronized Iterator<Slave> iterator() {
+            return new SlaveIterator(mSlaves.values().toArray(new Slave[0]));
+        }
+    }
+
     private static class PidGenerator {
 
         private static final int MIN = 1000000;
@@ -96,9 +150,9 @@ public class Application {
         private int mNext = MIN;
         private Collection<Integer> mUsed = new HashSet<Integer>();
 
-        public synchronized Pid generate() {
+        public synchronized Pid next() {
             int pid = mNext;
-            while (!mUsed.contains(Integer.valueOf(pid))) {
+            while (mUsed.contains(Integer.valueOf(pid))) {
                 pid = nextOf(pid);
             }
             mNext = nextOf(pid);
@@ -116,50 +170,31 @@ public class Application {
 
     private static Logging.Logger mLogger;
 
-    private List<Slave> mSlaves = new LinkedList<Slave>();
+    private Slaves mSlaves = new Slaves();
     private SlaveHub mSlaveHub;
-    private int mExitStatus;
-    private ZombieSlaves mZombieSlaves = new ZombieSlaves();
+    private Integer mExitStatus;
     private PidGenerator mPidGenerator = new PidGenerator();
 
-    private Collection<Slave> mSlavesToRemove;
-    private Collection<Slave> mSlavesToAdd;
+    private Object mTerminatingMonitor = new Object();
     private boolean mCancelled = false;
 
-    public Application() {
-        mExitStatus = 0;
-        mSlavesToRemove = new LinkedList<Slave>();
-        mSlavesToAdd = new LinkedList<Slave>();
-    }
-
-    public void removeSlave(Slave slave) {
-        mSlavesToRemove.add(slave);
-    }
-
-    public void addSlave(Slave slave) {
-        mSlavesToAdd.add(slave);
-    }
-
-    public Slave addSlave(UnixFile[] files, Permissions permissions,
-                          Links links, Slave.Listener listener) throws IOException {
+    public Slave newSlave(PairId pairId, UnixFile[] files,
+                          Permissions permissions, Links links,
+                          Slave.Listener listener) throws IOException {
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
 
         InputStream slaveIn = hub2slave.getInput();
         OutputStream slaveOut = slave2hub.getOutput();
-        Slave slave = new Slave(this, mPidGenerator.generate(), slaveIn,
-                                slaveOut, files, permissions, links, listener);
+        Slave slave = new Slave(this, mPidGenerator.next(), slaveIn, slaveOut,
+                                files, permissions, links, listener);
         addSlave(slave);
 
         InputStream hubIn = slave2hub.getInput();
         OutputStream hubOut = hub2slave.getOutput();
-        mSlaveHub.addSlave(hubIn, hubOut, slave.getPid());
+        mSlaveHub.addSlave(hubIn, hubOut, pairId);
 
         return slave;
-    }
-
-    public void setExitStatus(int exitStatus) {
-        mExitStatus = exitStatus;
     }
 
     public int run(InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links, Slave.Listener listener) throws IOException, InterruptedException {
@@ -168,29 +203,21 @@ public class Application {
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
         Slave slave = new Slave(
-                this, mPidGenerator.generate(),
+                this, mPidGenerator.next(),
                 hub2slave.getInput(), slave2hub.getOutput(),
                 stdin, stdout, stderr,
                 permissions, links, listener);
         addSlave(slave);
-        SlaveHub hub = new SlaveHub(
+        mSlaveHub = new SlaveHub(
                 this,
                 in, out,
                 slave2hub.getInput(), hub2slave.getOutput());
-        mSlaveHub = hub;
 
-        mLogger.verbose("the main loop starts.");
+        new Thread(slave).start();
+        mSlaveHub.work();
 
-        addSlaves();
-        while ((0 < mSlaves.size()) && !mCancelled) {
-            waitReady();
-            kickWorkers();
-            removeSlaves();
-            addSlaves();
-        }
-        hub.close();
-
-        return !mCancelled ? mExitStatus : 255;
+        return (!mCancelled && mExitStatus != null) ? mExitStatus.intValue()
+                                                    : 255;
     }
 
     public void cancel() {
@@ -200,55 +227,30 @@ public class Application {
         }
     }
 
-    public Slave waitExit(Pid pid) throws InterruptedException {
-        return mZombieSlaves.waitExit(pid);
-    }
-
-    public void onSlaveExited(Slave slave) {
-        mZombieSlaves.add(slave);
-    }
-
-    private void addSlaves() {
-        for (Slave slave: mSlavesToAdd) {
-            mSlaves.add(slave);
+    public Slave waitChildTerminating(Pid pid) throws InterruptedException {
+        Slave child = mSlaves.get(pid);
+        if (child == null) {
+            return null;
         }
-        mSlavesToAdd.clear();
-    }
-
-    private void removeSlaves() {
-        for (Slave slave: mSlavesToRemove) {
-            mSlaves.remove(slave);
+        synchronized (mTerminatingMonitor) {
+            while (!child.isZombie()) {
+                mTerminatingMonitor.wait();
+            }
+            mSlaves.remove(pid);
+            mPidGenerator.release(pid);
         }
-        mSlavesToRemove.clear();
+        return child;
     }
 
-    private void kickWorkerIfReady(Worker worker) throws IOException {
-        if (!worker.isReady()) {
-            return;
-        }
-        worker.work();
-    }
-
-    private void kickWorkers() throws IOException {
-        kickWorkerIfReady(mSlaveHub);
-        for (Worker worker: mSlaves) {
-            kickWorkerIfReady(worker);
+    public void onSlaveTerminated(Slave slave) {
+        mExitStatus = slave.getExitStatus();
+        synchronized (mTerminatingMonitor) {
+            mTerminatingMonitor.notifyAll();
         }
     }
 
-    private void waitReady() throws IOException, InterruptedException {
-        while (!isReady()) {
-            Thread.sleep(10 /* msec */);
-        }
-    }
-
-    private boolean isReady() throws IOException {
-        boolean ready = mSlaveHub.isReady();
-        int size = mSlaves.size();
-        for (int i = 0; (i < size) && !ready; i++) {
-            ready = mSlaves.get(i).isReady();
-        }
-        return ready;
+    private void addSlave(Slave slave) {
+        mSlaves.add(slave);
     }
 
     private static void usage(PrintStream out) {
@@ -275,6 +277,7 @@ public class Application {
             return; // This is needed to avoid the unreachable warning.
         }
         Logging.setDestination(destination);
+        mLogger.info("================================");
 
         int rfd, wfd;
         try {

@@ -103,6 +103,14 @@ public class Logging {
             mDestination.err(formatMessage(message));
         }
 
+        public void err(String message, Throwable e) {
+            err(String.format("%s: %s", message, e.getMessage()));
+            StackTraceElement[] elements = e.getStackTrace();
+            for (int i = 0; i < elements.length; i++) {
+                err(elements[i].toString());
+            }
+        }
+
         private String formatMessage(String message) {
             return String.format("%s: %s", mTag, message);
         }

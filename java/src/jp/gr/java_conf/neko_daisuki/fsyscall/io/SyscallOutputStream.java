@@ -5,6 +5,7 @@ import java.io.OutputStream;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 
@@ -43,6 +44,10 @@ public class SyscallOutputStream {
 
     public void write(Command command) throws IOException {
         write(command.toInteger());
+    }
+
+    public void write(PairId pairId) throws IOException {
+        write(pairId.toInteger());
     }
 
     public void write(Pid pid) throws IOException {

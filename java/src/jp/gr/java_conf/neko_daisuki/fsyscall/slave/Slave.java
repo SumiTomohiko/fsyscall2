@@ -38,7 +38,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
-public class Slave extends Worker {
+public class Slave implements Runnable {
 
     public interface Listener {
 
@@ -54,6 +54,11 @@ public class Slave extends Worker {
 
         public SocketCore onConnect(int domain, int type, int protocol,
                                     SocketAddress addr);
+    }
+
+    private enum State {
+        NORMAL,
+        ZOMBIE
     }
 
     private abstract static interface SelectPred {
@@ -551,6 +556,7 @@ public class Slave extends Worker {
     private Listener mListener;
 
     private Pid mPid;
+    private State mState = State.NORMAL;
     private UnixFile[] mFiles;
     private Integer mExitStatus;
 
@@ -558,7 +564,10 @@ public class Slave extends Worker {
     private FcntlProcs mFcntlProcs;
     private boolean mCancelled = false;
 
-    public Slave(Application application, Pid pid, InputStream hubIn, OutputStream hubOut, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links, Listener listener) throws IOException {
+    public Slave(Application application, Pid pid, InputStream hubIn,
+                 OutputStream hubOut, InputStream stdin, OutputStream stdout,
+                 OutputStream stderr, Permissions permissions, Links links,
+                 Listener listener) throws IOException {
         mLogger.info("a slave is starting.");
 
         UnixFile[] files = new UnixFile[UNIX_FILE_NUM];
@@ -583,6 +592,35 @@ public class Slave extends Worker {
                    listener);
     }
 
+    public Integer getExitStatus() {
+        return mExitStatus;
+    }
+
+    @Override
+    public void run() {
+        try {
+            try {
+                try {
+                    while (!mCancelled && (mExitStatus == null)) {
+                        mHelper.runSlave();
+                    }
+                }
+                finally {
+                    mIn.close();
+                }
+            }
+            finally {
+                mOut.close();
+            }
+        }
+        catch (IOException e) {
+            mLogger.err("I/O error", e);
+            e.printStackTrace();
+        }
+        mState = State.ZOMBIE;
+        mApplication.onSlaveTerminated(this);
+    }
+
     public void cancel() {
         mCancelled = true;
     }
@@ -595,10 +633,8 @@ public class Slave extends Worker {
         return mIn.isReady();
     }
 
-    public void work() throws IOException {
-        mLogger.verbose("performing the work.");
-        mHelper.runSlave();
-        mLogger.verbose("finished the work.");
+    public boolean isZombie() {
+        return mState == State.ZOMBIE;
     }
 
     public SyscallResult.Generic32 doOpen(String path, int flags, int mode) throws IOException {
@@ -1160,8 +1196,9 @@ public class Slave extends Worker {
         for (int i = 0; i < len; i++) {
             files[i] = mFiles[i];
         }
-        Slave slave = mApplication.addSlave(files, mPermissions, mLinks,
+        Slave slave = mApplication.newSlave(pairId, files, mPermissions, mLinks,
                                             mListener);
+        new Thread(slave).start();
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
         result.retval = slave.getPid().toInteger();
@@ -1171,13 +1208,7 @@ public class Slave extends Worker {
 
     public void doExit(int rval) throws IOException {
         mLogger.info(String.format("exit(rval=%d)", rval));
-
         mExitStatus = Integer.valueOf(rval);
-        mIn.close();
-        mOut.close();
-        //mApplication.removeSlave(this);
-        //mApplication.setExitStatus(rval);
-        mApplication.onSlaveExited(this);
     }
 
     public SyscallResult.Wait4 doWait4(int pid, int options) throws IOException {
@@ -1186,11 +1217,14 @@ public class Slave extends Worker {
 
         Slave slave;
         try {
-            slave = mApplication.waitExit(new Pid(pid));
+            slave = mApplication.waitChildTerminating(new Pid(pid));
         }
         catch (InterruptedException _) {
-            result.retval = -1;
-            result.errno = Errno.EINTR;
+            result.setError(Errno.EINTR);
+            return result;
+        }
+        if (slave == null) {
+            result.setError(Errno.EINVAL);
             return result;
         }
 

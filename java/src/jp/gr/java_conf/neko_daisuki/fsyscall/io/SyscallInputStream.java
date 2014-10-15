@@ -5,6 +5,7 @@ import java.io.InputStream;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.IoVec;
@@ -81,6 +82,10 @@ public class SyscallInputStream {
             throw new IOException("disconnected unexpectedly");
         }
         return (byte)n;
+    }
+
+    public PairId readPairId() throws IOException {
+        return new PairId(readInteger());
     }
 
     public Pid readPid() throws IOException {

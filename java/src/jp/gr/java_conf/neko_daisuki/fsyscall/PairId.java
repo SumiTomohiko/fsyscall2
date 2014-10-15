@@ -32,6 +32,10 @@ public class PairId {
     public String toString() {
         return Integer.toString(mId);
     }
+
+    public int toInteger() {
+        return mId;
+    }
 }
 
 /**

@@ -14,11 +14,21 @@ public interface SyscallResult {
     public static class Generic32 extends Base {
 
         public int retval;
+
+        public void setError(Errno errno) {
+            this.retval = -1;
+            this.errno = errno;
+        }
     }
 
     public static class Generic64 extends Base {
 
         public long retval;
+
+        public void setError(Errno errno) {
+            this.retval = -1;
+            this.errno = errno;
+        }
     }
 
     public static class Select extends Generic32 {

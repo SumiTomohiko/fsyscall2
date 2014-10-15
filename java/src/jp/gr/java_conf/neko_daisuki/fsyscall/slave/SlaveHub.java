@@ -3,18 +3,20 @@ package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
+import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
-public class SlaveHub extends Worker {
+public class SlaveHub {
 
     private static class Peer {
 
@@ -42,22 +44,23 @@ public class SlaveHub extends Worker {
 
     private static class SlavePeer extends Peer {
 
-        private Pid mMasterPid;
+        private PairId mPairId;
 
-        public SlavePeer(SyscallInputStream in, SyscallOutputStream out, Pid masterPid) {
+        public SlavePeer(SyscallInputStream in, SyscallOutputStream out,
+                         PairId pairId) {
             super(in, out);
-            mMasterPid = masterPid;
+            mPairId = pairId;
         }
 
-        public Pid getMasterPid() {
-            return mMasterPid;
+        public PairId getPairId() {
+            return mPairId;
         }
     }
 
     private static Logging.Logger mLogger;
 
     private Peer mMhub;
-    private Map<Pid, SlavePeer> mSlaves;
+    private Map<PairId, SlavePeer> mSlaves;
 
     public SlaveHub(Application application, InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) throws IOException {
         mLogger.info("a slave hub is starting.");
@@ -69,26 +72,51 @@ public class SlaveHub extends Worker {
         negotiateVersion();
         mLogger.verbose("version negotiation finished.");
 
-        Pid masterPid = mMhub.getInputStream().readPid();
-        mLogger.info(String.format("master pid is %s.", masterPid));
+        PairId firstPairId = mMhub.getInputStream().readPairId();
+        mLogger.info(String.format("the first pair id is %s.", firstPairId));
 
-        mSlaves = new HashMap<Pid, SlavePeer>();
-        SlavePeer slave = addSlave(slaveIn, slaveOut, masterPid);
+        mSlaves = Collections.synchronizedMap(new HashMap<PairId, SlavePeer>());
+        SlavePeer slave = addSlave(slaveIn, slaveOut, firstPairId);
 
         transportFileDescriptors(slave);
         mLogger.verbose("file descriptors were transfered from the slave hub.");
     }
 
-    public boolean isReady() throws IOException {
-        if (mMhub.getInputStream().isReady()) {
-            return true;
-        }
-        for (Peer slave: mSlaves.values()) {
-            if (slave.getInputStream().isReady()) {
-                return true;
+    public void work() throws IOException {
+        mLogger.verbose("works of the slave hub are being processed.");
+
+        try {
+            while (0 < mSlaves.size()) {
+                if (mMhub.getInputStream().isReady()) {
+                    processMasterHub();
+                }
+                for (SlavePeer slave: mSlaves.values()) {
+                    if (slave.getInputStream().isReady()) {
+                        processSlave(slave);
+                    }
+                }
+                try {
+                    Thread.sleep(10 /* msec */);
+                }
+                catch (InterruptedException _) {
+                    break;
+                }
             }
         }
-        return false;
+        finally {
+            close();
+        }
+
+        mLogger.verbose("works of the slave hub were finished.");
+    }
+
+    public SlavePeer addSlave(InputStream in, OutputStream out, PairId pairId) {
+        SlavePeer slave = new SlavePeer(
+                new SyscallInputStream(in),
+                new SyscallOutputStream(out),
+                pairId);
+        mSlaves.put(pairId, slave);
+        return slave;
     }
 
     /**
@@ -99,32 +127,8 @@ public class SlaveHub extends Worker {
      * When a slave is alive in calling this method, we will know that with an
      * exception.
      */
-    public void close() throws IOException {
+    private void close() throws IOException {
         mMhub.close();
-    }
-
-    public void work() throws IOException {
-        mLogger.verbose("works of the slave hub are being processed.");
-
-        if (mMhub.getInputStream().isReady()) {
-            processMasterHub();
-        }
-        for (SlavePeer slave: mSlaves.values()) {
-            if (slave.getInputStream().isReady()) {
-                processSlave(slave);
-            }
-        }
-
-        mLogger.verbose("works of the slave hub were finished.");
-    }
-
-    public SlavePeer addSlave(InputStream in, OutputStream out, Pid masterPid) {
-        SlavePeer slave = new SlavePeer(
-                new SyscallInputStream(in),
-                new SyscallOutputStream(out),
-                masterPid);
-        mSlaves.put(masterPid, slave);
-        return slave;
     }
 
     private void processSlave(SlavePeer slave) throws IOException {
@@ -139,7 +143,7 @@ public class SlaveHub extends Worker {
 
         SyscallOutputStream out = mMhub.getOutputStream();
         out.write(command);
-        out.write(slave.getMasterPid());
+        out.write(slave.getPairId());
         out.write(payloadSize);
         out.copyInputStream(in, payloadSize);
 
@@ -151,11 +155,11 @@ public class SlaveHub extends Worker {
 
         SyscallInputStream in = mMhub.getInputStream();
         Command command = in.readCommand();
-        Pid pid = in.readPid();
-        String fmt = "command received: command=%s, pid=%s";
-        mLogger.debug(String.format(fmt, command, pid));
+        PairId pairId = in.readPairId();
+        String fmt = "command received: command=%s, pairId=%s";
+        mLogger.debug(String.format(fmt, command, pairId));
 
-        SyscallOutputStream out = mSlaves.get(pid).getOutputStream();
+        SyscallOutputStream out = mSlaves.get(pairId).getOutputStream();
 
         if (command == Command.CALL_EXIT) {
             mLogger.verbose("executing CALL_EXIT.");
@@ -166,7 +170,7 @@ public class SlaveHub extends Worker {
             out.write(command);
             out.write(status);
 
-            mSlaves.remove(pid).close();
+            mSlaves.remove(pairId).close();
             return;
         }
 
