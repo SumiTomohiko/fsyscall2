@@ -9,11 +9,26 @@ public interface SyscallResult {
     public static class Base {
 
         public Errno errno;
+
+        public Base() {
+        }
+
+        public Base(Errno errno) {
+            this.errno = errno;
+        }
     }
 
     public static class Generic32 extends Base {
 
         public int retval;
+
+        public Generic32() {
+        }
+
+        public Generic32(Errno errno) {
+            super(errno);
+            this.retval = -1;
+        }
 
         public void setError(Errno errno) {
             this.retval = -1;
