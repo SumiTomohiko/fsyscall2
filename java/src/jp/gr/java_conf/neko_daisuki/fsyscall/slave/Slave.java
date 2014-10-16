@@ -789,6 +789,27 @@ public class Slave implements Runnable {
         return statActualFile(mLinks.get(path));
     }
 
+    public SyscallResult.Generic32 doBind(int s, UnixDomainAddress addr,
+                                          int addrlen) throws IOException {
+        String fmt = "bind(s=%d, addr=%s, addrlen=%d)";
+        mLogger.info(String.format(fmt, s, addr, addrlen));
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        UnixFile file = getFile(s);
+        if (file == null) {
+            result.setError(Errno.EBADF);
+            return result;
+        }
+        if (!(file instanceof Socket)) {
+            result.setError(Errno.ENOTSOCK);
+            return result;
+        }
+        Socket sock = (Socket)file;
+
+        // TODO
+        return null;
+    }
+
     public SyscallResult.Generic32 doConnect(int s, UnixDomainAddress name,
                                              int namelen) throws IOException {
         String fmt = "connect(s=%d, name=%s, namelen=%d)";

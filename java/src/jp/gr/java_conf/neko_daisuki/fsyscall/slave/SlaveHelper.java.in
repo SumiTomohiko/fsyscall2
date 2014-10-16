@@ -175,7 +175,7 @@ public class SlaveHelper {
         }
     }
 
-    private class ConnectProc extends CommandDispatcher.Proc {
+    private abstract class AddressCommandProc extends CommandDispatcher.Proc {
 
         private abstract class FamilyProc {
 
@@ -188,11 +188,7 @@ public class SlaveHelper {
 
             public SyscallResult.Generic32 run(int s, int len, int family,
                                                int namelen) throws IOException {
-                SyscallResult.Generic32 result;
-                result = new SyscallResult.Generic32();
-                result.retval = -1;
-                result.errno = Errno.EINVAL;
-                return result;
+                return new SyscallResult.Generic32(Errno.EINVAL);
             }
         }
 
@@ -203,14 +199,17 @@ public class SlaveHelper {
                 String path = mIn.readString();
                 UnixDomainAddress name;
                 name = new UnixDomainAddress(len, family, path);
-                return mSlave.doConnect(s, name, namelen);
+                return AddressCommandProc.this.run(s, name, namelen);
             }
         }
 
-        private FamilyProc mInvalidProc;
+        private Command mRetCommand;
         private Map<Integer, FamilyProc> mFamilyProcs;
+        private FamilyProc mInvalidProc;
 
-        public ConnectProc() {
+        public AddressCommandProc(Command retCommand) {
+            mRetCommand = retCommand;
+
             mFamilyProcs = new HashMap<Integer, FamilyProc>();
             mFamilyProcs.put(Integer.valueOf(Constants.AF_LOCAL),
                              new UnixDomainProc());
@@ -225,12 +224,40 @@ public class SlaveHelper {
             int family = mIn.readInteger();
             FamilyProc proc = getFamilyProc(family);
             SyscallResult.Generic32 retval = proc.run(s, len, family, namelen);
-            writeResult(Command.RET_CONNECT, retval);
+            writeResult(mRetCommand, retval);
         }
+
+        protected abstract SyscallResult.Generic32 run(int s,
+                                                       UnixDomainAddress name,
+                                                       int namelen) throws IOException;
 
         private FamilyProc getFamilyProc(int family) {
             FamilyProc proc = mFamilyProcs.get(Integer.valueOf(family));
             return proc != null ? proc : mInvalidProc;
+        }
+    }
+
+    private class BindProc extends AddressCommandProc {
+
+        public BindProc() {
+            super(Command.RET_BIND);
+        }
+
+        protected SyscallResult.Generic32 run(int s, UnixDomainAddress name,
+                                              int namelen) throws IOException {
+            return mSlave.doBind(s, name, namelen);
+        }
+    }
+
+    private class ConnectProc extends AddressCommandProc {
+
+        public ConnectProc() {
+            super(Command.RET_CONNECT);
+        }
+
+        protected SyscallResult.Generic32 run(int s, UnixDomainAddress name,
+                                              int namelen) throws IOException {
+            return mSlave.doConnect(s, name, namelen);
         }
     }
 
@@ -290,6 +317,7 @@ public class SlaveHelper {
         dispatcher.addEntry(Command.CALL_EXIT, new ExitProc());
         dispatcher.addEntry(Command.CALL_SELECT, new SelectProc());
         dispatcher.addEntry(Command.CALL_CONNECT, new ConnectProc());
+        dispatcher.addEntry(Command.CALL_BIND, new BindProc());
         dispatcher.addEntry(Command.CALL_POLL, new PollProc());
         dispatcher.addEntry(Command.CALL_FORK, new ForkProc());
         @DISPATCHES@;
