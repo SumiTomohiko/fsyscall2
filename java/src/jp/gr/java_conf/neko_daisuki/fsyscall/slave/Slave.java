@@ -120,7 +120,31 @@ public class Slave implements Runnable {
         }
     }
 
-    private static class Socket extends UnixFile {
+    private class Socket extends UnixFile {
+
+        private class LocalBoundCore implements SocketCore {
+
+            private String mPath;
+
+            public LocalBoundCore(String path) {
+                mPath = path;
+            }
+
+            @Override
+            public InputStream getInputStream() {
+                return null;
+            }
+
+            @Override
+            public OutputStream getOutputStream() {
+                return null;
+            }
+
+            @Override
+            public void close() throws IOException {
+                mApplication.unbindLocalSocket(mPath);
+            }
+        }
 
         private int mDomain;
         private int mType;
@@ -200,6 +224,12 @@ public class Slave implements Runnable {
 
         public Unix.Stat fstat() throws UnixException {
             throw new UnixException(Errno.ENOSYS);
+        }
+
+        public void bind(UnixDomainAddress addr) {
+            String path = addr.getPath();
+            setCore(new LocalBoundCore(path));
+            mApplication.bindLocalSocket(path);
         }
 
         protected void doClose() throws UnixException {
@@ -805,9 +835,9 @@ public class Slave implements Runnable {
             return result;
         }
         Socket sock = (Socket)file;
+        sock.bind(addr);
 
-        // TODO
-        return null;
+        return result;
     }
 
     public SyscallResult.Generic32 doConnect(int s, UnixDomainAddress name,

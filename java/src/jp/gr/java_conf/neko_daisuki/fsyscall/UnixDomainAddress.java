@@ -9,6 +9,10 @@ public class UnixDomainAddress extends SocketAddress {
         mPath = path;
     }
 
+    public String getPath() {
+        return mPath;
+    }
+
     public String toString() {
         String fmt = "UnixDomainAddress(%s, path=%s)";
         return String.format(fmt, getBaseString(), mPath);

@@ -11,12 +11,14 @@ import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.io.PrintStream;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
@@ -85,11 +87,11 @@ public class Application {
             mClosed = false;
         }
 
-        public InputStream getInput() {
+        public InputStream getInputStream() {
             return mIn;
         }
 
-        public OutputStream getOutput() {
+        public OutputStream getOutputStream() {
             return mOut;
         }
     }
@@ -168,6 +170,83 @@ public class Application {
         }
     }
 
+    private static class BoundSocket {
+
+        private static class Request {
+
+            private Pair mPair;
+
+            public void setPair(Pair pair) {
+                mPair = pair;
+            }
+
+            public Pair getPair() {
+                return mPair;
+            }
+
+            public boolean isAccepted() {
+                return mPair != null;
+            }
+        }
+
+        private Queue<Request> mQueue = new LinkedList<Request>();
+
+        public Pair accept() throws IOException, InterruptedException {
+            Request request;
+            synchronized (mQueue) {
+                while (mQueue.isEmpty()) {
+                    mQueue.wait();
+                }
+                request = mQueue.remove();
+            }
+            Pipe s2c = new Pipe();
+            Pipe c2s = new Pipe();
+            Pair clientPair = new Pair(s2c.getInputStream(),
+                                       c2s.getOutputStream());
+            request.setPair(clientPair);
+            synchronized (request) {
+                request.notifyAll();
+            }
+            return new Pair(c2s.getInputStream(), s2c.getOutputStream());
+        }
+
+        public Pair connect() throws InterruptedException {
+            Request request = new Request();
+            synchronized (mQueue) {
+                mQueue.offer(request);
+                mQueue.notifyAll();
+            }
+            synchronized (request) {
+                while (!request.isAccepted()) {
+                    request.wait();
+                }
+            }
+            return request.getPair();
+        }
+    }
+
+    private static class LocalBoundSockets {
+
+        private Map<String, BoundSocket> mSockets;
+
+        public LocalBoundSockets() {
+            Map<String, BoundSocket> map = new HashMap<String, BoundSocket>();
+            mSockets = Collections.synchronizedMap(map);
+        }
+
+        public void add(String path) {
+            mSockets.put(path, new BoundSocket());
+        }
+
+        public BoundSocket get(String path) {
+            return mSockets.get(path);
+        }
+
+        public void remove(String path) {
+            mSockets.remove(path);
+        }
+    }
+
     private static Logging.Logger mLogger;
 
     private Slaves mSlaves = new Slaves();
@@ -177,6 +256,7 @@ public class Application {
 
     private Object mTerminatingMonitor = new Object();
     private boolean mCancelled = false;
+    private LocalBoundSockets mLocalBoundSockets = new LocalBoundSockets();
 
     public Slave newSlave(PairId pairId, UnixFile[] files,
                           Permissions permissions, Links links,
@@ -184,14 +264,14 @@ public class Application {
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
 
-        InputStream slaveIn = hub2slave.getInput();
-        OutputStream slaveOut = slave2hub.getOutput();
+        InputStream slaveIn = hub2slave.getInputStream();
+        OutputStream slaveOut = slave2hub.getOutputStream();
         Slave slave = new Slave(this, mPidGenerator.next(), slaveIn, slaveOut,
                                 files, permissions, links, listener);
         addSlave(slave);
 
-        InputStream hubIn = slave2hub.getInput();
-        OutputStream hubOut = hub2slave.getOutput();
+        InputStream hubIn = slave2hub.getInputStream();
+        OutputStream hubOut = hub2slave.getOutputStream();
         mSlaveHub.addSlave(hubIn, hubOut, pairId);
 
         return slave;
@@ -204,14 +284,14 @@ public class Application {
         Pipe hub2slave = new Pipe();
         Slave slave = new Slave(
                 this, mPidGenerator.next(),
-                hub2slave.getInput(), slave2hub.getOutput(),
+                hub2slave.getInputStream(), slave2hub.getOutputStream(),
                 stdin, stdout, stderr,
                 permissions, links, listener);
         addSlave(slave);
         mSlaveHub = new SlaveHub(
                 this,
                 in, out,
-                slave2hub.getInput(), hub2slave.getOutput());
+                slave2hub.getInputStream(), hub2slave.getOutputStream());
 
         new Thread(slave).start();
         mSlaveHub.work();
@@ -225,6 +305,14 @@ public class Application {
         for (Slave slave: mSlaves) {
             slave.cancel();
         }
+    }
+
+    public void bindLocalSocket(String path) {
+        mLocalBoundSockets.add(path);
+    }
+
+    public void unbindLocalSocket(String path) {
+        mLocalBoundSockets.remove(path);
     }
 
     public Slave waitChildTerminating(Pid pid) throws InterruptedException {
