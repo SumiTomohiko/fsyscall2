@@ -231,6 +231,7 @@ fslave/fslave_gettimeofday.c
 fslave/fslave_getuid.c
 fslave/fslave_issetugid.c
 fslave/fslave_link.c
+fslave/fslave_listen.c
 fslave/fslave_lseek.c
 fslave/fslave_lstat.c
 fslave/fslave_open.c
