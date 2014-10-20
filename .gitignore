@@ -287,6 +287,7 @@ tests/amd64/gettimeofday_usec/gettimeofday_usec
 tests/amd64/getuid/getuid
 tests/amd64/ioctl/ioctl
 tests/amd64/issetugid/issetugid
+tests/amd64/listen/listen
 tests/amd64/lseek/lseek
 tests/amd64/lstat/lstat
 tests/amd64/poll_in/poll_in

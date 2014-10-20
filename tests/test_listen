@@ -1,0 +1,9 @@
+
+cmd="listen/listen"
+sock="${tmp_dir}/test_listen.sock"
+args="${sock}"
+expected_status="0"
+
+postcmd() {
+	rm -f "${sock}"
+}

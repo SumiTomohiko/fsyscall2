@@ -80,6 +80,7 @@ defsyscall getsockname, sys.getsockname
 defsyscall bind, sys.bind
 defsyscall wait4, sys.wait4
 defsyscall execve, sys.execve
+defsyscall listen, sys.listen
 
 global _start
 _start:
