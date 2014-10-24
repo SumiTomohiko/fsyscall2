@@ -1,7 +1,6 @@
 
 from os.path import exists, join
 from re import search, split, sub
-from sys import exit
 
 from fsyscall.share import Variable, data_of_argument, drop_prefix
 
@@ -100,47 +99,7 @@ def get_post_execute_path(dirpath, syscall):
 def get_pre_execute_path(dirpath, syscall):
     return get_hook_path(dirpath, syscall, "{name}_pre_execute.c")
 
-def find_syscall_of_name(syscalls, name):
-    a = [syscall for syscall in syscalls if syscall.const_name == name]
-    try:
-        return a[0]
-    except IndexError:
-        fmt = """\
-In numbering the syscalls, {name} not found in syscalls.master. You must remove
-it from include/fsyscall/private/command/code.h manually.
-"""
-        print(fmt.format(**locals()))
-        exit(1)
-
-def number_syscalls(syscalls, header):
-    with open(header) as fp:
-        for line in fp:
-            cols = split(r"\s+", line.rstrip())
-            if (len(cols) != 3) or (cols[0] != "#define"):
-                continue
-            which, name = cols[1].split("_", 1)
-            assert which in ["CALL", "RET"]
-            syscall = find_syscall_of_name(syscalls, name)
-            attr = "call_id" if which == "CALL" else "ret_id"
-            setattr(syscall, attr, int(cols[2]))
-
-def find_unnumbered_syscall(syscalls, header):
-    for syscall in syscalls:
-        fmt = """\
-syscall {name} is not assigned with any numbers for {which}.
-Did you add an entry into {header}?
-"""
-        name = syscall.name
-        if syscall.call_id is None:
-            which = "call"
-            print(fmt.format(**locals()))
-            exit(1)
-        if syscall.ret_id is None:
-            which = "ret"
-            print(fmt.format(**locals()))
-            exit(1)
-
-def read_syscalls(dirpath, command_dir):
+def read_syscalls(dirpath):
     syscalls = []
     with open(join(dirpath, "syscalls.master")) as fp:
         src = fp.read().replace("\\\n", "")
@@ -155,10 +114,6 @@ def read_syscalls(dirpath, command_dir):
         syscall.post_execute = exists(get_post_execute_path(dirpath, syscall))
         syscall.post_common = exists(get_post_common_path(dirpath, syscall))
         syscalls.append(syscall)
-
-    header = join(command_dir, "code.h")
-    number_syscalls(syscalls, header)
-    find_unnumbered_syscall(syscalls, header)
 
     return syscalls
 
