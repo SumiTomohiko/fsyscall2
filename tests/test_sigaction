@@ -1,0 +1,3 @@
+
+cmd="sigaction/sigaction"
+expected_status="0"

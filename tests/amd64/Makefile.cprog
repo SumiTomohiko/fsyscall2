@@ -3,7 +3,8 @@ CC=		clang
 SRCS=		${PROG}.c
 ADDITIONAL+=	Makefile ../Makefile.cprog
 CFLAGS+=	-O0 -g -I../include
-LDFLAGS+=	../tiny_runtime/tiny_runtime.o -nostdlib
+LDFLAGS+=	-L../tiny_runtime -nostdlib
+LDADD+=		-ltiny_runtime
 WITHOUT_MAN=	yes
 
 .include <bsd.prog.mk>

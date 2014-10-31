@@ -534,6 +534,10 @@ process_poll(struct slave *slave)
 }
 
 static void
+signal_handler(int sig)
+}
+
+static void
 child_main(struct slave *slave, const char *token, size_t token_size, pid_t parent)
 {
 	struct sockaddr_storage sockaddr;
@@ -585,6 +589,56 @@ process_fork(struct slave *slave)
 	write_command(wfd, RET_FORK);
 	write_payload_size(wfd, len);
 	write_or_die(wfd, buf, len);
+}
+
+static void
+process_sigaction(struct slave *slave)
+{
+	struct sigaction act;
+	payload_size_t actual_payload_size, payload_size;
+	int actcode, actcode_len, bits_len, flags_len, i, retval, rfd, sig;
+	int sig_len;
+	void **handler;
+
+	syslog(LOG_DEBUG, "processing CALL_SIGACTION.");
+
+	rfd = slave->rfd;
+	payload_size = read_payload_size(rfd);
+
+	sig = read_int32(rfd, &sig_len);
+	actual_payload_size = sig_len;
+
+	actcode = read_uint8(rfd, &actcode_len);
+	actual_payload_size += actcode_len;
+
+	act.sa_flags = read_int32(rfd, &flags_len);
+	actual_payload_size += flags_len;
+	handler = (act.sa_flags & SA_SIGINFO) != 0 ? (void **)&act.sa_sigaction
+						   : (void **)&act.sa_handler;
+	switch (actcode) {
+	case SIGNAL_DEFAULT:
+		*handler = SIG_DFL;
+		break;
+	case SIGNAL_IGNORE:
+		*handler = SIG_IGN;
+		break;
+	case SIGNAL_ACTIVE:
+		*handler = signal_handler;
+		break;
+	default:
+		die(1, "invalid sigaction code (%d)", actcode);
+	}
+
+	for (i = 0; i < _SIG_WORDS; i++) {
+		act.sa_mask.__bits[i] = read_uint32(rfd, &bits_len);
+		actual_payload_size += bits_len;
+	}
+
+	die_if_payload_size_mismatched(payload_size, actual_payload_size);
+
+	retval = sigaction(sig, &act, NULL);
+
+	return_int(slave, RET_SIGACTION, retval, errno);
 }
 
 static void
@@ -662,6 +716,9 @@ mainloop(struct slave *slave)
 			process_getsockname_protocol(slave, CALL_GETSOCKNAME,
 						     RET_GETSOCKNAME,
 						     getsockname);
+			break;
+		case CALL_SIGACTION:
+			process_sigaction(slave);
 			break;
 		case CALL_POLL:
 			process_poll(slave);

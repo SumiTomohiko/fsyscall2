@@ -716,7 +716,7 @@
 415	AUE_NULL	UNIMPL	{ int fmaster___mac_execve(char *fname, \
 				    char **argv, char **envv, \
 				    struct mac *mac_p); }
-416	AUE_SIGACTION	NOPROTO	{ int sigaction(int sig, \
+416	AUE_SIGACTION	STD	{ int fmaster_sigaction(int sig, \
 				    const struct sigaction *act, \
 				    struct sigaction *oact); }
 417	AUE_SIGRETURN	NOPROTO	{ int sigreturn( \

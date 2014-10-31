@@ -3,6 +3,9 @@
 %include "../lib/strlen.S"
 %include "../lib/strcpy.S"
 
+global __error
+__error: db 0
+
 ; defsyscall name num
 %macro defsyscall 2
 global %1
@@ -81,6 +84,7 @@ defsyscall bind, sys.bind
 defsyscall wait4, sys.wait4
 defsyscall execve, sys.execve
 defsyscall listen, sys.listen
+defsyscall sigaction, sys.sigaction
 
 global _start
 _start:

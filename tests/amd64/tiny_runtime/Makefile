@@ -1,14 +1,19 @@
 
-SRCS=	tiny_runtime.S
+LIB=	libtiny_runtime.a
+SRCS=	tiny_runtime.S sigsetops.c
 LST=	${.ALLSRC:M*.S:.S=.lst}
-OBJS=	${SRCS:.S=.o}
+OBJS=	${SRCS:S/.c$/.o/:S/.S$/.o/}
 
-all: ${OBJS}
+all: ${LIB}
 
-${OBJS}: ${ADDITIONAL} Makefile
+${LIB}: ${OBJS}
+	ar cr ${.TARGET} ${OBJS}
 
 .S.o:
 	nasm -f ${FORMAT} -o ${.TARGET} -l ${LST} ${NASMFLAGS} ${.ALLSRC:M*.S}
+
+.c.o:
+	clang -o ${.TARGET} -c ${.ALLSRC}
 
 clean:
 	rm -f ${OBJS} ${LIB} *.lst

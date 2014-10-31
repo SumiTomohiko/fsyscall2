@@ -9,6 +9,7 @@
 #else
 #include <sys/un.h>
 #include <errno.h>
+#include <signal.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -166,6 +167,18 @@ fsyscall_payload_add_string(struct payload *payload, const char *s)
 		return (error);
 
 	return (0);
+}
+
+int
+fsyscall_payload_add_sigset(struct payload *payload, sigset_t *set)
+{
+	int error, i;
+
+	error = 0;
+	for (i = 0; (error == 0) && (i < _SIG_WORDS); i++)
+		error = fsyscall_payload_add_uint32(payload, set->__bits[i]);
+
+	return (error);
 }
 
 int

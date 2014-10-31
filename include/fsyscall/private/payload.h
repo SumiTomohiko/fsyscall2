@@ -17,6 +17,7 @@ int		fsyscall_payload_add_uint64(struct payload *, uint64_t);
 int		fsyscall_payload_add_sockaddr(struct payload *,
 					      struct sockaddr *);
 int		fsyscall_payload_add_string(struct payload *, const char *);
+int		fsyscall_payload_add_sigset(struct payload *, sigset_t *);
 char 		*fsyscall_payload_get(struct payload *);
 payload_size_t	fsyscall_payload_get_size(struct payload *);
 #define	fsyscall_payload_add_int	fsyscall_payload_add_int32

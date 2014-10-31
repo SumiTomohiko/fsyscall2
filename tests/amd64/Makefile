@@ -7,6 +7,7 @@ SUBDIR=	${LIBDIR} access bind close close_twice connect dup dup_and_close \
 	gettimeofday_dsttime gettimeofday_minuteswest gettimeofday_sec \
 	gettimeofday_usec getuid ioctl issetugid listen lseek lstat open \
 	poll_in poll_out poll_timeout pread read readlink select select2 \
-	socket stat wait4_rusage wait4_status wait4_successful write writev
+	sigaction socket stat wait4_rusage wait4_status wait4_successful write \
+	writev
 
 .include <bsd.subdir.mk>
