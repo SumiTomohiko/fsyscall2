@@ -26,6 +26,7 @@ int		fsyscall_encode_uint16(uint16_t, char *, int);
 int		fsyscall_encode_uint32(uint32_t, char *, int);
 int		fsyscall_encode_uint64(uint64_t, char *, int);
 #define		fsyscall_encode_pair_id	fsyscall_encode_uint64
+#define		fsyscall_encode_pid	fsyscall_encode_int32
 
 #define	FSYSCALL_BUFSIZE(type)		(sizeof(type) * 8 / 7 + 1)
 #define	FSYSCALL_BUFSIZE_COMMAND	FSYSCALL_BUFSIZE(command_t)
@@ -35,6 +36,7 @@ int		fsyscall_encode_uint64(uint64_t, char *, int);
 #define	FSYSCALL_BUFSIZE_INT64		FSYSCALL_BUFSIZE(int64_t)
 #define	FSYSCALL_BUFSIZE_PAYLOAD_SIZE	FSYSCALL_BUFSIZE(payload_size_t)
 #define	FSYSCALL_BUFSIZE_PAIR_ID	FSYSCALL_BUFSIZE(pair_id_t)
+#define	FSYSCALL_BUFSIZE_PID		FSYSCALL_BUFSIZE(pid_t)
 #define	FSYSCALL_BUFSIZE_UINT8		FSYSCALL_BUFSIZE(uint8_t)
 #define	FSYSCALL_BUFSIZE_UINT16		FSYSCALL_BUFSIZE(uint16_t)
 #define	FSYSCALL_BUFSIZE_UINT32		FSYSCALL_BUFSIZE(uint32_t)

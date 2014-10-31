@@ -1388,7 +1388,8 @@ static int
 connect_to_mhub(struct thread *td)
 {
 	struct fmaster_data *data;
-	int error, sock;
+	int error, pidlen, sock;
+	char buf[FSYSCALL_BUFSIZE_PID];
 
 	error = socket(td, &sock);
 	if (error != 0)
@@ -1400,6 +1401,12 @@ connect_to_mhub(struct thread *td)
 	data = fmaster_data_of_thread(td);
 	data->rfd = data->wfd = sock;
 	error = fmaster_write(td, sock, data->token, data->token_size);
+	if (error != 0)
+		return (error);
+	pidlen = fsyscall_encode_pid(td->td_proc->p_pid, buf, sizeof(buf));
+	if (pidlen < 0)
+		return (ENOMEM);
+	error = fmaster_write(td, sock, buf, pidlen);
 	if (error != 0)
 		return (error);
 

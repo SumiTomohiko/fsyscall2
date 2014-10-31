@@ -85,6 +85,9 @@ defsyscall wait4, sys.wait4
 defsyscall execve, sys.execve
 defsyscall listen, sys.listen
 defsyscall sigaction, sys.sigaction
+defsyscall sigprocmask, sys.sigprocmask
+defsyscall kill, sys.kill
+defsyscall sigwait, sys.sigwait
 
 global _start
 _start:

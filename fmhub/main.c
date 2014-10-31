@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <assert.h>
+#include <errno.h>
 #include <getopt.h>
 #include <signal.h>
 #include <stdio.h>
@@ -33,6 +34,7 @@
 struct master {
 	struct item item;
 	pair_id_t pair_id;
+	pid_t pid;
 	int rfd;
 	int wfd;
 };
@@ -243,23 +245,52 @@ find_fork_info_of_pair_id(struct mhub *mhub, pair_id_t pair_id)
 static void
 log_new_master(struct master *master)
 {
-	const char *fmt = "new master: pair_id=%ld, rfd=%d, wfd=%d";
+	pair_id_t pair_id;
+	const char *fmt = "new master: pair_id=%ld, pid=%d, rfd=%d, wfd=%d";
 
-	syslog(LOG_DEBUG, fmt, master->pair_id, master->rfd, master->wfd);
+	pair_id = master->pair_id;
+	syslog(LOG_DEBUG, fmt, pair_id, master->pid, master->rfd, master->wfd);
 }
 
 static struct master *
-create_master(struct mhub *mhub, pair_id_t pair_id, int rfd, int wfd)
+create_master(struct mhub *mhub, pair_id_t pair_id, pid_t pid, int rfd, int wfd)
 {
 	struct master *master;
 
 	master = (struct master *)malloc_or_die(sizeof(*master));
 	master->pair_id = pair_id;
+	master->pid = pid;
 	master->rfd = rfd;
 	master->wfd = wfd;
 	log_new_master(master);
 
 	return (master);
+}
+
+static void
+process_signaled(struct mhub *mhub, command_t cmd)
+{
+	pair_id_t pair_id;
+	pid_t pid;
+	int rfd;
+	const char *fmt = "kill(2) failed: pair_id=%ld, pid=%d, sig=%d (SIG%s):"
+			  " %s";
+	const char *cause, *name, *signame;
+	char sig;
+
+	name = get_command_name(cmd);
+	syslog(LOG_DEBUG, "processing %s.", name);
+
+	rfd = mhub->shub.rfd;
+	pair_id = read_pair_id(rfd);
+	read_or_die(rfd, &sig, sizeof(sig));
+
+	pid = find_master_of_pair_id(mhub, pair_id)->pid;
+	if (kill(pid, sig) != 0) {
+		signame = sys_signame[(int)sig];
+		cause = strerror(errno);
+		syslog(LOG_ERR, fmt, pair_id, pid, sig, signame, cause);
+	}
 }
 
 static void
@@ -302,6 +333,9 @@ process_shub(struct mhub *mhub)
 
 	cmd = read_command(mhub->shub.rfd);
 	switch (cmd) {
+	case SIGNALED:
+		process_signaled(mhub, cmd);
+		break;
 	case RET_FORK:
 		process_fork_return(mhub);
 		break;
@@ -485,7 +519,9 @@ process_fork_socket(struct mhub *mhub)
 	struct sockaddr_storage addr;
 	struct fork_info *fi;
 	socklen_t addrlen;
-	int sock;
+	pid_t pid;
+	int len, sock;
+	const char *fmt = "A new master (pair id: %ld) has come.";
 	char token[TOKEN_SIZE];
 
 	addrlen = sizeof(addr);
@@ -497,9 +533,10 @@ process_fork_socket(struct mhub *mhub)
 	if (fi == NULL)
 		die(1, "Cannot find token %s", token);
 	assert(fi != NULL);
-	syslog(LOG_INFO, "A new master (%ld) has come.", fi->child_pair_id);
+	syslog(LOG_INFO, fmt, fi->child_pair_id);
 
-	master = create_master(mhub, fi->child_pair_id, sock, sock);
+	pid = read_pid(sock, &len);
+	master = create_master(mhub, fi->child_pair_id, pid, sock, sock);
 	PREPEND_ITEM(&mhub->masters, master);
 
 	REMOVE_ITEM(fi);
@@ -637,7 +674,7 @@ mhub_main(struct mhub *mhub, const char *fork_sock, int argc, char *argv[], stru
 	close_or_die(hub2master[R]);
 	close_or_die(master2hub[W]);
 
-	master = create_master(mhub, 0, master2hub[R], hub2master[W]);
+	master = create_master(mhub, 0, pid, master2hub[R], hub2master[W]);
 	PREPEND_ITEM(&mhub->masters, master);
 
 	negotiate_version_with_shub(mhub);

@@ -19,6 +19,7 @@ char *		read_string(int, uint64_t *);
 #define		read_uint64(fd, len)	((uint64_t)read_int64((fd), (len)))
 #define		read_int		read_int32
 #define		read_socklen		read_uint32
+#define		read_pid		read_int32
 void		read_or_die(int, const void *, size_t);
 int		read_numeric_sequence(int, char *, int);
 
@@ -28,6 +29,7 @@ void		write_int64(int, int64_t);
 void		write_pair_id(int, pair_id_t);
 void		write_payload_size(int, payload_size_t);
 #define		write_uint32(fd, n)	write_int32((fd), (int32_t)(n))
+#define		write_pid(fd, pid)	write_int32((fd), (pid))
 void		write_or_die(int, const void *, size_t);
 
 void		transfer(int, int, uint32_t);

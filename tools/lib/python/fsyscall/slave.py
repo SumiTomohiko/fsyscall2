@@ -34,6 +34,7 @@ def print_fslave_head(p, syscall):
 #include <sys/wait.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -403,9 +404,9 @@ def write_dispatch(dirpath, syscalls):
             cmd = make_cmd_name(syscall.name)
             name = drop_prefix(syscall.name)
             p("""\
-\t\tcase CALL_{cmd}:
-\t\t\tprocess_{name}(slave);
-\t\t\tbreak;
+\t\t\tcase CALL_{cmd}:
+\t\t\t\tprocess_{name}(slave);
+\t\t\t\tbreak;
 """.format(**locals()))
         write_c_footer(p)
 

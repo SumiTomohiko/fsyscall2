@@ -1,0 +1,3 @@
+
+cmd="kill/kill"
+expected_status="0"

@@ -34,6 +34,8 @@
 #include <fsyscall/private/read_sockaddr.h>
 #include <fsyscall/private/select.h>
 
+static int sigw;
+
 static void
 usage()
 {
@@ -64,6 +66,8 @@ static bool
 is_alive_fd(struct slave *slave, int fd)
 {
 	if ((slave->rfd == fd) || (slave->wfd == fd))
+		return (false);
+	if ((slave->sigr == fd) || (sigw == fd))
 		return (false);
 	if (fcntl(fd, F_GETFL) != -1)
 		return (true);
@@ -535,6 +539,24 @@ process_poll(struct slave *slave)
 
 static void
 signal_handler(int sig)
+{
+	char c = (char)sig;
+
+	syslog(LOG_DEBUG, "signaled: SIG%s", sys_signame[sig]);
+	write_or_die(sigw, &c, sizeof(c));
+}
+
+static int
+initialize_signal_handling(struct slave *slave)
+{
+	int fds[2];
+
+	if (pipe(fds) == -1)
+		return (-1);
+	slave->sigr = fds[0];
+	sigw = fds[1];
+
+	return (0);
 }
 
 static void
@@ -558,6 +580,11 @@ child_main(struct slave *slave, const char *token, size_t token_size, pid_t pare
 	write_or_die(sock, token, token_size);
 
 	slave->rfd = slave->wfd = sock;
+	if (close(slave->sigr) != 0)
+		die(1, "Cannot close(2) for sigr");
+	if (close(sigw) != 0)
+		die(1, "Cannot close(2) for sigw");
+	initialize_signal_handling(slave);
 	syslog(LOG_INFO, "A new child process has started.");
 }
 
@@ -684,50 +711,83 @@ process_exit(struct slave *slave)
 	return (status);
 }
 
+static void
+process_signal(struct slave *slave)
+{
+	int wfd;
+	char sig;
+
+	read_or_die(slave->sigr, &sig, sizeof(sig));
+
+	wfd = slave->wfd;
+	write_command(wfd, SIGNALED);
+	write_or_die(wfd, &sig, sizeof(sig));
+}
+
 static int
 mainloop(struct slave *slave)
 {
+	fd_set fds, *pfds;
 	command_t cmd;
+	int nfds;
 
+	pfds = &fds;
 	for (;;) {
-		cmd = read_command(slave->rfd);
-		switch (cmd) {
+		nfds = slave->rfd < slave->sigr ? slave->sigr : slave->rfd;
+		FD_ZERO(pfds);
+		FD_SET(slave->rfd, pfds);
+		FD_SET(slave->sigr, pfds);
+		if (select(nfds + 1, pfds, NULL, NULL, NULL) == -1) {
+			if (errno != EINTR)
+				die(1, "select(2) failed");
+			continue;
+		}
+
+		if (FD_ISSET(slave->sigr, pfds))
+			process_signal(slave);
+
+		if (FD_ISSET(slave->rfd, pfds)) {
+			cmd = read_command(slave->rfd);
+			switch (cmd) {
 #include "dispatch.inc"
-		case CALL_FORK:
-			process_fork(slave);
-			break;
-		case CALL_SELECT:
-			process_select(slave);
-			break;
-		case CALL_CONNECT:
-			process_connect_protocol(slave, CALL_CONNECT,
-						 RET_CONNECT, connect);
-			break;
-		case CALL_BIND:
-			process_connect_protocol(slave, CALL_BIND, RET_BIND,
-						 bind);
-			break;
-		case CALL_GETPEERNAME:
-			process_getsockname_protocol(slave, CALL_GETPEERNAME,
-						     RET_GETPEERNAME,
-						     getpeername);
-			break;
-		case CALL_GETSOCKNAME:
-			process_getsockname_protocol(slave, CALL_GETSOCKNAME,
-						     RET_GETSOCKNAME,
-						     getsockname);
-			break;
-		case CALL_SIGACTION:
-			process_sigaction(slave);
-			break;
-		case CALL_POLL:
-			process_poll(slave);
-			break;
-		case CALL_EXIT:
-			return process_exit(slave);
-		default:
-			diex(-1, "unknown command (%d)", cmd);
-			/* NOTREACHED */
+			case CALL_FORK:
+				process_fork(slave);
+				break;
+			case CALL_SELECT:
+				process_select(slave);
+				break;
+			case CALL_CONNECT:
+				process_connect_protocol(slave, CALL_CONNECT,
+							 RET_CONNECT, connect);
+				break;
+			case CALL_BIND:
+				process_connect_protocol(slave, CALL_BIND,
+							 RET_BIND, bind);
+				break;
+			case CALL_GETPEERNAME:
+				process_getsockname_protocol(slave,
+							     CALL_GETPEERNAME,
+							     RET_GETPEERNAME,
+							     getpeername);
+				break;
+			case CALL_GETSOCKNAME:
+				process_getsockname_protocol(slave,
+							     CALL_GETSOCKNAME,
+							     RET_GETSOCKNAME,
+							     getsockname);
+				break;
+			case CALL_SIGACTION:
+				process_sigaction(slave);
+				break;
+			case CALL_POLL:
+				process_poll(slave);
+				break;
+			case CALL_EXIT:
+				return process_exit(slave);
+			default:
+				diex(-1, "unknown command (%d)", cmd);
+				/* NOTREACHED */
+			}
 		}
 	}
 
@@ -779,6 +839,8 @@ main(int argc, char* argv[])
 	args = &argv[optind];
 	slave.rfd = atoi_or_die(args[0], "rfd");
 	slave.wfd = atoi_or_die(args[1], "wfd");
+	if (initialize_signal_handling(&slave) != 0)
+		return (3);
 	slave.fork_sock = args[2];
 
 	status = slave_main(&slave);

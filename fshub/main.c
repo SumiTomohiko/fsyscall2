@@ -244,6 +244,24 @@ process_mhub(struct shub *shub)
 }
 
 static void
+process_signaled(struct shub *shub, struct slave *slave, command_t cmd)
+{
+	int wfd;
+	const char *name;
+	char sig;
+
+	name = get_command_name(cmd);
+	syslog(LOG_DEBUG, "processing %s.", name);
+
+	read_or_die(slave->rfd, &sig, sizeof(sig));
+
+	wfd = shub->mhub.wfd;
+	write_command(wfd, cmd);
+	write_pair_id(wfd, slave->pair_id);
+	write_or_die(wfd, &sig, sizeof(sig));
+}
+
+static void
 transfer_payload_from_slave(struct shub *shub, struct slave *slave, command_t cmd)
 {
 	uint32_t payload_size;
@@ -275,6 +293,9 @@ process_slave(struct shub *shub, struct slave *slave)
 
 	cmd = read_command(slave->rfd);
 	switch (cmd) {
+	case SIGNALED:
+		process_signaled(shub, slave, cmd);
+		break;
 	case RET_FORK:
 	case RET_POLL:
 	case RET_SELECT:

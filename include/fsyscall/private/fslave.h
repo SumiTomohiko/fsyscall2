@@ -6,6 +6,7 @@
 struct slave {
 	int rfd;
 	int wfd;
+	int sigr;	/* file descriptor for data from signal handler */
 	const char *fork_sock;
 };
 
