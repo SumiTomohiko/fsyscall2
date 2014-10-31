@@ -55,8 +55,11 @@ read_or_die(int fd, const void *buf, size_t nbytes)
 		FD_ZERO(&fds);
 		FD_SET(fd, &fds);
 		l = select(fd + 1, &fds, NULL, NULL, &timeout);
-		if (l == -1)
-			die(-1, "select(2) failed");
+		if (l == -1) {
+			if (errno != EINTR)
+				die(-1, "select(2) failed");
+			continue;
+		}
 		if (l == 0) {
 			die_with_message(1, "select(2) timeout");
 		}
