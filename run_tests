@@ -63,6 +63,13 @@ isset()
 	set | grep -o "^${name}="
 }
 
+kldstat | grep -w fmaster.ko > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+	echo -n "You are missing fmaster.ko."
+	echo " Please \"sudo kldload fmaster\" before tests."
+	exit 1
+fi
+
 dir="$(dirname $0)"
 tests_dir="${dir}/tests"
 tester="${tests_dir}/tester/tester"
