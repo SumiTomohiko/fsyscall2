@@ -33,9 +33,6 @@ read_un(struct rsopts *opts, struct sockaddr_un *addr, int *len)
 	if (error != 0)
 		return (error);
 	*len += size_len;
-#if !defined(KLD_MODULE)
-	syslog(LOG_DEBUG, "size=%zu", size);
-#endif
 
 	buf = opts->rs_malloc(opts, size);
 	if (buf == NULL)
