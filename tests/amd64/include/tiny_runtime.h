@@ -2,6 +2,7 @@
 #define TINY_RUNTIME_H_INCLUDED
 
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>

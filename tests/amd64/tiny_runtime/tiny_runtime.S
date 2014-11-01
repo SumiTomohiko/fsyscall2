@@ -3,8 +3,16 @@
 %include "../lib/strlen.S"
 %include "../lib/strcpy.S"
 
+section .data
+
+error: dq 0
+
+section .text
+
 global __error
-__error: db 0
+__error:
+	mov rax, error
+	ret
 
 ; defsyscall name num
 %macro defsyscall 2
@@ -13,6 +21,7 @@ global %1
 	mov rax, %2
 	syscall
 	jnc .exit
+	mov [error], rax
 	mov rax, -1
 .exit:
 	ret
@@ -38,6 +47,7 @@ write:
 	mov rax, 0
 	ret
 .error:
+	mov [error], rax
 	mov rax, -1
 	ret
 
@@ -51,6 +61,7 @@ select:
 	mov r8, r8
 	syscall
 	jnc .exit
+	mov [error], rax
 	mov rax, -1
 .exit:
 	ret
