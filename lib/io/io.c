@@ -60,9 +60,8 @@ read_or_die(int fd, const void *buf, size_t nbytes)
 				die(-1, "select(2) failed");
 			continue;
 		}
-		if (l == 0) {
+		if (l == 0)
 			die_with_message(1, "select(2) timeout");
-		}
 
 		m = read(fd, (char *)buf + n, nbytes - n);
 		if (m == 0)
