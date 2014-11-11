@@ -62,15 +62,16 @@ fmaster_subtract_timeval(const struct timeval *t1, const struct timeval *t2)
 }
 
 void
-fmaster_log_spent_time(struct thread *td, const char *msg, const struct timeval *t1)
+fmaster_log_syscall_end(struct thread *td, const char *name,
+			const struct timeval *t1, int error)
 {
 	struct timeval t2;
 	long delta;
-	const char *fmt = "fmaster[%d]: %s: %ld[usec]\n";
+	const char *fmt = "fmaster[%d]: %s: ended: error=%d: %ld[usec]\n";
 
 	microtime(&t2);
 	delta = fmaster_subtract_timeval(t1, &t2);
-	log(LOG_DEBUG, fmt, td->td_proc->p_pid, msg, delta);
+	log(LOG_DEBUG, fmt, td->td_proc->p_pid, name, error, delta);
 }
 
 int
@@ -1231,7 +1232,6 @@ fmaster_execute_getsockname_protocol(struct thread *td, const char *command,
 	int error;
 	const char *fmt = "fmaster[%d]: %s: started: s=%d, name=%p, namelen=%p"
 			  "\n";
-	char msg[256];
 
 	log(LOG_DEBUG, fmt, td->td_proc->p_pid, command, s, name, namelen);
 	microtime(&time_start);
@@ -1239,8 +1239,7 @@ fmaster_execute_getsockname_protocol(struct thread *td, const char *command,
 	error = getsockname_main(td, call_command, return_command, s, name,
 				 namelen);
 
-	snprintf(msg, sizeof(msg), "%s: ended", command);
-	fmaster_log_spent_time(td, msg, &time_start);
+	fmaster_log_syscall_end(td, command, &time_start, error);
 
 	return (error);
 }
@@ -1325,7 +1324,6 @@ fmaster_execute_connect_protocol(struct thread *td, const char *command,
 	int error;
 	const char *fmt = "fmaster[%d]: %s: started: s=%d, name=%p, namelen=%d"
 			  "\n";
-	char msg[256];
 
 	log(LOG_DEBUG, fmt, td->td_proc->p_pid, command, s, name, namelen);
 	microtime(&time_start);
@@ -1333,8 +1331,7 @@ fmaster_execute_connect_protocol(struct thread *td, const char *command,
 	error = connect_main(td, call_command, return_command, s, name,
 			     namelen);
 
-	snprintf(msg, sizeof(msg), "%s: ended", command);
-	fmaster_log_spent_time(td, msg, &time_start);
+	fmaster_log_syscall_end(td, command, &time_start, error);
 
 	return (error);
 }

@@ -135,17 +135,19 @@ exit:
 int
 sys_fmaster_fork(struct thread *td, struct fmaster_fork_args *uap)
 {
+#define	SYSCALL_NAME	"fork"
 	struct timeval time_start;
 	pid_t pid;
 	int error;
 
 	pid = td->td_proc->p_pid;
-	log(LOG_DEBUG, "fmaster[%d]: fork: started\n", pid);
+	log(LOG_DEBUG, "fmaster[%d]: " SYSCALL_NAME ": started\n", pid);
 	microtime(&time_start);
 
 	error = fmaster_fork_main(td, uap);
 
-	fmaster_log_spent_time(td, "fork: ended", &time_start);
+	fmaster_log_syscall_end(td, SYSCALL_NAME, &time_start, error);
 
 	return (error);
+#undef	SYSCALL_NAME
 }

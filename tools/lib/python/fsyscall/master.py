@@ -293,7 +293,7 @@ sys_{name}(struct thread *td, struct {name}_args *uap)
 
 \terror = {name}_main(td, uap);
 
-\tfmaster_log_spent_time(td, \"{syscall_name}: ended\", &time_start);
+\tfmaster_log_syscall_end(td, \"{syscall_name}\", &time_start, error);
 
 \treturn (error);
 }}

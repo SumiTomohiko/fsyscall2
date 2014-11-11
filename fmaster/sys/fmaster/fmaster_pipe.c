@@ -21,12 +21,13 @@
 int
 sys_fmaster_pipe(struct thread *td, struct fmaster_pipe_args *uap)
 {
+#define	SYSCALL_NAME	"pipe"
 	struct timeval time_start;
 	pid_t pid;
 	int error, fds[2], fildes[2];
 
 	pid = td->td_proc->p_pid;
-	log(LOG_DEBUG, "fmaster[%d]: pipe: started\n", pid);
+	log(LOG_DEBUG, "fmaster[%d]: " SYSCALL_NAME ": started\n", pid);
 	microtime(&time_start);
 
 	error = kern_pipe(td, fildes);
@@ -42,7 +43,8 @@ sys_fmaster_pipe(struct thread *td, struct fmaster_pipe_args *uap)
 	td->td_retval[0] = fds[0];
 	td->td_retval[1] = fds[1];
 
-	fmaster_log_spent_time(td, "pipe: ended", &time_start);
+	fmaster_log_syscall_end(td, SYSCALL_NAME, &time_start, error);
 
 	return (error);
+#undef	SYSCALL_NAME
 }

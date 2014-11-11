@@ -100,7 +100,7 @@ sys_fmaster_sigaction(struct thread *td, struct fmaster_sigaction_args *uap)
 
 	error = fmaster_sigaction_main(td, uap);
 
-	fmaster_log_spent_time(td, SYSCALL_NAME ": ended", &time_start);
+	fmaster_log_syscall_end(td, SYSCALL_NAME, &time_start, error);
 
 	return (error);
 #undef	SYSCALL_NAME

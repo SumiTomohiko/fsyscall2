@@ -172,7 +172,7 @@ sys_fmaster_poll(struct thread *td, struct fmaster_poll_args *uap)
 
 	error = fmaster_poll_main(td, uap);
 
-	fmaster_log_spent_time(td, SYSCALL ": ended", &time_start);
+	fmaster_log_syscall_end(td, SYSCALL, &time_start, error);
 #undef SYSCALL
 
 	return (0);
