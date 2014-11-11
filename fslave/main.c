@@ -361,8 +361,6 @@ process_getsockname_protocol(struct slave *slave, command_t call_command,
 	socklen_t namelen;
 	int retval, s;
 
-	syslog(LOG_DEBUG, "processing %s.", get_command_name(call_command));
-
 	read_getsockname_protocol_request(slave, &s);
 	paddr = (struct sockaddr *)&addr;
 	namelen = sizeof(addr);
@@ -460,7 +458,6 @@ process_connect_protocol(struct slave *slave, command_t call_command,
 	socklen_t namelen;
 	int namelen_len, retval, rfd, s, s_len, sockaddr_len;
 
-	syslog(LOG_DEBUG, "processing %s.", get_command_name(call_command));
 	rfd = slave->rfd;
 	actual_payload_size = 0;
 	payload_size = read_payload_size(rfd);
@@ -490,8 +487,6 @@ process_poll(struct slave *slave)
 	int events_len, fd_len, i, nfds, nfds_len, retval, retval_len;
 	int revents_len, rfd, timeout, timeout_len, wfd;
 	char buf[256], *p;
-
-	syslog(LOG_DEBUG, "processing CALL_POLL.");
 
 	rfd = slave->rfd;
 	payload_size = read_payload_size(rfd);
@@ -596,8 +591,6 @@ process_fork(struct slave *slave)
 	int rfd, wfd;
 	char buf[FSYSCALL_BUFSIZE_INT32], *token;
 
-	syslog(LOG_DEBUG, "processing CALL_FORK.");
-
 	rfd = slave->rfd;
 	payload_size = read_payload_size(rfd);
 	token = (char *)alloca(payload_size);
@@ -626,8 +619,6 @@ process_sigaction(struct slave *slave)
 	int actcode, actcode_len, bits_len, flags_len, i, retval, rfd, sig;
 	int sig_len;
 	void **handler;
-
-	syslog(LOG_DEBUG, "processing CALL_SIGACTION.");
 
 	rfd = slave->rfd;
 	payload_size = read_payload_size(rfd);
@@ -675,8 +666,6 @@ process_select(struct slave *slave)
 	fd_set exceptfds, readfds, writefds;
 	int nfds, retval;
 
-	syslog(LOG_DEBUG, "processing CALL_SELECT.");
-
 	FD_ZERO(&exceptfds);
 	FD_ZERO(&readfds);
 	FD_ZERO(&writefds);
@@ -701,8 +690,6 @@ static int
 process_exit(struct slave *slave)
 {
 	int _, status;
-
-	syslog(LOG_DEBUG, "processing CALL_EXIT.");
 
 	status = read_int32(slave->rfd, &_);
 
@@ -730,6 +717,7 @@ mainloop(struct slave *slave)
 	fd_set fds, *pfds;
 	command_t cmd;
 	int nfds;
+	const char *name;
 
 	pfds = &fds;
 	for (;;) {
@@ -748,6 +736,8 @@ mainloop(struct slave *slave)
 
 		if (FD_ISSET(slave->rfd, pfds)) {
 			cmd = read_command(slave->rfd);
+			name = get_command_name(cmd);
+			syslog(LOG_DEBUG, "processing %s.", name);
 			switch (cmd) {
 #include "dispatch.inc"
 			case CALL_FORK:

@@ -145,17 +145,14 @@ transfer_payload_to_slave(struct shub *shub, command_t cmd)
 	uint32_t payload_size;
 	int len, rfd, wfd;
 	char buf[FSYSCALL_BUFSIZE_INT32];
-	const char *name;
-	const char *fmt = "%s: pair_id=%ld, payload_size=%u";
-
-	name = get_command_name(cmd);
-	syslog(LOG_DEBUG, "processing %s.", name);
+	const char *fmt = "%s: pair_id=%ld, payload_size=%u", *name;
 
 	rfd = shub->mhub.rfd;
 	pair_id = read_pair_id(rfd);
 	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
 	payload_size = decode_uint32(buf, len);
 
+	name = get_command_name(cmd);
 	syslog(LOG_DEBUG, fmt, name, pair_id, payload_size);
 
 	wfd = find_slave_of_pair_id(shub, pair_id)->wfd;
@@ -193,8 +190,6 @@ process_fork(struct shub *shub)
 	const char *fmt = "CALL_FORK: pair_id=%ld";
 	char *token;
 
-	syslog(LOG_DEBUG, "processing CALL_FORK.");
-
 	rfd = shub->mhub.rfd;
 	pair_id = read_pair_id(rfd);
 	read_payload_size(rfd);	// unused
@@ -218,8 +213,10 @@ static void
 process_mhub(struct shub *shub)
 {
 	command_t cmd;
+	const char *fmt = "processing %s from the master";
 
 	cmd = read_command(shub->mhub.rfd);
+	syslog(LOG_DEBUG, fmt, get_command_name(cmd));
 	switch (cmd) {
 	case CALL_EXIT:
 		process_exit(shub);
@@ -247,11 +244,7 @@ static void
 process_signaled(struct shub *shub, struct slave *slave, command_t cmd)
 {
 	int wfd;
-	const char *name;
 	char sig;
-
-	name = get_command_name(cmd);
-	syslog(LOG_DEBUG, "processing %s.", name);
 
 	read_or_die(slave->rfd, &sig, sizeof(sig));
 
@@ -269,13 +262,11 @@ transfer_payload_from_slave(struct shub *shub, struct slave *slave, command_t cm
 	char buf[FSYSCALL_BUFSIZE_UINT32];
 	const char *name;
 
-	name = get_command_name(cmd);
-	syslog(LOG_DEBUG, "processing %s.", name);
-
 	rfd = slave->rfd;
 	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
 	payload_size = decode_uint32(buf, len);
 
+	name = get_command_name(cmd);
 	syslog(LOG_DEBUG, "%s: payload_size=%u", name, payload_size);
 
 	wfd = shub->mhub.wfd;
@@ -290,8 +281,10 @@ process_slave(struct shub *shub, struct slave *slave)
 {
 	command_t cmd;
 	const char *fmt = "unknown command (%d) from slave %ld";
+	const char *logfmt = "processing %s from the slave of pair id %d";
 
 	cmd = read_command(slave->rfd);
+	syslog(LOG_DEBUG, logfmt, get_command_name(cmd), slave->pair_id);
 	switch (cmd) {
 	case SIGNALED:
 		process_signaled(shub, slave, cmd);
