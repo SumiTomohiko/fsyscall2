@@ -100,7 +100,6 @@ main(int argc, const char *argv[])
 	}
 
 	retval = server_main(pid, (struct sockaddr *)paddr);
-	print_num(retval);
 	error = wait4(pid, &status, 0, NULL);
 	if (error == -1)
 		return (66);
