@@ -176,9 +176,6 @@ transfer_payload_to_master(struct mhub *mhub, command_t cmd)
 	const char *fmt = "%s: pair_id=%ld, payload_size=%u";
 	const char *name;
 
-	name = get_command_name(cmd);
-	syslog(LOG_DEBUG, "processing %s.", name);
-
 	rfd = mhub->shub.rfd;
 	pair_id = read_pair_id(rfd);
 	payload_len = read_numeric_sequence(
@@ -187,6 +184,7 @@ transfer_payload_to_master(struct mhub *mhub, command_t cmd)
 		array_sizeof(payload_buf));
 	payload_size = decode_uint32(payload_buf, payload_len);
 
+	name = get_command_name(cmd);
 	syslog(LOG_DEBUG, fmt, name, pair_id, payload_size);
 
 	master = find_master_of_pair_id(mhub, pair_id);
@@ -275,11 +273,8 @@ process_signaled(struct mhub *mhub, command_t cmd)
 	int rfd;
 	const char *fmt = "kill(2) failed: pair_id=%ld, pid=%d, sig=%d (SIG%s):"
 			  " %s";
-	const char *cause, *name, *signame;
+	const char *cause, *signame;
 	char sig;
-
-	name = get_command_name(cmd);
-	syslog(LOG_DEBUG, "processing %s.", name);
 
 	rfd = mhub->shub.rfd;
 	pair_id = read_pair_id(rfd);
@@ -330,8 +325,10 @@ static void
 process_shub(struct mhub *mhub)
 {
 	command_t cmd;
+	const char *fmt = "processing %s from the slave hub.";
 
 	cmd = read_command(mhub->shub.rfd);
+	syslog(LOG_DEBUG, fmt, get_command_name(cmd));
 	switch (cmd) {
 	case SIGNALED:
 		process_signaled(mhub, cmd);
@@ -391,14 +388,12 @@ transfer_payload_from_master(struct mhub *mhub, struct master *master, command_t
 	char buf[FSYSCALL_BUFSIZE_INT32];
 	const char *fmt = "%s: pair_id=%ld, payload_size=%d", *name;
 
-	pair_id = master->pair_id;
-	name = get_command_name(cmd);
-	syslog(LOG_DEBUG, "processing %s from master %ld.", name, pair_id);
-
 	rfd = master->rfd;
 	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
 	payload_size = decode_int32(buf, len);
 
+	name = get_command_name(cmd);
+	pair_id = master->pair_id;
 	syslog(LOG_DEBUG, fmt, name, pair_id, payload_size);
 
 	wfd = mhub->shub.wfd;
@@ -442,15 +437,11 @@ static void
 process_fork_call(struct mhub *mhub, struct master *master)
 {
 	struct fork_info *fi;
-	pair_id_t pair_id;
-
-	pair_id = master->pair_id;
-	syslog(LOG_DEBUG, "processing CALL_FORK from master %ld.", pair_id);
 
 	read_fork_call(mhub, master);
 
 	fi = (struct fork_info *)malloc_or_die(sizeof(*fi));
-	fi->parent_pair_id = pair_id;
+	fi->parent_pair_id = master->pair_id;
 	fi->child_pair_id = mhub->next_pair_id;
 	hub_generate_token(fi->token, TOKEN_SIZE);
 	mhub->next_pair_id++;
@@ -463,9 +454,13 @@ static void
 process_master(struct mhub *mhub, struct master *master)
 {
 	command_t cmd;
-	const char *fmt = "unknown command (%d) from master (%ld)";
+	pair_id_t pair_id;
+	const char *fmt = "unknown command (%d) from master (%ld)", *name;
 
 	cmd = read_command(master->rfd);
+	name = get_command_name(cmd);
+	pair_id = master->pair_id;
+	syslog(LOG_DEBUG, "processing %s from the master %ld.", name, pair_id);
 	switch (cmd) {
 	case CALL_EXIT:
 		process_exit(mhub, master);
