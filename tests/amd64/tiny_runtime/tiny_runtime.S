@@ -95,6 +95,7 @@ defsyscall bind, sys.bind
 defsyscall wait4, sys.wait4
 defsyscall execve, sys.execve
 defsyscall listen, sys.listen
+defsyscall accept, sys.accept
 defsyscall sigaction, sys.sigaction
 defsyscall sigprocmask, sys.sigprocmask
 defsyscall kill, sys.kill

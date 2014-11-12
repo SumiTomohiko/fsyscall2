@@ -1,0 +1,11 @@
+
+cmd="accept/accept"
+sock="${tmp_dir}/test_accept.sock"
+args="${sock}"
+expected_status="0"
+
+postcmd() {
+	rm -f "${sock}"
+}
+
+# vim: filetype=sh

@@ -1167,7 +1167,7 @@ execute_getsockname_return(struct thread *td, command_t return_command,
 	if (error != 0)
 		return (error);
 	actual_payload_size = retval_len;
-	if (retval != 0) {
+	if (retval == -1) {
 		error = fmaster_read_int(td, &errnum, &errnum_len);
 		if (error != 0)
 			return (error);

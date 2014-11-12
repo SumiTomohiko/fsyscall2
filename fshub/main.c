@@ -231,6 +231,7 @@ process_mhub(struct shub *shub)
 	case CALL_GETPEERNAME:
 	case CALL_GETSOCKNAME:
 	case CALL_SIGACTION:
+	case CALL_ACCEPT:
 #include "dispatch_call.inc"
 		transfer_payload_to_slave(shub, cmd);
 		break;
@@ -297,6 +298,7 @@ process_slave(struct shub *shub, struct slave *slave)
 	case RET_GETPEERNAME:
 	case RET_GETSOCKNAME:
 	case RET_SIGACTION:
+	case RET_ACCEPT:
 #include "dispatch_ret.inc"
 		transfer_payload_from_slave(shub, slave, cmd);
 		break;

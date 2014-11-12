@@ -260,6 +260,7 @@ tests/*/exit/exit
 tests/*/open/open
 tests/*/read/read
 tests/*/write/write
+tests/amd64/accept/accept
 tests/amd64/bind/bind
 tests/amd64/close_twice/close_twice
 tests/amd64/connect/connect

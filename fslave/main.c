@@ -365,7 +365,7 @@ process_getsockname_protocol(struct slave *slave, command_t call_command,
 	paddr = (struct sockaddr *)&addr;
 	namelen = sizeof(addr);
 	retval = syscall(s, paddr, &namelen);
-	if (retval != 0) {
+	if (retval == -1) {
 		return_int(slave, return_command, retval, errno);
 		return;
 	}
@@ -766,6 +766,11 @@ mainloop(struct slave *slave)
 							     CALL_GETSOCKNAME,
 							     RET_GETSOCKNAME,
 							     getsockname);
+				break;
+			case CALL_ACCEPT:
+				process_getsockname_protocol(slave, CALL_ACCEPT,
+							     RET_ACCEPT,
+							     accept);
 				break;
 			case CALL_SIGACTION:
 				process_sigaction(slave);
