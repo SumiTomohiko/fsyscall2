@@ -70,3 +70,27 @@ die(int eval, const char *fmt, ...)
 	vdiec(eval, errnum, fmt, ap);
 	va_end(ap);
 }
+
+static char asserting_message[1024];
+
+void
+__build_asserting_message(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vsnprintf(asserting_message, sizeof(asserting_message), fmt, ap);
+	va_end(ap);
+}
+
+void
+__die_for_assertion(const char *filename, int lineno, const char *expr)
+{
+	size_t msgsize;
+	const char *fmt = "assertion: %s: %s: %d: %s: %s";
+	char msg[8192];
+
+	msgsize = sizeof(msg);
+	snprintf(msg, msgsize, fmt, filename, lineno, expr, asserting_message);
+	die_with_message(128, msg);
+}

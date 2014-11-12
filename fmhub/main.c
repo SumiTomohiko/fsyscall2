@@ -160,7 +160,7 @@ find_master_of_pair_id(struct mhub *mhub, pair_id_t pair_id)
 	struct item *item;
 
 	item = list_search(&mhub->masters, compare_pair_id_of_master, &pair_id);
-	assert(item != NULL);
+	die_if_false(item != NULL, ("pair_id: %d", pair_id));
 
 	return ((struct master *)item);
 }
