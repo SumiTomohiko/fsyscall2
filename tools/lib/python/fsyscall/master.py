@@ -53,7 +53,11 @@ def print_encoding(p, syscall):
         if a.datatype == "void *":
             continue
 
-        p("\t{name} = uap->{name};\n".format(**vars(a)))
+        if data_of_argument(syscall, a).fd:
+            fmt = "{name} = fmaster_fds_of_thread(td)[uap->{name}].fd_local"
+        else:
+            fmt = "{name} = uap->{name}"
+        p("\t" + fmt.format(**vars(a)) + ";\n")
         if a.datatype == "struct iovec *":
             concrete_datatype = concrete_datatype_of_abstract_datatype("size_t")
             size = data_of_argument(syscall, a).size
@@ -209,15 +213,22 @@ def print_call_tail(p, print_newline):
 def make_basic_local_vars(syscall):
     return [Variable("int", "error")] + (
             [Variable("int", "type_of_fd")]
-            if "fd" in [a.name for a in syscall.args]
+            if find_file_descriptor_argument(syscall) is not None
             else [])
 
+def find_file_descriptor_argument(syscall):
+    for a in syscall.args:
+        if data_of_argument(syscall, a).fd:
+            return a.name
+    return None
+
 def print_master_call(p, print_newline, syscall):
-    if "fd" not in [a.name for a in syscall.args]:
+    a = find_file_descriptor_argument(syscall)
+    if a is None:
         return
     name = drop_prefix(syscall.name)
     p("""\
-\ttype_of_fd = fmaster_type_of_fd(td, uap->fd);
+\ttype_of_fd = fmaster_type_of_fd(td, uap->{a});
 \tif (type_of_fd == FD_CLOSED) {{
 \t\treturn (EBADF);
 \t}}
@@ -225,7 +236,7 @@ def print_master_call(p, print_newline, syscall):
 \t\tstruct {name}_args a;
 \t\tstruct fmaster_fd *fds = fmaster_fds_of_thread(td);
 \t\tmemcpy(&a, uap, sizeof(a));
-\t\ta.fd = fds[uap->fd].fd_local;
+\t\ta.{a} = fds[uap->{a}].fd_local;
 \t\terror = sys_{name}(td, &a);
 \t\tif (error != 0)
 \t\t\treturn (error);

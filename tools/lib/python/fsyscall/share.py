@@ -115,12 +115,13 @@ rusage = Struct("rusage", [
 
 class Argument:
 
-    def __init__(self, opt=None, out=False, size=None, retsize=None, struct=None):
+    def __init__(self, opt=None, out=False, size=None, retsize=None, struct=None, fd=False):
         self.opt = opt
         self.out = out
         self.size = size
         self.retsize = retsize
         self.struct = struct
+        self.fd = fd
 
     def get_is_atom(self):
         return (self.struct is None) and (self.size is None)
@@ -134,18 +135,23 @@ class Argument:
 
 SYSCALLS = {
         "fmaster_read": {
+            "fd": Argument(fd=True),
             "buf": Argument(out=True, size="nbytes", retsize="retval")
             },
         "fmaster_write": {
+            "fd": Argument(fd=True),
             "buf": Argument(size="nbytes")
             },
         "fmaster_open": {
             "mode": Argument(opt="(flags & O_CREAT) != 0")
             },
-        "fmaster_close": {},
+        "fmaster_close": {
+            "fd": Argument(fd=True)
+            },
         "fmaster_link": {},
         "fmaster_access": {},
         "fmaster_fstat": {
+            "fd": Argument(fd=True),
             "sb": Argument(out=True, struct=stat)
             },
         "fmaster_lstat": {
@@ -155,18 +161,26 @@ SYSCALLS = {
             "ub": Argument(out=True, struct=stat)
             },
         "fmaster_issetugid": {},
-        "fmaster_lseek": {},
+        "fmaster_lseek": {
+            "fd": Argument(fd=True)
+            },
         "fmaster_pread": {
+            "fd": Argument(fd=True),
             "buf": Argument(out=True, size="nbyte", retsize="retval")
             },
         "fmaster_readlink": {
             "buf": Argument(out=True, size="count", retsize="retval")
             },
         "fmaster_writev": {
+            "fd": Argument(fd=True),
             "iovp": Argument(size="iovcnt")
             },
-        "fmaster_fcntl": {},
-        "fmaster_dup": {},
+        "fmaster_fcntl": {
+            "fd": Argument(fd=True)
+            },
+        "fmaster_dup": {
+            "fd": Argument(fd=True)
+            },
         "fmaster_getpid": {},
         "fmaster_getuid": {},
         "fmaster_geteuid": {},
@@ -186,7 +200,9 @@ SYSCALLS = {
             "status": Argument(out=True),
             "rusage": Argument(out=True, struct=rusage)
             },
-        "fmaster_listen": {},
+        "fmaster_listen": {
+            "s": Argument(fd=True)
+            },
         "fmaster_kill": {}
         }
 

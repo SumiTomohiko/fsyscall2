@@ -1199,12 +1199,13 @@ getsockname_main(struct thread *td, command_t call_command,
 {
 	struct sockaddr_storage addr;
 	socklen_t actual_namelen, knamelen, len;
-	int error;
+	int error, fd;
 
 	error = copyin(namelen, &knamelen, sizeof(knamelen));
 	if (error != 0)
 		return (error);
-	error = execute_getsockname_call(td, call_command, s, knamelen);
+	fd = fmaster_fds_of_thread(td)[s].fd_local;
+	error = execute_getsockname_call(td, call_command, fd, knamelen);
 	if (error != 0)
 		return (error);
 	error = execute_getsockname_return(td, return_command, &addr,
@@ -1251,7 +1252,7 @@ execute_connect_call(struct thread *td, command_t call_command, int s,
 	struct sockaddr_storage addr;
 	struct payload *payload;
 	payload_size_t payload_size;
-	int error, wfd;
+	int error, slave_fd, wfd;
 	const char *buf;
 
 	if (sizeof(addr) < namelen)
@@ -1267,7 +1268,8 @@ execute_connect_call(struct thread *td, command_t call_command, int s,
 	if (payload == NULL)
 		return (ENOMEM);
 
-	error = fsyscall_payload_add_int32(payload, s);
+	slave_fd = fmaster_fds_of_thread(td)[s].fd_local;
+	error = fsyscall_payload_add_int32(payload, slave_fd);
 	if (error != 0)
 		goto exit;
 	error = fsyscall_payload_add_uint32(payload, namelen);
