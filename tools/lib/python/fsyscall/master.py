@@ -407,8 +407,10 @@ execute_return(struct thread *td, struct {name}_args *uap)
 \terror = fmaster_read_command(td, &cmd);
 \tif (error != 0)
 \t\treturn (error);
-\tif (cmd != RET_{cmd_name})
+\tif (cmd != RET_{cmd_name}) {{
+\t\tlog(LOG_ERR, \"fmaster[%d]: command mismatched: expected=%d, actual=%d\\n\", td->td_proc->p_pid, RET_{cmd_name}, cmd);
 \t\treturn (EPROTO);
+\t}}
 \terror = fmaster_read_payload_size(td, &payload_size);
 \tif (error != 0)
 \t\treturn (error);
@@ -419,8 +421,10 @@ execute_return(struct thread *td, struct {name}_args *uap)
 \t\terror = fmaster_read_int32(td, &errnum, &errnum_len);
 \t\tif (error != 0)
 \t\t\treturn (error);
-\t\tif (retval_len + errnum_len != payload_size)
+\t\tif (retval_len + errnum_len != payload_size) {{
+\t\tlog(LOG_ERR, \"fmaster[%d]: payload size mismatched: expected=%d, actual=%d\\n\", td->td_proc->p_pid, payload_size, retval_len + errnum_len);
 \t\t\treturn (EPROTO);
+\t\t}}
 \t\treturn (errnum);
 \t}}
 """.format(**locals()))
@@ -461,8 +465,10 @@ execute_return(struct thread *td, struct {name}_args *uap)
     expected_payload_size = make_payload_size_expr(syscall, out_arguments, "retsize")
     p("""\
 \texpected_payload_size = retval_len + {expected_payload_size};
-\tif (expected_payload_size != payload_size)
+\tif (expected_payload_size != payload_size) {{
+\t\tlog(LOG_ERR, \"fmaster[%d]: payload size mismatched: expected=%d, actual=%d\\n\", td->td_proc->p_pid, expected_payload_size, payload_size);
 \t\treturn (EPROTO);
+\t}}
 """.format(**locals()))
     print_newline()
 

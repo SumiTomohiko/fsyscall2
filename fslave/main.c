@@ -560,6 +560,7 @@ child_main(struct slave *slave, const char *token, size_t token_size, pid_t pare
 	struct sockaddr_storage sockaddr;
 	struct sockaddr_un *addr;
 	int sock;
+	const char *fmt = "A new child process has started: rfd=%d, wfd=%d";
 	char len;
 
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
@@ -580,7 +581,7 @@ child_main(struct slave *slave, const char *token, size_t token_size, pid_t pare
 	if (close(sigw) != 0)
 		die(1, "Cannot close(2) for sigw");
 	initialize_signal_handling(slave);
-	syslog(LOG_INFO, "A new child process has started.");
+	syslog(LOG_INFO, fmt, slave->rfd, slave->wfd);
 }
 
 static void
