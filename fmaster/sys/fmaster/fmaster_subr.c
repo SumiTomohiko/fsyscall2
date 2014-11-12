@@ -1180,7 +1180,7 @@ execute_getsockname_return(struct thread *td, command_t return_command,
 	error = fmaster_read_socklen(td, namelen, &namelen_len);
 	if (error != 0)
 		return (error);
-	actual_payload_size += retval_len;
+	actual_payload_size += namelen_len;
 	error = fmaster_read_sockaddr(td, addr, &addr_len);
 	if (error != 0)
 		return (error);
