@@ -46,6 +46,7 @@ syscalls:
 .PHONY: $(DOCDIR) $(JAVADIR)
 
 # shortcuts
+i: ia
 ia: install-all
 im: install-master
 is: install-slave
