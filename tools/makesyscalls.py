@@ -76,7 +76,7 @@ def main(dirpath):
     shub.write_fshub_dispatch(join(dirpath, "fshub"), syscalls)
     mhub.write_fmhub_dispatch(join(dirpath, "fmhub"), syscalls)
 
-    java.write(join(dirpath, "java"), syscalls)
+    java.write(join(dirpath, "java"), syscalls, codes)
 
 if __name__ == "__main__":
     main(abspath(getcwd()) if len(argv) != 2 else argv[1])
