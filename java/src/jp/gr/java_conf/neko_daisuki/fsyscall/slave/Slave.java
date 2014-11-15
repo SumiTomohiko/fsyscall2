@@ -232,6 +232,10 @@ public class Slave implements Runnable {
             mApplication.bindLocalSocket(path);
         }
 
+        public void listen(int backlog) throws UnixException {
+            // does nothing.
+        }
+
         protected void doClose() throws UnixException {
             try {
                 mCore.close();
@@ -665,6 +669,34 @@ public class Slave implements Runnable {
 
     public boolean isZombie() {
         return mState == State.ZOMBIE;
+    }
+
+    public SyscallResult.Generic32 doListen(int s, int backlog) throws IOException {
+        mLogger.info(String.format("listen(s=%d, backlog=%d)", s, backlog));
+
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+        UnixFile file = getFile(s);
+        if (file == null) {
+            result.setError(Errno.EBADF);
+            return result;
+        }
+        Socket sock;
+        try {
+            sock = (Socket)file;
+        }
+        catch (ClassCastException _) {
+            result.setError(Errno.ENOTSOCK);
+            return result;
+        }
+        try {
+            sock.listen(backlog);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+
+        return result;
     }
 
     public SyscallResult.Generic32 doOpen(String path, int flags, int mode) throws IOException {
