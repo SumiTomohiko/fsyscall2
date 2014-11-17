@@ -5,25 +5,23 @@
 
 show_title()
 {
-	local cmd len mark screen_size title unused
+	local cmd len line mark screen_size title unused
 
 	mark="$1"
 	title=" $2 "
 	screen_size="80"
-	cmd="echo -n \"\${mark}\""
 	len=$(((${screen_size} - ${#title}) / 2))
+	line=""
 	for unused in $(jot ${len})
 	do
-		eval ${cmd}
+		line="${line}${mark}"
 	done
+	echo -n "${line}"
 	echo -n "${title}"
-	for unused in $(jot ${len})
-	do
-		eval ${cmd}
-	done
 	if [ $((2 * ${len} + ${#title})) != "${screen_size}" ]; then
-		eval ${cmd}
+		line="${line}${mark}"
 	fi
+	echo -n "${line}"
 	echo
 }
 
