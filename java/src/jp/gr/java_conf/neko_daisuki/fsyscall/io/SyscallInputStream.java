@@ -2,12 +2,17 @@ package jp.gr.java_conf.neko_daisuki.fsyscall.io;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collection;
+import java.util.HashSet;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Sigaction;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
+import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.IoVec;
 
 public class SyscallInputStream {
@@ -15,6 +20,12 @@ public class SyscallInputStream {
     private enum Status {
         OPEN,
         CLOSED
+    };
+
+    private static final Sigaction.Handler[] ACTCODE2HANDLER = new Sigaction.Handler[] {
+        Sigaction.Handler.DEFAULT,
+        Sigaction.Handler.IGNORE,
+        Sigaction.Handler.ACTIVE
     };
 
     private static Logging.Logger mLogger;
@@ -114,6 +125,31 @@ public class SyscallInputStream {
         iovec.iov_len = len;
         iovec.iov_base = read((int)len);
         return iovec;
+    }
+
+    public SignalSet readSignalSet() throws IOException {
+        Collection<Signal> c = new HashSet<Signal>();
+
+        for (int i = 0; i < 4; i++) {
+            long bits = readLong();
+            for (int j = 0; j < 5; j++) {
+                if ((bits & (1 << j)) != 0) {
+                    c.add(Signal.valueOf(i << 5 + j + 1));
+                }
+            }
+        }
+
+        return new SignalSet(c);
+    }
+
+    public Sigaction readSigaction() throws IOException {
+        Sigaction act = new Sigaction();
+
+        act.sa_handler = ACTCODE2HANDLER[readInteger()];
+        act.sa_flags = readInteger();
+        act.sa_mask = readSignalSet();
+
+        return act;
     }
 
     static {

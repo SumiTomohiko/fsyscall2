@@ -31,6 +31,9 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFds;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Sigaction;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
+import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SocketAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
@@ -592,6 +595,7 @@ public class Slave implements Runnable {
     private Pid mPid;
     private State mState = State.NORMAL;
     private UnixFile[] mFiles;
+    private SignalSet mActiveSignals = new SignalSet();
     private Integer mExitStatus;
 
     private SlaveHelper mHelper;
@@ -669,6 +673,28 @@ public class Slave implements Runnable {
 
     public boolean isZombie() {
         return mState == State.ZOMBIE;
+    }
+
+    public SyscallResult.Generic32 doSigaction(int sig, Sigaction act) throws IOException {
+        Signal signal = Signal.valueOf(sig);
+        String fmt = "sigaction(sig=%d (%s), act=%s)";
+        String name = signal != null ? signal.getName() : "invalid";
+        mLogger.info(String.format(fmt, sig, name, act));
+
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        if (signal == null) {
+            result.setError(Errno.EINVAL);
+            return result;
+        }
+        if (act.sa_handler == Sigaction.Handler.ACTIVE) {
+            mActiveSignals.add(signal);
+        }
+        else {
+            mActiveSignals.remove(signal);
+        }
+
+        return result;
     }
 
     public SyscallResult.Generic32 doListen(int s, int backlog) throws IOException {

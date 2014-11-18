@@ -6,7 +6,15 @@ import java.util.Iterator;
 
 public class SignalSet implements Iterable<Signal> {
 
-    private Collection<Signal> mSet = new HashSet<Signal>();
+    private Collection<Signal> mSet;
+
+    public SignalSet() {
+        mSet = new HashSet<Signal>();
+    }
+
+    public SignalSet(Collection<Signal> c) {
+        mSet = new HashSet<Signal>(c);
+    }
 
     public void add(Signal signal) {
         mSet.add(signal);

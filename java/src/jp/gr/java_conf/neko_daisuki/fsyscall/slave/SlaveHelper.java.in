@@ -19,6 +19,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFds;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Sigaction;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.Constants;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
@@ -100,6 +101,17 @@ public class SlaveHelper {
     }
 
     @PROCS@
+
+    private class SigactionProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int sig = mIn.readInteger();
+            Sigaction act = mIn.readSigaction();
+            SyscallResult.Generic32 result = mSlave.doSigaction(sig, act);
+            writeResult(Command.RET_SIGACTION, result);
+        }
+    }
 
     private class ForkProc extends CommandDispatcher.Proc {
 
@@ -320,6 +332,7 @@ public class SlaveHelper {
         dispatcher.addEntry(Command.CALL_BIND, new BindProc());
         dispatcher.addEntry(Command.CALL_POLL, new PollProc());
         dispatcher.addEntry(Command.CALL_FORK, new ForkProc());
+        dispatcher.addEntry(Command.CALL_SIGACTION, new SigactionProc());
         @DISPATCHES@;
         return dispatcher;
     }

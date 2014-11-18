@@ -1,5 +1,8 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class Signal {
 
     public static final Signal SIGHUP = new Signal(1, "SIGHUP");
@@ -37,12 +40,18 @@ public class Signal {
     public static final Signal SIGTHR = new Signal(32, "SIGTHR");
     public static final Signal SIGLWP = SIGTHR;
 
+    private static final Map<Integer, Signal> mSignals = new HashMap<Integer, Signal>();
+
     private int mNumber;
     private String mName;
 
     private Signal(int number, String name) {
         mNumber = number;
         mName = name;
+    }
+
+    public static Signal valueOf(int signum) {
+        return mSignals.get(signum);
     }
 
     public String getName() {
@@ -68,6 +77,19 @@ public class Signal {
             return false;
         }
         return mNumber == signal.mNumber;
+    }
+
+    static {
+        Signal[] signals = { SIGHUP, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
+                             SIGIOT, SIGEMT, SIGFPE, SIGKILL, SIGBUS, SIGSEGV,
+                             SIGSYS, SIGPIPE, SIGALRM, SIGTERM, SIGURG, SIGSTOP,
+                             SIGTSTP, SIGCONT, SIGCHLD, SIGTTIN, SIGTTOU, SIGIO,
+                             SIGXCPU, SIGXFSZ, SIGVTALRM, SIGPROF, SIGWINCH,
+                             SIGINFO, SIGUSR1, SIGUSR2, SIGTHR };
+        for (int i = 0; i < signals.length; i++) {
+            Signal sig = signals[i];
+            mSignals.put(sig.getNumber(), sig);
+        }
     }
 }
 
