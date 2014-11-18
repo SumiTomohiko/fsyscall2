@@ -20,9 +20,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
+import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
 
 public class Application {
 
@@ -264,14 +267,15 @@ public class Application {
 
     public Slave newSlave(PairId pairId, UnixFile[] files,
                           Permissions permissions, Links links,
-                          Slave.Listener listener) throws IOException {
+                          Slave.Listener listener, SignalSet activeSignals) throws IOException {
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
 
         InputStream slaveIn = hub2slave.getInputStream();
         OutputStream slaveOut = slave2hub.getOutputStream();
         Slave slave = new Slave(this, mPidGenerator.next(), slaveIn, slaveOut,
-                                files, permissions, links, listener);
+                                files, permissions, links, listener,
+                                activeSignals);
         addSlave(slave);
 
         InputStream hubIn = slave2hub.getInputStream();
@@ -337,6 +341,14 @@ public class Application {
             mPidGenerator.release(pid);
         }
         return child;
+    }
+
+    public void kill(Pid pid, Signal sig) throws UnixException {
+        Slave slave = mSlaves.get(pid);
+        if (slave == null) {
+            throw new UnixException(Errno.ESRCH);
+        }
+        slave.kill(sig);
     }
 
     public void onSlaveTerminated(Slave slave) {

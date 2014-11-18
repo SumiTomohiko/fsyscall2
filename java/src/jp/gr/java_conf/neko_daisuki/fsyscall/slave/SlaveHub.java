@@ -13,6 +13,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
@@ -131,11 +132,27 @@ public class SlaveHub {
         mMhub.close();
     }
 
+    private void processSignaled(SlavePeer slave) throws IOException {
+        byte signum = slave.getInputStream().readByte();
+
+        String fmt = "processing SIGNALED: signal=%d (%s)";
+        mLogger.debug(String.format(fmt, signum, Signal.toString(signum)));
+
+        SyscallOutputStream out = mMhub.getOutputStream();
+        out.write(Command.SIGNALED);
+        out.write(slave.getPairId());
+        out.write(signum);
+    }
+
     private void processSlave(SlavePeer slave) throws IOException {
         mLogger.verbose("the work for the slave is being processed.");
 
         SyscallInputStream in = slave.getInputStream();
         Command command = in.readCommand();
+        if (command == Command.SIGNALED) {
+            processSignaled(slave);
+            return;
+        }
         PayloadSize payloadSize = in.readPayloadSize();
 
         String fmt = "from the slave to the master: command=%s, payloadSize=%s";

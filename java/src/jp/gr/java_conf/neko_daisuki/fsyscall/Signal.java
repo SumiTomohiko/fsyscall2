@@ -54,6 +54,11 @@ public class Signal {
         return mSignals.get(signum);
     }
 
+    public static String toString(int signum) {
+        Signal signal = valueOf(signum);
+        return signal != null ? signal.getName() : "invalid";
+    }
+
     public String getName() {
         return mName;
     }
