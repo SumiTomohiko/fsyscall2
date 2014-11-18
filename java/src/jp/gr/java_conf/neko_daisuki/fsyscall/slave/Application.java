@@ -138,6 +138,10 @@ public class Application {
             mSlaves.remove(pid);
         }
 
+        public synchronized Collection<Pid> pids() {
+            return mSlaves.keySet();
+        }
+
         @Override
         public synchronized Iterator<Slave> iterator() {
             return new SlaveIterator(mSlaves.values().toArray(new Slave[0]));
@@ -295,6 +299,11 @@ public class Application {
 
         new Thread(slave).start();
         mSlaveHub.work();
+        synchronized (mTerminatingMonitor) {
+            for (Pid pid: mSlaves.pids()) {
+                waitChildTerminating(pid);
+            }
+        }
 
         return (!mCancelled && mExitStatus != null) ? mExitStatus.intValue()
                                                     : 255;
