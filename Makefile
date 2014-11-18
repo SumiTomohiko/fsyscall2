@@ -36,6 +36,9 @@ install-slave:
 
 java:
 	@cd $(JAVADIR) && ant
+	@sync
+	@sync
+	@sync
 
 java-clean:
 	@rm -rf $(JAVADIR)/bin
