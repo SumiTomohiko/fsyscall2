@@ -1338,7 +1338,7 @@ public class Slave implements Runnable {
         }
 
         result.retval = slave.getPid().toInteger();
-        result.status = Unix.W_EXITCODE(mExitStatus.intValue(), 0);
+        result.status = Unix.W_EXITCODE(slave.getExitStatus().intValue(), 0);
         result.rusage = new Unix.Rusage();
 
         return result;
