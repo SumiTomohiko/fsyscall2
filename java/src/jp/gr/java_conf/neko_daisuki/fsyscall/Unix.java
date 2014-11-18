@@ -51,6 +51,11 @@ public class Unix {
 
         public TimeVal() {
         }
+
+        public String toString() {
+            String fmt = "TimeVal(tv_sec=%d, tv_usec=%d)";
+            return String.format(fmt, tv_sec, tv_usec);
+        }
     }
 
     public static class Rusage {
@@ -71,6 +76,28 @@ public class Unix {
         public long ru_nsignals;
         public long ru_nvcsw;
         public long ru_nivcsw;
+
+        public String toString() {
+            StringBuilder buffer = new StringBuilder("Rusage(");
+            buffer.append(String.format("ru_utime=%s, ", ru_utime));
+            buffer.append(String.format("ru_stime=%s, ", ru_stime));
+            buffer.append(String.format("ru_maxrss=%d, ", ru_maxrss));
+            buffer.append(String.format("ru_ixrss=%d, ", ru_ixrss));
+            buffer.append(String.format("ru_idrss=%d, ", ru_idrss));
+            buffer.append(String.format("ru_isrss=%d, ", ru_isrss));
+            buffer.append(String.format("ru_minflt=%d, ", ru_minflt));
+            buffer.append(String.format("ru_majflt=%d, ", ru_majflt));
+            buffer.append(String.format("ru_nswap=%d, ", ru_nswap));
+            buffer.append(String.format("ru_inblock=%d, ", ru_inblock));
+            buffer.append(String.format("ru_oublock=%d, ", ru_oublock));
+            buffer.append(String.format("ru_msgsnd=%d, ", ru_msgsnd));
+            buffer.append(String.format("ru_msgrcv=%d, ", ru_msgrcv));
+            buffer.append(String.format("ru_nsignals=%d, ", ru_nsignals));
+            buffer.append(String.format("ru_nsignals=%d, ", ru_nsignals));
+            buffer.append(String.format("ru_nvcsw=%d, ", ru_nvcsw));
+            buffer.append(String.format("ru_nivcsw=%d)", ru_nivcsw));
+            return buffer.toString();
+        }
     }
 
     public interface Constants {

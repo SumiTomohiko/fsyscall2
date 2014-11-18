@@ -53,6 +53,11 @@ public class SlaveHelper {
             mData.add(Encoder.encodeInteger(e.toInteger()));
         }
 
+        public void add(Unix.TimeVal tv) {
+            add(tv.tv_sec);
+            add(tv.tv_usec);
+        }
+
         public void add(Unix.Stat st) {
             add(st.st_dev);
             add(st.st_ino);
@@ -67,6 +72,25 @@ public class SlaveHelper {
             add(st.st_flags);
             add(st.st_gen);
             add(st.st_lspare);
+        }
+
+        public void add(Unix.Rusage rusage) {
+            add(rusage.ru_utime);
+            add(rusage.ru_stime);
+            add(rusage.ru_maxrss);
+            add(rusage.ru_ixrss);
+            add(rusage.ru_idrss);
+            add(rusage.ru_isrss);
+            add(rusage.ru_minflt);
+            add(rusage.ru_majflt);
+            add(rusage.ru_nswap);
+            add(rusage.ru_inblock);
+            add(rusage.ru_oublock);
+            add(rusage.ru_msgsnd);
+            add(rusage.ru_msgrcv);
+            add(rusage.ru_nsignals);
+            add(rusage.ru_nvcsw);
+            add(rusage.ru_nivcsw);
         }
 
         public void add(Collection<Integer> fds) {
@@ -396,6 +420,29 @@ public class SlaveHelper {
         Payload payload = new Payload();
         payload.add(retval);
 
+        writePayload(command, payload);
+    }
+
+    private void writeResult(Command command, SyscallResult.Wait4 result) throws IOException {
+        String logHead = "result (wait4)";
+
+        int retval = result.retval;
+        if (retval == -1) {
+            String fmt = "%s: retval=%d, errno=%s";
+            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            writeError(command, result);
+            return;
+        }
+
+        String fmt = "%s: retval=%d, status=%d, rusage=%s";
+        int status = result.status;
+        Unix.Rusage rusage = result.rusage;
+        mLogger.info(String.format(fmt, logHead, retval, status, rusage));
+
+        Payload payload = new Payload();
+        payload.add(retval);
+        payload.add(status);
+        payload.add(rusage);
         writePayload(command, payload);
     }
 
