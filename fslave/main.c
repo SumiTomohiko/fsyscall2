@@ -313,7 +313,7 @@ write_select_ready(struct slave *slave, int retval, int nfds, fd_set *readfds, f
 }
 
 static void
-read_getsockname_protocol_request(struct slave *slave, int *s)
+read_accept_protocol_request(struct slave *slave, int *s)
 {
 	payload_size_t actual_payload_size, payload_size;
 	int namelen_len, rfd, s_len;
@@ -327,9 +327,9 @@ read_getsockname_protocol_request(struct slave *slave, int *s)
 }
 
 static void
-write_getsockname_protocol_response(struct slave *slave,
-				    command_t return_command, int retval,
-				    struct sockaddr *addr, socklen_t namelen)
+write_accept_protocol_response(struct slave *slave, command_t return_command,
+			       int retval, struct sockaddr *addr,
+			       socklen_t namelen)
 {
 	struct payload *payload;
 	payload_size_t payload_size;
@@ -349,19 +349,18 @@ write_getsockname_protocol_response(struct slave *slave,
 	payload_dispose(payload);
 }
 
-typedef int (*getsockname_syscall)(int, struct sockaddr *, socklen_t *);
+typedef int (*accept_syscall)(int, struct sockaddr *, socklen_t *);
 
 static void
-process_getsockname_protocol(struct slave *slave, command_t call_command,
-			     command_t return_command,
-			     getsockname_syscall syscall)
+process_accept_protocol(struct slave *slave, command_t call_command,
+			command_t return_command, accept_syscall syscall)
 {
 	struct sockaddr_storage addr;
 	struct sockaddr *paddr;
 	socklen_t namelen;
 	int retval, s;
 
-	read_getsockname_protocol_request(slave, &s);
+	read_accept_protocol_request(slave, &s);
 	paddr = (struct sockaddr *)&addr;
 	namelen = sizeof(addr);
 	retval = syscall(s, paddr, &namelen);
@@ -369,8 +368,8 @@ process_getsockname_protocol(struct slave *slave, command_t call_command,
 		return_int(slave, return_command, retval, errno);
 		return;
 	}
-	write_getsockname_protocol_response(slave, return_command, retval,
-					    paddr, namelen);
+	write_accept_protocol_response(slave, return_command, retval, paddr,
+				       namelen);
 }
 
 static int
@@ -756,21 +755,18 @@ mainloop(struct slave *slave)
 							 RET_BIND, bind);
 				break;
 			case CALL_GETPEERNAME:
-				process_getsockname_protocol(slave,
-							     CALL_GETPEERNAME,
-							     RET_GETPEERNAME,
-							     getpeername);
+				process_accept_protocol(slave, CALL_GETPEERNAME,
+							RET_GETPEERNAME,
+							getpeername);
 				break;
 			case CALL_GETSOCKNAME:
-				process_getsockname_protocol(slave,
-							     CALL_GETSOCKNAME,
-							     RET_GETSOCKNAME,
-							     getsockname);
+				process_accept_protocol(slave, CALL_GETSOCKNAME,
+							RET_GETSOCKNAME,
+							getsockname);
 				break;
 			case CALL_ACCEPT:
-				process_getsockname_protocol(slave, CALL_ACCEPT,
-							     RET_ACCEPT,
-							     accept);
+				process_accept_protocol(slave, CALL_ACCEPT,
+							RET_ACCEPT, accept);
 				break;
 			case CALL_SIGACTION:
 				process_sigaction(slave);

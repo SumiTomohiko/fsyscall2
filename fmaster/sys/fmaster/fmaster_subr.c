@@ -1106,8 +1106,8 @@ fmaster_close_fd(struct thread *td, int d)
 }
 
 static int
-execute_getsockname_call(struct thread *td, command_t call_command, int s,
-			 socklen_t namelen)
+execute_accept_call(struct thread *td, command_t call_command, int s,
+		    socklen_t namelen)
 {
 	struct payload *payload;
 	payload_size_t payload_size;
@@ -1145,8 +1145,8 @@ exit:
 }
 
 static int
-execute_getsockname_return(struct thread *td, command_t return_command,
-			   struct sockaddr_storage *addr, socklen_t *namelen)
+execute_accept_return(struct thread *td, command_t return_command,
+		      struct sockaddr_storage *addr, socklen_t *namelen)
 {
 	payload_size_t actual_payload_size, payload_size;
 	command_t cmd;
@@ -1193,9 +1193,8 @@ execute_getsockname_return(struct thread *td, command_t return_command,
 }
 
 static int
-getsockname_main(struct thread *td, command_t call_command,
-		 command_t return_command, int s, struct sockaddr *name,
-		 socklen_t *namelen)
+accept_main(struct thread *td, command_t call_command, command_t return_command,
+	    int s, struct sockaddr *name, socklen_t *namelen)
 {
 	struct sockaddr_storage addr;
 	socklen_t actual_namelen, knamelen, len;
@@ -1205,11 +1204,11 @@ getsockname_main(struct thread *td, command_t call_command,
 	if (error != 0)
 		return (error);
 	fd = fmaster_fds_of_thread(td)[s].fd_local;
-	error = execute_getsockname_call(td, call_command, fd, knamelen);
+	error = execute_accept_call(td, call_command, fd, knamelen);
 	if (error != 0)
 		return (error);
-	error = execute_getsockname_return(td, return_command, &addr,
-					   &actual_namelen);
+	error = execute_accept_return(td, return_command, &addr,
+				      &actual_namelen);
 	if (error != 0)
 		return (error);
 	len = MIN(MIN(sizeof(addr), knamelen), actual_namelen);
@@ -1224,10 +1223,10 @@ getsockname_main(struct thread *td, command_t call_command,
 }
 
 int
-fmaster_execute_getsockname_protocol(struct thread *td, const char *command,
-				     command_t call_command,
-				     command_t return_command, int s,
-				     struct sockaddr *name, socklen_t *namelen)
+fmaster_execute_accept_protocol(struct thread *td, const char *command,
+				command_t call_command,
+				command_t return_command, int s,
+				struct sockaddr *name, socklen_t *namelen)
 {
 	struct timeval time_start;
 	int error;
@@ -1237,8 +1236,7 @@ fmaster_execute_getsockname_protocol(struct thread *td, const char *command,
 	log(LOG_DEBUG, fmt, td->td_proc->p_pid, command, s, name, namelen);
 	microtime(&time_start);
 
-	error = getsockname_main(td, call_command, return_command, s, name,
-				 namelen);
+	error = accept_main(td, call_command, return_command, s, name, namelen);
 
 	fmaster_log_syscall_end(td, command, &time_start, error);
 
