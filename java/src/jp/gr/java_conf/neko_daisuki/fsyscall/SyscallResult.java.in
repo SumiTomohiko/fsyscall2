@@ -2,8 +2,6 @@ package jp.gr.java_conf.neko_daisuki.fsyscall;
 
 import java.util.Collection;
 
-import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
-
 public interface SyscallResult {
 
     public static class Base {
