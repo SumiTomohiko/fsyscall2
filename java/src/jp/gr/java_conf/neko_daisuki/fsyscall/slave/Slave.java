@@ -41,7 +41,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
-public class Slave implements Runnable {
+class Slave implements Runnable {
 
     public interface Listener {
 

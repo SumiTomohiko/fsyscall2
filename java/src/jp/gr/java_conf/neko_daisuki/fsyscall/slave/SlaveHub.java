@@ -17,7 +17,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
-public class SlaveHub {
+class SlaveHub {
 
     private static class Peer {
 
