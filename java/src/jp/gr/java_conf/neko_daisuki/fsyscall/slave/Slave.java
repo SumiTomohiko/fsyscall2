@@ -951,12 +951,14 @@ class Slave implements Runnable {
             result.errno = Errno.EBADF;
             return result;
         }
-        if (!(file instanceof Socket)) {
-            result.retval = -1;
-            result.errno = Errno.ENOTSOCK;
+        Socket sock;
+        try {
+            sock = (Socket)file;
+        }
+        catch (ClassCastException _) {
+            result.setError(Errno.ENOTSOCK);
             return result;
         }
-        Socket sock = (Socket)file;
 
         SocketCore core = mListener.onConnect(sock.getDomain(), sock.getType(),
                                               sock.getProtocol(), name);
