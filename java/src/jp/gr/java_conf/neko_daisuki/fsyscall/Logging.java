@@ -71,7 +71,9 @@ public class Logging {
 
         private String formatMessage(String level, String message) {
             String timestamp = mDateFormatter.format(new Date());
-            return String.format("[%s] %s: %s", timestamp, level, message);
+            String name = Thread.currentThread().getName();
+            String fmt = "[%s] %s: %s: %s";
+            return String.format(fmt, timestamp, name, level, message);
         }
     }
 
