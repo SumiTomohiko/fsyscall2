@@ -14,7 +14,7 @@ public class UnixDomainAddress extends SocketAddress {
     }
 
     public String toString() {
-        String fmt = "UnixDomainAddress(%s, path=%s)";
+        String fmt = "UnixDomainAddress(%s, sun_path=%s)";
         return String.format(fmt, getBaseString(), mPath);
     }
 }
