@@ -51,6 +51,7 @@ server_main(pid_t pid, struct sockaddr *paddr)
 		return (2);
 	if (kill(pid, SIGNAL) == -1)
 		return (7);
+	addrlen = sizeof(client_addr);
 	fd = accept(sock, (struct sockaddr *)&client_addr, &addrlen);
 	if (fd == -1)
 		return (3);
