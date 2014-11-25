@@ -1012,18 +1012,19 @@ class Slave implements Runnable {
         mLogger.info(String.format(fmt, domain, type, protocol));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        int fd = findFreeSlotOfFile();
-        if (fd < 0) {
-            result.retval = -1;
-            result.errno = Errno.ENFILE;
+        UnixFile file = new Socket(domain, type, protocol);
+        file.acquire();
+        int fd;
+        try {
+            fd = registerFile(file);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
             return result;
         }
 
-        UnixFile file = new Socket(domain, type, protocol);
-        mFiles[fd] = file;
-        file.acquire();
-
         result.retval = fd;
+
         return result;
     }
 
@@ -1218,14 +1219,7 @@ class Slave implements Runnable {
 
     public SyscallResult.Generic32 doDup(long oldd) throws IOException {
         mLogger.info(String.format("dup(oldd=%d)", oldd));
-
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
-        int newfd = findFreeSlotOfFile();
-        if (newfd < 0) {
-            result.retval = -1;
-            result.errno = Errno.EMFILE;
-            return result;
-        }
 
         int d = (int)oldd;
         UnixFile file = mFiles[d];
@@ -1235,10 +1229,18 @@ class Slave implements Runnable {
             return result;
         }
 
-        mFiles[newfd] = file;
         file.acquire();
+        int newfd;
+        try {
+            newfd = registerFile(file);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
 
         result.retval = newfd;
+
         return result;
     }
 
@@ -1436,6 +1438,18 @@ class Slave implements Runnable {
         }
     }
 
+    private int registerFile(UnixFile file) throws UnixException {
+        int fd;
+        synchronized (mFiles) {
+            fd = findFreeSlotOfFile();
+            if (fd < 0) {
+                throw new UnixException(Errno.ENFILE);
+            }
+            mFiles[fd] = file;
+        }
+        return fd;
+    }
+
     private SyscallResult.Generic32 openActualFile(String path, int flags, int mode) throws IOException {
         String fmt = "open actual file: %s";
         mLogger.info(String.format(fmt, path, flags, mode));
@@ -1445,13 +1459,6 @@ class Slave implements Runnable {
         if (!mPermissions.isAllowed(path)) {
             result.retval = -1;
             result.errno = Errno.ENOENT;
-            return result;
-        }
-
-        int fd = findFreeSlotOfFile();
-        if (fd < 0) {
-            result.retval = -1;
-            result.errno = Errno.ENFILE;
             return result;
         }
 
@@ -1476,10 +1483,17 @@ class Slave implements Runnable {
             result.errno = e.getErrno();
             return result;
         }
-
-        mFiles[fd] = file;
+        int fd;
+        try {
+            fd = registerFile(file);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
 
         result.retval = fd;
+
         return result;
     }
 
