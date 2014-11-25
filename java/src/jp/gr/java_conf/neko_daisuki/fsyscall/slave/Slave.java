@@ -12,7 +12,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.Queue;
 import java.util.TimeZone;
 
 /*
@@ -125,12 +127,43 @@ class Slave implements Runnable {
 
     private class Socket extends UnixFile {
 
+        private class PipeCore implements SocketCore {
+
+            private InputStream mIn;
+            private OutputStream mOut;
+
+            public PipeCore(Pair pair) {
+                mIn = pair.getInputStream();
+                mOut = pair.getOutputStream();
+            }
+
+            @Override
+            public InputStream getInputStream() {
+                return mIn;
+            }
+
+            @Override
+            public OutputStream getOutputStream() {
+                return mOut;
+            }
+
+            @Override
+            public void close() throws IOException {
+                mIn.close();
+                mOut.close();
+            }
+        }
+
         private class LocalBoundCore implements SocketCore {
 
             private String mPath;
 
             public LocalBoundCore(String path) {
                 mPath = path;
+            }
+
+            public String getPath() {
+                return mPath;
             }
 
             @Override
@@ -145,19 +178,61 @@ class Slave implements Runnable {
 
             @Override
             public void close() throws IOException {
-                mApplication.unbindLocalSocket(mPath);
+                mConnectingRequests = null;
+                setCore(null);
+            }
+        }
+
+        private class ConnectingRequest {
+
+            private Socket mPeer;
+            private Pair mPair;
+
+            public ConnectingRequest(Socket peer) {
+                mPeer = peer;
+            }
+
+            public Socket getPeer() {
+                return mPeer;
+            }
+
+            public void setPair(Pair pair) {
+                mPair = pair;
+            }
+
+            public Pair getPair() {
+                return mPair;
+            }
+
+            public boolean isAccepted() {
+                return mPair != null;
             }
         }
 
         private int mDomain;
         private int mType;
         private int mProtocol;
+        private SocketAddress mName;
+        private Socket mPeer;
+
         private SocketCore mCore;
+        private Queue<ConnectingRequest> mConnectingRequests;
 
         public Socket(int domain, int type, int protocol) {
             mDomain = domain;
             mType = type;
             mProtocol = protocol;
+        }
+
+        public Socket(int domain, int type, int protocol, SocketAddress name,
+                      Socket peer) {
+            this(domain, type, protocol);
+            mName = name;
+            mPeer = peer;
+        }
+
+        public Socket getPeer() {
+            return mPeer;
         }
 
         public int getDomain() {
@@ -170,6 +245,10 @@ class Slave implements Runnable {
 
         public int getProtocol() {
             return mProtocol;
+        }
+
+        public SocketAddress getName() {
+            return mName;
         }
 
         public void setCore(SocketCore core) {
@@ -229,10 +308,88 @@ class Slave implements Runnable {
             throw new UnixException(Errno.ENOSYS);
         }
 
-        public void bind(UnixDomainAddress addr) {
+        public void connect(UnixDomainAddress addr) throws UnixException {
             String path = addr.getPath();
+            Socket peer = (Socket)mApplication.getUnixDomainSocket(path);
+            mName = new UnixDomainAddress(2, addr.getFamily(), "");
+            connect(peer);
+        }
+
+        public void connect(Socket peer) throws UnixException {
+            Queue<ConnectingRequest> queue = peer.mConnectingRequests;
+            if (queue == null) {
+                throw new UnixException(Errno.EINVAL);
+            }
+            ConnectingRequest request = new ConnectingRequest(this);
+            synchronized (queue) {
+                queue.offer(request);
+                queue.notifyAll();
+            }
+            synchronized (request) {
+                while (!request.isAccepted()) {
+                    try {
+                        request.wait();
+                    }
+                    catch (InterruptedException e) {
+                        throw new UnixException(Errno.EINTR);
+                    }
+                }
+            }
+            setCore(new PipeCore(request.getPair()));
+        }
+
+        public void bind(UnixDomainAddress addr) throws UnixException {
+            if (mName != null) {
+                throw new UnixException(Errno.EINVAL);
+            }
+            mConnectingRequests = new LinkedList<ConnectingRequest>();
+            String path = addr.getPath();
+            mApplication.bindSocket(path, this);
             setCore(new LocalBoundCore(path));
-            mApplication.bindLocalSocket(path);
+            mName = addr;
+        }
+
+        public Socket accept() throws UnixException {
+            if (mConnectingRequests == null) {
+                throw new UnixException(Errno.EINVAL);
+            }
+            ConnectingRequest request;
+            synchronized (mConnectingRequests) {
+                while (mConnectingRequests.isEmpty()) {
+                    try {
+                        mConnectingRequests.wait();
+                    }
+                    catch (InterruptedException e) {
+                        throw new UnixException(Errno.EINTR, e);
+                    }
+                }
+                request = mConnectingRequests.remove();
+            }
+
+            Pipe s2c;
+            Pipe c2s;
+            try {
+                s2c = new Pipe();
+                c2s = new Pipe();
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            InputStream in = s2c.getInputStream();
+            OutputStream out = c2s.getOutputStream();
+            Pair clientPair = new Pair(in, out);
+            request.setPair(clientPair);
+            Socket peer = request.getPeer();
+            peer.mPeer = this;
+            synchronized (request) {
+                request.notifyAll();
+            }
+
+            Socket socket = new Socket(mDomain, mType, mProtocol, mName, peer);
+            Pair pair = new Pair(c2s.getInputStream(), s2c.getOutputStream());
+            socket.setCore(new PipeCore(pair));
+
+            return socket;
         }
 
         public void listen(int backlog) throws UnixException {
@@ -857,6 +1014,43 @@ class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Accept doAccept(int s, int addrlen) throws IOException {
+        mLogger.info(String.format("accept(s=%d, addrlen=%d)", s, addrlen));
+        SyscallResult.Accept result = new SyscallResult.Accept();
+
+        UnixFile file = getFile(s);
+        if (file == null) {
+            result.setError(Errno.EBADF);
+            return result;
+        }
+        Socket socket;
+        try {
+            socket = (Socket)file;
+        }
+        catch (ClassCastException _) {
+            result.setError(Errno.ENOTSOCK);
+            return result;
+        }
+
+        Socket clientSocket;
+        int fd;
+        try {
+            clientSocket = socket.accept();
+            fd = registerFile(clientSocket);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+
+        SocketAddress addr = clientSocket.getPeer().getName();
+        result.retval = fd;
+        result.addr = addr;
+        result.addrlen = addr.length();
+
+        return result;
+    }
+
     /**
      * System call handler for issetugid(2). This always returns zero.
      */
@@ -934,7 +1128,13 @@ class Slave implements Runnable {
             return result;
         }
         Socket sock = (Socket)file;
-        sock.bind(addr);
+        try {
+            sock.bind(addr);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
 
         return result;
     }
@@ -958,6 +1158,14 @@ class Slave implements Runnable {
         catch (ClassCastException _) {
             result.setError(Errno.ENOTSOCK);
             return result;
+        }
+        Errno err = Errno.ENOSYS;
+        try {
+            sock.connect(name);
+            return result;
+        }
+        catch (UnixException e) {
+            err = e.getErrno();
         }
 
         SocketCore core = mListener.onConnect(sock.getDomain(), sock.getType(),

@@ -51,6 +51,12 @@ public interface SyscallResult {
         public Collection<Integer> ex;
     }
 
+    public static class Accept extends Generic32 {
+
+        public SocketAddress addr;
+        public int addrlen;
+    }
+
     @RESULTS@
 }
 

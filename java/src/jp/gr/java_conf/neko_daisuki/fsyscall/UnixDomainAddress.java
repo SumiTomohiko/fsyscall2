@@ -13,6 +13,11 @@ public class UnixDomainAddress extends SocketAddress {
         return mPath;
     }
 
+    @Override
+    public int length() {
+        return super.length() + mPath.length();
+    }
+
     public String toString() {
         String fmt = "UnixDomainAddress(%s, sun_path=%s)";
         return String.format(fmt, getBaseString(), mPath);

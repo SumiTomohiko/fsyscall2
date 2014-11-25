@@ -15,10 +15,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
@@ -28,76 +26,6 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
 
 public class Application {
-
-    private static class Pipe {
-
-        private class StatefulOutputStream extends OutputStream {
-
-            private OutputStream mOut;
-
-            public StatefulOutputStream(PipedOutputStream out) {
-                mOut = out;
-            }
-
-            @Override
-            public void close() throws IOException {
-                mOut.close();
-                mClosed = true;
-            }
-
-            @Override
-            public void write(int b) throws IOException {
-                mOut.write(b);
-            }
-        }
-
-        private class StatefulInputStream extends InputStream {
-
-            private InputStream mIn;
-
-            public StatefulInputStream(PipedInputStream in) {
-                mIn = in;
-            }
-
-            @Override
-            public int read() throws IOException {
-                return mIn.read();
-            }
-
-            /**
-             * Returns a number of available bytes. This method throws an
-             * IOException when the OutputStream is closed.
-             */
-            @Override
-            public int available() throws IOException {
-                int nbytes = mIn.available();
-                if ((nbytes == 0) && mClosed) {
-                    throw new IOException("closed pipe");
-                }
-                return nbytes;
-            }
-        }
-
-        private InputStream mIn;
-        private OutputStream mOut;
-        private boolean mClosed;
-
-        public Pipe() throws IOException {
-            PipedInputStream pin = new PipedInputStream();
-            PipedOutputStream pout = new PipedOutputStream(pin);
-            mIn = new StatefulInputStream(pin);
-            mOut = new StatefulOutputStream(pout);
-            mClosed = false;
-        }
-
-        public InputStream getInputStream() {
-            return mIn;
-        }
-
-        public OutputStream getOutputStream() {
-            return mOut;
-        }
-    }
 
     private static class Slaves implements Iterable<Slave> {
 
@@ -177,80 +105,38 @@ public class Application {
         }
     }
 
-    private static class BoundSocket {
-
-        private static class Request {
-
-            private Pair mPair;
-
-            public void setPair(Pair pair) {
-                mPair = pair;
-            }
-
-            public Pair getPair() {
-                return mPair;
-            }
-
-            public boolean isAccepted() {
-                return mPair != null;
-            }
-        }
-
-        private Queue<Request> mQueue = new LinkedList<Request>();
-
-        public Pair accept() throws IOException, InterruptedException {
-            Request request;
-            synchronized (mQueue) {
-                while (mQueue.isEmpty()) {
-                    mQueue.wait();
-                }
-                request = mQueue.remove();
-            }
-            Pipe s2c = new Pipe();
-            Pipe c2s = new Pipe();
-            Pair clientPair = new Pair(s2c.getInputStream(),
-                                       c2s.getOutputStream());
-            request.setPair(clientPair);
-            synchronized (request) {
-                request.notifyAll();
-            }
-            return new Pair(c2s.getInputStream(), s2c.getOutputStream());
-        }
-
-        public Pair connect() throws InterruptedException {
-            Request request = new Request();
-            synchronized (mQueue) {
-                mQueue.offer(request);
-                mQueue.notifyAll();
-            }
-            synchronized (request) {
-                while (!request.isAccepted()) {
-                    request.wait();
-                }
-            }
-            return request.getPair();
-        }
-    }
-
     private static class LocalBoundSockets {
 
-        private Map<String, BoundSocket> mSockets;
+        private Map<String, Object> mSockets = new HashMap<String, Object>();
 
-        public LocalBoundSockets() {
-            Map<String, BoundSocket> map = new HashMap<String, BoundSocket>();
-            mSockets = Collections.synchronizedMap(map);
+        public void bind(String path, Object socket) throws UnixException {
+            synchronized (mSockets) {
+                if (mSockets.get(path) != null) {
+                    throw new UnixException(Errno.EADDRINUSE);
+                }
+                mSockets.put(path, socket);
+            }
         }
 
-        public void add(String path) {
-            mSockets.put(path, new BoundSocket());
+        public Object get(String path) throws UnixException {
+            Object socket;
+            synchronized (mSockets) {
+                socket = mSockets.get(path);
+            }
+            if (socket == null) {
+                throw new UnixException(Errno.ENOENT);
+            }
+            return socket;
         }
 
-        public BoundSocket get(String path) {
-            return mSockets.get(path);
-        }
-
-        public void remove(String path) {
-            mSockets.remove(path);
+        public void unlink(String path) throws UnixException {
+            Object socket;
+            synchronized (mSockets) {
+                socket = mSockets.remove(path);
+            }
+            if (socket == null) {
+                throw new UnixException(Errno.ENOENT);
+            }
         }
     }
 
@@ -320,12 +206,24 @@ public class Application {
         }
     }
 
-    public void bindLocalSocket(String path) {
-        mLocalBoundSockets.add(path);
+    /**
+     * Binds a Unix domain socket to a path. This method handles a socket as an
+     * Object instance, because I dislike disclosing the Slave.Socket class.
+     */
+    public void bindSocket(String path, Object socket) throws UnixException {
+        mLocalBoundSockets.bind(path, socket);
     }
 
-    public void unbindLocalSocket(String path) {
-        mLocalBoundSockets.remove(path);
+    /**
+     * Returns a socket bound to a given path. This method returns an Object.
+     * Callers have responsibility to cast it to Slave.Socket.
+     */
+    public Object getUnixDomainSocket(String path) throws UnixException {
+        return mLocalBoundSockets.get(path);
+    }
+
+    public void unlinkUnixDomainNode(String path) throws UnixException {
+        mLocalBoundSockets.unlink(path);
     }
 
     public Slave waitChildTerminating(Pid pid) throws InterruptedException {

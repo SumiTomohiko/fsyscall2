@@ -10,6 +10,18 @@ public class SocketAddress {
         mFamily = family;
     }
 
+    public int getFamily() {
+        return mFamily;
+    }
+
+    public int getLength() {
+        return mLen;
+    }
+
+    public int length() {
+        return 2;
+    }
+
     protected String getBaseString() {
         return String.format("sa_len=%d, sa_family=%d", mLen, mFamily);
     }

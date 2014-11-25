@@ -1,6 +1,7 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,6 +21,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFds;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Sigaction;
+import jp.gr.java_conf.neko_daisuki.fsyscall.SocketAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.Constants;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
@@ -93,6 +95,25 @@ class SlaveHelper {
             add(rusage.ru_nivcsw);
         }
 
+        public void add(SocketAddress addr) {
+            UnixDomainAddress un = (UnixDomainAddress)addr;
+            add(un.getLength());
+            add(un.getFamily());
+            add(un.getPath());
+        }
+
+        public void add(String s) {
+            byte[] buffer;
+            try {
+                buffer = s.getBytes("utf8");
+            }
+            catch (UnsupportedEncodingException e) {
+                throw new Error(e);
+            }
+            add(buffer.length);
+            add(buffer);
+        }
+
         public void add(Collection<Integer> fds) {
             add(fds.size());
             for (Integer fd: fds) {
@@ -125,6 +146,36 @@ class SlaveHelper {
     }
 
     @PROCS@
+
+    private abstract class AbstractAcceptProc extends CommandDispatcher.Proc {
+
+        private Command mRetCommand;
+
+        public AbstractAcceptProc() {
+            mRetCommand = getRetCommand();
+        }
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int s = mIn.readInteger();
+            int addrlen = mIn.readInteger();
+            writeResult(mRetCommand, doSyscall(s, addrlen));
+        }
+
+        protected abstract Command getRetCommand();
+        protected abstract SyscallResult.Accept doSyscall(int s, int addrlen) throws IOException;
+    }
+
+    private class AcceptProc extends AbstractAcceptProc {
+
+        protected Command getRetCommand() {
+            return Command.RET_ACCEPT;
+        }
+
+        protected SyscallResult.Accept doSyscall(int s, int addrlen) throws IOException {
+            return mSlave.doAccept(s, addrlen);
+        }
+    }
 
     private class SigactionProc extends CommandDispatcher.Proc {
 
@@ -357,6 +408,7 @@ class SlaveHelper {
         dispatcher.addEntry(Command.CALL_POLL, new PollProc());
         dispatcher.addEntry(Command.CALL_FORK, new ForkProc());
         dispatcher.addEntry(Command.CALL_SIGACTION, new SigactionProc());
+        dispatcher.addEntry(Command.CALL_ACCEPT, new AcceptProc());
         @DISPATCHES@;
         return dispatcher;
     }
@@ -489,6 +541,29 @@ class SlaveHelper {
         payload.add(result.ruid);
         payload.add(result.euid);
         payload.add(result.suid);
+        writePayload(command, payload);
+    }
+
+    private void writeResult(Command command, SyscallResult.Accept result) throws IOException {
+        String logHead = "result (accept)";
+
+        long retval = result.retval;
+        if (retval == -1) {
+            String fmt = "%s: retval=%d, errno=%s";
+            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            writeError(command, result);
+            return;
+        }
+
+        String fmt = "%s: retval=%d, addr=%s, addrlen=%d";
+        SocketAddress addr = result.addr;
+        mLogger.info(String.format(fmt, logHead, retval, addr, result.addrlen));
+
+        Payload payload = new Payload();
+        payload.add(retval);
+        payload.add(result.addrlen);
+        payload.add(addr);
+
         writePayload(command, payload);
     }
 
