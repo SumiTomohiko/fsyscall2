@@ -647,6 +647,9 @@ class Slave implements Runnable {
 
     @Override
     public void run() {
+        String name = Thread.currentThread().getName();
+        mLogger.info(String.format("a slave started: %s", name));
+
         try {
             try {
                 try {
