@@ -1171,8 +1171,7 @@ class Slave implements Runnable {
         SocketCore core = mListener.onConnect(sock.getDomain(), sock.getType(),
                                               sock.getProtocol(), name);
         if (core == null) {
-            result.retval = -1;
-            result.errno = Errno.ENOSYS;
+            result.setError(err);
             return result;
         }
         sock.setCore(core);
