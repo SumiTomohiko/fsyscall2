@@ -1431,7 +1431,7 @@ class Slave implements Runnable {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         int d = (int)oldd;
-        UnixFile file = mFiles[d];
+        UnixFile file = getFile(d);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
