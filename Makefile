@@ -46,6 +46,9 @@ java-clean:
 syscalls:
 	@python3 tools/makesyscalls.py
 
+tests-clean:
+	@cd tests && make clean
+
 .PHONY: $(DOCDIR) $(JAVADIR)
 
 # shortcuts
