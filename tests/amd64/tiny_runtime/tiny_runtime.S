@@ -19,6 +19,7 @@ __error:
 global %1
 %1:
 	mov rax, %2
+	mov r10, rcx
 	syscall
 	jnc .exit
 	mov [error], rax
