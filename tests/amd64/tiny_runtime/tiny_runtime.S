@@ -37,42 +37,9 @@ _exit:
 	syscall
 	; NOTREACHED
 
-global write
-write:
-	mov rax, sys.write
-	mov rdi, rdi
-	mov rsi, rsi
-	mov rdx, rdx
-	syscall
-	jc .error
-	mov rax, 0
-	ret
-.error:
-	mov [error], rax
-	mov rax, -1
-	ret
-
-global select
-select:
-	mov rax, sys.select
-	mov rdi, rdi
-	mov rsi, rsi
-	mov rdx, rdx
-	mov r10, rcx
-	mov r8, r8
-	syscall
-	jnc .exit
-	mov [error], rax
-	mov rax, -1
-.exit:
-	ret
-
-global getpid
-getpid:
-	mov rax, sys.getpid
-	syscall
-	ret
-
+defsyscall	write
+defsyscall	select
+defsyscall	getpid
 defsyscall	getdirentries
 defsyscall 	fstatfs
 defsyscall 	fcntl
