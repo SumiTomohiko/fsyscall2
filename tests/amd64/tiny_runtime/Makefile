@@ -1,6 +1,6 @@
 
 LIB=	libtiny_runtime.a
-SRCS=	tiny_runtime.S sigsetops.c
+SRCS=	tiny_runtime.S sigsetops.c tr_run_client_server.c
 LST=	${.ALLSRC:M*.S:.S=.lst}
 OBJS=	${SRCS:S/.c$/.o/:S/.S$/.o/}
 
@@ -13,7 +13,7 @@ ${LIB}: ${OBJS}
 	nasm -f ${FORMAT} -o ${.TARGET} -l ${LST} ${NASMFLAGS} ${.ALLSRC:M*.S}
 
 .c.o:
-	clang -o ${.TARGET} -c ${.ALLSRC}
+	clang -o ${.TARGET} -I ../include -c ${.ALLSRC}
 
 clean:
 	rm -f ${OBJS} ${LIB} *.lst

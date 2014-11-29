@@ -21,4 +21,9 @@
 
 void	print_num(long);
 
+typedef int (*tr_accept_callback)(int, struct sockaddr *, socklen_t);
+typedef int (*tr_connect_callback)(int);
+int	tr_run_client_server(const char *, tr_accept_callback,
+			     tr_connect_callback);
+
 #endif
