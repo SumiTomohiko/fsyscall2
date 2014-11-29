@@ -15,10 +15,10 @@ __error:
 	ret
 
 ; defsyscall name num
-%macro defsyscall 2
+%macro defsyscall 1
 global %1
 %1:
-	mov rax, %2
+	mov rax, sys.%1
 	mov r10, rcx
 	syscall
 	jnc .exit
@@ -73,34 +73,34 @@ getpid:
 	syscall
 	ret
 
-defsyscall	getdirentries,	sys.getdirentries
-defsyscall 	fstatfs,	sys.fstatfs
-defsyscall 	fcntl,		sys.fcntl
-defsyscall	open,		sys.open
-defsyscall	read,		sys.read
-defsyscall	geteuid,	sys.geteuid
-defsyscall	getegid,	sys.getegid
-defsyscall	getgid,		sys.getgid
-defsyscall	getuid,		sys.getuid
-defsyscall	dup,		sys.dup
-defsyscall	close,		sys.close
-defsyscall	socket,		sys.socket
-defsyscall	connect,	sys.connect
-defsyscall	poll,		sys.poll
-defsyscall	fork,		sys.fork
-defsyscall	gettimeofday,	sys.gettimeofday
-defsyscall	getresuid,	sys.getresuid
-defsyscall	getpeername,	sys.getpeername
-defsyscall	getsockname,	sys.getsockname
-defsyscall	bind,		sys.bind
-defsyscall	wait4,		sys.wait4
-defsyscall	execve,		sys.execve
-defsyscall	listen,		sys.listen
-defsyscall	accept,		sys.accept
-defsyscall	sigaction,	sys.sigaction
-defsyscall	sigprocmask,	sys.sigprocmask
-defsyscall	kill,		sys.kill
-defsyscall	sigwait,	sys.sigwait
+defsyscall	getdirentries
+defsyscall 	fstatfs
+defsyscall 	fcntl
+defsyscall	open
+defsyscall	read
+defsyscall	geteuid
+defsyscall	getegid
+defsyscall	getgid
+defsyscall	getuid
+defsyscall	dup
+defsyscall	close
+defsyscall	socket
+defsyscall	connect
+defsyscall	poll
+defsyscall	fork
+defsyscall	gettimeofday
+defsyscall	getresuid
+defsyscall	getpeername
+defsyscall	getsockname
+defsyscall	bind
+defsyscall	wait4
+defsyscall	execve
+defsyscall	listen
+defsyscall	accept
+defsyscall	sigaction
+defsyscall	sigprocmask
+defsyscall	kill
+defsyscall	sigwait
 
 global _start
 _start:
