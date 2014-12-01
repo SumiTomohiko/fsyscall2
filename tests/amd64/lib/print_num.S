@@ -16,9 +16,6 @@ print_num:
 	mov	base, 10
 	mov	n, rdi
 	mov	p, rsp
-	dec	p
-	mov	rax, p
-	mov	byte [rax], 0
 	mov	bufend, rsp
 %define	bufsize	32
 	sub	rsp, bufsize
