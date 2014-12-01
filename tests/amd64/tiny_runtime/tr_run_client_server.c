@@ -42,7 +42,7 @@ server_main(pid_t pid, struct sockaddr *addr, tr_accept_callback callback)
 {
 	struct sockaddr *pclient_addr;
 	socklen_t addrlen;
-	int error, fd, retval, sock;
+	int error, fd, retval, sock, status;
 
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (sock == -1)
@@ -59,12 +59,21 @@ server_main(pid_t pid, struct sockaddr *addr, tr_accept_callback callback)
 	fd = accept(sock, pclient_addr, &addrlen);
 	if (fd == -1)
 		return (196);
+
 	retval = callback(fd, pclient_addr, addrlen);
 
-	if (close(fd) != 0)
+	error = wait4(pid, &status, 0, NULL);
+	if (error == -1)
 		return (197);
-	if (close(sock) != 0)
+	if (!WIFEXITED(status))
 		return (198);
+	if (WEXITSTATUS(status) != 0)
+		return (199);
+
+	if (close(fd) != 0)
+		return (200);
+	if (close(sock) != 0)
+		return (201);
 
 	return (retval);
 }
@@ -110,13 +119,6 @@ run_client_server(const char *path, tr_accept_callback accept_callback,
 	}
 
 	retval = server_main(pid, paddr, accept_callback);
-	error = wait4(pid, &status, 0, NULL);
-	if (error == -1)
-		return (231);
-	if (!WIFEXITED(status))
-		return (232);
-	if (WEXITSTATUS(status) != 0)
-		return (233);
 
 	return (retval);
 }
