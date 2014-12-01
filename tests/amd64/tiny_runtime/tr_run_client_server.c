@@ -10,26 +10,44 @@ signal_handler(int sig)
 }
 
 static int
-client_main(struct sockaddr *name, tr_connect_callback callback)
+wait_signal()
 {
-	sigset_t oset, set;
-	int error, retval, sig, sock;
+	sigset_t set;
+	int sig;
 
 	if (sigemptyset(&set) == -1)
-		return (128);
+		return (1);
 	if (sigaddset(&set, SIGNAL) == -1)
-		return (129);
+		return (2);
 	if (sigwait(&set, &sig) != 0)
-		return (130);
+		return (3);
+
+	return (0);
+}
+
+static int
+client_main(pid_t ppid, struct sockaddr *name, tr_connect_callback callback)
+{
+	int error, retval, sock;
+
+	error = wait_signal();
+	if (error != 0)
+		return (128);
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (sock == -1)
 		return (131);
-
 	error = connect(sock, name, name->sa_len);
 	if (error == -1)
 		return (132);
+
 	retval = callback(sock);
 
+	error = wait_signal();
+	if (error != 0)
+		return (129);
+	error = kill(ppid, SIGNAL);
+	if (error == -1)
+		return (130);
 	error = close(sock);
 	if (error == -1)
 		return (133);
@@ -42,7 +60,7 @@ server_main(pid_t pid, struct sockaddr *addr, tr_accept_callback callback)
 {
 	struct sockaddr *pclient_addr;
 	socklen_t addrlen;
-	int error, fd, retval, sock, status;
+	int error, fd, retval, sock;
 
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (sock == -1)
@@ -62,14 +80,10 @@ server_main(pid_t pid, struct sockaddr *addr, tr_accept_callback callback)
 
 	retval = callback(fd, pclient_addr, addrlen);
 
-	error = wait4(pid, &status, 0, NULL);
-	if (error == -1)
-		return (197);
-	if (!WIFEXITED(status))
-		return (198);
-	if (WEXITSTATUS(status) != 0)
-		return (199);
-
+	if (kill(pid, SIGNAL) != 0)
+		return (202);
+	if (wait_signal() != 0)
+		return (203);
 	if (close(fd) != 0)
 		return (200);
 	if (close(sock) != 0)
@@ -86,7 +100,7 @@ run_client_server(const char *path, tr_accept_callback accept_callback,
 	struct sockaddr *paddr;
 	struct sockaddr_un *punaddr;
 	sigset_t set;
-	pid_t pid;
+	pid_t pid, ppid;
 	int error, retval, status;
 
 	act.sa_handler = signal_handler;
@@ -108,17 +122,25 @@ run_client_server(const char *path, tr_accept_callback accept_callback,
 	punaddr->sun_len = SUN_LEN(punaddr);
 
 	paddr = (struct sockaddr *)&addr;
+	ppid = getpid();
 	pid = fork();
 	switch (pid) {
 	case -1:
 		return (230);
 	case 0:
-		return (client_main(paddr, connect_callback));
+		return (client_main(ppid, paddr, connect_callback));
 	default:
 		break;
 	}
 
 	retval = server_main(pid, paddr, accept_callback);
+	error = wait4(pid, &status, 0, NULL);
+	if (error == -1)
+		return (197);
+	if (!WIFEXITED(status))
+		return (198);
+	if (WEXITSTATUS(status) != 0)
+		return (199);
 
 	return (retval);
 }
