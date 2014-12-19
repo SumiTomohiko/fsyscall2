@@ -278,6 +278,7 @@ tests/amd64/getgid/getgid
 tests/amd64/getpeername_error/getpeername_error
 tests/amd64/getpeername_family/getpeername_family
 tests/amd64/getpeername_path/getpeername_path
+tests/amd64/getpeername_server/getpeername_server
 tests/amd64/getpid/getpid
 tests/amd64/getresuid_euid/getresuid_euid
 tests/amd64/getresuid_ruid/getresuid_ruid
