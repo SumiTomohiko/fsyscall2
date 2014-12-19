@@ -1,0 +1,13 @@
+
+name="getsockname_server"
+sockfile="$PWD/${tmp_dir}/${name}.sock"
+cmd="${name}/${name}"
+args="${sockfile}"
+expected_stdout="${sockfile}"
+
+postcmd()
+{
+	rm -f "${sockfile}"
+}
+
+# vim: filetype=sh

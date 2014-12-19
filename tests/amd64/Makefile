@@ -4,10 +4,11 @@ SUBDIR=	${LIBDIR} accept access bind close close_twice connect dup \
 	dup_and_close execve exit fcntl fork fstat fstatfs getdirentries \
 	getegid geteuid getgid getpeername_error getpeername_family \
 	getpeername_path getpeername_server getpid getresuid_ruid \
-	getresuid_euid getresuid_suid getsockname_family gettimeofday_dsttime \
-	gettimeofday_minuteswest gettimeofday_sec gettimeofday_usec getuid \
-	ioctl issetugid kill listen lseek lstat open poll_in poll_out \
-	poll_timeout pread read readlink select select2 sigaction socket stat \
-	wait4_rusage wait4_status wait4_successful write writev
+	getresuid_euid getresuid_suid getsockname_family getsockname_server \
+	gettimeofday_dsttime gettimeofday_minuteswest gettimeofday_sec \
+	gettimeofday_usec getuid ioctl issetugid kill listen lseek lstat open \
+	poll_in poll_out poll_timeout pread read readlink select select2 \
+	sigaction socket stat wait4_rusage wait4_status wait4_successful write \
+	writev
 
 .include <bsd.subdir.mk>
