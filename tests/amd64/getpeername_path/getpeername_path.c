@@ -1,35 +1,30 @@
 #include <tiny_runtime.h>
 
-struct sockaddr_storage addr, addr2;
+static struct sockaddr_storage addr;
+
+static int
+callback(int s)
+{
+	struct sockaddr_un *paddr;
+	socklen_t namelen;
+	int error;
+
+	paddr = (struct sockaddr_un *)&addr;
+	namelen = sizeof(addr);
+	error = getpeername(s, (struct sockaddr *)paddr, &namelen);
+	if (error != 0)
+		return (error);
+	tr_print_str(paddr->sun_path);
+
+	return (0);
+}
 
 int
 main(int argc, const char *argv[])
 {
-	struct sockaddr_un *paddr, *paddr2;
-	size_t len;
-	socklen_t namelen;
-	int error, sock;
+	int error;
 
-	sock = socket(AF_LOCAL, SOCK_STREAM, 0);
-	if (sock == -1)
-		return (1);
-	paddr = (struct sockaddr_un *)&addr;
-	paddr->sun_family = PF_LOCAL;
-	strcpy(paddr->sun_path, argv[1]);
-	paddr->sun_len = SUN_LEN(paddr);
-	error = connect(sock, (struct sockaddr *)&addr, paddr->sun_len);
-	if (error != 0)
-		return (1);
+	error = tr_run_client_server(argv[1], NULL, callback);
 
-	paddr2 = (struct sockaddr_un *)&addr2;
-	namelen = sizeof(addr2);
-	error = getpeername(sock, (struct sockaddr *)paddr2, &namelen);
-	if (error != 0)
-		return (2);
-	len = strlen(paddr2->sun_path);
-	write(1, paddr2->sun_path, len);
-
-	close(sock);
-
-	return (0);
+	return (error);
 }

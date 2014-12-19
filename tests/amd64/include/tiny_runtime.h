@@ -20,6 +20,7 @@
 #include <unistd.h>
 
 void	print_num(long);
+void	tr_print_str(const char *);
 
 typedef int (*tr_accept_callback)(int, struct sockaddr *, socklen_t);
 typedef int (*tr_connect_callback)(int);
