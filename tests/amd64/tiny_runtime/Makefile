@@ -1,6 +1,7 @@
 
 LIB=	libtiny_runtime.a
-SRCS=	tiny_runtime.S sigsetops.c tr_run_client_server.c tr_print_str.c
+SRCS=	tiny_runtime.S sigsetops.c tr_run_client_server.c tr_print_str.c \
+	tr_print_num.c
 LST=	${.ALLSRC:M*.S:.S=.lst}
 OBJS=	${SRCS:S/.c$/.o/:S/.S$/.o/}
 

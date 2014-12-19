@@ -1,5 +1,4 @@
 %include "sys.inc"
-%include "../lib/print_num.S"
 %include "../lib/strlen.S"
 %include "../lib/strcpy.S"
 
