@@ -166,6 +166,17 @@ class SlaveHelper {
         protected abstract SyscallResult.Accept doSyscall(int s, int addrlen) throws IOException;
     }
 
+    private class GetpeernameProc extends AbstractAcceptProc {
+
+        protected Command getRetCommand() {
+            return Command.RET_GETPEERNAME;
+        }
+
+        protected SyscallResult.Accept doSyscall(int s, int addrlen) throws IOException {
+            return mSlave.doGetpeername(s, addrlen);
+        }
+    }
+
     private class GetsocknameProc extends AbstractAcceptProc {
 
         protected Command getRetCommand() {
@@ -421,6 +432,7 @@ class SlaveHelper {
         dispatcher.addEntry(Command.CALL_SIGACTION, new SigactionProc());
         dispatcher.addEntry(Command.CALL_ACCEPT, new AcceptProc());
         dispatcher.addEntry(Command.CALL_GETSOCKNAME, new GetsocknameProc());
+        dispatcher.addEntry(Command.CALL_GETPEERNAME, new GetpeernameProc());
         @DISPATCHES@;
         return dispatcher;
     }

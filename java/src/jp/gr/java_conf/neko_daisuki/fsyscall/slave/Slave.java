@@ -1014,6 +1014,32 @@ class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Accept doGetpeername(int s, int namelen) throws IOException {
+        String fmt = "getpeername(s=%d, namelen=%d)";
+        mLogger.info(String.format(fmt, s, namelen));
+        SyscallResult.Accept result = new SyscallResult.Accept();
+
+        UnixFile file = getFile(s);
+        if (file == null) {
+            result.setError(Errno.EBADF);
+            return result;
+        }
+        Socket socket;
+        try {
+            socket = (Socket)file;
+        }
+        catch (ClassCastException _) {
+            result.setError(Errno.ENOTSOCK);
+            return result;
+        }
+
+        SocketAddress addr = socket.getPeer().getName();
+        result.addr = addr;
+        result.addrlen = addr.length();
+
+        return result;
+    }
+
     public SyscallResult.Accept doGetsockname(int s, int namelen) throws IOException {
         String fmt = "getsockname(s=%d, namelen=%d)";
         mLogger.info(String.format(fmt, s, namelen));
