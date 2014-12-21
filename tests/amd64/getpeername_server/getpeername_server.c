@@ -1,6 +1,6 @@
 #include <tiny_runtime.h>
 
-static struct sockaddr_storage addr;
+static struct sockaddr_storage storage;
 
 static int
 callback(int s, struct sockaddr *addr, socklen_t addrlen)
@@ -9,8 +9,8 @@ callback(int s, struct sockaddr *addr, socklen_t addrlen)
 	socklen_t namelen;
 	int error;
 
-	paddr = (struct sockaddr_un *)&addr;
-	namelen = sizeof(addr);
+	paddr = (struct sockaddr_un *)&storage;
+	namelen = sizeof(storage);
 	error = getpeername(s, (struct sockaddr *)paddr, &namelen);
 	if (error != 0)
 		return (error);
