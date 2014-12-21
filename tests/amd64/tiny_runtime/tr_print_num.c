@@ -11,11 +11,11 @@ tr_print_num(long n)
 	*p = '\0';
 
 	m = n;
-	while (0 < m) {
+	do {
 		p--;
 		*p = digits[m % 10];
 		m /= 10;
-	}
+	} while (0 < m);
 
 	tr_print_str(p);
 }
