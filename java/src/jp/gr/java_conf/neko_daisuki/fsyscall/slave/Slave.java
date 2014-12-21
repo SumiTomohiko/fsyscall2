@@ -66,6 +66,19 @@ class Slave implements Runnable {
         ZOMBIE
     }
 
+    private static class GetSocketException extends Exception {
+
+        private Errno mErrno;
+
+        public GetSocketException(Errno errno) {
+            mErrno = errno;
+        }
+
+        public Errno getErrno() {
+            return mErrno;
+        }
+    }
+
     private abstract static interface SelectPred {
 
         public boolean isReady(UnixFile file) throws UnixException;
@@ -897,19 +910,14 @@ class Slave implements Runnable {
 
     public SyscallResult.Generic32 doListen(int s, int backlog) throws IOException {
         mLogger.info(String.format("listen(s=%d, backlog=%d)", s, backlog));
-
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
-        UnixFile file = getFile(s);
-        if (file == null) {
-            result.setError(Errno.EBADF);
-            return result;
-        }
+
         Socket sock;
         try {
-            sock = (Socket)file;
+            sock = getSocket(s);
         }
-        catch (ClassCastException _) {
-            result.setError(Errno.ENOTSOCK);
+        catch (GetSocketException e) {
+            result.setError(e.getErrno());
             return result;
         }
         try {
@@ -1019,17 +1027,12 @@ class Slave implements Runnable {
         mLogger.info(String.format(fmt, s, namelen));
         SyscallResult.Accept result = new SyscallResult.Accept();
 
-        UnixFile file = getFile(s);
-        if (file == null) {
-            result.setError(Errno.EBADF);
-            return result;
-        }
         Socket socket;
         try {
-            socket = (Socket)file;
+            socket = getSocket(s);
         }
-        catch (ClassCastException _) {
-            result.setError(Errno.ENOTSOCK);
+        catch (GetSocketException e) {
+            result.setError(e.getErrno());
             return result;
         }
 
@@ -1045,17 +1048,12 @@ class Slave implements Runnable {
         mLogger.info(String.format(fmt, s, namelen));
         SyscallResult.Accept result = new SyscallResult.Accept();
 
-        UnixFile file = getFile(s);
-        if (file == null) {
-            result.setError(Errno.EBADF);
-            return result;
-        }
         Socket socket;
         try {
-            socket = (Socket)file;
+            socket = getSocket(s);
         }
-        catch (ClassCastException _) {
-            result.setError(Errno.ENOTSOCK);
+        catch (GetSocketException e) {
+            result.setError(e.getErrno());
             return result;
         }
 
@@ -1070,17 +1068,12 @@ class Slave implements Runnable {
         mLogger.info(String.format("accept(s=%d, addrlen=%d)", s, addrlen));
         SyscallResult.Accept result = new SyscallResult.Accept();
 
-        UnixFile file = getFile(s);
-        if (file == null) {
-            result.setError(Errno.EBADF);
-            return result;
-        }
         Socket socket;
         try {
-            socket = (Socket)file;
+            socket = getSocket(s);
         }
-        catch (ClassCastException _) {
-            result.setError(Errno.ENOTSOCK);
+        catch (GetSocketException e) {
+            result.setError(e.getErrno());
             return result;
         }
 
@@ -1170,16 +1163,14 @@ class Slave implements Runnable {
         mLogger.info(String.format(fmt, s, addr, addrlen));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        UnixFile file = getFile(s);
-        if (file == null) {
-            result.setError(Errno.EBADF);
+        Socket sock;
+        try {
+            sock = getSocket(s);
+        }
+        catch (GetSocketException e) {
+            result.setError(e.getErrno());
             return result;
         }
-        if (!(file instanceof Socket)) {
-            result.setError(Errno.ENOTSOCK);
-            return result;
-        }
-        Socket sock = (Socket)file;
         try {
             sock.bind(addr);
         }
@@ -1197,18 +1188,12 @@ class Slave implements Runnable {
         mLogger.info(String.format(fmt, s, name, namelen));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        UnixFile file = getFile(s);
-        if (file == null) {
-            result.retval = -1;
-            result.errno = Errno.EBADF;
-            return result;
-        }
         Socket sock;
         try {
-            sock = (Socket)file;
+            sock = getSocket(s);
         }
-        catch (ClassCastException _) {
-            result.setError(Errno.ENOTSOCK);
+        catch (GetSocketException e) {
+            result.setError(e.getErrno());
             return result;
         }
         Errno err = Errno.ENOSYS;
@@ -1831,6 +1816,21 @@ class Slave implements Runnable {
     private void writeSignaled(Signal sig) throws IOException {
         mOut.write(Command.SIGNALED);
         mOut.write((byte)sig.getNumber());
+    }
+
+    private Socket getSocket(int fd) throws GetSocketException {
+        UnixFile file = getFile(fd);
+        if (file == null) {
+            throw new GetSocketException(Errno.EBADF);
+        }
+        Socket sock;
+        try {
+            sock = (Socket)file;
+        }
+        catch (ClassCastException _) {
+            throw new GetSocketException(Errno.ENOTSOCK);
+        }
+        return sock;
     }
 
     private void initialize(Application application, Pid pid, InputStream hubIn,
