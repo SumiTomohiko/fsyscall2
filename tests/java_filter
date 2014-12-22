@@ -32,7 +32,8 @@ excludes = [
         StrictPattern("test_uid"),
         StrictPattern("test_gid"),
         StrictPattern("test_euid"),
-        StrictPattern("test_egid")
+        StrictPattern("test_egid"),
+        StrictPattern("test_connect")
         ]
 
 name = basename(argv[1])
