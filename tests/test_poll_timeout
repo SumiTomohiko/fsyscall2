@@ -1,21 +1,7 @@
 
-name="test_poll_timeout"
-timeouttestd="${tests_dir}/timeouttestd/timeouttestd"
-fifofile="${tmp_dir}/${name}.fifo"
-pidfile="${tmp_dir}/${name}.pid"
-
-precmd() {
-	mkfifo "${fifofile}"
-	${timeouttestd} --fifo-file "${fifofile}" --pid-file "${pidfile}"
-}
-
-postcmd() {
-	kill -TERM $(cat "${pidfile}")
-	rm -f "${fifofile}" "${pidfile}"
-}
-
 cmd="poll_timeout/poll_timeout"
-args="${fifofile}"
+sockfile="${tmp_dir}/test_poll_timeout.sock"
+args="${sockfile}"
 expected_status="0"
 
 # vim: filetype=sh
