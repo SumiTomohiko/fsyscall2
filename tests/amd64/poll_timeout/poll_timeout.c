@@ -17,7 +17,7 @@ main(int argc, const char *argv[])
 	fds[0].fd = fd;
 	fds[0].events = POLLIN;
 	fds[0].revents = 0;
-	n = poll(fds, sizeof(fds) / sizeof(fds[0]), 100);
+	n = poll(fds, sizeof(fds) / sizeof(fds[0]), 100 /* msec */);
 	if (n != 0)
 		return (3);
 
