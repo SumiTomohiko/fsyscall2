@@ -43,7 +43,13 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
-class Slave implements Runnable {
+/**
+ * The class for fsyscall process.
+ *
+ * The Slave class must be public because the NexecClient is using the
+ * Slave.Listener.
+ */
+public class Slave implements Runnable {
 
     public interface Listener {
 
