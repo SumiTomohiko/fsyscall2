@@ -50,13 +50,27 @@ public class Signal {
         mName = name;
     }
 
-    public static Signal valueOf(int signum) {
-        return mSignals.get(signum);
+    public static Signal valueOf(int signum) throws UnixException {
+        Signal signal = mSignals.get(signum);
+        if (signal == null) {
+            throw new UnixException(Errno.EINVAL);
+        }
+        return signal;
     }
 
     public static String toString(int signum) {
-        Signal signal = valueOf(signum);
-        return signal != null ? signal.getName() : "invalid";
+        Signal signal;
+        try {
+            signal = valueOf(signum);
+        }
+        catch (UnixException unused) {
+            return "invalid";
+        }
+        return signal.getName();
+    }
+
+    public String toString() {
+        return String.format("Signal(number=%d, name=%s)", mNumber, mName);
     }
 
     public String getName() {

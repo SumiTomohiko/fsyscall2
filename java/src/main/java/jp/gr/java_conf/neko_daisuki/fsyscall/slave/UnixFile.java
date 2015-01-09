@@ -1,6 +1,7 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
+import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 
 abstract class UnixFile {
 

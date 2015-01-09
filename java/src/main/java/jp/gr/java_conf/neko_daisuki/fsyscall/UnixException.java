@@ -1,8 +1,6 @@
-package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
+package jp.gr.java_conf.neko_daisuki.fsyscall;
 
-import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
-
-class UnixException extends Exception {
+public class UnixException extends Exception {
 
     private Errno mErrno;
 

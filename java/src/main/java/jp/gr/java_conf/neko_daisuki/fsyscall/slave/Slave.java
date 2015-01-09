@@ -1,9 +1,7 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -23,16 +21,13 @@ import java.util.TimeZone;
 //import com.sun.security.auth.module.UnixSystem;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
-import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
-import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFds;
-import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Sigaction;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
@@ -40,6 +35,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.SocketAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
+import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
@@ -883,9 +879,12 @@ public class Slave implements Runnable {
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        Signal signal = Signal.valueOf(sig);
-        if (signal == null) {
-            result.setError(Errno.EINVAL);
+        Signal signal;
+        try {
+            signal = Signal.valueOf(sig);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
             return result;
         }
         if (act.sa_handler == Sigaction.Handler.ACTIVE) {

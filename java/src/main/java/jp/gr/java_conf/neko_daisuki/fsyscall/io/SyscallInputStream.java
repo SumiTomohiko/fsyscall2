@@ -14,6 +14,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Sigaction;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.IoVec;
+import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 
 public class SyscallInputStream {
 
@@ -127,22 +128,35 @@ public class SyscallInputStream {
         return iovec;
     }
 
-    public SignalSet readSignalSet() throws IOException {
+    public SignalSet readSignalSet() throws IOException, UnixException {
         Collection<Signal> c = new HashSet<Signal>();
 
-        for (int i = 0; i < 4; i++) {
+        UnixException ue = null;
+        for (int index = 0; index < 4; index++) {
             long bits = readLong();
-            for (int j = 0; j < 5; j++) {
-                if ((bits & (1 << j)) != 0) {
-                    c.add(Signal.valueOf(i << 5 + j + 1));
+            for (int bit = 0; bit < 5; bit++) {
+                if ((bits & (1 << bit)) == 0) {
+                    continue;
                 }
+                Signal signal;
+                try {
+                    signal = Signal.valueOf(5 * index + bit + 1);
+                }
+                catch (UnixException e) {
+                    ue = e;
+                    continue;
+                }
+                c.add(signal);
             }
+        }
+        if (ue != null) {
+            throw ue;
         }
 
         return new SignalSet(c);
     }
 
-    public Sigaction readSigaction() throws IOException {
+    public Sigaction readSigaction() throws IOException, UnixException {
         Sigaction act = new Sigaction();
 
         act.sa_handler = ACTCODE2HANDLER[readInteger()];
