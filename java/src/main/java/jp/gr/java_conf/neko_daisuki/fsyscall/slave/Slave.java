@@ -243,11 +243,15 @@ public class Slave implements Runnable {
                       Socket peer) {
             this(domain, type, protocol);
             mName = name;
-            mPeer = peer;
+            setPeer(peer);
         }
 
         public Socket getPeer() {
             return mPeer;
+        }
+
+        public void setPeer(Socket peer) {
+            mPeer = peer;
         }
 
         public int getDomain() {
@@ -395,7 +399,7 @@ public class Slave implements Runnable {
             Pair clientPair = new Pair(in, out);
             request.setPair(clientPair);
             Socket peer = request.getPeer();
-            peer.mPeer = this;
+            peer.setPeer(this);
             synchronized (request) {
                 request.notifyAll();
             }
@@ -418,6 +422,13 @@ public class Slave implements Runnable {
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
             }
+        }
+    }
+
+    private class ExternalPeer extends Socket {
+
+        public ExternalPeer(int domain, int type, int protocol, SocketAddress name, Socket peer) {
+            super(domain, type, protocol, name, peer);
         }
     }
 
@@ -1210,13 +1221,17 @@ public class Slave implements Runnable {
             err = e.getErrno();
         }
 
-        SocketCore core = mListener.onConnect(sock.getDomain(), sock.getType(),
-                                              sock.getProtocol(), name);
+        int domain = sock.getDomain();
+        int type = sock.getType();
+        int protocol = sock.getProtocol();
+        SocketCore core = mListener.onConnect(domain, type, protocol, name);
         if (core == null) {
             result.setError(err);
             return result;
         }
         sock.setCore(core);
+        Socket peer = new ExternalPeer(domain, type, protocol, name, sock);
+        sock.setPeer(peer);
         result.retval = 0;
 
         return result;
