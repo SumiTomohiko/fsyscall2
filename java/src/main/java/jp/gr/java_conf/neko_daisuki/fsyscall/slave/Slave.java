@@ -355,6 +355,8 @@ public class Slave implements Runnable {
                 }
             }
             setCore(new PipeCore(request.getPair()));
+
+            // The accepting side sets mPeer of this socket.
         }
 
         public void bind(UnixDomainAddress addr) throws UnixException {
