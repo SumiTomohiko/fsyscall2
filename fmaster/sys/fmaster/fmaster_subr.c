@@ -1064,10 +1064,16 @@ find_unused_fd(struct thread *td)
 	return (i);
 }
 
-enum fmaster_fd_type
-fmaster_type_of_fd(struct thread *td, int d)
+int
+fmaster_type_of_fd(struct thread *td, int d, enum fmaster_fd_type *t)
 {
-	return (fmaster_fds_of_thread(td)[d].fd_type);
+
+	if ((d < 0) || (FD_NUM <= d))
+		return (EBADF);
+
+	*t = fmaster_fds_of_thread(td)[d].fd_type;
+
+	return (0);
 }
 
 int

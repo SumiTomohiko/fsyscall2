@@ -303,8 +303,11 @@ def size_of_bufsize(name):
     return int(m.group()) // 7 + 1
 
 def datasize_of_datatype(datatype):
-    if datatype.split()[0] == "struct":
+    t = datatype.split()[0]
+    if t == "struct":
         return 64
+    if t == "enum":
+        return 32
     DATASIZE_OF_DATATYPE = {
             "caddr_t": 64,
             "u_int": 32,
