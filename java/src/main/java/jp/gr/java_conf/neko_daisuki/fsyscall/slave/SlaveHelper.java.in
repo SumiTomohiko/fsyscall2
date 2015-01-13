@@ -25,6 +25,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.SocketAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.Constants;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
+import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
@@ -204,8 +205,15 @@ class SlaveHelper {
         public void call(Command command) throws IOException {
             PayloadSize payloadSize = mIn.readPayloadSize();
             int sig = mIn.readInteger();
-            Sigaction act = mIn.readSigaction();
-            SyscallResult.Generic32 result = mSlave.doSigaction(sig, act);
+            SyscallResult.Generic32 result;
+             try {
+                Sigaction act = mIn.readSigaction();
+                result = mSlave.doSigaction(sig, act);
+             }
+             catch (UnixException e) {
+                mLogger.err("Invalid signal requested", e);
+                result = new SyscallResult.Generic32(e.getErrno());
+             }
             writeResult(Command.RET_SIGACTION, result);
         }
     }

@@ -1,21 +1,15 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 import java.io.PrintStream;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
@@ -24,6 +18,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
+import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 
 public class Application {
 

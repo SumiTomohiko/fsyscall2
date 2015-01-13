@@ -1,9 +1,7 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -23,16 +21,13 @@ import java.util.TimeZone;
 //import com.sun.security.auth.module.UnixSystem;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
-import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
-import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFds;
-import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Sigaction;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
@@ -40,6 +35,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.SocketAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
+import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
@@ -247,11 +243,15 @@ public class Slave implements Runnable {
                       Socket peer) {
             this(domain, type, protocol);
             mName = name;
-            mPeer = peer;
+            setPeer(peer);
         }
 
         public Socket getPeer() {
             return mPeer;
+        }
+
+        public void setPeer(Socket peer) {
+            mPeer = peer;
         }
 
         public int getDomain() {
@@ -355,6 +355,8 @@ public class Slave implements Runnable {
                 }
             }
             setCore(new PipeCore(request.getPair()));
+
+            // The accepting side sets mPeer of this socket.
         }
 
         public void bind(UnixDomainAddress addr) throws UnixException {
@@ -399,7 +401,7 @@ public class Slave implements Runnable {
             Pair clientPair = new Pair(in, out);
             request.setPair(clientPair);
             Socket peer = request.getPeer();
-            peer.mPeer = this;
+            peer.setPeer(this);
             synchronized (request) {
                 request.notifyAll();
             }
@@ -422,6 +424,13 @@ public class Slave implements Runnable {
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
             }
+        }
+    }
+
+    private class ExternalPeer extends Socket {
+
+        public ExternalPeer(int domain, int type, int protocol, SocketAddress name, Socket peer) {
+            super(domain, type, protocol, name, peer);
         }
     }
 
@@ -883,9 +892,12 @@ public class Slave implements Runnable {
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        Signal signal = Signal.valueOf(sig);
-        if (signal == null) {
-            result.setError(Errno.EINVAL);
+        Signal signal;
+        try {
+            signal = Signal.valueOf(sig);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
             return result;
         }
         if (act.sa_handler == Sigaction.Handler.ACTIVE) {
@@ -1211,13 +1223,17 @@ public class Slave implements Runnable {
             err = e.getErrno();
         }
 
-        SocketCore core = mListener.onConnect(sock.getDomain(), sock.getType(),
-                                              sock.getProtocol(), name);
+        int domain = sock.getDomain();
+        int type = sock.getType();
+        int protocol = sock.getProtocol();
+        SocketCore core = mListener.onConnect(domain, type, protocol, name);
         if (core == null) {
             result.setError(err);
             return result;
         }
         sock.setCore(core);
+        Socket peer = new ExternalPeer(domain, type, protocol, name, sock);
+        sock.setPeer(peer);
         result.retval = 0;
 
         return result;
