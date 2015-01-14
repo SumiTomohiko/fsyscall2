@@ -333,8 +333,8 @@ static int
 """.format(**locals()))
     print_locals(p, local_vars)
     print_newline()
-    print_master_call(p, print_newline, syscall)
     print_pre_execute(p, print_newline, syscall)
+    print_master_call(p, print_newline, syscall)
     cmd_name = make_cmd_name(name)
     bit_num = 32 if syscall.rettype == "int" else 64
     p("""\
