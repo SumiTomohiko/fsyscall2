@@ -212,7 +212,7 @@ def print_call_tail(p, print_newline):
 
 def make_basic_local_vars(syscall):
     return [Variable("int", "error")] + (
-            [Variable("int", "type_of_fd")]
+            [Variable("enum fmaster_fd_type", "type_of_fd")]
             if find_file_descriptor_argument(syscall) is not None
             else [])
 
@@ -228,7 +228,9 @@ def print_master_call(p, print_newline, syscall):
         return
     name = drop_prefix(syscall.name)
     p("""\
-\ttype_of_fd = fmaster_type_of_fd(td, uap->{a});
+\terror = fmaster_type_of_fd(td, uap->{a}, &type_of_fd);
+\tif (error != 0)
+\t\treturn (error);
 \tif (type_of_fd == FD_CLOSED) {{
 \t\treturn (EBADF);
 \t}}
@@ -331,8 +333,8 @@ static int
 """.format(**locals()))
     print_locals(p, local_vars)
     print_newline()
-    print_master_call(p, print_newline, syscall)
     print_pre_execute(p, print_newline, syscall)
+    print_master_call(p, print_newline, syscall)
     cmd_name = make_cmd_name(name)
     bit_num = 32 if syscall.rettype == "int" else 64
     p("""\

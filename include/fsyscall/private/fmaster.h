@@ -93,8 +93,7 @@ void	fmaster_delete_data(struct fmaster_data *);
 
 void	fmaster_close_fd(struct thread *, int);
 int	fmaster_fd_of_slave_fd(struct thread *, int, int *);
-enum fmaster_fd_type
-	fmaster_type_of_fd(struct thread *, int);
+int	fmaster_type_of_fd(struct thread *, int, enum fmaster_fd_type *);
 
 int	fmaster_execute_return_generic32(struct thread *, command_t);
 int	fmaster_execute_return_generic64(struct thread *, command_t);

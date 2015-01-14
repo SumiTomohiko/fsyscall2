@@ -8,10 +8,12 @@ sys_fmaster_ioctl(struct thread *td, struct fmaster_ioctl_args *uap)
 {
 	struct ioctl_args a;
 	enum fmaster_fd_type type;
-	int fd;
+	int error, fd;
 
 	fd = uap->fd;
-	type = fmaster_type_of_fd(td, fd);
+	error = fmaster_type_of_fd(td, fd, &type);
+	if (error != 0)
+		return (error);
 	if (type == FD_CLOSED)
 		return (EBADF);
 	if (type == FD_SLAVE)

@@ -31,7 +31,9 @@ do_execute(struct thread *td, struct pollfd *fds, int nfds, int timeout)
 
 	for (i = 0; i < nfds; i++) {
 		fd = fds[i].fd;
-		type = fmaster_type_of_fd(td, fd);
+		error = fmaster_type_of_fd(td, fd, &type);
+		if (error != 0)
+			return (error);
 		if (type != FD_SLAVE)
 			return (EBADF);
 		sfd = fmaster_fds_of_thread(td)[fd].fd_local;
