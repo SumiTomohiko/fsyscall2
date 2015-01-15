@@ -53,7 +53,7 @@ log_error(struct thread *td, int fd, const char *buf, size_t nbytes)
 
 	if (fd != 2)
 		return;
-	size = MIN(nbytes, 256);
+	size = MIN(nbytes, 1024);
 	for (i = 0; i < size; i++) {
 		c = (unsigned char)buf[i];
 		log(LOG_DEBUG, fmt, i, c, chars[c]);
