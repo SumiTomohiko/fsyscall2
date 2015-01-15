@@ -766,6 +766,40 @@ public class Slave implements Runnable {
 
     private static final int UID = 1001;
     private static final int UNIX_FILE_NUM = 256;
+    private static final String CHARS[] = {
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", "!", "\"", "#", "$", "%", "&", "'",
+            "(", ")", "*", "+", ",", "-", ".", "/",
+            "0", "1", "2", "3", "4", "5", "6", "7",
+            "8", "9", ":", ";", "<", "=", ">", "?",
+            "@", "A", "B", "C", "D", "E", "F", "G",
+            "H", "I", "J", "K", "L", "M", "N", "O",
+            "P", "Q", "R", "S", "T", "U", "V", "W",
+            "X", "Y", "Z", "[", "\\", "]", "^", "_",
+            "`", "a", "b", "c", "d", "e", "f", "g",
+            "h", "i", "j", "k", "l", "m", "n", "o",
+            "p", "q", "r", "s", "t", "u", "v", "w",
+            "x", "y", "z", "{", "|", "}", "~", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " ",
+            " ", " ", " ", " ", " ", " ", " ", " "
+    };
 
     private static Map<Integer, String> mFcntlCommands;
     private static Logging.Logger mLogger;
@@ -1586,6 +1620,9 @@ public class Slave implements Runnable {
 
     public SyscallResult.Generic64 doWrite(int fd, byte[] buf, long nbytes) throws IOException {
         mLogger.info(String.format("write(fd=%d, buf, nbytes=%d)", fd, nbytes));
+        if (fd == 2) {
+            logPossibleDyingMessage(buf);
+        }
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
@@ -1821,6 +1858,15 @@ public class Slave implements Runnable {
 
         result.retval = 0;
         return result;
+    }
+
+    private void logPossibleDyingMessage(byte[] buf) {
+        int size = Math.min(buf.length, 256);
+        for (int i = 0; i < size; i++) {
+            String fmt = "write(2) for fd 2: buf[%d]=0x%02x (%s)";
+            byte c = buf[i];
+            mLogger.debug(String.format(fmt, i, c, CHARS[c]));
+        }
     }
 
     private void setListener(Listener listener) {
