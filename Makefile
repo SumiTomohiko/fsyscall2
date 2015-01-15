@@ -35,13 +35,13 @@ install-slave:
 	@sync
 
 java:
-	@cd $(JAVADIR) && ant
+	@cd $(JAVADIR) && ./gradlew build
 	@sync
 	@sync
 	@sync
 
 java-clean:
-	@rm -rf $(JAVADIR)/bin
+	@rm -rf $(JAVADIR)/build
 
 syscalls:
 	@python3 tools/makesyscalls.py
