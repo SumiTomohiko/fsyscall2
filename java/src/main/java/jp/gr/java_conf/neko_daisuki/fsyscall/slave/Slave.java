@@ -983,6 +983,11 @@ public class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Generic32 doDup2(long from, long to) throws IOException {
+        mLogger.info(String.format("dup2(from=%d, to=%d)", from, to));
+        return dup2((int)from, (int)to);
+    }
+
     public SyscallResult.Generic32 doOpen(String path, int flags, int mode) throws IOException {
         String fmt = "open(path=%s, flags=%d, mode=%d)";
         mLogger.info(String.format(fmt, path, flags, mode));
@@ -1743,6 +1748,10 @@ public class Slave implements Runnable {
         }
     }
 
+    private void registerFileAt(UnixFile file, int at) {
+        mFiles[at] = file;
+    }
+
     private int registerFile(UnixFile file) throws UnixException {
         int fd;
         synchronized (mFiles) {
@@ -1750,7 +1759,7 @@ public class Slave implements Runnable {
             if (fd < 0) {
                 throw new UnixException(Errno.ENFILE);
             }
-            mFiles[fd] = file;
+            registerFileAt(file, fd);
         }
         return fd;
     }
@@ -1899,6 +1908,36 @@ public class Slave implements Runnable {
             throw new GetSocketException(Errno.ENOTSOCK);
         }
         return sock;
+    }
+
+    private SyscallResult.Generic32 dup2(int from, int to) throws IOException {
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        UnixFile file = getFile(from);
+        if (file == null) {
+            result.setError(Errno.EBADF);
+            return result;
+        }
+
+        if (from == to) {
+            return result;
+        }
+
+        UnixFile old = getFile(to);
+        if (old != null) {
+            try {
+                old.close();
+            }
+            catch (UnixException e) {
+                result.setError(e.getErrno());
+                return result;
+            }
+        }
+
+        file.acquire();
+        registerFileAt(file, to);
+
+        return result;
     }
 
     private void initialize(Application application, Pid pid, InputStream hubIn,
