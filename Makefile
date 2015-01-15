@@ -4,6 +4,7 @@ SUBDIR= 	lib fmhub fmaster $(SLAVEDIR) tests
 DOCDIR=		doc
 JAVADIR=	java
 JAVASRCDIR=	java/src/main/java
+JAVABUILDER=	./gradlew
 
 test:
 	@sync
@@ -36,13 +37,13 @@ install-slave:
 	@sync
 
 java:
-	@cd $(JAVADIR) && ./gradlew build
+	@cd $(JAVADIR) && $(JAVABUILDER) build
 	@sync
 	@sync
 	@sync
 
 java-clean:
-	@rm -rf $(JAVADIR)/build
+	@cd $(JAVADIR) && $(JAVABUILDER) clean
 
 syscalls:
 	@python3 tools/makesyscalls.py
