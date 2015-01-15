@@ -34,4 +34,6 @@ task preCompile(type: Exec) {
 }
 compileJava.dependsOn preCompile
 
+jar.baseName = 'fsyscall-slave'
+
 // vim: filetype=groovy tabstop=4 shiftwidth=4 expandtab softtabstop=4
