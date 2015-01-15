@@ -106,6 +106,8 @@ int	fmaster_execute_accept_protocol(struct thread *, const char *,
 					command_t, command_t, int,
 					struct sockaddr *, socklen_t *);
 int	fmaster_register_fd(struct thread *, enum fmaster_fd_type, int, int *);
+int	fmaster_register_fd_at(struct thread *td, enum fmaster_fd_type type,
+			       int mfd, int sfd);
 int	fmaster_return_fd(struct thread *, enum fmaster_fd_type, int);
 
 int	fmaster_is_master_file(struct thread *, const char *);

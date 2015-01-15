@@ -1078,24 +1078,32 @@ fmaster_type_of_fd(struct thread *td, int d, enum fmaster_fd_type *t)
 }
 
 int
-fmaster_register_fd(struct thread *td, enum fmaster_fd_type type, int d, int *virtual_fd)
+fmaster_register_fd_at(struct thread *td, enum fmaster_fd_type type, int d, int at)
 {
 	struct fmaster_fd *fd;
 	const char *fmt = "fmaster[%d]: fd %d on %s has been registered as fd %"
 			  "d\n";
 	const char *side;
 
-	*virtual_fd = find_unused_fd(td);
-	if (*virtual_fd == FD_NUM)
-		return (EMFILE);
-	fd = &fmaster_fds_of_thread(td)[*virtual_fd];
+	fd = &fmaster_fds_of_thread(td)[at];
 	fd->fd_type = type;
 	fd->fd_local = d;
 
 	side = type == FD_SLAVE ? "slave" : "master";
-	log(LOG_DEBUG, fmt, td->td_proc->p_pid, d, side, *virtual_fd);
+	log(LOG_DEBUG, fmt, td->td_proc->p_pid, d, side, at);
 
 	return (0);
+}
+
+int
+fmaster_register_fd(struct thread *td, enum fmaster_fd_type type, int d, int *virtual_fd)
+{
+
+	*virtual_fd = find_unused_fd(td);
+	if (*virtual_fd == FD_NUM)
+		return (EMFILE);
+
+	return (fmaster_register_fd_at(td, type, d, *virtual_fd));
 }
 
 int

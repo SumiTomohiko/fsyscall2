@@ -203,7 +203,10 @@ SYSCALLS = {
         "fmaster_listen": {
             "s": Argument(fd=True)
             },
-        "fmaster_kill": {}
+        "fmaster_kill": {},
+        "fmaster_dup2": {
+            "from": Argument(fd=True)
+            }
         }
 
 FMASTER_SYSCALLS = SYSCALLS
@@ -219,13 +222,13 @@ DUMMY_SYSCALLS = [
         "fmaster_chroot", "fmaster_msync", "fmaster_vfork", "fmaster_ovadvise",
         "fmaster_getgroups", "fmaster_setgroups", "fmaster_getpgrp",
         "fmaster_setpgid", "fmaster_setitimer", "fmaster_getitimer",
-        "fmaster_dup2", "fmaster_fsync", "fmaster_setpriority",
-        "fmaster_getpriority", "fmaster_setsockopt", "fmaster_getrusage",
-        "fmaster_getsockopt", "fmaster_readv", "fmaster_settimeofday",
-        "fmaster_fchown", "fmaster_fchmod", "fmaster_setreuid",
-        "fmaster_setregid", "fmaster_rename", "fmaster_flock", "fmaster_mkfifo",
-        "fmaster_sendto", "fmaster_shutdown", "fmaster_socketpair",
-        "fmaster_mkdir", "fmaster_rmdir", "fmaster_utimes", "fmaster_adjtime",
+        "fmaster_fsync", "fmaster_setpriority", "fmaster_getpriority",
+        "fmaster_setsockopt", "fmaster_getrusage", "fmaster_getsockopt",
+        "fmaster_readv", "fmaster_settimeofday", "fmaster_fchown",
+        "fmaster_fchmod", "fmaster_setreuid", "fmaster_setregid",
+        "fmaster_rename", "fmaster_flock", "fmaster_mkfifo", "fmaster_sendto",
+        "fmaster_shutdown", "fmaster_socketpair", "fmaster_mkdir",
+        "fmaster_rmdir", "fmaster_utimes", "fmaster_adjtime",
         "fmaster_quotactl", "fmaster_nlm_syscall", "fmaster_nfssvc",
         "fmaster_lgetfh", "fmaster_getfh", "fmaster_rtprio", "fmaster_semsys",
         "fmaster_msgsys", "fmaster_shmsys", "fmaster_setfib",

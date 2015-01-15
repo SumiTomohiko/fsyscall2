@@ -220,6 +220,7 @@ fslave/fslave
 fslave/fslave_access.c
 fslave/fslave_close.c
 fslave/fslave_dup.c
+fslave/fslave_dup2.c
 fslave/fslave_fcntl.c
 fslave/fslave_fstat.c
 fslave/fslave_getegid.c
