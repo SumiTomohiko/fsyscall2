@@ -1,0 +1,5 @@
+
+cmd="dup2_nothing/dup2_nothing"
+expected_status="0"
+
+# vim: filetype=sh

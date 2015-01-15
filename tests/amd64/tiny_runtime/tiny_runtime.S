@@ -67,6 +67,7 @@ defsyscall	sigaction
 defsyscall	sigprocmask
 defsyscall	kill
 defsyscall	sigwait
+defsyscall	dup2
 
 global _start
 _start:

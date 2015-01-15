@@ -268,6 +268,10 @@ tests/amd64/bind/bind
 tests/amd64/close_twice/close_twice
 tests/amd64/connect/connect
 tests/amd64/dup/dup
+tests/amd64/dup2/dup2
+tests/amd64/dup2_EBADF/dup2_EBADF
+tests/amd64/dup2_in_use/dup2_in_use
+tests/amd64/dup2_nothing/dup2_nothing
 tests/amd64/dup_and_close/dup_and_close
 tests/amd64/execve/execve
 tests/amd64/fcntl/fcntl
