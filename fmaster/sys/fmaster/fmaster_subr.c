@@ -88,6 +88,7 @@ fmaster_is_master_file(struct thread *td, const char *path)
 		"/var/db/fontconfig/",
 	};
 	const char *files[] = {
+		"/dev/null",
 		"/dev/urandom",
 		"/etc/nsswitch.conf",
 		"/etc/pwd.db",
