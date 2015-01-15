@@ -3,6 +3,7 @@ SLAVEDIR=	fshub fslave
 SUBDIR= 	lib fmhub fmaster $(SLAVEDIR) tests
 DOCDIR=		doc
 JAVADIR=	java
+JAVASRCDIR=	java/src/main/java
 
 test:
 	@sync
@@ -48,6 +49,14 @@ syscalls:
 
 tests-clean:
 	@cd tests && make clean
+
+prepare:
+	@ln -s $(JAVASRCDIR)/jp/gr/java_conf/neko_daisuki/fsyscall \
+		jp.gr.java_conf.neko_daisuki.fsyscall
+	@ln -s $(JAVASRCDIR)/jp/gr/java_conf/neko_daisuki/fsyscall/io \
+		jp.gr.java_conf.neko_daisuki.fsyscall.io
+	@ln -s $(JAVASRCDIR)/jp/gr/java_conf/neko_daisuki/fsyscall/slave \
+		jp.gr.java_conf.neko_daisuki.fsyscall.slave
 
 .PHONY: $(DOCDIR) $(JAVADIR)
 
