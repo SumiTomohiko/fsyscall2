@@ -125,6 +125,7 @@ public class Slave implements Runnable {
             default:
                 throw new UnixException(Errno.EINVAL);
             }
+            file.acquire();
 
             return file;
         }
