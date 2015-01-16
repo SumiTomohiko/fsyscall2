@@ -1638,28 +1638,26 @@ public class Slave implements Runnable {
 
     public SyscallResult.Generic32 doClose(int fd) throws IOException {
         mLogger.info(String.format("close(fd=%d)", fd));
-
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        UnixFile file = getFile(fd);
-        if (file == null) {
-            result.retval = -1;
-            result.errno = Errno.EBADF;
-            return result;
+        synchronized (mFiles) {
+            UnixFile file = getFile(fd);
+            if (file == null) {
+                result.setError(Errno.EBADF);
+                return result;
+            }
+
+            try {
+                file.close();
+            }
+            catch (UnixException e) {
+                result.setError(e.getErrno());
+                return result;
+            }
+
+            mFiles[fd] = null;
         }
 
-        try {
-            file.close();
-        }
-        catch (UnixException e) {
-            result.retval = -1;
-            result.errno = e.getErrno();
-            return result;
-        }
-
-        mFiles[fd] = null;
-
-        result.retval = 0;
         return result;
     }
 
