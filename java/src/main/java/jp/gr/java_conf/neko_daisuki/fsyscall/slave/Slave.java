@@ -1757,7 +1757,7 @@ public class Slave implements Runnable {
         synchronized (mFiles) {
             fd = findFreeSlotOfFile();
             if (fd < 0) {
-                throw new UnixException(Errno.ENFILE);
+                throw new UnixException(Errno.EMFILE);
             }
             registerFileAt(file, fd);
         }
