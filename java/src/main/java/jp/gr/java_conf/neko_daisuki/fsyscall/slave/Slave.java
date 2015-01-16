@@ -63,6 +63,92 @@ public class Slave implements Runnable {
                                     SocketAddress addr);
     }
 
+    private interface FileRegisteringCallback {
+
+        public UnixFile call() throws UnixException;
+    }
+
+    private class DupCallback implements FileRegisteringCallback {
+
+        private UnixFile mFile;
+
+        public DupCallback(UnixFile file) {
+            mFile = file;
+        }
+
+        public UnixFile call() throws UnixException {
+            mFile.acquire();
+            return mFile;
+        }
+    }
+
+    private class SocketCallback implements FileRegisteringCallback {
+
+        private int mDomain;
+        private int mType;
+        private int mProtocol;
+
+        public SocketCallback(int domain, int type, int protocol) {
+            mDomain = domain;
+            mType = type;
+            mProtocol = protocol;
+        }
+
+        public UnixFile call() throws UnixException {
+            UnixFile file = new Socket(mDomain, mType, mProtocol);
+            file.acquire();
+            return file;
+        }
+    }
+
+    private class OpenCallback implements FileRegisteringCallback {
+
+        private String mPath;
+        private int mFlags;
+
+        public OpenCallback(String path, int flags) {
+            mPath = path;
+            mFlags = flags;
+        }
+
+        public UnixFile call() throws UnixException {
+            UnixFile file;
+
+            switch (mFlags & Unix.Constants.O_ACCMODE) {
+            case Unix.Constants.O_RDONLY:
+                file = new UnixInputFile(mPath);
+                break;
+            case Unix.Constants.O_WRONLY:
+                // XXX: Here ignores O_CREAT.
+                file = new UnixOutputFile(mPath);
+                break;
+            default:
+                throw new UnixException(Errno.EINVAL);
+            }
+
+            return file;
+        }
+    }
+
+    private class AcceptCallback implements FileRegisteringCallback {
+
+        private Socket mSocket;
+        private Socket mClientSocket;
+
+        public AcceptCallback(Socket socket) {
+            mSocket = socket;
+        }
+
+        public UnixFile call() throws UnixException {
+            mClientSocket = mSocket.accept();
+            return mClientSocket;
+        }
+
+        public Socket getClientSocket() {
+            return mClientSocket;
+        }
+    }
+
     private enum State {
         NORMAL,
         ZOMBIE
@@ -1134,18 +1220,17 @@ public class Slave implements Runnable {
             return result;
         }
 
-        Socket clientSocket;
+        AcceptCallback callback = new AcceptCallback(socket);
         int fd;
         try {
-            clientSocket = socket.accept();
-            fd = registerFile(clientSocket);
+            fd = registerFile(callback);
         }
         catch (UnixException e) {
             result.setError(e.getErrno());
             return result;
         }
 
-        SocketAddress addr = clientSocket.getPeer().getName();
+        SocketAddress addr = callback.getClientSocket().getPeer().getName();
         result.retval = fd;
         result.addr = addr;
         result.addrlen = addr.length();
@@ -1319,11 +1404,11 @@ public class Slave implements Runnable {
         mLogger.info(String.format(fmt, domain, type, protocol));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        UnixFile file = new Socket(domain, type, protocol);
-        file.acquire();
+        FileRegisteringCallback callback = new SocketCallback(domain, type,
+                                                              protocol);
         int fd;
         try {
-            fd = registerFile(file);
+            fd = registerFile(callback);
         }
         catch (UnixException e) {
             result.setError(e.getErrno());
@@ -1536,10 +1621,10 @@ public class Slave implements Runnable {
             return result;
         }
 
-        file.acquire();
+        FileRegisteringCallback callback = new DupCallback(file);
         int newfd;
         try {
-            newfd = registerFile(file);
+            newfd = registerFile(callback);
         }
         catch (UnixException e) {
             result.setError(e.getErrno());
@@ -1752,14 +1837,14 @@ public class Slave implements Runnable {
         mFiles[at] = file;
     }
 
-    private int registerFile(UnixFile file) throws UnixException {
+    private int registerFile(FileRegisteringCallback callback) throws UnixException {
         int fd;
         synchronized (mFiles) {
             fd = findFreeSlotOfFile();
             if (fd < 0) {
                 throw new UnixException(Errno.EMFILE);
             }
-            registerFileAt(file, fd);
+            registerFileAt(callback.call(), fd);
         }
         return fd;
     }
@@ -1767,7 +1852,6 @@ public class Slave implements Runnable {
     private SyscallResult.Generic32 openActualFile(String path, int flags, int mode) throws IOException {
         String fmt = "open actual file: %s";
         mLogger.info(String.format(fmt, path, flags, mode));
-
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         if (!mPermissions.isAllowed(path)) {
@@ -1776,30 +1860,10 @@ public class Slave implements Runnable {
             return result;
         }
 
-        UnixFile file;
-        try {
-            switch (flags & Unix.Constants.O_ACCMODE) {
-            case Unix.Constants.O_RDONLY:
-                file = new UnixInputFile(path);
-                break;
-            case Unix.Constants.O_WRONLY:
-                // XXX: Here ignores O_CREAT.
-                file = new UnixOutputFile(path);
-                break;
-            default:
-                result.retval = -1;
-                result.errno = Errno.EINVAL;
-                return result;
-            }
-        }
-        catch (UnixException e) {
-            result.retval = -1;
-            result.errno = e.getErrno();
-            return result;
-        }
+        FileRegisteringCallback callback = new OpenCallback(path, flags);
         int fd;
         try {
-            fd = registerFile(file);
+            fd = registerFile(callback);
         }
         catch (UnixException e) {
             result.setError(e.getErrno());
