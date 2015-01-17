@@ -1,5 +1,8 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 
@@ -29,10 +32,19 @@ abstract class UnixFile {
     private Closer mCloser;
     private boolean mNonBlocking = false;
     private boolean mCloseOnExec = false;
+    private Lock mLock = new ReentrantReadWriteLock().writeLock();
 
     public UnixFile() {
         mRefCount = 1;
         mCloser = new TrueCloser();
+    }
+
+    public void lock() {
+        mLock.lock();
+    }
+
+    public void unlock() {
+        mLock.unlock();
     }
 
     public void setCloseOnExec(boolean closeOnExec) {

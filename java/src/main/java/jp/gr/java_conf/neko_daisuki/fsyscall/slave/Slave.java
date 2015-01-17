@@ -1053,7 +1053,7 @@ public class Slave implements Runnable {
 
         Socket sock;
         try {
-            sock = getSocket(s);
+            sock = getLockedSocket(s);
         }
         catch (GetSocketException e) {
             result.setError(e.getErrno());
@@ -1065,6 +1065,9 @@ public class Slave implements Runnable {
         catch (UnixException e) {
             result.setError(e.getErrno());
             return result;
+        }
+        finally {
+            sock.unlock();
         }
 
         return result;
@@ -1084,31 +1087,36 @@ public class Slave implements Runnable {
 
     public SyscallResult.Read doRead(int fd, long nbytes) throws IOException {
         mLogger.info(String.format("read(fd=%d, nbytes=%d)", fd, nbytes));
-
         SyscallResult.Read result = new SyscallResult.Read();
 
-        UnixFile file = getFile(fd);
+        UnixFile file = getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
             return result;
         }
 
-        /*
-         * This implementation cannot handle the nbytes parameter which is
-         * greater than maximum value of int (2^30 - 1).
-         */
-        byte[] buffer = new byte[(int)nbytes];
+        byte[] buffer;
         try {
-            result.retval = file.read(buffer);
+            /*
+             * This implementation cannot handle the nbytes parameter which is
+             * greater than maximum value of int (2^30 - 1).
+             */
+            buffer = new byte[(int)nbytes];
+            try {
+                result.retval = file.read(buffer);
+            }
+            catch (UnixException e) {
+                result.setError(e.getErrno());
+                return result;
+            }
         }
-        catch (UnixException e) {
-            result.retval = -1;
-            result.errno = e.getErrno();
-            return result;
+        finally {
+            file.unlock();
         }
 
         result.buf = Arrays.copyOf(buffer, (int)result.retval);
+
         return result;
     }
 
@@ -1118,7 +1126,7 @@ public class Slave implements Runnable {
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
-        UnixFile file = getFile(fd);
+        UnixFile file = getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
@@ -1130,12 +1138,15 @@ public class Slave implements Runnable {
             pos = file.lseek(offset, whence);
         }
         catch (UnixException e) {
-            result.retval =-1;
-            result.errno = e.getErrno();
+            result.setError(e.getErrno());
             return result;
+        }
+        finally {
+            file.unlock();
         }
 
         result.retval = pos;
+
         return result;
     }
 
@@ -1145,24 +1156,30 @@ public class Slave implements Runnable {
 
         SyscallResult.Pread result = new SyscallResult.Pread();
 
-        UnixFile file = getFile(fd);
+        UnixFile file = getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
             return result;
         }
 
-        byte[] buffer = new byte[(int)nbyte];
+        byte[] buffer;
         try {
-            result.retval = file.pread(buffer, offset);
+            buffer = new byte[(int)nbyte];
+            try {
+                result.retval = file.pread(buffer, offset);
+            }
+            catch (UnixException e) {
+                result.setError(e.getErrno());
+                return result;
+            }
         }
-        catch (UnixException e) {
-            result.retval = -1;
-            result.errno = e.getErrno();
-            return result;
+        finally {
+            file.unlock();
         }
 
         result.buf = Arrays.copyOf(buffer, (int)result.retval);
+
         return result;
     }
 
@@ -1173,16 +1190,21 @@ public class Slave implements Runnable {
 
         Socket socket;
         try {
-            socket = getSocket(s);
+            socket = getLockedSocket(s);
         }
         catch (GetSocketException e) {
             result.setError(e.getErrno());
             return result;
         }
 
-        SocketAddress addr = socket.getPeer().getName();
-        result.addr = addr;
-        result.addrlen = addr.length();
+        try {
+            SocketAddress addr = socket.getPeer().getName();
+            result.addr = addr;
+            result.addrlen = addr.length();
+        }
+        finally {
+            socket.unlock();
+        }
 
         return result;
     }
@@ -1194,16 +1216,21 @@ public class Slave implements Runnable {
 
         Socket socket;
         try {
-            socket = getSocket(s);
+            socket = getLockedSocket(s);
         }
         catch (GetSocketException e) {
             result.setError(e.getErrno());
             return result;
         }
 
-        SocketAddress addr = socket.getName();
-        result.addr = addr;
-        result.addrlen = addr.length();
+        try {
+            SocketAddress addr = socket.getName();
+            result.addr = addr;
+            result.addrlen = addr.length();
+        }
+        finally {
+            socket.unlock();
+        }
 
         return result;
     }
@@ -1214,21 +1241,27 @@ public class Slave implements Runnable {
 
         Socket socket;
         try {
-            socket = getSocket(s);
+            socket = getLockedSocket(s);
         }
         catch (GetSocketException e) {
             result.setError(e.getErrno());
             return result;
         }
 
-        AcceptCallback callback = new AcceptCallback(socket);
         int fd;
+        AcceptCallback callback;
         try {
-            fd = registerFile(callback);
+            callback = new AcceptCallback(socket);
+            try {
+                fd = registerFile(callback);
+            }
+            catch (UnixException e) {
+                result.setError(e.getErrno());
+                return result;
+            }
         }
-        catch (UnixException e) {
-            result.setError(e.getErrno());
-            return result;
+        finally {
+            socket.unlock();
         }
 
         SocketAddress addr = callback.getClientSocket().getPeer().getName();
@@ -1274,7 +1307,7 @@ public class Slave implements Runnable {
 
         SyscallResult.Fstat result = new SyscallResult.Fstat();
 
-        UnixFile file = getFile(fd);
+        UnixFile file = getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
@@ -1285,12 +1318,13 @@ public class Slave implements Runnable {
             result.sb = file.fstat();
         }
         catch (UnixException e) {
-            result.retval = -1;
-            result.errno = e.getErrno();
+            result.setError(e.getErrno());
             return result;
         }
+        finally {
+            file.unlock();
+        }
 
-        result.retval = 0;
         return result;
     }
 
@@ -1308,7 +1342,7 @@ public class Slave implements Runnable {
 
         Socket sock;
         try {
-            sock = getSocket(s);
+            sock = getLockedSocket(s);
         }
         catch (GetSocketException e) {
             result.setError(e.getErrno());
@@ -1320,6 +1354,9 @@ public class Slave implements Runnable {
         catch (UnixException e) {
             result.setError(e.getErrno());
             return result;
+        }
+        finally {
+            sock.unlock();
         }
 
         return result;
@@ -1333,33 +1370,37 @@ public class Slave implements Runnable {
 
         Socket sock;
         try {
-            sock = getSocket(s);
+            sock = getLockedSocket(s);
         }
         catch (GetSocketException e) {
             result.setError(e.getErrno());
             return result;
         }
-        Errno err = Errno.ENOSYS;
         try {
-            sock.connect(name);
-            return result;
-        }
-        catch (UnixException e) {
-            err = e.getErrno();
-        }
+            Errno err = Errno.ENOSYS;
+            try {
+                sock.connect(name);
+                return result;
+            }
+            catch (UnixException e) {
+                err = e.getErrno();
+            }
 
-        int domain = sock.getDomain();
-        int type = sock.getType();
-        int protocol = sock.getProtocol();
-        SocketCore core = mListener.onConnect(domain, type, protocol, name);
-        if (core == null) {
-            result.setError(err);
-            return result;
+            int domain = sock.getDomain();
+            int type = sock.getType();
+            int protocol = sock.getProtocol();
+            SocketCore core = mListener.onConnect(domain, type, protocol, name);
+            if (core == null) {
+                result.setError(err);
+                return result;
+            }
+            sock.setCore(core);
+            Socket peer = new ExternalPeer(domain, type, protocol, name, sock);
+            sock.setPeer(peer);
         }
-        sock.setCore(core);
-        Socket peer = new ExternalPeer(domain, type, protocol, name, sock);
-        sock.setPeer(peer);
-        result.retval = 0;
+        finally {
+            sock.unlock();
+        }
 
         return result;
     }
@@ -1369,32 +1410,36 @@ public class Slave implements Runnable {
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        UnixFile file = getFile(fd);
+        UnixFile file = getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
             return result;
         }
 
-        int nBytes = 0;
-        for (Unix.IoVec v: iovec) {
-            nBytes += v.iov_base.length;
-        }
-        byte[] buffer = new byte[nBytes];
-        int pos = 0;
-        for (Unix.IoVec v: iovec) {
-            int len = v.iov_base.length;
-            System.arraycopy(v.iov_base, 0, buffer, pos, len);
-            pos += len;
-        }
-
         try {
-            result.retval = file.write(buffer);
+            int nBytes = 0;
+            for (Unix.IoVec v: iovec) {
+                nBytes += v.iov_base.length;
+            }
+            byte[] buffer = new byte[nBytes];
+            int pos = 0;
+            for (Unix.IoVec v: iovec) {
+                int len = v.iov_base.length;
+                System.arraycopy(v.iov_base, 0, buffer, pos, len);
+                pos += len;
+            }
+
+            try {
+                result.retval = file.write(buffer);
+            }
+            catch (UnixException e) {
+                result.setError(e.getErrno());
+                return result;
+            }
         }
-        catch (UnixException e) {
-            result.retval = -1;
-            result.errno = e.getErrno();
-            return result;
+        finally {
+            file.unlock();
         }
 
         return result;
@@ -1445,16 +1490,21 @@ public class Slave implements Runnable {
             for (PollFd fd: fds) {
                 try {
                     UnixFile file = getValidFile(fd.getFd());
-                    int events = fd.getEvents();
-                    if ((events & Unix.Constants.POLLIN) != 0) {
-                        if (file.isReadyToRead()) {
-                            fd.addRevents(Unix.Constants.POLLIN);
+                    try {
+                        int events = fd.getEvents();
+                        if ((events & Unix.Constants.POLLIN) != 0) {
+                            if (file.isReadyToRead()) {
+                                fd.addRevents(Unix.Constants.POLLIN);
+                            }
+                        }
+                        if ((events & Unix.Constants.POLLOUT) != 0) {
+                            if (file.isReadyToWrite()) {
+                                fd.addRevents(Unix.Constants.POLLOUT);
+                            }
                         }
                     }
-                    if ((events & Unix.Constants.POLLOUT) != 0) {
-                        if (file.isReadyToWrite()) {
-                            fd.addRevents(Unix.Constants.POLLOUT);
-                        }
+                    finally {
+                        file.unlock();
                     }
                 }
                 catch (UnixException e) {
@@ -1598,14 +1648,19 @@ public class Slave implements Runnable {
         mLogger.info(String.format(fmt, fd, cmd, name, arg, s));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        UnixFile file = getFile(fd);
+        UnixFile file = getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
             return result;
         }
 
-        mFcntlProcs.run(result, file, fd, cmd, arg);
+        try {
+            mFcntlProcs.run(result, file, fd, cmd, arg);
+        }
+        finally {
+            file.unlock();
+        }
 
         return result;
     }
@@ -1615,21 +1670,26 @@ public class Slave implements Runnable {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         int d = (int)oldd;
-        UnixFile file = getFile(d);
+        UnixFile file = getLockedFile(d);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
             return result;
         }
 
-        FileRegisteringCallback callback = new DupCallback(file);
         int newfd;
         try {
-            newfd = registerFile(callback);
+            FileRegisteringCallback callback = new DupCallback(file);
+            try {
+                newfd = registerFile(callback);
+            }
+            catch (UnixException e) {
+                result.setError(e.getErrno());
+                return result;
+            }
         }
-        catch (UnixException e) {
-            result.setError(e.getErrno());
-            return result;
+        finally {
+            file.unlock();
         }
 
         result.retval = newfd;
@@ -1642,7 +1702,7 @@ public class Slave implements Runnable {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         synchronized (mFiles) {
-            UnixFile file = getFile(fd);
+            UnixFile file = getLockedFile(fd);
             if (file == null) {
                 result.setError(Errno.EBADF);
                 return result;
@@ -1654,6 +1714,9 @@ public class Slave implements Runnable {
             catch (UnixException e) {
                 result.setError(e.getErrno());
                 return result;
+            }
+            finally {
+                file.unlock();
             }
 
             mFiles[fd] = null;
@@ -1715,7 +1778,7 @@ public class Slave implements Runnable {
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
-        UnixFile file = getFile(fd);
+        UnixFile file = getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
@@ -1726,9 +1789,11 @@ public class Slave implements Runnable {
             result.retval = file.write(buf);
         }
         catch (UnixException e) {
-            result.retval = -1;
-            result.errno = e.getErrno();
+            result.setError(e.getErrno());
             return result;
+        }
+        finally {
+            file.unlock();
         }
 
         return result;
@@ -1806,17 +1871,30 @@ public class Slave implements Runnable {
         return i < len ? i : -1;
     }
 
-    private UnixFile getFile(int fd) {
+    /**
+     * Returns a file of <var>fd</var> or null. A returned file is locked. You
+     * M_U_S_T unlock this.
+     */
+    private UnixFile getLockedFile(int fd) {
+        UnixFile file;
         try {
-            return mFiles[fd];
+            file = mFiles[fd];
         }
-        catch (IndexOutOfBoundsException _) {
+        catch (IndexOutOfBoundsException unused) {
             return null;
         }
+        if (file != null) {
+            file.lock();
+        }
+        return file;
     }
 
+    /**
+     * Returns a file of <var>fd</var> or throws an exception. A returned file
+     * is locked. You M_U_S_T unlock this.
+     */
     private UnixFile getValidFile(int fd) throws UnixException {
-        UnixFile file = getFile(fd);
+        UnixFile file = getLockedFile(fd);
         if (file == null) {
             throw new UnixException(Errno.EBADF);
         }
@@ -1826,8 +1904,13 @@ public class Slave implements Runnable {
     private void selectFds(Collection<Integer> dest, Collection<Integer> src, SelectPred pred) throws UnixException {
         for (Integer fd: src) {
             UnixFile file = getValidFile(fd.intValue());
-            if (pred.isReady(file)) {
-                dest.add(fd);
+            try {
+                if (pred.isReady(file)) {
+                    dest.add(fd);
+                }
+            }
+            finally {
+                file.unlock();
             }
         }
     }
@@ -1958,8 +2041,12 @@ public class Slave implements Runnable {
         mOut.write((byte)sig.getNumber());
     }
 
-    private Socket getSocket(int fd) throws GetSocketException {
-        UnixFile file = getFile(fd);
+    /**
+     * Returns a file of <var>fd</var> as a Socket. A returned socket is locked.
+     * You M_U_S_T unlock this.
+     */
+    private Socket getLockedSocket(int fd) throws GetSocketException {
+        UnixFile file = getLockedFile(fd);
         if (file == null) {
             throw new GetSocketException(Errno.EBADF);
         }
@@ -1968,6 +2055,7 @@ public class Slave implements Runnable {
             sock = (Socket)file;
         }
         catch (ClassCastException _) {
+            file.unlock();
             throw new GetSocketException(Errno.ENOTSOCK);
         }
         return sock;
@@ -1976,29 +2064,39 @@ public class Slave implements Runnable {
     private SyscallResult.Generic32 dup2(int from, int to) throws IOException {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        UnixFile file = getFile(from);
-        if (file == null) {
-            result.setError(Errno.EBADF);
-            return result;
-        }
-
-        if (from == to) {
-            return result;
-        }
-
-        UnixFile old = getFile(to);
-        if (old != null) {
-            try {
-                old.close();
-            }
-            catch (UnixException e) {
-                result.setError(e.getErrno());
+        synchronized (mFiles) {
+            UnixFile file = getLockedFile(from);
+            if (file == null) {
+                result.setError(Errno.EBADF);
                 return result;
             }
-        }
 
-        file.acquire();
-        registerFileAt(file, to);
+            try {
+                if (from == to) {
+                    return result;
+                }
+
+                UnixFile old = getLockedFile(to);
+                if (old != null) {
+                    try {
+                        old.close();
+                    }
+                    catch (UnixException e) {
+                        result.setError(e.getErrno());
+                        return result;
+                    }
+                    finally {
+                        old.unlock();
+                    }
+                }
+
+                file.acquire();
+                registerFileAt(file, to);
+            }
+            finally {
+                file.unlock();
+            }
+        }
 
         return result;
     }
