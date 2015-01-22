@@ -123,7 +123,11 @@ fsyscall_payload_add_sockaddr(struct payload *payload, struct sockaddr *name)
 	if (error != 0)
 		return (error);
 	path = addr->sun_path;
-	len = addr->sun_len - offsetof(struct sockaddr_un, sun_path);
+	/*
+	 * Some applications do not set sun_len. I must measure size of the
+	 * socket address manually.
+	 */
+	len = strlen(path);
 	error = fsyscall_payload_add_data_with_length(payload, path, len);
 	if (error != 0)
 		return (error);
