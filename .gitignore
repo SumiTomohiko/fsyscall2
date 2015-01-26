@@ -265,6 +265,9 @@ tests/*/read/read
 tests/*/write/write
 tests/amd64/accept/accept
 tests/amd64/bind/bind
+tests/amd64/chdir/chdir
+tests/amd64/chdir_error/chdir_error
+tests/amd64/chdir_open/chdir_open
 tests/amd64/close_twice/close_twice
 tests/amd64/connect/connect
 tests/amd64/dup/dup

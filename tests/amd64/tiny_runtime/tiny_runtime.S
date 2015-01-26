@@ -68,6 +68,7 @@ defsyscall	sigprocmask
 defsyscall	kill
 defsyscall	sigwait
 defsyscall	dup2
+defsyscall	chdir
 
 global _start
 _start:
