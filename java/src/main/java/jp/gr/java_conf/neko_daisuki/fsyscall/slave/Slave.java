@@ -888,9 +888,11 @@ public class Slave implements Runnable {
             " ", " ", " ", " ", " ", " ", " ", " "
     };
 
+    // static helpers
     private static Map<Integer, String> mFcntlCommands;
     private static Logging.Logger mLogger;
 
+    // settings
     private Application mApplication;
     private SyscallInputStream mIn;
     private SyscallOutputStream mOut;
@@ -898,6 +900,7 @@ public class Slave implements Runnable {
     private Links mLinks;
     private Listener mListener;
 
+    // states
     private Pid mPid;
     private State mState = State.NORMAL;
     private String mCurrentDirectory;
@@ -906,6 +909,7 @@ public class Slave implements Runnable {
     private SignalSet mActiveSignals;
     private Integer mExitStatus;
 
+    // helpers
     private SlaveHelper mHelper;
     private FcntlProcs mFcntlProcs;
     private boolean mCancelled = false;
