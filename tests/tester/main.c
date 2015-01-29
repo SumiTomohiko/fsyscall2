@@ -1,3 +1,4 @@
+#include <sys/param.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <assert.h>
@@ -37,17 +38,20 @@ usage()
 static void
 start_java_slave(int rfd, int wfd, int _, char *__[])
 {
-	char *argv[7], rbuf[32], wbuf[32];
+	char *argv[8], rbuf[32], wbuf[32], dir[MAXPATHLEN];
 
 	snprintf(rbuf, sizeof(rbuf), "%d", rfd);
 	snprintf(wbuf, sizeof(wbuf), "%d", wfd);
+	if (getwd(dir) == NULL)
+		die(1, "getwd(2) failed");
 	argv[0] = "java";
 	argv[1] = "-classpath";
 	argv[2] = "java/build/libs/fsyscall-slave.jar";
 	argv[3] = "jp.gr.java_conf.neko_daisuki.fsyscall.slave.Application";
 	argv[4] = rbuf;
 	argv[5] = wbuf;
-	argv[6] = NULL;
+	argv[6] = dir;
+	argv[7] = NULL;
 	execvp(argv[0], argv);
 	die(1, "failed to execvp");
 }

@@ -900,6 +900,7 @@ public class Slave implements Runnable {
 
     private Pid mPid;
     private State mState = State.NORMAL;
+    private String mCurrentDirectory;
     private UnixFile[] mFiles;
     private SignalSet mPendingSignals = new SignalSet();
     private SignalSet mActiveSignals;
@@ -910,9 +911,9 @@ public class Slave implements Runnable {
     private boolean mCancelled = false;
 
     public Slave(Application application, Pid pid, InputStream hubIn,
-                 OutputStream hubOut, InputStream stdin, OutputStream stdout,
-                 OutputStream stderr, Permissions permissions, Links links,
-                 Listener listener) throws IOException {
+                 OutputStream hubOut, String currentDirectory,
+                 InputStream stdin, OutputStream stdout, OutputStream stderr,
+                 Permissions permissions, Links links, Listener listener) throws IOException {
         mLogger.info("a slave is starting.");
 
         UnixFile[] files = new UnixFile[UNIX_FILE_NUM];
@@ -920,8 +921,8 @@ public class Slave implements Runnable {
         files[1] = new UnixOutputStream(stdout);
         files[2] = new UnixOutputStream(stderr);
 
-        initialize(application, pid, hubIn, hubOut, files, permissions, links,
-                   listener, new SignalSet());
+        initialize(application, pid, hubIn, hubOut, currentDirectory, files,
+                   permissions, links, listener, new SignalSet());
 
         writeOpenedFileDescriptors();
         mLogger.verbose("file descripters were transfered from the slave.");
@@ -931,10 +932,11 @@ public class Slave implements Runnable {
      * Constructor for fork(2).
      */
     public Slave(Application application, Pid pid, InputStream hubIn,
-                 OutputStream hubOut, UnixFile[] files, Permissions permissions,
-                 Links links, Listener listener, SignalSet activeSignals) {
-        initialize(application, pid, hubIn, hubOut, files, permissions, links,
-                   listener, activeSignals.clone());
+                 OutputStream hubOut, String currentDirectory, UnixFile[] files,
+                 Permissions permissions, Links links, Listener listener,
+                 SignalSet activeSignals) {
+        initialize(application, pid, hubIn, hubOut, currentDirectory, files,
+                   permissions, links, listener, activeSignals.clone());
     }
 
     public void kill(Signal sig) throws UnixException {
@@ -1807,8 +1809,9 @@ public class Slave implements Runnable {
         for (int i = 0; i < len; i++) {
             files[i] = mFiles[i];
         }
-        Slave slave = mApplication.newSlave(pairId, files, mPermissions, mLinks,
-                                            mListener, mActiveSignals);
+        Slave slave = mApplication.newSlave(pairId, mCurrentDirectory, files,
+                                            mPermissions, mLinks, mListener,
+                                            mActiveSignals);
         new Thread(slave).start();
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
@@ -2102,9 +2105,10 @@ public class Slave implements Runnable {
     }
 
     private void initialize(Application application, Pid pid, InputStream hubIn,
-                            OutputStream hubOut, UnixFile[] files,
-                            Permissions permissions, Links links,
-                            Listener listener, SignalSet activeSignals) {
+                            OutputStream hubOut, String currentDirectory,
+                            UnixFile[] files, Permissions permissions,
+                            Links links, Listener listener,
+                            SignalSet activeSignals) {
         mApplication = application;
         mPid = pid;
         mIn = new SyscallInputStream(hubIn);
@@ -2112,6 +2116,7 @@ public class Slave implements Runnable {
         mPermissions = permissions;
         mLinks = links;
         setListener(listener);
+        mCurrentDirectory = currentDirectory;
         mFiles = files;
         mActiveSignals = activeSignals;
 

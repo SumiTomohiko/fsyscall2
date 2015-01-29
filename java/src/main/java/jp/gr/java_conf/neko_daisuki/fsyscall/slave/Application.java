@@ -146,17 +146,18 @@ public class Application {
     private boolean mCancelled = false;
     private LocalBoundSockets mLocalBoundSockets = new LocalBoundSockets();
 
-    public Slave newSlave(PairId pairId, UnixFile[] files,
-                          Permissions permissions, Links links,
-                          Slave.Listener listener, SignalSet activeSignals) throws IOException {
+    public Slave newSlave(PairId pairId, String currentDirectory,
+                          UnixFile[] files, Permissions permissions,
+                          Links links, Slave.Listener listener,
+                          SignalSet activeSignals) throws IOException {
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
 
         InputStream slaveIn = hub2slave.getInputStream();
         OutputStream slaveOut = slave2hub.getOutputStream();
         Slave slave = new Slave(this, mPidGenerator.next(), slaveIn, slaveOut,
-                                files, permissions, links, listener,
-                                activeSignals);
+                                currentDirectory, files, permissions, links,
+                                listener, activeSignals);
         addSlave(slave);
 
         InputStream hubIn = slave2hub.getInputStream();
@@ -166,7 +167,7 @@ public class Application {
         return slave;
     }
 
-    public int run(InputStream in, OutputStream out, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links, Slave.Listener listener) throws IOException, InterruptedException {
+    public int run(InputStream in, OutputStream out, String currentDirectory, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links, Slave.Listener listener) throws IOException, InterruptedException {
         mLogger.info("starting a slave application");
 
         Pipe slave2hub = new Pipe();
@@ -174,7 +175,7 @@ public class Application {
         Slave slave = new Slave(
                 this, mPidGenerator.next(),
                 hub2slave.getInputStream(), slave2hub.getOutputStream(),
-                stdin, stdout, stderr,
+                currentDirectory, stdin, stdout, stderr,
                 permissions, links, listener);
         addSlave(slave);
         mSlaveHub = new SlaveHub(
@@ -319,7 +320,7 @@ public class Application {
         Permissions perm = new Permissions(true);
         Links links = new Links();
         try {
-            exitStatus = app.run(in, out, stdin, stdout, stderr, perm, links, null);
+            exitStatus = app.run(in, out, args[2], stdin, stdout, stderr, perm, links, null);
         }
         catch (Throwable e) {
             e.printStackTrace();
