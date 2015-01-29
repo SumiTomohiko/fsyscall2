@@ -1080,6 +1080,21 @@ public class Slave implements Runnable {
         return dup2((int)from, (int)to);
     }
 
+    public SyscallResult.Generic32 doChdir(String path) throws IOException {
+        mLogger.info(String.format("chdir(path=%s)", path));
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        File file = getFileUnderCurrentDirectory(path);
+        if (!file.isDirectory()) {
+            result.setError(file.exists() ? Errno.ENOTDIR : Errno.ENOENT);
+            return result;
+        }
+
+        mCurrentDirectory = file.getCanonicalPath();
+
+        return result;
+    }
+
     public SyscallResult.Generic32 doOpen(String path, int flags, int mode) throws IOException {
         String fmt = "open(path=%s, flags=%d, mode=%d)";
         mLogger.info(String.format(fmt, path, flags, mode));
@@ -2062,6 +2077,11 @@ public class Slave implements Runnable {
             throw new GetSocketException(Errno.ENOTSOCK);
         }
         return sock;
+    }
+
+    private File getFileUnderCurrentDirectory(String path) {
+        return path.startsWith("/") ? new File(path)
+                                    : new File(mCurrentDirectory, path);
     }
 
     private SyscallResult.Generic32 dup2(int from, int to) throws IOException {
