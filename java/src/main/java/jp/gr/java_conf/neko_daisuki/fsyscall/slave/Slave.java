@@ -1099,7 +1099,9 @@ public class Slave implements Runnable {
         String fmt = "open(path=%s, flags=%d, mode=%d)";
         mLogger.info(String.format(fmt, path, flags, mode));
 
-        return openActualFile(mLinks.get(path), flags, mode);
+        File file = getFileUnderCurrentDirectory(path);
+
+        return openActualFile(mLinks.get(file.getCanonicalPath()), flags, mode);
     }
 
     public SyscallResult.Read doRead(int fd, long nbytes) throws IOException {
@@ -1949,18 +1951,18 @@ public class Slave implements Runnable {
         return fd;
     }
 
-    private SyscallResult.Generic32 openActualFile(String path, int flags, int mode) throws IOException {
+    private SyscallResult.Generic32 openActualFile(String absPath, int flags, int mode) throws IOException {
         String fmt = "open actual file: %s";
-        mLogger.info(String.format(fmt, path, flags, mode));
+        mLogger.info(String.format(fmt, absPath, flags, mode));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        if (!mPermissions.isAllowed(path)) {
+        if (!mPermissions.isAllowed(absPath)) {
             result.retval = -1;
             result.errno = Errno.ENOENT;
             return result;
         }
 
-        FileRegisteringCallback callback = new OpenCallback(path, flags);
+        FileRegisteringCallback callback = new OpenCallback(absPath, flags);
         int fd;
         try {
             fd = registerFile(callback);
