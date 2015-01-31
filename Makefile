@@ -67,5 +67,6 @@ ia: install-all
 im: install-master
 is: install-slave
 j: java
+ca: clean all
 
 .include <bsd.subdir.mk>
