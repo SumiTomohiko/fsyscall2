@@ -1,6 +1,6 @@
 
 cmd="chdir_open/chdir_open"
-args="$(pwd)/tests/song"
+args="${PWD}/tests/song"
 expected_status="0"
 
 # vim: filetype=sh
