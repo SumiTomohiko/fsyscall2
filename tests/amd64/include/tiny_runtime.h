@@ -13,6 +13,7 @@
 #include <sys/resource.h>
 #include <sys/select.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/un.h>
@@ -24,7 +25,9 @@ void	tr_print_str(const char *);
 #define	print_num	tr_print_num
 
 typedef int (*tr_accept_callback)(int, struct sockaddr *, socklen_t);
+typedef	int (*tr_chdir_callback)(const char *);
 typedef int (*tr_connect_callback)(int);
+int	tr_run_chdir_x_test(int, const char *[], tr_chdir_callback);
 int	tr_run_client_server(const char *, tr_accept_callback,
 			     tr_connect_callback);
 
