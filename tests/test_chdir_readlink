@@ -1,0 +1,16 @@
+
+cmd="chdir_readlink/chdir_readlink"
+path="${PWD}/${tmp_dir}/chdir_readlink.$$"
+expected_status="0"
+
+precmd()
+{
+	ln -s foobar "${path}"
+}
+
+postcmd()
+{
+	rm -f "${path}"
+}
+
+# vim: filetype=sh

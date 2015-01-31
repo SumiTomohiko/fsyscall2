@@ -1,0 +1,6 @@
+
+cmd="chdir_lstat/chdir_lstat"
+args="${PWD}/tests/song"
+expected_status="0"
+
+# vim: filetype=sh

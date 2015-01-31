@@ -1,0 +1,6 @@
+
+cmd="chdir_access/chdir_access"
+args="${PWD}/tests/song"
+expected_status="0"
+
+# vim: filetype=sh

@@ -33,7 +33,8 @@ excludes = [
         StrictPattern("test_gid"),
         StrictPattern("test_euid"),
         StrictPattern("test_egid"),
-        StrictPattern("test_connect")
+        StrictPattern("test_connect"),
+        StrictPattern("test_chdir_readlink")
         ]
 
 name = basename(argv[1])

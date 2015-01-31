@@ -1103,9 +1103,9 @@ public class Slave implements Runnable {
         String fmt = "open(path=%s, flags=%d, mode=%d)";
         mLogger.info(String.format(fmt, path, flags, mode));
 
-        File file = getFileUnderCurrentDirectory(path);
+        String s = getPathUnderCurrentDirectory(path);
 
-        return openActualFile(mLinks.get(file.getCanonicalPath()), flags, mode);
+        return openActualFile(mLinks.get((s)), flags, mode);
     }
 
     public SyscallResult.Read doRead(int fd, long nbytes) throws IOException {
@@ -1354,7 +1354,9 @@ public class Slave implements Runnable {
     public SyscallResult.Stat doStat(String path) throws IOException {
         mLogger.info(String.format("stat(path=%s)", path));
 
-        return statActualFile(mLinks.get(path));
+        String s = getPathUnderCurrentDirectory(path);
+
+        return statActualFile(mLinks.get(s));
     }
 
     public SyscallResult.Generic32 doBind(int s, UnixDomainAddress addr,
@@ -1624,7 +1626,9 @@ public class Slave implements Runnable {
         String fmt = "readlink(path=%s, count=%d)";
         mLogger.info(String.format(fmt, path, count));
 
-        return readlinkActualFile(mLinks.get(path), count);
+        String s = getPathUnderCurrentDirectory(path);
+
+        return readlinkActualFile(mLinks.get(s), count);
     }
 
     /**
@@ -1634,7 +1638,9 @@ public class Slave implements Runnable {
         String fmt = "access(path=%s, flags=0x%02x)";
         mLogger.info(String.format(fmt, path, flags));
 
-        return accessActualFile(mLinks.get(path), flags);
+        String s = getPathUnderCurrentDirectory(path);
+
+        return accessActualFile(mLinks.get(s), flags);
     }
 
     public SyscallResult.Generic32 doLink(String path1, String path2) throws IOException {
@@ -1981,38 +1987,45 @@ public class Slave implements Runnable {
         return result;
     }
 
-    private SyscallResult.Stat statActualFile(String path) throws IOException {
-        mLogger.info(String.format("stat actual file: %s", path));
+    private SyscallResult.Stat statActualFile(String absPath) throws IOException {
+        mLogger.info(String.format("stat actual file: %s", absPath));
 
         SyscallResult.Stat result = new SyscallResult.Stat();
 
-        if (!mPermissions.isAllowed(path)) {
+        if (!mPermissions.isAllowed(absPath)) {
             result.retval = -1;
             result.errno = Errno.ENOENT;
             return result;
         }
 
-        Unix.Stat stat = new Unix.Stat();
+        File file = new File(absPath);
+        long size;
         try {
-            stat.st_size = new File(path).length();
+            size = file.length();
         }
         catch (SecurityException e) {
             result.retval = -1;
             result.errno = Errno.EPERM;
             return result;
         }
+        if ((size == 0L) && !file.isFile()) {
+            result.setError(Errno.ENOENT);
+            return result;
+        }
+        Unix.Stat stat = new Unix.Stat();
+        stat.st_size = size;
 
         result.retval = 0;
         result.ub = stat;
         return result;
     }
 
-    private SyscallResult.Readlink readlinkActualFile(String path, long count) throws IOException {
-        mLogger.info(String.format("readlink actual file: %s", path));
+    private SyscallResult.Readlink readlinkActualFile(String absPath, long count) throws IOException {
+        mLogger.info(String.format("readlink actual file: %s", absPath));
 
         SyscallResult.Readlink result = new SyscallResult.Readlink();
 
-        if (!mPermissions.isAllowed(path)) {
+        if (!mPermissions.isAllowed(absPath)) {
             result.retval = -1;
             result.errno = Errno.ENOENT;
             return result;
@@ -2024,12 +2037,12 @@ public class Slave implements Runnable {
         return result;
     }
 
-    private SyscallResult.Generic32 accessActualFile(String path, int flags) throws IOException {
-        mLogger.info(String.format("access actual file: %s", path));
+    private SyscallResult.Generic32 accessActualFile(String absPath, int flags) throws IOException {
+        mLogger.info(String.format("access actual file: %s", absPath));
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        if (!mPermissions.isAllowed(path)) {
+        if (!mPermissions.isAllowed(absPath)) {
             result.retval = -1;
             result.errno = Errno.ENOENT;
             return result;
@@ -2088,6 +2101,10 @@ public class Slave implements Runnable {
     private File getFileUnderCurrentDirectory(String path) {
         return path.startsWith("/") ? new File(path)
                                     : new File(mCurrentDirectory, path);
+    }
+
+    private String getPathUnderCurrentDirectory(String path) throws IOException {
+        return getFileUnderCurrentDirectory(path).getCanonicalPath();
     }
 
     private SyscallResult.Generic32 dup2(int from, int to) throws IOException {

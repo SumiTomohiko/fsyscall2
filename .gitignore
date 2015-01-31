@@ -267,8 +267,12 @@ tests/*/write/write
 tests/amd64/accept/accept
 tests/amd64/bind/bind
 tests/amd64/chdir/chdir
+tests/amd64/chdir_access/chdir_access
 tests/amd64/chdir_error/chdir_error
+tests/amd64/chdir_lstat/chdir_lstat
 tests/amd64/chdir_open/chdir_open
+tests/amd64/chdir_readlink/chdir_readlink
+tests/amd64/chdir_stat/chdir_stat
 tests/amd64/close_twice/close_twice
 tests/amd64/connect/connect
 tests/amd64/dup/dup
