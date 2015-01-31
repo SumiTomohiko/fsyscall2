@@ -69,6 +69,10 @@ defsyscall	kill
 defsyscall	sigwait
 defsyscall	dup2
 defsyscall	chdir
+defsyscall	access
+defsyscall	lstat
+defsyscall	readlink
+defsyscall	stat
 
 global _start
 _start:
