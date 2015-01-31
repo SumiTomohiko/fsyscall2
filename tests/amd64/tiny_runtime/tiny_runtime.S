@@ -73,6 +73,7 @@ defsyscall	access
 defsyscall	lstat
 defsyscall	readlink
 defsyscall	stat
+defsyscall	getresgid
 
 global _start
 _start:

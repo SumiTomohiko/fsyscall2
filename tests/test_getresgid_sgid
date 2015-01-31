@@ -1,0 +1,5 @@
+
+cmd="getresgid_sgid/getresgid_sgid"
+expected_status="0"
+
+# vim: filetype=sh
