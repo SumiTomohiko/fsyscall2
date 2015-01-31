@@ -56,6 +56,7 @@ JAVA_DATATYPE_OF_C_DATATYPE = {
         "off_t": "long",
         "struct timezone *": "Unix.TimeZone",
         "uid_t *": "long",
+        "gid_t *": "long",
         "int *": "int",
         "struct rusage *": "Unix.Rusage"
         }

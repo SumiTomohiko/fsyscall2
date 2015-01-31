@@ -133,6 +133,12 @@ class Argument:
 
     is_array = property(get_is_array)
 
+GETRESXID_ARGS = {
+        "ruid": Argument(out=True),
+        "euid": Argument(out=True),
+        "suid": Argument(out=True)
+        }
+
 SYSCALLS = {
         "fmaster_read": {
             "fd": Argument(fd=True),
@@ -196,6 +202,11 @@ SYSCALLS = {
             "euid": Argument(out=True),
             "suid": Argument(out=True)
             },
+        "fmaster_getresgid": {
+            "rgid": Argument(out=True),
+            "egid": Argument(out=True),
+            "sgid": Argument(out=True)
+            },
         "fmaster_wait4": {
             "status": Argument(out=True),
             "rusage": Argument(out=True, struct=rusage)
@@ -244,19 +255,19 @@ DUMMY_SYSCALLS = [
         "fmaster_getdents", "fmaster_lchmod", "fmaster_lutimes",
         "fmaster_nstat", "fmaster_nfstat", "fmaster_nlstat", "fmaster_preadv",
         "fmaster_pwritev", "fmaster_fhopen", "fmaster_fhstat", "fmaster_getsid",
-        "fmaster_setresuid", "fmaster_setresgid", "fmaster_getresgid",
-        "fmaster_lchflags", "fmaster_sendfile", "fmaster_fhstatfs",
-        "fmaster_setcontext", "fmaster_swapcontext", "fmaster_thr_create",
-        "fmaster_thr_exit", "fmaster_thr_suspend", "fmaster_thr_wake",
-        "fmaster_thr_new", "fmaster_abort2", "fmaster_thr_set_name",
-        "fmaster_pwrite", "fmaster_truncate", "fmaster_ftruncate",
-        "fmaster_thr_kill2", "fmaster_faccessat", "fmaster_fchmodat",
-        "fmaster_fchownat", "fmaster_fexecve", "fmaster_fstatat",
-        "fmaster_futimesat", "fmaster_linkat", "fmaster_mkdirat",
-        "fmaster_mkfifoat", "fmaster_mknodat", "fmaster_openat",
-        "fmaster_readlinkat", "fmaster_renameat", "fmaster_symlinkat",
-        "fmaster_unlinkat", "fmaster_posix_openpt", "fmaster_msgctl",
-        "fmaster_lpathconf", "fmaster_getloginclass", "fmaster_setloginclass"
+        "fmaster_setresuid", "fmaster_setresgid", "fmaster_lchflags",
+        "fmaster_sendfile", "fmaster_fhstatfs", "fmaster_setcontext",
+        "fmaster_swapcontext", "fmaster_thr_create", "fmaster_thr_exit",
+        "fmaster_thr_suspend", "fmaster_thr_wake", "fmaster_thr_new",
+        "fmaster_abort2", "fmaster_thr_set_name", "fmaster_pwrite",
+        "fmaster_truncate", "fmaster_ftruncate", "fmaster_thr_kill2",
+        "fmaster_faccessat", "fmaster_fchmodat", "fmaster_fchownat",
+        "fmaster_fexecve", "fmaster_fstatat", "fmaster_futimesat",
+        "fmaster_linkat", "fmaster_mkdirat", "fmaster_mkfifoat",
+        "fmaster_mknodat", "fmaster_openat", "fmaster_readlinkat",
+        "fmaster_renameat", "fmaster_symlinkat", "fmaster_unlinkat",
+        "fmaster_posix_openpt", "fmaster_msgctl", "fmaster_lpathconf",
+        "fmaster_getloginclass", "fmaster_setloginclass"
         ]
 
 DEFAULT_ARGUMENT = Argument()
