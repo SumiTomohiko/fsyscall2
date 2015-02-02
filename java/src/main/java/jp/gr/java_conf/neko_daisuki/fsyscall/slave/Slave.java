@@ -852,6 +852,7 @@ public class Slave implements Runnable {
     }
 
     private static final int UID = 1001;
+    private static final int GID = 1001;
     private static final int UNIX_FILE_NUM = 256;
     private static final String CHARS[] = {
             " ", " ", " ", " ", " ", " ", " ", " ",
@@ -1779,15 +1780,25 @@ public class Slave implements Runnable {
         mLogger.info("getgid()");
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
         //result.retval = (int)(new UnixSystem().getGid());
-        result.retval = 1001;
+        result.retval = GID;
         return result;
     }
 
     public SyscallResult.Getresuid doGetresuid() throws IOException {
         mLogger.info("getresuid(*ruid, *euid, *suid)");
         SyscallResult.Getresuid result = new SyscallResult.Getresuid();
+
         result.ruid = result.euid = result.suid = UID;
-        result.retval = 0;
+
+        return result;
+    }
+
+    public SyscallResult.Getresgid doGetresgid() throws IOException {
+        mLogger.info("getresgid(*rgid, *egid, *sgid)");
+        SyscallResult.Getresgid result = new SyscallResult.Getresgid();
+
+        result.rgid = result.egid = result.sgid = GID;
+
         return result;
     }
 

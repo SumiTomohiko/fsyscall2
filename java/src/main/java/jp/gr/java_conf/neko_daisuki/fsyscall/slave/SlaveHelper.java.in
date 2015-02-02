@@ -451,12 +451,16 @@ class SlaveHelper {
         mOut.write(payload.toArray());
     }
 
-    private void writeError(Command command, SyscallResult.Generic32 result) throws IOException {
+    private void writeError(Command command, int retval, Errno errno) throws IOException {
         Payload payload = new Payload();
-        payload.add(result.retval);
-        payload.add(result.errno);
+        payload.add(retval);
+        payload.add(errno);
 
         writePayload(command, payload);
+    }
+
+    private void writeError(Command command, SyscallResult.Generic32 result) throws IOException {
+        writeError(command, result.retval, result.errno);
     }
 
     private void writeError(Command command, SyscallResult.Generic64 result) throws IOException {
@@ -555,14 +559,14 @@ class SlaveHelper {
         writePayload(command, payload);
     }
 
-    private void writeResult(Command command, SyscallResult.Getresuid result) throws IOException {
-        String logHead = "result (getresuid)";
+    private void writeResult(Command command, String name, int retval,
+                             Errno errno, long rxid, long exid, long sxid) throws IOException {
+        String logHead = String.format("result (%s)", name);
 
-        int retval = result.retval;
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.info(String.format(fmt, logHead, retval, result.errno));
-            writeError(command, result);
+            mLogger.info(String.format(fmt, logHead, retval, errno));
+            writeError(command, retval, errno);
             return;
         }
 
@@ -570,10 +574,20 @@ class SlaveHelper {
 
         Payload payload = new Payload();
         payload.add(retval);
-        payload.add(result.ruid);
-        payload.add(result.euid);
-        payload.add(result.suid);
+        payload.add(rxid);
+        payload.add(exid);
+        payload.add(sxid);
         writePayload(command, payload);
+    }
+
+    private void writeResult(Command command, SyscallResult.Getresgid result) throws IOException {
+        writeResult(command, "getresgid", result.retval, result.errno,
+                    result.rgid, result.egid, result.sgid);
+    }
+
+    private void writeResult(Command command, SyscallResult.Getresuid result) throws IOException {
+        writeResult(command, "getresuid", result.retval, result.errno,
+                    result.ruid, result.euid, result.suid);
     }
 
     private void writeResult(Command command, SyscallResult.Accept result) throws IOException {
