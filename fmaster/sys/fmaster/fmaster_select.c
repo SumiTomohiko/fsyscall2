@@ -259,8 +259,8 @@ read_result(struct thread *td, fd_set *readfds, fd_set *writefds, fd_set *except
 	return (0);
 }
 
-int
-sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
+static int
+fmaster_select_main(struct thread *td, struct fmaster_select_args *uap)
 {
 	struct timeval *ptimeout, timeout;
 	fd_set exceptfds, readfds, writefds;
@@ -318,4 +318,74 @@ sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
 #undef	COPYOUT
 
 	return (0);
+}
+
+static int
+log_fdset(struct thread *td, const char *name, int nd, fd_set *fdset)
+{
+	pid_t pid;
+	enum fmaster_fd_type t;
+	int error, fd, lfd;
+	const char *fmt = "fmaster[%d]: select: %s: %d (%s: %d)\n", *side;
+
+	pid = td->td_proc->p_pid;
+
+	for (fd = 0; fd < nd; fd++)
+		if (FD_ISSET(fd, fdset)) {
+			error = fmaster_type_of_fd(td, fd, &t);
+			if (error != 0)
+				return (error);
+			side = t == FD_MASTER ? "master" : "slave";
+			lfd = fmaster_fds_of_thread(td)[fd].fd_local;
+			log(LOG_DEBUG, fmt, pid, name, fd, side, lfd);
+		}
+
+	return (0);
+}
+
+static int
+log_args(struct thread *td, struct fmaster_select_args *uap)
+{
+	fd_set ex, in, ou;
+	int error, nd;
+
+	nd = uap->nd;
+
+#define	LOG_FDSET(fdset)	do {					\
+	if (uap->fdset != NULL) {					\
+		error = copyin(uap->fdset, &fdset, sizeof(fdset));	\
+		if (error != 0)						\
+			return (error);					\
+		error = log_fdset(td, #fdset, nd, &fdset);		\
+		if (error != 0)						\
+			return (error);					\
+	}								\
+} while (0)
+	LOG_FDSET(in);
+	LOG_FDSET(ou);
+	LOG_FDSET(ex);
+#undef	LOG_FDSET
+
+	return (0);
+}
+
+int
+sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
+{
+	struct timeval time_start;
+	pid_t pid;
+	int error;
+
+	pid = td->td_proc->p_pid;
+	log(LOG_DEBUG, "fmaster[%d]: select: started: nd=%d, in=%p, ou=%p, ex=%p, tv=%p\n", pid, uap->nd, uap->in, uap->ou, uap->ex, uap->tv);
+	microtime(&time_start);
+
+	error = log_args(td, uap);
+	if (error != 0)
+		return (error);
+	error = fmaster_select_main(td, uap);
+
+	fmaster_log_syscall_end(td, "select", &time_start, error);
+
+	return (error);
 }
