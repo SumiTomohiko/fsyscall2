@@ -191,7 +191,7 @@ fmaster_modevent(struct module *_, int cmd, void *__)
 		break;
 	case MOD_UNLOAD :
 		EVENTHANDLER_DEREGISTER(process_exit, fmaster_exit_tag);
-		log(LOG_INFO, "unnloaded fmaster.\n");
+		log(LOG_INFO, "unloaded fmaster.\n");
 		break;
 	default :
 		error = EOPNOTSUPP;
