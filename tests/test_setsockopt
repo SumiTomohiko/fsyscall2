@@ -1,0 +1,5 @@
+
+cmd="setsockopt/setsockopt"
+expected_status="0"
+
+# vim: filetype=sh

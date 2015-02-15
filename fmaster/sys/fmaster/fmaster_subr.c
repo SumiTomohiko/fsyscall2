@@ -954,6 +954,63 @@ IMPLEMENT_WRITE_X(
 		fsyscall_encode_int32)
 
 int
+fmaster_execute_return_optional32(struct thread *td, command_t expected_cmd, int (*callback)(struct thread *, int, payload_size_t *, void *), void *bonus)
+{
+	payload_size_t actual_payload_size, optional_payload_size, payload_size;
+	command_t cmd;
+	int errnum, errnum_len, error, retval, retval_len;
+
+	error = fmaster_read_command(td, &cmd);
+	if (error != 0)
+		return (error);
+	if (expected_cmd != cmd) {
+		log(LOG_ERR,
+		    "fmaster[%d]: command mismatched: expected=%d, actual=%d\n",
+		    td->td_proc->p_pid, expected_cmd, cmd);
+		return (EPROTO);
+	}
+	error = fmaster_read_payload_size(td, &payload_size);
+	if (error != 0)
+		return (error);
+	error = fmaster_read_int(td, &retval, &retval_len);
+	if (error != 0)
+		return (error);
+
+	if (retval == -1) {
+		error = fmaster_read_int32(td, &errnum, &errnum_len);
+		if (error != 0)
+			return (error);
+		actual_payload_size = retval_len + errnum_len;
+		if (payload_size != actual_payload_size) {
+			log(LOG_ERR,
+			    "fmaster[%d]: payload size mismatched: expected=%d,"
+			    " actual=%d\n",
+			    td->td_proc->p_pid, payload_size,
+			    actual_payload_size);
+			return (EPROTO);
+		}
+		return (errnum);
+	}
+
+	error = callback(td, retval, &optional_payload_size, bonus);
+	if (error != 0)
+		return (error);
+
+	actual_payload_size = retval_len + optional_payload_size;
+	if (payload_size != actual_payload_size) {
+		log(LOG_ERR,
+		    "fmaster[%d]: payload size mismatched: expected=%d, actual="
+		    "%d\n",
+		    td->td_proc->p_pid, payload_size, actual_payload_size);
+		return (EPROTO);
+	}
+
+	td->td_retval[0] = retval;
+
+	return (0);
+}
+
+int
 fmaster_execute_return_generic32(struct thread *td, command_t expected_cmd)
 {
 	/**
@@ -1441,6 +1498,121 @@ fmaster_schedtail(struct thread *td)
 	error = connect_to_mhub(td);
 	if (error != 0)
 		log(LOG_ERR, "Cannot connect to mhub: error=%d\n", error);
+}
+
+const char *
+fmaster_get_sockopt_name(int optname)
+{
+	switch (optname) {
+	case SO_DEBUG:
+		return "SO_DEBUG";
+	case SO_ACCEPTCONN:
+		return "SO_ACCEPTCONN";
+	case SO_REUSEADDR:
+		return "SO_REUSEADDR";
+	case SO_KEEPALIVE:
+		return "SO_KEEPALIVE";
+	case SO_DONTROUTE:
+		return "SO_DONTROUTE";
+	case SO_BROADCAST:
+		return "SO_BROADCAST";
+	case SO_USELOOPBACK:
+		return "SO_USELOOPBACK";
+	case SO_LINGER:
+		return "SO_LINGER";
+	case SO_OOBINLINE:
+		return "SO_OOBINLINE";
+	case SO_REUSEPORT:
+		return "SO_REUSEPORT";
+	case SO_TIMESTAMP:
+		return "SO_TIMESTAMP";
+	case SO_NOSIGPIPE:
+		return "SO_NOSIGPIPE";
+	case SO_ACCEPTFILTER:
+		return "SO_ACCEPTFILTER";
+	case SO_BINTIME:
+		return "SO_BINTIME";
+	case SO_NO_OFFLOAD:
+		return "SO_NO_OFFLOAD";
+	case SO_NO_DDP:
+		return "SO_NO_DDP";
+	case SO_SNDBUF:
+		return "SO_SNDBUF";
+	case SO_RCVBUF:
+		return "SO_RCVBUF";
+	case SO_SNDLOWAT:
+		return "SO_SNDLOWAT";
+	case SO_RCVLOWAT:
+		return "SO_RCVLOWAT";
+	case SO_SNDTIMEO:
+		return "SO_SNDTIMEO";
+	case SO_RCVTIMEO:
+		return "SO_RCVTIMEO";
+	case SO_ERROR:
+		return "SO_ERROR";
+	case SO_TYPE:
+		return "SO_TYPE";
+	case SO_LABEL:
+		return "SO_LABEL";
+	case SO_PEERLABEL:
+		return "SO_PEERLABEL";
+	case SO_LISTENQLIMIT:
+		return "SO_LISTENQLIMIT";
+	case SO_LISTENQLEN:
+		return "SO_LISTENQLEN";
+	case SO_LISTENINCQLEN:
+		return "SO_LISTENINCQLEN";
+	case SO_SETFIB:
+		return "SO_SETFIB";
+	case SO_USER_COOKIE:
+		return "SO_USER_COOKIE";
+	case SO_PROTOCOL:
+	/* case SO_PROTOTYPE: */
+		return "SO_PROTOCOL";
+	default:
+		break;
+	}
+
+	return "unknown option";
+}
+
+/**
+ * Writes a payload with its size.
+ */
+static int
+fmaster_write_payload(struct thread *td, struct payload *payload)
+{
+	int error, wfd;
+	payload_size_t payload_size;
+	const char *buf;
+
+	payload_size = fsyscall_payload_get_size(payload);
+	error = fmaster_write_payload_size(td, payload_size);
+	if (error != 0)
+		return (error);
+	wfd = fmaster_wfd_of_thread(td);
+	buf = fsyscall_payload_get(payload);
+	error = fmaster_write(td, wfd, buf, payload_size);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+fmaster_write_payloaded_command(struct thread *td, command_t cmd,
+				struct payload *payload)
+{
+	int error;
+
+	error = fmaster_write_command(td, cmd);
+	if (error != 0)
+		return (error);
+	error = fmaster_write_payload(td, payload);
+	if (error != 0)
+		return (error);
+
+	return (0);
 }
 
 static void selectinit(void *);

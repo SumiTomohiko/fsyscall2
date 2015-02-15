@@ -327,24 +327,32 @@ read_accept_protocol_request(struct slave *slave, int *s)
 }
 
 static void
+write_payloaded_command(struct slave *slave, command_t command,
+			struct payload *payload)
+{
+	payload_size_t payload_size;
+	int wfd;
+
+	wfd = slave->wfd;
+	payload_size = payload_get_size(payload);
+	write_command(wfd, command);
+	write_payload_size(wfd, payload_size);
+	write_or_die(wfd, payload_get(payload), payload_size);
+}
+
+static void
 write_accept_protocol_response(struct slave *slave, command_t return_command,
 			       int retval, struct sockaddr *addr,
 			       socklen_t namelen)
 {
 	struct payload *payload;
-	payload_size_t payload_size;
-	int wfd;
 
 	payload = payload_create();
 	payload_add_int(payload, retval);
 	payload_add_socklen(payload, namelen);
 	payload_add_sockaddr(payload, addr);
 
-	wfd = slave->wfd;
-	payload_size = payload_get_size(payload);
-	write_command(wfd, return_command);
-	write_payload_size(wfd, payload_size);
-	write_or_die(wfd, payload_get(payload), payload_size);
+	write_payloaded_command(slave, return_command, payload);
 
 	payload_dispose(payload);
 }
@@ -612,6 +620,102 @@ process_fork(struct slave *slave)
 }
 
 static void
+process_setsockopt(struct slave *slave)
+{
+	payload_size_t actual_payload_size, payload_size;
+	socklen_t optlen;
+	int level, level_len, n, optname, optname_len, optlen_len, optval_len;
+	int retval, rfd, s, s_len;
+	void *optval;
+
+	rfd = slave->rfd;
+	payload_size = read_payload_size(rfd);
+
+	s = read_int32(rfd, &s_len);
+	actual_payload_size = s_len;
+
+	level = read_int32(rfd, &level_len);
+	actual_payload_size += level_len;
+
+	optname = read_int32(rfd, &optname_len);
+	actual_payload_size += optname_len;
+
+	optlen = read_socklen(rfd, &optlen_len);
+	actual_payload_size += optlen_len;
+
+	switch (optname) {
+	case SO_REUSEADDR:
+		n = read_int(rfd, &optval_len);
+		actual_payload_size += optval_len;
+		optval = &n;
+		break;
+	default:
+		die(1, "Unsupported socket option specified: %s", optname);
+		break;
+	}
+
+	die_if_payload_size_mismatched(payload_size, actual_payload_size);
+
+	retval = setsockopt(s, level, optname, optval, optlen);
+
+	return_int(slave, RET_SETSOCKOPT, retval, errno);
+}
+
+static void
+process_getsockopt(struct slave *slave)
+{
+	struct payload *payload;
+	payload_size_t actual_payload_size, payload_size;
+	socklen_t optlen;
+	int level, level_len, optname, optname_len, optlen_len, retval, rfd, s;
+	int s_len;
+	void *optval;
+
+	rfd = slave->rfd;
+	payload_size = read_payload_size(rfd);
+
+	s = read_int32(rfd, &s_len);
+	actual_payload_size = s_len;
+
+	level = read_int32(rfd, &level_len);
+	actual_payload_size += level_len;
+
+	optname = read_int32(rfd, &optname_len);
+	actual_payload_size += optname_len;
+
+	optlen = read_socklen(rfd, &optlen_len);
+	actual_payload_size += optlen_len;
+
+	die_if_payload_size_mismatched(payload_size, actual_payload_size);
+
+	optval = alloca(optlen);
+	retval = getsockopt(s, level, optname, optval, &optlen);
+
+	if (retval == -1) {
+		return_int(slave, RET_GETSOCKOPT, retval, errno);
+		return;
+	}
+
+	payload = payload_create();
+	payload_add_int(payload, retval);
+
+	switch (optname) {
+	case SO_REUSEADDR:
+		payload_add_socklen(payload, optlen);
+		payload_add_int(payload, *((int *)optval));
+		break;
+	default:
+		return_int(slave, RET_GETSOCKOPT, -1, ENOPROTOOPT);
+		goto exit;
+	}
+
+	write_payloaded_command(slave, RET_GETSOCKOPT, payload);
+
+exit:
+	payload_dispose(payload);
+}
+
+static void
 process_sigaction(struct slave *slave)
 {
 	struct sigaction act;
@@ -773,6 +877,12 @@ mainloop(struct slave *slave)
 				break;
 			case CALL_POLL:
 				process_poll(slave);
+				break;
+			case CALL_GETSOCKOPT:
+				process_getsockopt(slave);
+				break;
+			case CALL_SETSOCKOPT:
+				process_setsockopt(slave);
 				break;
 			case CALL_EXIT:
 				return process_exit(slave);

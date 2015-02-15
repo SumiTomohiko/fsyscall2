@@ -85,7 +85,6 @@ fmaster/sys/fmaster/fmaster_getrlimit.c
 fmaster/sys/fmaster/fmaster_getrusage.c
 fmaster/sys/fmaster/fmaster_getsid.c
 fmaster/sys/fmaster/fmaster_getsockname.c
-fmaster/sys/fmaster/fmaster_getsockopt.c
 fmaster/sys/fmaster/fmaster_gettimeofday.c
 fmaster/sys/fmaster/fmaster_getuid.c
 fmaster/sys/fmaster/fmaster_issetugid.c
@@ -171,7 +170,6 @@ fmaster/sys/fmaster/fmaster_setresuid.c
 fmaster/sys/fmaster/fmaster_setreuid.c
 fmaster/sys/fmaster/fmaster_setrlimit.c
 fmaster/sys/fmaster/fmaster_setsid.c
-fmaster/sys/fmaster/fmaster_setsockopt.c
 fmaster/sys/fmaster/fmaster_settimeofday.c
 fmaster/sys/fmaster/fmaster_setuid.c
 fmaster/sys/fmaster/fmaster_shmsys.c
@@ -304,6 +302,7 @@ tests/amd64/getresuid_ruid/getresuid_ruid
 tests/amd64/getresuid_suid/getresuid_suid
 tests/amd64/getsockname_family/getsockname_family
 tests/amd64/getsockname_server/getsockname_server
+tests/amd64/getsockopt/getsockopt
 tests/amd64/gettimeofday_dsttime/gettimeofday_dsttime
 tests/amd64/gettimeofday_minuteswest/gettimeofday_minuteswest
 tests/amd64/gettimeofday_sec/gettimeofday_sec
@@ -325,6 +324,7 @@ tests/amd64/print_stat_member/print_stat_layout
 tests/amd64/readlink/readlink
 tests/amd64/select/select
 tests/amd64/select2/select2
+tests/amd64/setsockopt/setsockopt
 tests/amd64/sigaction/sigaction
 tests/amd64/socket/socket
 tests/amd64/stat/stat

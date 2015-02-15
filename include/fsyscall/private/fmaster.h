@@ -13,6 +13,7 @@
 #include <sys/systm.h>
 
 #include <fsyscall/private/command.h>
+#include <fsyscall/private/payload.h>
 
 #define	FD_NUM	1024
 
@@ -79,6 +80,8 @@ int	fmaster_write_int32(struct thread *, int32_t);
 #define	fmaster_write_uint32(td, n)	fmaster_write_int32((td), (int32_t)(n))
 int	fmaster_write_from_userspace(struct thread *, int, const void *, size_t);
 #define	fmaster_write_payload_size	fmaster_write_uint32
+int	fmaster_write_payloaded_command(struct thread *, command_t,
+					struct payload *);
 
 struct fmaster_data *
 	fmaster_data_of_thread(struct thread *);
@@ -95,6 +98,10 @@ void	fmaster_close_fd(struct thread *, int);
 int	fmaster_fd_of_slave_fd(struct thread *, int, int *);
 int	fmaster_type_of_fd(struct thread *, int, enum fmaster_fd_type *);
 
+int	fmaster_execute_return_optional32(struct thread *, command_t,
+					  int (*)(struct thread *, int,
+						  payload_size_t *, void *),
+					  void *);
 int	fmaster_execute_return_generic32(struct thread *, command_t);
 int	fmaster_execute_return_generic64(struct thread *, command_t);
 int	fmaster_execute_connect_protocol(struct thread *td, const char *command,
@@ -115,6 +122,8 @@ void	fmaster_schedtail(struct thread *);
 
 void	fmaster_log_syscall_end(struct thread *, const char *,
 				const struct timeval *, int);
+const char *
+	fmaster_get_sockopt_name(int);
 
 #define	LOG(td, pri, fmt, ...)	do {				\
 	const char *__fmt__ = "fmaster[%d]: " fmt "\n";		\

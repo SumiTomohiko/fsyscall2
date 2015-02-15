@@ -74,6 +74,8 @@ defsyscall	lstat
 defsyscall	readlink
 defsyscall	stat
 defsyscall	getresgid
+defsyscall	getsockopt
+defsyscall	setsockopt
 
 global _start
 _start:
