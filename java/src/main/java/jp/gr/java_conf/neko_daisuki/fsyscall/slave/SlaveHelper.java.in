@@ -22,6 +22,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.PollFds;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Sigaction;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SocketAddress;
+import jp.gr.java_conf.neko_daisuki.fsyscall.SocketOption;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.Constants;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
@@ -393,6 +394,39 @@ class SlaveHelper {
         }
     }
 
+    private class GetsockoptProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int s = mIn.readInteger();
+            int level = mIn.readInteger();
+            int optname = mIn.readInteger();
+            int optlen = mIn.readInteger();
+            SyscallResult.Getsockopt result = mSlave.doGetsockopt(s, level,
+                                                                  optname,
+                                                                  optlen);
+            writeResult(Command.RET_GETSOCKOPT, optname, result);
+        }
+    }
+
+    private class SetsockoptProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int s = mIn.readInteger();
+            int level = mIn.readInteger();
+            int optname = mIn.readInteger();
+            int optlen = mIn.readInteger();
+            // TODO: Must switch by optname.
+            int optval = mIn.readInteger();
+            SyscallResult.Generic32 result = mSlave.doSetsockopt(s, level,
+                                                                 optname,
+                                                                 optlen,
+                                                                 optval);
+            writeResult(Command.RET_SETSOCKOPT, result);
+        }
+    }
+
     private class ExitProc extends CommandDispatcher.Proc {
 
         public void call(Command command) throws IOException {
@@ -441,6 +475,8 @@ class SlaveHelper {
         dispatcher.addEntry(Command.CALL_ACCEPT, new AcceptProc());
         dispatcher.addEntry(Command.CALL_GETSOCKNAME, new GetsocknameProc());
         dispatcher.addEntry(Command.CALL_GETPEERNAME, new GetpeernameProc());
+        dispatcher.addEntry(Command.CALL_GETSOCKOPT, new GetsockoptProc());
+        dispatcher.addEntry(Command.CALL_SETSOCKOPT, new SetsockoptProc());
         @DISPATCHES@;
         return dispatcher;
     }
@@ -469,6 +505,35 @@ class SlaveHelper {
         payload.add(result.errno);
 
         writePayload(command, payload);
+    }
+
+    private void writeResult(Command command, int optname,
+                             SyscallResult.Getsockopt result)
+                             throws IOException {
+        String logHead = "result (getsockopt)";
+
+        long retval = result.retval;
+        if (retval == -1) {
+            String fmt = "%s: retval=%d, errno=%s";
+            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            writeError(command, result);
+            return;
+        }
+
+        SocketOption option = SocketOption.valueOf(optname);
+        if (option.equals(SocketOption.SO_REUSEADDR)) {
+            String fmt = "%s: retval=%d, optval=%d, optlen=%d";
+            String message = String.format(fmt, logHead, result.retval,
+                                           result.n, result.optlen);
+            mLogger.info(message);
+
+            Payload payload = new Payload();
+            payload.add(result.retval);
+            payload.add(result.optlen);
+            payload.add(result.n);
+
+            writePayload(command, payload);
+        }
     }
 
     private void writeResult(Command command, SyscallResult.Generic64 result) throws IOException {

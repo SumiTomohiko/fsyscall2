@@ -32,6 +32,9 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Sigaction;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SocketAddress;
+import jp.gr.java_conf.neko_daisuki.fsyscall.SocketLevel;
+import jp.gr.java_conf.neko_daisuki.fsyscall.SocketOption;
+import jp.gr.java_conf.neko_daisuki.fsyscall.SocketOptions;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
@@ -316,6 +319,7 @@ public class Slave implements Runnable {
         private int mProtocol;
         private SocketAddress mName;
         private Socket mPeer;
+        private SocketOptions mOptions = new SocketOptions();
 
         private SocketCore mCore;
         private Queue<ConnectingRequest> mConnectingRequests;
@@ -502,6 +506,18 @@ public class Slave implements Runnable {
 
         public void listen(int backlog) throws UnixException {
             // does nothing.
+        }
+
+        public void addOption(SocketOption option) {
+            mOptions.add(option);
+        }
+
+        public void removeOption(SocketOption option) {
+            mOptions.remove(option);
+        }
+
+        public boolean containsOption(SocketOption option) {
+            return mOptions.contains(option);
         }
 
         protected void doClose() throws UnixException {
@@ -1388,6 +1404,36 @@ public class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Generic32 doSetsockopt(int s, int level, int optname,
+                                                int optlen, int optval)
+                                                throws IOException {
+        String fmt;
+        fmt = "%s(s=%d, level=%d (%s), optname=%d (%s), optlen=%d, optval=%d)";
+        String levelName = SocketLevel.toString(level);
+        String name = SocketOption.toString(optname);
+        String message = String.format(fmt, "setsockopt", s, level, levelName,
+                                       optname, name, optlen, optval);
+        mLogger.info(message);
+
+        return runSetsockopt(s, SocketLevel.valueOf(level),
+                             SocketOption.valueOf(optname), optval);
+    }
+
+    public SyscallResult.Getsockopt doGetsockopt(int s, int level, int optname,
+                                                 int optlen)
+                                                 throws IOException {
+        String fmt;
+        fmt = "getsockopt(s=%d, level=%d (%s), optname=%d (%s), optlen=%d)";
+        String levelName = SocketLevel.toString(level);
+        String name = SocketOption.toString(optname);
+        String message = String.format(fmt, s, level, levelName, optname, name,
+                                       optlen);
+        mLogger.info(message);
+
+        return runGetsockopt(s, SocketLevel.valueOf(level),
+                             SocketOption.valueOf(optname));
+    }
+
     public SyscallResult.Generic32 doConnect(int s, UnixDomainAddress name,
                                              int namelen) throws IOException {
         String fmt = "connect(s=%d, name=%s, namelen=%d)";
@@ -2116,6 +2162,69 @@ public class Slave implements Runnable {
 
     private String getPathUnderCurrentDirectory(String path) throws IOException {
         return getFileUnderCurrentDirectory(path).getCanonicalPath();
+    }
+
+    private SyscallResult.Generic32 runSetsockopt(int s, SocketLevel level,
+                                                  SocketOption option,
+                                                  int optval) {
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        if ((level == null) || !level.equals(SocketLevel.SOL_SOCKET) || (option == null)) {
+            result.setError(Errno.ENOPROTOOPT);
+            return result;
+        }
+
+        Socket sock;
+        try {
+            sock = getLockedSocket(s);
+        }
+        catch (GetSocketException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+        try {
+            if (optval != 0) {
+                sock.addOption(option);
+            }
+            else {
+                sock.removeOption(option);
+            }
+        }
+        finally {
+            sock.unlock();
+        }
+
+        return result;
+    }
+
+    private SyscallResult.Getsockopt runGetsockopt(int s, SocketLevel level,
+                                                   SocketOption option) {
+        SyscallResult.Getsockopt result = new SyscallResult.Getsockopt();
+
+        Socket sock;
+        try {
+            sock = getLockedSocket(s);
+        }
+        catch (GetSocketException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+        try {
+            if (level.equals(SocketLevel.SOL_SOCKET)) {
+                if (option.equals(SocketOption.SO_REUSEADDR)) {
+                    result.optlen = 4;
+                    result.n = sock.containsOption(option) ? option.intValue()
+                                                           : 0;
+                    return result;
+                }
+            }
+        }
+        finally {
+            sock.unlock();
+        }
+
+        result.setError(Errno.ENOPROTOOPT);
+        return result;
     }
 
     private SyscallResult.Generic32 dup2(int from, int to) throws IOException {

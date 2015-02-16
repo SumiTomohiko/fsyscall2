@@ -57,6 +57,12 @@ public interface SyscallResult {
         public int addrlen;
     }
 
+    public static class Getsockopt extends Generic32 {
+
+        public int optlen;
+        public int n;
+    }
+
     @RESULTS@
 }
 
