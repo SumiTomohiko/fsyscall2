@@ -1,4 +1,3 @@
-#include <tiny_runtime.h>
 
 static int
 connect_callback(int s)

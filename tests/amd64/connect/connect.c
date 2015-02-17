@@ -1,4 +1,3 @@
-#include <tiny_runtime.h>
 
 /*
  * If the following sockaddr is placed in the main function, clang cannot link

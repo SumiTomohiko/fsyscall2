@@ -1,4 +1,3 @@
-#include <tiny_runtime.h>
 
 static char buf[8192];
 

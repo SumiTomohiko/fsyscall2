@@ -1,4 +1,3 @@
-#include <tiny_runtime.h>
 
 static void
 signal_handler(int sig, siginfo_t *info, void *ctx)

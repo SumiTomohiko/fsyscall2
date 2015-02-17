@@ -1,4 +1,3 @@
-#include <tiny_runtime.h>
 
 #define	SIGNAL	SIGUSR1
 

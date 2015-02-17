@@ -1,4 +1,3 @@
-#include <tiny_runtime.h>
 
 int
 main(int argc, const char* argv[])

@@ -1,4 +1,3 @@
-#include <tiny_runtime.h>
 
 /**
  * Test for select(2) with null timeout.

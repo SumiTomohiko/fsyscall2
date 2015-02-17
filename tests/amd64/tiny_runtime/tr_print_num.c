@@ -1,4 +1,3 @@
-#include <tiny_runtime.h>
 
 void
 tr_print_num(long n)

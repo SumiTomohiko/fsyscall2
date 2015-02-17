@@ -1,4 +1,3 @@
-#include <tiny_runtime.h>
 
 /*
  * clang requested memset(3).

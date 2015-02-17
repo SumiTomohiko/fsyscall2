@@ -1,4 +1,3 @@
-#include <tiny_runtime.h>
 
 static struct sockaddr_storage storage;
 
