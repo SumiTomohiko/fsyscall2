@@ -1,0 +1,6 @@
+
+. "${tests_dir}/chmod.rc"
+
+args="${args} 111"
+
+# vim: filetype=sh

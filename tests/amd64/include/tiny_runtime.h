@@ -4,9 +4,11 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <poll.h>
 #include <signal.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/param.h>
@@ -19,6 +21,8 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+int	isspace(int);
 
 void	tr_print_num(long);
 void	tr_print_str(const char *);

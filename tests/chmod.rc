@@ -1,0 +1,19 @@
+
+cmd="chmod/chmod"
+expected_status="0"
+file="${tmp_dir}/chmod.$$"
+args="${file}"
+
+precmd()
+{
+	rm -f "${file}"
+	touch "${file}"
+}
+
+postcmd()
+{
+	chmod u+w "${file}"
+	rm -f "${file}"
+}
+
+# vim: filetype=sh

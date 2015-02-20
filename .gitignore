@@ -217,6 +217,7 @@ fslave/dispatch.inc
 fslave/fslave
 fslave/fslave_access.c
 fslave/fslave_chdir.c
+fslave/fslave_chmod.c
 fslave/fslave_close.c
 fslave/fslave_dup.c
 fslave/fslave_dup2.c
@@ -272,6 +273,8 @@ tests/amd64/chdir_lstat/chdir_lstat
 tests/amd64/chdir_open/chdir_open
 tests/amd64/chdir_readlink/chdir_readlink
 tests/amd64/chdir_stat/chdir_stat
+tests/amd64/chmod/chmod
+tests/amd64/chmod_error/chmod_error
 tests/amd64/close_twice/close_twice
 tests/amd64/connect/connect
 tests/amd64/dup/dup

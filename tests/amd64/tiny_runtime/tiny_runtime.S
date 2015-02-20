@@ -76,6 +76,7 @@ defsyscall	stat
 defsyscall	getresgid
 defsyscall	getsockopt
 defsyscall	setsockopt
+defsyscall	chmod
 
 global _start
 _start:

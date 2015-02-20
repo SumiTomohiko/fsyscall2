@@ -1,0 +1,5 @@
+
+cmd="chmod_error/chmod_error"
+expected_status="0"
+
+# vim: filetype=sh

@@ -1,0 +1,15 @@
+#!/bin/sh
+
+dir=$(dirname $0)
+
+for mode in 000 400 200 100 700 044 022 011 077 444 222 111 777 755 644
+do
+	cat > "${dir}/test_chmod_${mode}" <<EOF
+
+. "\${tests_dir}/chmod.rc"
+
+args="\${args} ${mode}"
+
+# vim: filetype=sh
+EOF
+done
