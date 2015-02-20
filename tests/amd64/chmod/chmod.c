@@ -19,7 +19,7 @@ main(int argc, const char *argv[])
 
 	if (stat(path, &sb) == -1)
 		return (4);
-	if ((sb.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) != mode)
+	if ((sb.st_mode & ACCESSPERMS) != mode)
 		return (5);
 
 	return (0);
