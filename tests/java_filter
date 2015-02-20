@@ -29,6 +29,7 @@ excludes = [
         RegexpPattern(r"\Atest_[fl]?stat_(?!size)"),
         RegexpPattern(r"\Atest_readlink\Z"),
         RegexpPattern(r"\Atest_access2\Z"),
+        RegexpPattern(r"\Atest_chmod_.*\Z"),
         StrictPattern("test_uid"),
         StrictPattern("test_gid"),
         StrictPattern("test_euid"),

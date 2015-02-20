@@ -1909,6 +1909,36 @@ public class Slave implements Runnable {
         mExitStatus = Integer.valueOf(rval);
     }
 
+    public SyscallResult.Generic32 doChmod(String path,
+                                           int mode) throws IOException {
+        mLogger.info(String.format("chmod(path=%s, mode=0o%o)", path, mode));
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        File file = getFileUnderCurrentDirectory(path);
+        String absPath = file.getCanonicalPath();
+        Object socket;
+        try {
+            socket = mApplication.getUnixDomainSocket(absPath);
+        }
+        catch (UnixException e) {
+            socket = null;
+        }
+        if (socket != null) {
+            return result;
+        }
+
+        if (!file.exists()) {
+            result.setError(Errno.ENOENT);
+            return result;
+        }
+        if (!changeMode(file, mode)) {
+            result.setError(Errno.EPERM);
+            return result;
+        }
+
+        return result;
+    }
+
     public SyscallResult.Wait4 doWait4(int pid, int options) throws IOException {
         mLogger.info(String.format("wait4(pid=%d, options=%d)", pid, options));
         SyscallResult.Wait4 result = new SyscallResult.Wait4();
@@ -2265,6 +2295,29 @@ public class Slave implements Runnable {
         }
 
         return result;
+    }
+
+    private boolean changeMode(File file, int mode) {
+        if (!file.setReadable((Unix.Constants.S_IROTH & mode) != 0, false)) {
+            return false;
+        }
+        if (!file.setReadable((Unix.Constants.S_IRUSR & mode) != 0)) {
+            return false;
+        }
+        if (!file.setWritable((Unix.Constants.S_IWOTH & mode) != 0, false)) {
+            return false;
+        }
+        if (!file.setWritable((Unix.Constants.S_IWUSR & mode) != 0)) {
+            return false;
+        }
+        if (!file.setExecutable((Unix.Constants.S_IXOTH & mode) != 0, false)) {
+            return false;
+        }
+        if (!file.setExecutable((Unix.Constants.S_IXUSR & mode) != 0)) {
+            return false;
+        }
+
+        return true;
     }
 
     private void initialize(Application application, Pid pid, InputStream hubIn,

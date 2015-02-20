@@ -238,6 +238,20 @@ public class Unix {
         public static final int POLLRDBAND = 0x0080;
         public static final int POLLWRBAND = 0x0100;
         public static final int POLLINIGNEOF = 0x2000;
+
+        public static final int S_IRWXU = 0000700;
+        public static final int S_IRUSR = 0000400;
+        public static final int S_IWUSR = 0000200;
+        public static final int S_IXUSR = 0000100;
+        public static final int S_IRWXG = 0000070;
+        public static final int S_IRGRP = 0000040;
+        public static final int S_IWGRP = 0000020;
+        public static final int S_IXGRP = 0000010;
+        public static final int S_IRWXO = 0000007;
+        public static final int S_IROTH = 0000004;
+        public static final int S_IWOTH = 0000002;
+        public static final int S_IXOTH = 0000001;
+        public static final int ACCESSPERMS = S_IRWXU | S_IRWXG | S_IRWXO;
     }
 
     public static final int _WSTOPPED = 0177;
