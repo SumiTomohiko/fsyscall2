@@ -11,7 +11,7 @@ SUBDIR=	${LIBDIR} accept access bind chdir chdir_access chdir_error \
 	gettimeofday_dsttime gettimeofday_minuteswest gettimeofday_sec \
 	gettimeofday_usec getuid ioctl issetugid kill listen lseek lstat mkdir \
 	open poll_in poll_out poll_timeout pread read readlink select select2 \
-	setsockopt sigaction socket stat wait4_rusage wait4_status \
+	setsockopt sigaction socket stat unlink wait4_rusage wait4_status \
 	wait4_successful write writev
 
 .include <bsd.subdir.mk>

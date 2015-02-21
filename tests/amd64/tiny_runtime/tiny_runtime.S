@@ -78,6 +78,7 @@ defsyscall	getsockopt
 defsyscall	setsockopt
 defsyscall	chmod
 defsyscall	mkdir
+defsyscall	unlink
 
 global _start
 _start:

@@ -12,6 +12,7 @@
 %define	sys.open		5
 %define	sys.close		6
 %define	sys.wait4		7
+%define	sys.unlink		10
 %define	sys.chdir		12
 %define	sys.chmod		15
 %define	sys.getpid		20

@@ -1,0 +1,17 @@
+
+cmd="unlink/unlink"
+file="${tmp_dir}/unlink.$$"
+args="${file}"
+expected_status="0"
+
+precmd()
+{
+	touch "${file}"
+}
+
+postcmd()
+{
+	rm -f "${file}"
+}
+
+# vim: filetype=sh

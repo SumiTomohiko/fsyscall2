@@ -1,0 +1,6 @@
+
+cmd="unlink/unlink"
+args="/foo"
+expected_status="1"
+
+# vim: filetype=sh

@@ -220,14 +220,15 @@ SYSCALLS = {
             },
         "fmaster_chdir": {},
         "fmaster_chmod": {},
-        "fmaster_mkdir": {}
+        "fmaster_mkdir": {},
+        "fmaster_unlink": {}
         }
 
 FMASTER_SYSCALLS = SYSCALLS
 FSLAVE_SYSCALLS = SYSCALLS
 DUMMY_SYSCALLS = [
-        "fmaster_unlink", "fmaster_fchdir", "fmaster_mknod", "fmaster_chown",
-        "fmaster_mount", "fmaster_unmount", "fmaster_setuid", "fmaster_ptrace",
+        "fmaster_fchdir", "fmaster_mknod", "fmaster_chown", "fmaster_mount",
+        "fmaster_unmount", "fmaster_setuid", "fmaster_ptrace",
         "fmaster_recvmsg", "fmaster_sendmsg", "fmaster_chflags",
         "fmaster_fchflags", "fmaster_sync", "fmaster_getppid", "fmaster_profil",
         "fmaster_ktrace", "fmaster_getlogin", "fmaster_setlogin",
