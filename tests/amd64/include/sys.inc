@@ -41,6 +41,7 @@
 %define	sys.getsockopt		118
 %define	sys.writev		121
 %define	sys.mkdir		136
+%define	sys.rmdir		137
 %define	sys.stat		188
 %define	sys.fstat		189
 %define	sys.lstat		190

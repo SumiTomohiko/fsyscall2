@@ -1,0 +1,6 @@
+
+cmd="rmdir/rmdir"
+args="/"
+expected_status="1"
+
+# vim: filetype=sh

@@ -1,0 +1,17 @@
+
+cmd="rmdir/rmdir"
+d="${tmp_dir}/rmdir.$$"
+args="${d}"
+expected_status="0"
+
+precmd()
+{
+	mkdir -p "${d}"
+}
+
+postcmd()
+{
+	rm -rf "${d}"
+}
+
+# vim: filetype=sh

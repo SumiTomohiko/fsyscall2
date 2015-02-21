@@ -221,7 +221,8 @@ SYSCALLS = {
         "fmaster_chdir": {},
         "fmaster_chmod": {},
         "fmaster_mkdir": {},
-        "fmaster_unlink": {}
+        "fmaster_unlink": {},
+        "fmaster_rmdir": {}
         }
 
 FMASTER_SYSCALLS = SYSCALLS
@@ -241,10 +242,10 @@ DUMMY_SYSCALLS = [
         "fmaster_settimeofday", "fmaster_fchown", "fmaster_fchmod",
         "fmaster_setreuid", "fmaster_setregid", "fmaster_rename",
         "fmaster_flock", "fmaster_mkfifo", "fmaster_sendto", "fmaster_shutdown",
-        "fmaster_socketpair", "fmaster_rmdir", "fmaster_utimes",
-        "fmaster_adjtime", "fmaster_quotactl", "fmaster_nlm_syscall",
-        "fmaster_nfssvc", "fmaster_lgetfh", "fmaster_getfh", "fmaster_rtprio",
-        "fmaster_semsys", "fmaster_msgsys", "fmaster_shmsys", "fmaster_setfib",
+        "fmaster_socketpair", "fmaster_utimes", "fmaster_adjtime",
+        "fmaster_quotactl", "fmaster_nlm_syscall", "fmaster_nfssvc",
+        "fmaster_lgetfh", "fmaster_getfh", "fmaster_rtprio", "fmaster_semsys",
+        "fmaster_msgsys", "fmaster_shmsys", "fmaster_setfib",
         "fmaster_ntp_adjtime", "fmaster_setgid", "fmaster_setegid",
         "fmaster_seteuid", "fmaster_pathconf", "fmaster_fpathconf",
         "fmaster_setrlimit", "fmaster_undelete", "fmaster_futimes",

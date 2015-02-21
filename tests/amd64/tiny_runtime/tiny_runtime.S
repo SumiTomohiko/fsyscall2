@@ -79,6 +79,7 @@ defsyscall	setsockopt
 defsyscall	chmod
 defsyscall	mkdir
 defsyscall	unlink
+defsyscall	rmdir
 
 global _start
 _start:
