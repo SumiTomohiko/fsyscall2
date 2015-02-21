@@ -1939,6 +1939,19 @@ public class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Generic32 doMkdir(String path,
+                                           int mode) throws IOException {
+        mLogger.info(String.format("mkdir(path=%s, mode=0o%o)", path, mode));
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        if (!getFileUnderCurrentDirectory(path).mkdir()) {
+            result.setError(Errno.EACCES);
+            return result;
+        }
+
+        return result;
+    }
+
     public SyscallResult.Wait4 doWait4(int pid, int options) throws IOException {
         mLogger.info(String.format("wait4(pid=%d, options=%d)", pid, options));
         SyscallResult.Wait4 result = new SyscallResult.Wait4();
