@@ -1939,6 +1939,23 @@ public class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Generic32 doRmdir(String path) throws IOException {
+        mLogger.info(String.format("rmdir(path=%s)", path));
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        File file = getFileUnderCurrentDirectory(path);
+        if (!file.isDirectory()) {
+            result.setError(file.exists() ? Errno.ENOTDIR : Errno.ENOENT);
+            return result;
+        }
+        if (!file.delete()) {
+            result.setError(Errno.EPERM);
+            return result;
+        }
+
+        return result;
+    }
+
     public SyscallResult.Generic32 doUnlink(String path) throws IOException {
         mLogger.info(String.format("unlink(path=%s)", path));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
