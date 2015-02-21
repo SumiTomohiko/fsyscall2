@@ -10,6 +10,11 @@ do
 
 args="\${args} ${mode}"
 
+testcmd()
+{
+	testperm "${mode}"
+}
+
 # vim: filetype=sh
 EOF
 done

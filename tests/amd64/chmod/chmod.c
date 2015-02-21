@@ -17,10 +17,5 @@ main(int argc, const char *argv[])
 	if (chmod(path, mode) == -1)
 		return (3);
 
-	if (stat(path, &sb) == -1)
-		return (4);
-	if ((sb.st_mode & ACCESSPERMS) != mode)
-		return (5);
-
 	return (0);
 }

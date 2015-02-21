@@ -3,4 +3,9 @@
 
 args="${args} 077"
 
+testcmd()
+{
+	testperm "077"
+}
+
 # vim: filetype=sh

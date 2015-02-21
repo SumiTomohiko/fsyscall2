@@ -4,6 +4,11 @@ expected_status="0"
 file="${tmp_dir}/chmod.$$"
 args="${file}"
 
+testperm()
+{
+	test "$(stat -f "%p" "${file}" | cut -c 4-)" == "${1}"
+}
+
 precmd()
 {
 	rm -f "${file}"

@@ -3,4 +3,9 @@
 
 args="${args} 000"
 
+testcmd()
+{
+	testperm "000"
+}
+
 # vim: filetype=sh
