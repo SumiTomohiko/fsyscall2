@@ -1969,8 +1969,12 @@ public class Slave implements Runnable {
         catch (UnixException unused) {
             // nothing
         }
+        if (!file.isFile()) {
+            result.setError(file.exists() ? Errno.EISDIR : Errno.ENOENT);
+            return result;
+        }
         if (!file.delete()) {
-            result.setError(Errno.ENOENT);
+            result.setError(Errno.EPERM);
             return result;
         }
 
