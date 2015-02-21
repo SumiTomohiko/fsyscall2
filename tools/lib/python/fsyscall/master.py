@@ -631,7 +631,7 @@ int
 sys_{name}(struct thread *td, struct {name}_args *uap)
 {{
 
-\tlog(LOG_DEBUG, \"fmaster[%d]: {syscall}: dummy\\n\", td->td_proc->p_pid);
+\tlog(LOG_DEBUG, \"fmaster[%d]: {syscall}: this is a dummy, unimplemented.\\n\", td->td_proc->p_pid);
 
 \treturn (ENOSYS);
 }}""".format(**locals()), file=fp)
