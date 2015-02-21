@@ -1,0 +1,6 @@
+
+cmd="mkdir/mkdir"
+args="/foo"
+expected_status="1"
+
+# vim: filetype=sh

@@ -1,0 +1,6 @@
+
+cmd="mkdir/mkdir"
+args="${tmp_dir}/mkdir.$$"
+expected_status="0"
+
+# vim: filetype=sh

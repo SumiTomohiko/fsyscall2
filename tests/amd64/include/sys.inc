@@ -39,6 +39,7 @@
 %define	sys.gettimeofday	116
 %define	sys.getsockopt		118
 %define	sys.writev		121
+%define	sys.mkdir		136
 %define	sys.stat		188
 %define	sys.fstat		189
 %define	sys.lstat		190

@@ -77,6 +77,7 @@ defsyscall	getresgid
 defsyscall	getsockopt
 defsyscall	setsockopt
 defsyscall	chmod
+defsyscall	mkdir
 
 global _start
 _start:

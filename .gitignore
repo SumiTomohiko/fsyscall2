@@ -237,6 +237,7 @@ fslave/fslave_link.c
 fslave/fslave_listen.c
 fslave/fslave_lseek.c
 fslave/fslave_lstat.c
+fslave/fslave_mkdir.c
 fslave/fslave_open.c
 fslave/fslave_pread.c
 fslave/fslave_read.c
@@ -317,6 +318,7 @@ tests/amd64/kill/kill
 tests/amd64/listen/listen
 tests/amd64/lseek/lseek
 tests/amd64/lstat/lstat
+tests/amd64/mkdir/mkdir
 tests/amd64/poll_in/poll_in
 tests/amd64/poll_out/poll_out
 tests/amd64/poll_timeout/poll_timeout

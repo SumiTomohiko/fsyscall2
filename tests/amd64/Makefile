@@ -9,8 +9,8 @@ SUBDIR=	${LIBDIR} accept access bind chdir chdir_access chdir_error \
 	getresgid_rgid getresgid_sgid getresuid_ruid getresuid_euid \
 	getresuid_suid getsockname_family getsockname_server getsockopt \
 	gettimeofday_dsttime gettimeofday_minuteswest gettimeofday_sec \
-	gettimeofday_usec getuid ioctl issetugid kill listen lseek lstat open \
-	poll_in poll_out poll_timeout pread read readlink select select2 \
+	gettimeofday_usec getuid ioctl issetugid kill listen lseek lstat mkdir \
+	open poll_in poll_out poll_timeout pread read readlink select select2 \
 	setsockopt sigaction socket stat wait4_rusage wait4_status \
 	wait4_successful write writev
 
