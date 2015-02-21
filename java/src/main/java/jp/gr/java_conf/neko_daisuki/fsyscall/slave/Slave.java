@@ -1939,6 +1939,27 @@ public class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Generic32 doUnlink(String path) throws IOException {
+        mLogger.info(String.format("unlink(path=%s)", path));
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        File file = getFileUnderCurrentDirectory(path);
+        String absPath = file.getCanonicalPath();
+        try {
+            mApplication.unlinkUnixDomainNode(absPath);
+            return result;
+        }
+        catch (UnixException unused) {
+            // nothing
+        }
+        if (!file.delete()) {
+            result.setError(Errno.ENOENT);
+            return result;
+        }
+
+        return result;
+    }
+
     public SyscallResult.Generic32 doMkdir(String path,
                                            int mode) throws IOException {
         mLogger.info(String.format("mkdir(path=%s, mode=0o%o)", path, mode));
