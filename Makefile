@@ -45,9 +45,6 @@ java:
 java-clean:
 	@cd $(JAVADIR) && $(JAVABUILDER) clean
 
-syscalls:
-	@python3 tools/makesyscalls.py
-
 tests-clean:
 	@cd tests && make clean
 
@@ -69,4 +66,5 @@ is: install-slave
 j: java
 ca: clean all
 
+.include "Makefile.gmake"
 .include <bsd.subdir.mk>

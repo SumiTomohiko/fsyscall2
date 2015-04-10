@@ -1,0 +1,3 @@
+
+syscalls:
+	@python3 tools/makesyscalls.py
