@@ -62,6 +62,7 @@ class SlaveHub {
 
     private Peer mMhub;
     private Map<PairId, SlavePeer> mSlaves;
+    private Map<PairId, SlavePeer> mNewSlaves;
 
     public SlaveHub(Application application, InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) throws IOException {
         mLogger.info("a slave hub is starting.");
@@ -76,7 +77,8 @@ class SlaveHub {
         PairId firstPairId = mMhub.getInputStream().readPairId();
         mLogger.info(String.format("the first pair id is %s.", firstPairId));
 
-        mSlaves = Collections.synchronizedMap(new HashMap<PairId, SlavePeer>());
+        mSlaves = new HashMap<PairId, SlavePeer>();
+        mNewSlaves = Collections.synchronizedMap(new HashMap<PairId, SlavePeer>());
         SlavePeer slave = addSlave(slaveIn, slaveOut, firstPairId);
 
         transportFileDescriptors(slave);
@@ -87,6 +89,8 @@ class SlaveHub {
         mLogger.verbose("works of the slave hub are being processed.");
 
         try {
+            addNewSlaves();
+
             while (0 < mSlaves.size()) {
                 if (mMhub.getInputStream().isReady()) {
                     processMasterHub();
@@ -102,6 +106,8 @@ class SlaveHub {
                 catch (InterruptedException _) {
                     break;
                 }
+
+                addNewSlaves();
             }
         }
         finally {
@@ -116,7 +122,7 @@ class SlaveHub {
                 new SyscallInputStream(in),
                 new SyscallOutputStream(out),
                 pairId);
-        mSlaves.put(pairId, slave);
+        mNewSlaves.put(pairId, slave);
         return slave;
     }
 
@@ -130,6 +136,13 @@ class SlaveHub {
      */
     private void close() throws IOException {
         mMhub.close();
+    }
+
+    private void addNewSlaves() {
+        for (PairId pairId: mNewSlaves.keySet()) {
+            mSlaves.put(pairId, mNewSlaves.get(pairId));
+        }
+        mNewSlaves.clear();
     }
 
     private void processSignaled(SlavePeer slave) throws IOException {
