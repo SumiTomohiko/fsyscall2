@@ -2089,6 +2089,9 @@ public class Slave implements Runnable {
 
     private void registerFileAt(UnixFile file, int at) {
         mFiles[at] = file;
+
+        String fmt = "new file registered: file=%s, fd=%d";
+        mLogger.info(String.format(fmt, file, at));
     }
 
     private int registerFile(FileRegisteringCallback callback) throws UnixException {
