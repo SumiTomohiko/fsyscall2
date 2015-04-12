@@ -366,8 +366,12 @@ public class Slave implements Runnable {
         }
 
         public boolean isReadyToRead() throws UnixException {
+            InputStream in = mCore.getInputStream();
+            if (in == null) {
+                throw new UnixException(Errno.ENOTCONN);
+            }
             try {
-                return 0 < mCore.getInputStream().available();
+                return 0 < in.available();
             }
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
@@ -382,8 +386,12 @@ public class Slave implements Runnable {
             if (isNonBlocking() && !isReadyToRead()) {
                 throw new UnixException(Errno.EAGAIN);
             }
+            InputStream in = mCore.getInputStream();
+            if (in == null) {
+                throw new UnixException(Errno.ENOTCONN);
+            }
             try {
-                return mCore.getInputStream().read(buffer);
+                return in.read(buffer);
             }
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
@@ -392,8 +400,12 @@ public class Slave implements Runnable {
 
         public long pread(byte[] buffer, long offset) throws UnixException {
             int len = buffer.length;
+            InputStream in = mCore.getInputStream();
+            if (in == null) {
+                throw new UnixException(Errno.ENOTCONN);
+            }
             try {
-                return mCore.getInputStream().read(buffer, (int)offset, len);
+                return in.read(buffer, (int)offset, len);
             }
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
@@ -401,8 +413,12 @@ public class Slave implements Runnable {
         }
 
         public int write(byte[] buffer) throws UnixException {
+            OutputStream out = mCore.getOutputStream();
+            if (out == null) {
+                throw new UnixException(Errno.ENOTCONN);
+            }
             try {
-                mCore.getOutputStream().write(buffer);
+                out.write(buffer);
             }
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
@@ -2089,6 +2105,9 @@ public class Slave implements Runnable {
 
     private void registerFileAt(UnixFile file, int at) {
         mFiles[at] = file;
+
+        String fmt = "new file registered: file=%s, fd=%d";
+        mLogger.info(String.format(fmt, file, at));
     }
 
     private int registerFile(FileRegisteringCallback callback) throws UnixException {
