@@ -351,5 +351,6 @@ tests/test_fstat_*
 tests/test_lstat_*
 tests/test_stat_*
 tests/tester/tester
+tools/format_logcat
 tools/lib/python/fsyscall/__pycache__
 tools/lib/python/fsyscall/java/__pycache__
