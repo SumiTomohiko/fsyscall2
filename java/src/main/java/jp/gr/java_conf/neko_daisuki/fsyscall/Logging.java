@@ -114,7 +114,8 @@ public class Logging {
         }
 
         private String formatMessage(String message) {
-            return String.format("%s: %s", mTag, message);
+            String name = Thread.currentThread().getName();
+            return String.format("%s: %s: %s", name, mTag, message);
         }
     }
 
