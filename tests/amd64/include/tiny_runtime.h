@@ -1,6 +1,17 @@
 #if !defined(TINY_RUNTIME_H_INCLUDED)
 #define TINY_RUNTIME_H_INCLUDED
 
+#include <sys/types.h>
+#include <sys/event.h>
+#include <sys/mount.h>
+#include <sys/param.h>
+#include <sys/resource.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/un.h>
+#include <sys/wait.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -10,16 +21,6 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mount.h>
-#include <sys/param.h>
-#include <sys/resource.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/un.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 int	isspace(int);

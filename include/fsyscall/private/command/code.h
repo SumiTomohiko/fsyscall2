@@ -380,6 +380,8 @@
 #define	SIGNALED		418
 #define	CALL_SIGACTION		420
 #define	RET_SIGACTION		421
+#define	CALL_KQUEUE		422
+#define	RET_KQUEUE		423
 
 #define	SIGNAL_DEFAULT		0
 #define	SIGNAL_IGNORE		1

@@ -51,6 +51,7 @@
 %define	sys.sigprocmask		340
 %define	sys.getresuid		360
 %define	sys.getresgid		361
+%define	sys.kqueue		362
 %define	sys.fstatfs		397
 %define	sys.sigaction		416
 %define	sys.sigwait		429

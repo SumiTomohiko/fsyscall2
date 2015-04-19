@@ -80,6 +80,7 @@ defsyscall	chmod
 defsyscall	mkdir
 defsyscall	unlink
 defsyscall	rmdir
+defsyscall	kqueue
 
 global _start
 _start:
