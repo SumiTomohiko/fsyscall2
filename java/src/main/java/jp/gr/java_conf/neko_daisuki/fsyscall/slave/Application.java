@@ -223,14 +223,19 @@ public class Application {
     }
 
     public Slave waitChildTerminating(Pid pid) throws InterruptedException {
+        String tag = "wait child terminating";
         Slave child = mSlaves.get(pid);
         if (child == null) {
+            String fmt = "%s: the slave of pid %s not found";
+            mLogger.warn(String.format(fmt, tag, pid));
             return null;
         }
         synchronized (mTerminatingMonitor) {
             while (!child.isZombie()) {
                 mTerminatingMonitor.wait();
             }
+            String fmt = "%s: released the slave of pid %s";
+            mLogger.info(String.format(fmt, tag, pid));
             mSlaves.remove(pid);
             mPidGenerator.release(pid);
         }

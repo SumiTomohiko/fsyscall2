@@ -992,8 +992,7 @@ public class Slave implements Runnable {
 
     @Override
     public void run() {
-        String name = Thread.currentThread().getName();
-        mLogger.info(String.format("a slave started: %s", name));
+        mLogger.info(String.format("a slave started: pid=%s", mPid));
 
         try {
             try {
