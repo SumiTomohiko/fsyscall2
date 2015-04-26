@@ -26,6 +26,7 @@ def print_fslave_head(p, syscall):
     print_caution(p)
     p("""\
 #include <sys/types.h>
+#include <sys/event.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>

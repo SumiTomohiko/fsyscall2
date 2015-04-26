@@ -47,16 +47,18 @@ static void
 log_error(struct thread *td, int fd, const char *buf, size_t nbytes)
 {
 	size_t size;
+	pid_t pid;
 	int i;
-	const char *fmt = "write(2) to fd 2: buf[%d]=0x%02x (%c)\n";
+	const char *fmt = "fmaster[%d]: write(2) to fd 2: buf[%d]=0x%02x (%c)\n";
 	unsigned char c;
 
 	if (fd != 2)
 		return;
+	pid = td->td_proc->p_pid;
 	size = MIN(nbytes, 1024);
 	for (i = 0; i < size; i++) {
 		c = (unsigned char)buf[i];
-		log(LOG_DEBUG, fmt, i, c, chars[c]);
+		log(LOG_DEBUG, fmt, pid, i, c, chars[c]);
 	}
 }
 
