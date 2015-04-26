@@ -66,9 +66,52 @@ public class Slave implements Runnable {
                                     SocketAddress addr);
     }
 
+    private class KQueue extends UnixFile {
+
+        public boolean isReadyToRead() throws UnixException {
+            return false;
+        }
+
+        public boolean isReadyToWrite() throws UnixException {
+            return false;
+        }
+
+        public int read(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.ENXIO);
+        }
+
+        public long pread(byte[] buffer, long offset) throws UnixException {
+            throw new UnixException(Errno.ENXIO);
+        }
+
+        public int write(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.ENXIO);
+        }
+
+        public long lseek(long offset, int whence) throws UnixException {
+            throw new UnixException(Errno.ESPIPE);
+        }
+
+        public Unix.Stat fstat() throws UnixException {
+            // TODO: Implement.
+            throw new UnixException(Errno.ENOSYS);
+        }
+
+        protected void doClose() throws UnixException {
+            // nothing?
+        }
+    }
+
     private interface FileRegisteringCallback {
 
         public UnixFile call() throws UnixException;
+    }
+
+    private class KQueueCallback implements FileRegisteringCallback {
+
+        public UnixFile call() throws UnixException {
+            return new KQueue();
+        }
     }
 
     private class DupCallback implements FileRegisteringCallback {
@@ -925,6 +968,8 @@ public class Slave implements Runnable {
     private static Map<Integer, String> mFcntlCommands;
     private static Logging.Logger mLogger;
 
+    private final FileRegisteringCallback KQUEUE_CALLBACK = new KQueueCallback();
+
     // settings
     private Application mApplication;
     private SyscallInputStream mIn;
@@ -1128,6 +1173,20 @@ public class Slave implements Runnable {
         }
 
         mCurrentDirectory = file.getCanonicalPath();
+
+        return result;
+    }
+
+    public SyscallResult.Generic32 doKqueue() throws IOException {
+        mLogger.info("kqueue()");
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        try {
+            result.retval = registerFile(KQUEUE_CALLBACK);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+        }
 
         return result;
     }
