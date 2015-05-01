@@ -142,6 +142,19 @@ get_filter_name(short filter)
 	}
 }
 
+static void
+timeout_to_str(char *buf, size_t bufsize, const struct timespec *t)
+{
+	const char *fmt = "tv_sec=%ld, tv_nsec=%ld";
+
+	if (t == NULL) {
+		snprintf(buf, bufsize, "null");
+		return;
+	}
+
+	snprintf(buf, bufsize, fmt, t->tv_sec, t->tv_nsec);
+}
+
 static int
 log_args(struct thread *td, struct fmaster_kevent_args *uap)
 {
@@ -150,17 +163,18 @@ log_args(struct thread *td, struct fmaster_kevent_args *uap)
 	unsigned long size;
 	int error, flt, i, nchanges;
 	const char *filter_name;
-	char fflags_str[256], flags_str[256], header[64];
+	char fflags_str[256], flags_str[256], header[64], timeout_str[256];
 
 	pid = td->td_proc->p_pid;
 	snprintf(header, sizeof(header), "fmaster[%d]: kevent", pid);
 
 	nchanges = uap->nchanges;
+	timeout_to_str(timeout_str, sizeof(timeout_str), uap->timeout);
 	log(LOG_DEBUG,
 	    "%s: fd=%d, changelist=%p, nchanges=%d, eventlist=%p, nevents=%d, t"
-	    "imeout=%p\n",
+	    "imeout=%p (%s)\n",
 	    header, uap->fd, uap->changelist, nchanges, uap->eventlist,
-	    uap->nevents, uap->timeout);
+	    uap->nevents, uap->timeout, timeout_str);
 
 	if ((uap->changelist == NULL) || (nchanges == 0))
 		return (0);
