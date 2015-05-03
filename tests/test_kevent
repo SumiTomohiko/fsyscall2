@@ -1,0 +1,11 @@
+
+cmd="kevent/kevent"
+file="${tmp_dir}/$$.kevent"
+args="${file}"
+expected_status="0"
+
+postcmd() {
+	rm -f "${file}"
+}
+
+# vim: filetype=sh

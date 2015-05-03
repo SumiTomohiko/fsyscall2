@@ -81,6 +81,7 @@ defsyscall	mkdir
 defsyscall	unlink
 defsyscall	rmdir
 defsyscall	kqueue
+defsyscall	kevent
 
 global _start
 _start:

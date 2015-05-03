@@ -318,6 +318,7 @@ tests/amd64/gettimeofday_usec/gettimeofday_usec
 tests/amd64/getuid/getuid
 tests/amd64/ioctl/ioctl
 tests/amd64/issetugid/issetugid
+tests/amd64/kevent/kevent
 tests/amd64/kill/kill
 tests/amd64/kqueue/kqueue
 tests/amd64/listen/listen
