@@ -25,6 +25,7 @@ chain_flags(char *buf, size_t bufsize, flag_t flags, struct flag_definition defs
 	int i, len, size;
 	const char *sep;
 
+	buf[0] = '\0';
 	len = 0;
 	sep = "";
 	for (i = 0; i < ndefs; i++) {
@@ -34,6 +35,8 @@ chain_flags(char *buf, size_t bufsize, flag_t flags, struct flag_definition defs
 		len += snprintf(&buf[len], size, "%s%s", sep, defs[i].name);
 		sep = "|";
 	}
+	if (buf[0] == '\0')
+		snprintf(buf, bufsize, "nothing");
 }
 
 static void
@@ -94,7 +97,9 @@ fflags_to_str(char *buf, size_t bufsize, int filter, unsigned int fflags)
 	case EVFILT_FS:
 	case EVFILT_LIO:
 	default:
-		return;
+		defs = NULL;
+		ndefs = 0;
+		break;
 	}
 
 #undef	SET_DEFINITION
