@@ -346,6 +346,7 @@ process_shub(struct mhub *mhub)
 	case RET_ACCEPT:
 	case RET_GETSOCKOPT:
 	case RET_SETSOCKOPT:
+	case RET_KEVENT:
 #include "dispatch_ret.inc"
 		transfer_payload_to_master(mhub, cmd);
 		break;
@@ -481,6 +482,7 @@ process_master(struct mhub *mhub, struct master *master)
 	case CALL_ACCEPT:
 	case CALL_GETSOCKOPT:
 	case CALL_SETSOCKOPT:
+	case CALL_KEVENT:
 #include "dispatch_call.inc"
 		transfer_payload_from_master(mhub, master, cmd);
 		break;

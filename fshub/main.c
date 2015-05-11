@@ -234,6 +234,7 @@ process_mhub(struct shub *shub)
 	case CALL_ACCEPT:
 	case CALL_GETSOCKOPT:
 	case CALL_SETSOCKOPT:
+	case CALL_KEVENT:
 #include "dispatch_call.inc"
 		transfer_payload_to_slave(shub, cmd);
 		break;
@@ -304,6 +305,7 @@ process_slave(struct shub *shub, struct slave *slave)
 	case RET_ACCEPT:
 	case RET_GETSOCKOPT:
 	case RET_SETSOCKOPT:
+	case RET_KEVENT:
 #include "dispatch_ret.inc"
 		transfer_payload_from_slave(shub, slave, cmd);
 		break;

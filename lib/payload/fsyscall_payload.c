@@ -1,4 +1,5 @@
 #include <sys/param.h>
+#include <sys/event.h>
 #if defined(KLD_MODULE)
 #include <sys/errno.h>
 #include <sys/kernel.h>
@@ -151,10 +152,16 @@ fsyscall_payload_add_sockaddr(struct payload *payload, struct sockaddr *name)
 									\
 		return (0);						\
 	}
+IMPLEMENT_ADD_X(fsyscall_payload_add_int16, int16_t, FSYSCALL_BUFSIZE_INT16,
+		fsyscall_encode_int16)
 IMPLEMENT_ADD_X(fsyscall_payload_add_int32, int32_t, FSYSCALL_BUFSIZE_INT32,
 		fsyscall_encode_int32)
+IMPLEMENT_ADD_X(fsyscall_payload_add_int64, int64_t, FSYSCALL_BUFSIZE_INT64,
+		fsyscall_encode_int64)
 IMPLEMENT_ADD_X(fsyscall_payload_add_uint8, uint8_t, FSYSCALL_BUFSIZE_UINT8,
 		fsyscall_encode_uint8)
+IMPLEMENT_ADD_X(fsyscall_payload_add_uint16, uint16_t, FSYSCALL_BUFSIZE_UINT16,
+		fsyscall_encode_uint16)
 IMPLEMENT_ADD_X(fsyscall_payload_add_uint32, uint32_t, FSYSCALL_BUFSIZE_UINT32,
 		fsyscall_encode_uint32)
 IMPLEMENT_ADD_X(fsyscall_payload_add_uint64, uint64_t, FSYSCALL_BUFSIZE_UINT64,
@@ -217,6 +224,35 @@ fail:
 	return (NULL);
 }
 
+int
+fsyscall_payload_add_kevent(struct payload *payload, struct kevent *kev)
+{
+	int error;
+
+	error = fsyscall_payload_add_ulong(payload, kev->ident);
+	if (error != 0)
+		return (error);
+	error = fsyscall_payload_add_short(payload, kev->filter);
+	if (error != 0)
+		return (error);
+	error = fsyscall_payload_add_ushort(payload, kev->flags);
+	if (error != 0)
+		return (error);
+	error = fsyscall_payload_add_uint(payload, kev->fflags);
+	if (error != 0)
+		return (error);
+	error = fsyscall_payload_add_long(payload, kev->data);
+	if (error != 0)
+		return (error);
+	if (kev->udata != NULL)
+		return (EINVAL);
+	error = fsyscall_payload_add_int(payload, KEVENT_UDATA_NULL);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
 #if !defined(KLD_MODULE)
 struct payload *
 payload_create()
@@ -244,6 +280,7 @@ IMPLEMENT_ADD_X(payload_add_int32, int32_t)
 IMPLEMENT_ADD_X(payload_add_uint8, uint8_t)
 IMPLEMENT_ADD_X(payload_add_uint32, uint32_t)
 IMPLEMENT_ADD_X(payload_add_uint64, uint64_t)
+IMPLEMENT_ADD_X(payload_add_kevent, struct kevent *);
 IMPLEMENT_ADD_X(payload_add_sockaddr, struct sockaddr *);
 #undef IMPLEMENT_ADD_X
 

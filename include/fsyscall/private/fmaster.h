@@ -71,7 +71,12 @@ int	fmaster_read_to_userspace(struct thread *, int, void *, size_t);
 			fmaster_read_int32((td), (int32_t *)(dest), (size))
 #define	fmaster_read_uint64(td, dest, size) \
 			fmaster_read_int64((td), (int64_t *)(dest), (size))
+#define	fmaster_read_short	fmaster_read_int16
 #define	fmaster_read_int	fmaster_read_int32
+#define	fmaster_read_long	fmaster_read_int64
+#define	fmaster_read_ushort	fmaster_read_uint16
+#define	fmaster_read_uint	fmaster_read_uint32
+#define	fmaster_read_ulong	fmaster_read_uint64
 #define	fmaster_read_socklen	fmaster_read_uint32
 
 int	fmaster_write(struct thread *, int, const void *, size_t);

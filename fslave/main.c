@@ -1,6 +1,7 @@
+#include <sys/types.h>
+#include <sys/event.h>
 #include <sys/select.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/un.h>
 #include <assert.h>
@@ -620,6 +621,110 @@ process_fork(struct slave *slave)
 }
 
 static void
+process_kevent(struct slave *slave)
+{
+	struct kevent *changelist, *eventlist, *kev;
+	struct payload *payload;
+	struct timespec timeout, *ptimeout;
+	payload_size_t actual_payload_size, payload_size;
+	size_t size;
+	command_t return_command;
+	int changelist_code, i, kq, len, nchanges, nevents, retval, rfd;
+	int timeout_code, udata_code;
+	const char *fmt = "Invalid kevent(2) changelist code: %d";
+	const char *fmt2 = "Invalid kevent(2) timeout code: %d";
+
+	rfd = slave->rfd;
+	payload_size = read_payload_size(rfd);
+
+	kq = read_int(rfd, &len);
+	actual_payload_size = len;
+
+	nchanges = read_int(rfd, &len);
+	actual_payload_size += len;
+
+	changelist_code = read_int(rfd, &len);
+	actual_payload_size += len;
+
+	switch (changelist_code) {
+	case KEVENT_CHANGELIST_NOT_NULL:
+		size = sizeof(*changelist) * nchanges;
+		changelist = (struct kevent *)alloca(size);
+		for (i = 0; i < nchanges; i++) {
+			kev = &changelist[i];
+			kev->ident = read_ulong(rfd, &len);
+			actual_payload_size += len;
+			kev->filter = read_short(rfd, &len);
+			actual_payload_size += len;
+			kev->flags = read_ushort(rfd, &len);
+			actual_payload_size += len;
+			kev->fflags = read_uint(rfd, &len);
+			actual_payload_size += len;
+			kev->data = read_long(rfd, &len);
+			actual_payload_size += len;
+			udata_code = read_int(rfd, &len);
+			actual_payload_size += len;
+			switch (udata_code) {
+			case KEVENT_UDATA_NULL:
+				kev->udata = NULL;
+				break;
+			case KEVENT_UDATA_NOT_NULL:
+			default:
+				die(1, "Invalid udata code: %d", udata_code);
+				break;
+			}
+		}
+		break;
+	case KEVENT_CHANGELIST_NULL:
+		changelist = NULL;
+		break;
+	default:
+		die(1, fmt, changelist_code);
+		break;
+	}
+
+	nevents = read_int(rfd, &len);
+	actual_payload_size += len;
+	eventlist = (struct kevent *)alloca(sizeof(*eventlist) * nevents);
+
+	timeout_code = read_int(rfd, &len);
+	actual_payload_size += len;
+
+	switch (timeout_code) {
+	case KEVENT_TIMEOUT_NOT_NULL:
+		timeout.tv_sec = read_int64(rfd, &len);
+		actual_payload_size += len;
+		timeout.tv_nsec = read_int64(rfd, &len);
+		actual_payload_size += len;
+		ptimeout = &timeout;
+		break;
+	case KEVENT_TIMEOUT_NULL:
+		ptimeout = NULL;
+		break;
+	default:
+		die(1, fmt2, timeout_code);
+		break;
+	}
+
+	die_if_payload_size_mismatched(payload_size, actual_payload_size);
+
+	retval = kevent(kq, changelist, nchanges, eventlist, nevents, ptimeout);
+	syslog(LOG_DEBUG, "kevent: kq=%d, nchanges=%d, nevents=%d, retval=%d", kq, nchanges, nevents, retval);
+	return_command = RET_KEVENT;
+	if (retval == -1) {
+		return_int(slave, return_command, retval, errno);
+		return;
+	}
+
+	payload = payload_create();
+	payload_add_int(payload, retval);
+	for (i = 0; i < retval; i++)
+		payload_add_kevent(payload, &eventlist[i]);
+	write_payloaded_command(slave, return_command, payload);
+	payload_dispose(payload);
+}
+
+static void
 process_setsockopt(struct slave *slave)
 {
 	payload_size_t actual_payload_size, payload_size;
@@ -883,6 +988,9 @@ mainloop(struct slave *slave)
 				break;
 			case CALL_SETSOCKOPT:
 				process_setsockopt(slave);
+				break;
+			case CALL_KEVENT:
+				process_kevent(slave);
 				break;
 			case CALL_EXIT:
 				return process_exit(slave);
