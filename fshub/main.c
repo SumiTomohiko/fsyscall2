@@ -250,6 +250,7 @@ process_signaled(struct shub *shub, struct slave *slave, command_t cmd)
 	char sig;
 
 	read_or_die(slave->rfd, &sig, sizeof(sig));
+	syslog(LOG_DEBUG, "signal: %d (SIG%s)", sig, sys_signame[(int)sig]);
 
 	wfd = shub->mhub.wfd;
 	write_command(wfd, cmd);
@@ -339,8 +340,9 @@ process_fork_socket(struct shub *shub)
 	struct sockaddr_storage addr;
 	struct fork_info *fi;
 	socklen_t addrlen;
+	pair_id_t pair_id;
 	int fd;
-	char token[TOKEN_SIZE];
+	char name[64], token[TOKEN_SIZE];
 
 	addrlen = sizeof(addr);
 	fd = accept(shub->fork_sock, (struct sockaddr *)&addr, &addrlen);
@@ -352,9 +354,10 @@ process_fork_socket(struct shub *shub)
 
 	slave = (struct slave *)malloc_or_die(sizeof(*slave));
 	slave->rfd = slave->wfd = fd;
-	slave->pair_id = fi->pair_id;
+	pair_id = slave->pair_id = fi->pair_id;
 	PREPEND_ITEM(&shub->slaves, slave);
-	log_fds("the new slave", slave->rfd, slave->wfd);
+	snprintf(name, sizeof(name), "the new slave (pair id: %lu)", pair_id);
+	log_fds(name, slave->rfd, slave->wfd);
 
 	REMOVE_ITEM(fi);
 	free(fi);
