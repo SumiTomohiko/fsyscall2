@@ -2,7 +2,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <assert.h>
+#include <err.h>
+#include <errno.h>
 #include <getopt.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,6 +59,65 @@ start_java_slave(int rfd, int wfd, int _, char *__[])
 	die(1, "failed to execvp");
 }
 
+static int sigfd;
+
+static void
+signal_handler(int sig)
+{
+	size_t size;
+	char c;
+
+	c = 0;
+	size = sizeof(c);
+	if (write(sigfd, &c, size) != size)
+		die(1, "cannot write(2) to signal pipe");
+}
+
+static void
+initialize_signal_handler()
+{
+	struct sigaction act;
+
+	act.sa_handler = signal_handler;
+	act.sa_flags = 0;
+	if (sigfillset(&act.sa_mask) == -1)
+		die(1, "sigfillset(3) failed");
+	if (sigaction(SIGCHLD, &act, NULL) == -1)
+		die(1, "sigaction(2) for SIGCHLD failed");
+}
+
+static int
+wait_sigchld(int fd)
+{
+	fd_set fds;
+	struct timeval timeout;
+	size_t size;
+	int i, n;
+	char c;
+
+	timeout.tv_sec = 60;
+	timeout.tv_usec = 0;
+	i = 0;
+	while (i < 2) {
+		FD_ZERO(&fds);
+		FD_SET(fd, &fds);
+		n = select(fd + 1, &fds, NULL, NULL, &timeout);
+		if (n == -1) {
+			if (errno == EINTR)
+				continue;
+			die(1, "select(2) for fd %d failed", fd);
+		}
+		if (n == 0)
+			die(1, "timeout");
+		size = sizeof(c);
+		if (read(fd, &c, size) != size)
+			die(1, "read(2) for fd %d failed", fd);
+		i++;
+	}
+
+	return (0);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -64,9 +126,9 @@ main(int argc, char *argv[])
 		{ "verbose", no_argument, NULL, 'v' },
 		{ NULL, 0, NULL, 0 }
 	};
-	pid_t master_pid, slave_pid;
+	pid_t master_pid, pid, pids[2], slave_pid;
 	void (*start_slave)(int, int, int, char *[]);
-	int i, opt, master_status, r, slave_status, w;
+	int i, opt, master_status, r, sigfds[2], slave_status, w;
 	int mhub2shub[2], shub2mhub[2];
 	bool java = false, verbose = false;
 	char **args, *fmt;
@@ -90,6 +152,10 @@ main(int argc, char *argv[])
 
 	pipe_or_die(shub2mhub);
 	pipe_or_die(mhub2shub);
+
+	pipe_or_die(sigfds);
+	initialize_signal_handler();
+	sigfd = sigfds[W];
 
 	slave_pid = fork_or_die();
 	if (slave_pid == 0) {
@@ -129,6 +195,15 @@ main(int argc, char *argv[])
 	close_or_die(shub2mhub[W]);
 	close_or_die(mhub2shub[R]);
 	close_or_die(mhub2shub[W]);
+	if (wait_sigchld(sigfds[R]) != 0) {
+		pids[0] = slave_pid;
+		pids[1] = master_pid;
+		for (i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {
+			pid = pids[i];
+			if (kill(pid, SIGKILL) == -1)
+				warn("no such process: %d", pid);
+		}
+	}
 	waitpid_or_die(slave_pid, &slave_status);
 	waitpid_or_die(master_pid, &master_status);
 	if (!WIFEXITED(slave_status) || !WIFEXITED(master_status))
