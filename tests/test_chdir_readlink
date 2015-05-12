@@ -1,6 +1,7 @@
 
 cmd="chdir_readlink/chdir_readlink"
 path="${PWD}/${tmp_dir}/chdir_readlink.$$"
+args="${path}"
 expected_status="0"
 
 precmd()
