@@ -825,9 +825,8 @@ process_sigaction(struct slave *slave)
 {
 	struct sigaction act;
 	payload_size_t actual_payload_size, payload_size;
-	int actcode, actcode_len, bits_len, flags_len, i, retval, rfd, sig;
-	int sig_len;
-	void **handler;
+	int actcode, actcode_len, bits_len, flags, flags_len, i, retval, rfd;
+	int sig, sig_len;
 
 	rfd = slave->rfd;
 	payload_size = read_payload_size(rfd);
@@ -838,23 +837,21 @@ process_sigaction(struct slave *slave)
 	actcode = read_uint8(rfd, &actcode_len);
 	actual_payload_size += actcode_len;
 
-	act.sa_flags = read_int32(rfd, &flags_len);
+	flags = read_int32(rfd, &flags_len);
 	actual_payload_size += flags_len;
-	handler = (act.sa_flags & SA_SIGINFO) != 0 ? (void **)&act.sa_sigaction
-						   : (void **)&act.sa_handler;
+
 	switch (actcode) {
 	case SIGNAL_DEFAULT:
-		*handler = SIG_DFL;
-		break;
 	case SIGNAL_IGNORE:
-		*handler = SIG_IGN;
+		flags |= SA_RESTART;
 		break;
 	case SIGNAL_ACTIVE:
-		*handler = signal_handler;
 		break;
 	default:
 		die(1, "invalid sigaction code (%d)", actcode);
 	}
+	act.sa_handler = signal_handler;
+	act.sa_flags = flags | ~SA_SIGINFO;
 
 	for (i = 0; i < _SIG_WORDS; i++) {
 		act.sa_mask.__bits[i] = read_uint32(rfd, &bits_len);
@@ -1014,6 +1011,33 @@ slave_main(struct slave *slave)
 	return (mainloop(slave));
 }
 
+static int
+initialize_sigaction()
+{
+	struct sigaction act;
+	int i, nsigs, sig;
+	int sigs[] = { SIGHUP, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
+		       SIGEMT, SIGFPE, SIGBUS, /*SIGSEGV,*/ SIGSYS, SIGPIPE,
+		       SIGALRM, SIGTERM, SIGURG, SIGTSTP, SIGCONT, SIGCHLD,
+		       SIGTTIN, SIGTTOU, SIGIO, SIGXCPU, SIGXFSZ, SIGVTALRM,
+		       SIGPROF, SIGWINCH, SIGINFO, SIGUSR1, SIGUSR2, SIGTHR };
+	const char *fmt = "cannot sigaction(2) for %d (SIG%s)";
+
+	act.sa_handler = signal_handler;
+	act.sa_flags = SA_RESTART;
+	if (sigfillset(&act.sa_mask) == -1)
+		die(1, "cannot sigemptyset(3)");
+
+	nsigs = array_sizeof(sigs);
+	for (i = 0; i < nsigs; i++) {
+		sig = sigs[i];
+		if (sigaction(sig, &act, NULL) == -1)
+			die(1, fmt, sig, sys_signame[sig]);
+	}
+
+	return (0);
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -1051,6 +1075,8 @@ main(int argc, char* argv[])
 	slave.wfd = atoi_or_die(args[1], "wfd");
 	if (initialize_signal_handling(&slave) != 0)
 		return (3);
+	if (initialize_sigaction() != 0)
+		return (4);
 	slave.fork_sock = args[2];
 
 	status = slave_main(&slave);

@@ -446,6 +446,26 @@ shub_main(struct shub *shub)
 	return (0);
 }
 
+static void
+ignore_sigpipe()
+{
+	/*
+	 * Assume a session including two or more slaves. The parent slave can
+	 * be signaled with SIGCHLD even after all of the master ended. If the
+	 * shub writes a SIGNALED command to a disconnected master, it causes
+	 * SIGPIPE which terminates the shub process. So the shub ignores
+	 * SIGPIPE to avoid being terminated (and libio ignores EPIPE in
+	 * write(2)).
+	 */
+	struct sigaction act;
+
+	act.sa_handler = SIG_IGN;
+	act.sa_flags = 0;
+	sigemptyset(&act.sa_mask);
+	if (sigaction(SIGPIPE, &act, NULL) == -1)
+		die(1, "sigaction(2) for SIGPIPE");
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -494,6 +514,7 @@ main(int argc, char *argv[])
 
 	pshub->fork_sock = fork_sock = hub_open_fork_socket(args[4]);
 	initialize_list(&pshub->fork_info);
+	ignore_sigpipe();
 	status = shub_main(pshub);
 	hub_close_fork_socket(fork_sock);
 	log_graceful_exit(status);

@@ -33,8 +33,16 @@ write_or_die(int fd, const void *buf, size_t nbytes)
 
 	while (n < nbytes) {
 		m = write(fd, (char *)buf + n, nbytes - n);
-		if (m < 0)
+		if (m < 0) {
+			/*
+			 * For more about design information, please read the
+			 * comment in ignore_sigpipe() in fshub/main.c. The
+			 * comment tells why here ignores EPIPE.
+			 */
+			if (errno == EPIPE)
+				return;
 			die(-1, "cannot write to fd %d", fd);
+		}
 		n -= m;
 	}
 }
