@@ -43,6 +43,7 @@ void		payload_add_uint32(struct payload *, uint32_t);
 void		payload_add_uint64(struct payload *, uint64_t);
 void		payload_add_kevent(struct payload *, struct kevent *);
 void		payload_add_sockaddr(struct payload *, struct sockaddr *);
+void		payload_dump(const struct payload *);
 #define	payload_add_int		payload_add_int32
 #define	payload_add_socklen	payload_add_uint32
 #define	payload_dispose		fsyscall_payload_dispose

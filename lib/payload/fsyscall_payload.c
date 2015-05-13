@@ -9,11 +9,13 @@
 #include <sys/un.h>
 #else
 #include <sys/un.h>
+#include <ctype.h>
 #include <errno.h>
 #include <signal.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #endif
 
 #include <fsyscall/private/command.h>
@@ -43,6 +45,23 @@ struct payload {
 	payload_size_t used_size;
 	char *buf;
 };
+
+#if !defined(KLD_MODULE)
+void
+payload_dump(const struct payload *payload)
+{
+	payload_size_t i, size;
+	const char *fmt = "payload %p[%d]: 0x%02x (%c)";
+	char c, datum;
+
+	size = payload->used_size;
+	for (i = 0; i < size; i++) {
+		datum = payload->buf[i];
+		c = isprint(datum) ? datum : ' ';
+		syslog(LOG_DEBUG, fmt, payload, i, 0xff & c, c);
+	}
+}
+#endif
 
 static int
 realloc_buf_if_small(struct payload *payload, payload_size_t size)
