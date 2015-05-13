@@ -93,7 +93,7 @@ sys_fmaster_sigaction(struct thread *td, struct fmaster_sigaction_args *uap)
 #define	SYSCALL_NAME	"sigaction"
 	struct timeval time_start;
 	int error;
-	const char *fmt = "fmaster[%d]: " SYSCALL_NAME ": started: sig=%d";
+	const char *fmt = "fmaster[%d]: " SYSCALL_NAME ": started: sig=%d\n";
 
 	log(LOG_DEBUG, fmt, td->td_proc->p_pid, uap->sig);
 	microtime(&time_start);
