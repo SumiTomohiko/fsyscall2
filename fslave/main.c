@@ -545,7 +545,7 @@ signal_handler(int sig)
 {
 	char c = (char)sig;
 
-	syslog(LOG_DEBUG, "signaled: SIG%s", sys_signame[sig]);
+	syslog(LOG_DEBUG, "signaled: %d (SIG%s)", sig, sys_signame[sig]);
 	write_or_die(sigw, &c, sizeof(c));
 }
 
