@@ -851,7 +851,7 @@ process_sigaction(struct slave *slave)
 		die(1, "invalid sigaction code (%d)", actcode);
 	}
 	act.sa_handler = signal_handler;
-	act.sa_flags = flags | ~SA_SIGINFO;
+	act.sa_flags = flags & ~SA_SIGINFO;
 
 	for (i = 0; i < _SIG_WORDS; i++) {
 		act.sa_mask.__bits[i] = read_uint32(rfd, &bits_len);
