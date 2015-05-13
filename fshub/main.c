@@ -284,12 +284,19 @@ transfer_payload_from_slave(struct shub *shub, struct slave *slave, command_t cm
 static void
 process_slave(struct shub *shub, struct slave *slave)
 {
+	pair_id_t pair_id;
 	command_t cmd;
-	const char *fmt = "unknown command (%d) from slave %ld";
-	const char *logfmt = "processing %s from the slave of pair id %d";
+	int rfd;
+	const char *errfmt = "unknown command (%d) from slave %ld";
+	const char *fmt = "the slave of pair id %ld (rfd %d) is ready to read";
+	const char *fmt2 = "processing %s from the slave of pair id %d";
+
+	pair_id = slave->pair_id;
+	rfd = slave->rfd;
+	syslog(LOG_DEBUG, fmt, pair_id, rfd);
 
 	cmd = read_command(slave->rfd);
-	syslog(LOG_DEBUG, logfmt, get_command_name(cmd), slave->pair_id);
+	syslog(LOG_DEBUG, fmt2, get_command_name(cmd), pair_id);
 	switch (cmd) {
 	case SIGNALED:
 		process_signaled(shub, slave, cmd);
@@ -310,7 +317,7 @@ process_slave(struct shub *shub, struct slave *slave)
 		transfer_payload_from_slave(shub, slave, cmd);
 		break;
 	default:
-		diex(-1, fmt, cmd, slave->pair_id);
+		diex(-1, errfmt, cmd, slave->pair_id);
 	}
 }
 
