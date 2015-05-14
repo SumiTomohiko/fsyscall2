@@ -379,9 +379,7 @@ process_exit(struct mhub *mhub, struct master *master)
 	write_pair_id(wfd, pair_id);
 	write_int32(wfd, status);
 
-	dump_masters(mhub);
 	dispose_master(master);
-	dump_masters(mhub);
 }
 
 static void
