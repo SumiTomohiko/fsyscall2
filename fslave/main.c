@@ -545,7 +545,6 @@ signal_handler(int sig)
 {
 	char c = (char)sig;
 
-	syslog(LOG_DEBUG, "signaled: %d (SIG%s)", sig, sys_signame[sig]);
 	write_or_die(sigw, &c, sizeof(c));
 }
 
@@ -907,10 +906,12 @@ process_exit(struct slave *slave)
 static void
 process_signal(struct slave *slave)
 {
-	int wfd;
+	int n, wfd;
 	char sig;
 
 	read_or_die(slave->sigr, &sig, sizeof(sig));
+	n = (int)sig;
+	syslog(LOG_DEBUG, "signaled: %d (SIG%s)", n, sys_signame[n]);
 
 	wfd = slave->wfd;
 	write_command(wfd, SIGNALED);
