@@ -294,6 +294,64 @@ process_signaled(struct mhub *mhub, command_t cmd)
 }
 
 static void
+wait_fork_child(struct mhub *mhub)
+{
+	struct timeval timeout;
+	fd_set fds;
+	int fd, n;
+
+	fd = mhub->fork_sock;
+
+	FD_ZERO(&fds);
+	FD_SET(fd, &fds);
+	timeout.tv_sec = 60;
+	timeout.tv_usec = 0;
+
+	n = select(fd + 1, &fds, NULL, NULL, &timeout);
+	switch (n) {
+	case -1:
+		die(-1, "select failed");
+		/* NOTREACHED */
+	case 0:
+		die(1, "select(2) for fork child timed out");
+		/* NOTREACHED */
+	default:
+		break;
+	}
+}
+
+static void
+process_fork_socket(struct mhub *mhub)
+{
+	struct master *master;
+	struct sockaddr_storage addr;
+	struct fork_info *fi;
+	socklen_t addrlen;
+	pid_t pid;
+	int len, sock;
+	const char *fmt = "A new master (pair id: %ld) has come.";
+	char token[TOKEN_SIZE];
+
+	addrlen = sizeof(addr);
+	sock = accept(mhub->fork_sock, (struct sockaddr *)&addr, &addrlen);
+	if (sock == -1)
+		die(1, "accept(2) failed");
+	read_or_die(sock, token, sizeof(token));
+	fi = find_fork_info_of_token(mhub, token);
+	if (fi == NULL)
+		die(1, "Cannot find token %s", token);
+	assert(fi != NULL);
+	syslog(LOG_INFO, fmt, fi->child_pair_id);
+
+	pid = read_pid(sock, &len);
+	master = create_master(mhub, fi->child_pair_id, pid, sock, sock);
+	PREPEND_ITEM(&mhub->masters, master);
+
+	REMOVE_ITEM(fi);
+	free(fi);
+}
+
+static void
 process_fork_return(struct mhub *mhub)
 {
 	struct fork_info *fi;
@@ -324,6 +382,9 @@ process_fork_return(struct mhub *mhub)
 	write_or_die(wfd, buf, buf_size);
 
 	payload_dispose(payload);
+
+	wait_fork_child(mhub);
+	process_fork_socket(mhub);
 }
 
 static void
@@ -519,37 +580,6 @@ find_master_of_rfd(struct mhub *mhub, int rfd)
 }
 
 static void
-process_fork_socket(struct mhub *mhub)
-{
-	struct master *master;
-	struct sockaddr_storage addr;
-	struct fork_info *fi;
-	socklen_t addrlen;
-	pid_t pid;
-	int len, sock;
-	const char *fmt = "A new master (pair id: %ld) has come.";
-	char token[TOKEN_SIZE];
-
-	addrlen = sizeof(addr);
-	sock = accept(mhub->fork_sock, (struct sockaddr *)&addr, &addrlen);
-	if (sock == -1)
-		die(1, "accept(2) failed");
-	read_or_die(sock, token, sizeof(token));
-	fi = find_fork_info_of_token(mhub, token);
-	if (fi == NULL)
-		die(1, "Cannot find token %s", token);
-	assert(fi != NULL);
-	syslog(LOG_INFO, fmt, fi->child_pair_id);
-
-	pid = read_pid(sock, &len);
-	master = create_master(mhub, fi->child_pair_id, pid, sock, sock);
-	PREPEND_ITEM(&mhub->masters, master);
-
-	REMOVE_ITEM(fi);
-	free(fi);
-}
-
-static void
 process_fd(struct mhub *mhub, int fd, fd_set *fds)
 {
 	struct master *master;
@@ -558,10 +588,6 @@ process_fd(struct mhub *mhub, int fd, fd_set *fds)
 		return;
 	if (fd == mhub->shub.rfd) {
 		process_shub(mhub);
-		return;
-	}
-	if (fd == mhub->fork_sock) {
-		process_fork_socket(mhub);
 		return;
 	}
 
@@ -578,11 +604,9 @@ process_fds(struct mhub *mhub)
 
 	pfds = &fds;
 	FD_ZERO(pfds);
-
 	rfd = mhub->shub.rfd;
 	FD_SET(rfd, pfds);
-	FD_SET(mhub->fork_sock, pfds);
-	max_fd = MAX(rfd, mhub->fork_sock);
+	max_fd = rfd;
 
 	master = (struct master *)FIRST_ITEM(&mhub->masters);
 	while (!IS_LAST(master)) {
@@ -602,7 +626,7 @@ process_fds(struct mhub *mhub)
 static void
 mainloop(struct mhub *mhub)
 {
-	while (!IS_EMPTY(&mhub->masters) || !IS_EMPTY(&mhub->fork_info))
+	while (!IS_EMPTY(&mhub->masters))
 		process_fds(mhub);
 }
 
