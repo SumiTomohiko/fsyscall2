@@ -562,7 +562,8 @@ initialize_signal_handling(struct slave *slave)
 }
 
 static void
-child_main(struct slave *slave, const char *token, size_t token_size, pid_t parent)
+child_main(struct slave *slave, const char *token, size_t token_size,
+	   pid_t parent, sigset_t *sigset)
 {
 	struct sockaddr_storage sockaddr;
 	struct sockaddr_un *addr;
@@ -588,12 +589,15 @@ child_main(struct slave *slave, const char *token, size_t token_size, pid_t pare
 	if (close(sigw) != 0)
 		die(1, "Cannot close(2) for sigw");
 	initialize_signal_handling(slave);
+	if (sigprocmask(SIG_SETMASK, sigset, NULL) == -1)
+		die(1, "sigprocmask(2) to recover failed");
 	syslog(LOG_INFO, fmt, slave->rfd, slave->wfd);
 }
 
 static void
 process_fork(struct slave *slave)
 {
+	sigset_t oset, set;
 	payload_size_t len, payload_size;
 	pid_t parent_pid, pid;
 	int rfd, wfd;
@@ -604,13 +608,20 @@ process_fork(struct slave *slave)
 	token = (char *)alloca(payload_size);
 	read_or_die(rfd, token, payload_size);
 
+	if (sigfillset(&set) == -1)
+		die(1, "sigfillset(3) failed");
+	if (sigprocmask(SIG_BLOCK, &set, &oset) == -1)
+		die(1, "sigprocmask(2) to block all signals failed");
+
 	parent_pid = getpid();
 	pid = fork_or_die();
 	if (pid == 0) {
-		child_main(slave, token, payload_size, parent_pid);
+		child_main(slave, token, payload_size, parent_pid, &oset);
 		return;
 	}
 	syslog(LOG_DEBUG, "forked: pid=%d", pid);
+	if (sigprocmask(SIG_SETMASK, &oset, NULL) == -1)
+		die(1, "sigprocmask(2) to recover failed");
 
 	len = encode_int32(pid, buf, sizeof(buf));
 	wfd = slave->wfd;
