@@ -270,21 +270,24 @@ process_signaled(struct mhub *mhub, command_t cmd)
 {
 	pair_id_t pair_id;
 	pid_t pid;
-	int rfd;
-	const char *fmt = "kill(2) failed: pair_id=%ld, pid=%d, sig=%d (SIG%s):"
-			  " %s";
+	int rfd, sig;
+	const char *errfmt = "kill(2) failed: pair_id=%ld, pid=%d, sig=%d (SIG%"
+			     "s): %s";
+	const char *fmt = "signaled: pair_id=%ld, pid=%d, signal=%d (SIG%s)";
 	const char *cause, *signame;
-	char sig;
+	char c;
 
 	rfd = mhub->shub.rfd;
 	pair_id = read_pair_id(rfd);
-	read_or_die(rfd, &sig, sizeof(sig));
+	read_or_die(rfd, &c, sizeof(c));
+	sig = (int)c;
 
 	pid = find_master_of_pair_id(mhub, pair_id)->pid;
+	signame = sys_signame[sig];
+	syslog(LOG_DEBUG, fmt, pair_id, pid, sig, signame);
 	if (kill(pid, sig) != 0) {
-		signame = sys_signame[(int)sig];
 		cause = strerror(errno);
-		syslog(LOG_ERR, fmt, pair_id, pid, sig, signame, cause);
+		syslog(LOG_ERR, errfmt, pair_id, pid, sig, signame, cause);
 	}
 }
 
