@@ -90,6 +90,7 @@ negotiate_version_with_shub(struct mhub *mhub)
 	syslog(LOG_INFO, "protocol version for shub is %d.", ver);
 }
 
+#if 0
 static void
 dump_masters(struct mhub *mhub)
 {
@@ -105,6 +106,7 @@ dump_masters(struct mhub *mhub)
 		master = (struct master *)ITEM_NEXT(master);
 	}
 }
+#endif
 
 static int
 find_syscall()
