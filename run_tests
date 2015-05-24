@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# usage: run_tests [tests...]
+# usage: run_tests [options] [tests...]
 # If no test is given, run_tests tests all test_* under tests directory.
 
 show_title()
@@ -78,15 +78,33 @@ rm -rf "${tmp_dir}" || exit 1
 mkdir -p "${tmp_dir}" || exit 1
 
 filter="/usr/bin/true"
+repeat="1"
 tester_opts=""
-if [ "$1" = "--java" ]; then
-	tester_opts="--java"
-	shift
-fi
-if [ "$1" = "--filter" ]; then
-	filter="$2"
-	shift 2
-fi
+stop_on_ng="no"
+while [ 0 -lt $# ]
+do
+	case "$1" in
+	"--filter")
+		filter="$2"
+		shift 2
+		;;
+	"--java")
+		tester_opts="--java"
+		shift
+		;;
+	"--repeat")
+		repeat="$2"
+		shift 2
+		;;
+	"--stop-on-ng")
+		stop_on_ng="yes"
+		shift
+		;;
+	*)
+		break
+		;;
+	esac
+done
 
 if [ $# -eq 0 ]; then
 	tests=$(find "${tests_dir}" -name "test_*" | sort)
@@ -96,71 +114,89 @@ fi
 
 show_title "*" "Running Tests"
 summary=""
-for t in ${tests}
+for n in $(jot ${repeat})
 do
-	show_title "=" "${t}"
-
-	"${filter}" "${t}"
-	if [ $? != 0 ]; then
-		print_result "${t}" "SKIP"
-		continue
-	fi
-
-	unset args cmd expected_status expected_stdout status unexpected_status
-	unset -f postcmd precmd test_status
-	. "${t}"
-
-	if [ "$(typename precmd)" = "shell function" ]; then
-		precmd
-	fi
-
-	exe="${tests_dir}/${arch}/${cmd}"
-	stdout_log="${tmp_dir}/stdout.log"
-	"${tester}" ${tester_opts} "${exe}" ${args} > "${stdout_log}"
-	status="${?}"
-
-	if [ -n "$(isset expected_status)" ]; then
-		if [ "${expected_status}" -eq "${status}" ]; then
-			result="OK"
+	for t in ${tests}
+	do
+		if [ "${n}" -eq 1 ]; then
+			title="${t}"
 		else
-			result="NG (actual: ${status})"
+			title="${t}[${n}]"
 		fi
-	elif [ -n "$(isset expected_stdout)" ]; then
-		if [ "${expected_stdout}" = "$(cat ${stdout_log})" ]; then
-			result="OK"
-		else
-			result="NG"
-		fi
-	elif [ -n "$(isset unexpected_status)" ]; then
-		if [ "${unexpected_status}" != "${status}" ]; then
-			result="OK"
-		else
-			result="NG"
-		fi
-	elif [ "$(typename test_status)" = "shell function" ]; then
-		test_status "${status}"
-		result=$(test_result "${?}")
-	else
-		testcmd
-		result=$(test_result "${?}")
-	fi
+		show_title "=" "${title}"
 
-	print_result "${t}" "${result}"
-	if [ "${result}" != "OK" ]; then
-		summary="${t}
+		"${filter}" "${t}"
+		if [ $? != 0 ]; then
+			print_result "${t}" "SKIP"
+			continue
+		fi
+
+		unset actual_stdout args cmd expected_status expected_stdout
+		unset status unexpected_status
+		unset -f postcmd precmd test_status
+		. "${t}"
+
+		if [ "$(typename precmd)" = "shell function" ]; then
+			precmd
+		fi
+
+		exe="${tests_dir}/${arch}/${cmd}"
+		stdout_log="${tmp_dir}/stdout.log"
+		"${tester}" ${tester_opts} "${exe}" ${args} > "${stdout_log}"
+		status="${?}"
+
+		if [ -n "$(isset expected_status)" ]; then
+			if [ "${expected_status}" -eq "${status}" ]; then
+				result="OK"
+			else
+				result="NG (actual: ${status})"
+			fi
+		elif [ -n "$(isset expected_stdout)" ]; then
+			actual_stdout="$(cat ${stdout_log})"
+			if [ "${expected_stdout}" = "${actual_stdout}" ]; then
+				result="OK"
+			else
+				result="NG"
+			fi
+		elif [ -n "$(isset unexpected_status)" ]; then
+			if [ "${unexpected_status}" != "${status}" ]; then
+				result="OK"
+			else
+				result="NG"
+			fi
+		elif [ "$(typename test_status)" = "shell function" ]; then
+			test_status "${status}"
+			result=$(test_result "${?}")
+		else
+			testcmd
+			result=$(test_result "${?}")
+		fi
+
+		print_result "${t}" "${result}"
+		if [ "${result}" != "OK" ]; then
+			summary="${t}
 ${summary}"
-	fi
+		fi
 
-	if [ "$(typename postcmd)" = "shell function" ]; then
-		postcmd
-	fi
+		if [ "$(typename postcmd)" = "shell function" ]; then
+			postcmd
+		fi
+
+		if [ "${result}" != "OK" ] && [ "${stop_on_ng}" = "yes" ]; then
+			break 2
+		fi
+	done
 done
 
 rm -rf "${tmp_dir}" || exit 1
 
 show_title "*" "Summary"
 if [ -n "${summary}" ]; then
-	echo -n "${summary}" | sort
+	echo -n "${summary}" | sort -u
+	status="1"
 else
 	echo "No Failure \(^o^)/"
+	status="0"
 fi
+
+exit "${status}"
