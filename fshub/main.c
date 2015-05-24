@@ -483,6 +483,7 @@ main(int argc, char *argv[])
 	};
 	struct shub *pshub, shub;
 	int fork_sock, opt, status;
+	const char *sock_path;
 	char **args;
 
 	pshub = &shub;
@@ -519,11 +520,13 @@ main(int argc, char *argv[])
 	PREPEND_ITEM(&pshub->slaves, slave);
 	log_fds("slave", slave->rfd, slave->wfd);
 
-	pshub->fork_sock = fork_sock = hub_open_fork_socket(args[4]);
+	sock_path = args[4];
+	pshub->fork_sock = fork_sock = hub_open_fork_socket(sock_path);
 	initialize_list(&pshub->fork_info);
 	ignore_sigpipe();
 	status = shub_main(pshub);
 	hub_close_fork_socket(fork_sock);
+	hub_unlink_socket(sock_path);
 	log_graceful_exit(status);
 
 	return (status);

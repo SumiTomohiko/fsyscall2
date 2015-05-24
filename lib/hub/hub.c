@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <ctype.h>
+#include <err.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -57,6 +58,14 @@ void
 hub_close_fork_socket(int sock)
 {
 	close_or_die(sock);
+}
+
+void
+hub_unlink_socket(const char *path)
+{
+
+	if (unlink(path) == -1)
+		warn("cannot remove the socket: %s", path);
 }
 
 static char

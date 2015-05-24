@@ -740,7 +740,8 @@ main(int argc, char *argv[])
 	struct mhub mhub, *pmhub;
 	struct env *p, *penv = NULL;
 	int opt, status;
-	char *fork_sock, **args;
+	const char *sock_path;
+	char **args;
 
 	pmhub = &mhub;
 	openlog(argv[0], LOG_PID, LOG_USER);
@@ -775,10 +776,11 @@ main(int argc, char *argv[])
 	pmhub->next_pair_id = 1;
 	initialize_list(&pmhub->fork_info);
 
-	fork_sock = args[2];
-	pmhub->fork_sock = hub_open_fork_socket(fork_sock);
-	status = mhub_main(pmhub, fork_sock, argc - optind - 3, args + 3, penv);
+	sock_path = args[2];
+	pmhub->fork_sock = hub_open_fork_socket(sock_path);
+	status = mhub_main(pmhub, sock_path, argc - optind - 3, args + 3, penv);
 	hub_close_fork_socket(pmhub->fork_sock);
+	hub_unlink_socket(sock_path);
 	log_graceful_exit(status);
 
 	return (status);

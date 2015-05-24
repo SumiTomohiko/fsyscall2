@@ -12,6 +12,7 @@ int	hub_open_fork_socket(const char *);
 void	hub_close_fork_socket(int);
 void	hub_generate_token(char *, size_t);
 void	hub_close_fds_or_die(int, int);
+void	hub_unlink_socket(const char *);
 void transport_fds(int, int);
 
 #endif
