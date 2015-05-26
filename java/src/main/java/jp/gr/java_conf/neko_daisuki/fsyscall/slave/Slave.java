@@ -162,7 +162,8 @@ public class Slave implements Runnable {
 
             switch (mFlags & Unix.Constants.O_ACCMODE) {
             case Unix.Constants.O_RDONLY:
-                file = new UnixInputFile(mPath);
+                boolean create = (mFlags & Unix.Constants.O_CREAT) != 0;
+                file = new UnixInputFile(mPath, create);
                 break;
             case Unix.Constants.O_WRONLY:
                 // XXX: Here ignores O_CREAT.
@@ -675,8 +676,8 @@ public class Slave implements Runnable {
 
     private static class UnixInputFile extends UnixRandomAccessFile {
 
-        public UnixInputFile(String path) throws UnixException {
-            super(path, "r");
+        public UnixInputFile(String path, boolean create) throws UnixException {
+            super(path, create ? "rw" : "r");
         }
 
         public boolean isReadyToRead() throws UnixException {
