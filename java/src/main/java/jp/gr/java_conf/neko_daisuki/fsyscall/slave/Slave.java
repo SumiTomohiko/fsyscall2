@@ -1192,8 +1192,11 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doOpen(String path, int flags, int mode) throws IOException {
-        String fmt = "open(path=%s, flags=%d, mode=%d)";
-        mLogger.info(String.format(fmt, path, flags, mode));
+        String fmt = "open(path=%s, flags=0o%o (%s), mode=0o%o (%s))";
+        String msg = String.format(fmt, path, flags,
+                                   Unix.Constants.Open.toString(flags), mode,
+                                   Unix.Constants.Mode.toString(mode));
+        mLogger.info(msg);
 
         String s = getPathUnderCurrentDirectory(path);
 
