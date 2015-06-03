@@ -73,6 +73,17 @@ public class SyscallInputStream {
         return n + ((m & 0x7f) << shift);
     }
 
+    public short readShort() throws IOException {
+        short n = 0;
+        int shift = 0;
+        byte m;
+        while (((m = readByte()) & 0x80) != 0) {
+            n += ((m & 0x7f) << shift);
+            shift += 7;
+        }
+        return (short)(n + ((m & 0x7f) << shift));
+    }
+
     public long readLong() throws IOException {
         long n = 0;
         int shift = 0;

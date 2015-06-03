@@ -13,6 +13,8 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
+import jp.gr.java_conf.neko_daisuki.fsyscall.KEvent;
+import jp.gr.java_conf.neko_daisuki.fsyscall.KEventArray;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
@@ -427,6 +429,70 @@ class SlaveHelper {
         }
     }
 
+    private class KeventProc extends CommandDispatcher.Proc {
+
+        private static final int KEVENT_CHANGELIST_NULL = 0;
+        private static final int KEVENT_CHANGELIST_NOT_NULL = 1;
+        private static final int KEVENT_TIMEOUT_NULL = 0;
+        private static final int KEVENT_TIMEOUT_NOT_NULL = 1;
+        private static final int KEVENT_UDATA_NULL = 0;
+        private static final int KEVENT_UDATA_NOT_NULL = 1;
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int kq = mIn.readInteger();
+            int nchanges = mIn.readInteger();
+            KEventArray changelist;
+            int changelist_code = mIn.readInteger();
+            switch (changelist_code) {
+            case KEVENT_CHANGELIST_NOT_NULL:
+                changelist = new KEventArray(nchanges);
+                for (int i = 0; i < nchanges; i++) {
+                    KEvent kev = changelist.get(i);
+                    kev.ident = mIn.readInteger();
+                    kev.filter = mIn.readShort();
+                    kev.flags = mIn.readInteger();
+                    kev.fflags = mIn.readInteger();
+                    kev.data = mIn.readInteger();
+                    int udata_code = mIn.readInteger();
+                    if (udata_code != KEVENT_UDATA_NULL) {
+                        String fmt = "unsupported udata code: %d";
+                        throw new ProtocolError(String.format(fmt, udata_code));
+                    }
+                }
+                break;
+            case KEVENT_CHANGELIST_NULL:
+                changelist = null;
+                break;
+            default:
+                String fmt = "invalid changelist code: %d";
+                throw new ProtocolError(String.format(fmt, changelist_code));
+            }
+            int nevents = mIn.readInteger();
+            Unix.TimeSpec timeout;
+            int timeout_code = mIn.readInteger();
+            switch (timeout_code) {
+            case KEVENT_TIMEOUT_NOT_NULL:
+                timeout = new Unix.TimeSpec();
+                timeout.tv_sec = mIn.readInteger();
+                timeout.tv_nsec = mIn.readInteger();
+                break;
+            case KEVENT_TIMEOUT_NULL:
+                timeout = null;
+                break;
+            default:
+                String fmt = "invalid timeout code: %d";
+                throw new ProtocolError(String.format(fmt, timeout_code));
+            }
+
+            SyscallResult.Kevent retval = mSlave.doKevent(kq, changelist,
+                                                          nchanges, nevents,
+                                                          timeout);
+
+            writeResult(Command.RET_KEVENT, retval);
+        }
+    }
+
     private class ExitProc extends CommandDispatcher.Proc {
 
         public void call(Command command) throws IOException {
@@ -477,6 +543,7 @@ class SlaveHelper {
         dispatcher.addEntry(Command.CALL_GETPEERNAME, new GetpeernameProc());
         dispatcher.addEntry(Command.CALL_GETSOCKOPT, new GetsockoptProc());
         dispatcher.addEntry(Command.CALL_SETSOCKOPT, new SetsockoptProc());
+        dispatcher.addEntry(Command.CALL_KEVENT, new KeventProc());
         @DISPATCHES@;
         return dispatcher;
     }
@@ -653,6 +720,21 @@ class SlaveHelper {
     private void writeResult(Command command, SyscallResult.Getresuid result) throws IOException {
         writeResult(command, "getresuid", result.retval, result.errno,
                     result.ruid, result.euid, result.suid);
+    }
+
+    private void writeResult(Command command, SyscallResult.Kevent result) throws IOException {
+        String logHead = "result (kevent)";
+
+        long retval = result.retval;
+        if (retval == -1) {
+            String fmt = "%s: retval=%d, errno=%s";
+            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            writeError(command, result);
+            return;
+        }
+
+        // TODO
+        throw new IOException();
     }
 
     private void writeResult(Command command, SyscallResult.Accept result) throws IOException {

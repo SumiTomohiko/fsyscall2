@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
@@ -23,6 +24,8 @@ import java.util.TimeZone;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
+import jp.gr.java_conf.neko_daisuki.fsyscall.KEvent;
+import jp.gr.java_conf.neko_daisuki.fsyscall.KEventArray;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
@@ -66,7 +69,320 @@ public class Slave implements Runnable {
                                     SocketAddress addr);
     }
 
+    private interface TimeoutRunner {
+
+        public enum Action { CONTINUE, BREAK };
+
+        public Action run() throws UnixException;
+    }
+
+    private class TimeoutLoop {
+
+        private TimeoutDetector mDetector;
+
+        public TimeoutLoop(Unix.TimeSpec timeout) {
+            mDetector = timeout != null ? new TrueTimeoutDetector(timeout)
+                                        : new InfinityTimeoutDetector();
+        }
+
+        public void run(TimeoutRunner runner) throws InterruptedException, UnixException {
+            TimeoutRunner.Action act = runner.run();
+            int interval = 10;  // msec
+            long t = 1000 * interval; // usec
+            while (!mDetector.isTimeout(t) && (act == TimeoutRunner.Action.CONTINUE) && !mCancelled) {
+                Thread.sleep(interval);
+                t += 1000 * interval;
+                act = runner.run();
+            }
+        }
+    }
+
+    private interface EventFilter {
+
+        public KEvent scan(long ident, boolean clear, long fflags) throws UnixException;
+    }
+
+    public class NoSysEventFilter implements EventFilter {
+
+        @Override
+        public KEvent scan(long ident, boolean clear, long fflags) throws UnixException {
+            throw new UnixException(Errno.ENOSYS);
+        }
+    }
+
+    public class ReadEventFilter extends NoSysEventFilter {
+    }
+
+    public class WriteEventFilter extends NoSysEventFilter {
+    }
+
+    public class AioEventFilter extends NoSysEventFilter {
+    }
+
+    public class VNodeEventFilter extends NoSysEventFilter {
+    }
+
+    public class ProcEventFilter extends NoSysEventFilter {
+    }
+
+    public class SignalEventFilter extends NoSysEventFilter {
+    }
+
+    public class TimerEventFilter extends NoSysEventFilter {
+    }
+
+    public class NetDevEventFilter extends NoSysEventFilter {
+    }
+
+    public class FsEventFilter extends NoSysEventFilter {
+    }
+
+    public class LioEventFilter extends NoSysEventFilter {
+    }
+
+    public class UserEventFilter extends NoSysEventFilter {
+    }
+
+    private class EventFilters {
+
+        private Map<Short, EventFilter> mFilters;
+
+        public EventFilters() {
+            mFilters = new HashMap<Short, EventFilter>();
+            put(KEvent.EVFILT_READ, new ReadEventFilter());
+            put(KEvent.EVFILT_WRITE, new WriteEventFilter());
+            put(KEvent.EVFILT_AIO, new AioEventFilter());
+            put(KEvent.EVFILT_VNODE, new VNodeEventFilter());
+            put(KEvent.EVFILT_PROC, new ProcEventFilter());
+            put(KEvent.EVFILT_SIGNAL, new SignalEventFilter());
+            put(KEvent.EVFILT_TIMER, new TimerEventFilter());
+            put(KEvent.EVFILT_NETDEV, new NetDevEventFilter());
+            put(KEvent.EVFILT_FS, new FsEventFilter());
+            put(KEvent.EVFILT_LIO, new LioEventFilter());
+            put(KEvent.EVFILT_USER, new UserEventFilter());
+        }
+
+        public EventFilter get(short filter) throws UnixException {
+            EventFilter ef = mFilters.get(Short.valueOf(filter));
+            if (ef == null) {
+                throw new UnixException(Errno.EINVAL);
+            }
+            return ef;
+        }
+
+        private void put(short filter, EventFilter ef) {
+            mFilters.put(Short.valueOf(filter), ef);
+        }
+    }
+
     private class KQueue extends UnixFile {
+
+        private class Event {
+
+            private long mIdent;
+            private short mFilter;
+            private long mFilterFlags;
+            private boolean mEnabled;
+            private boolean mOneShot;
+            private boolean mClear;
+            private long mData;
+
+            public Event(long ident, short filter, long fflags, boolean enabled,
+                         boolean oneShot, boolean clear, long data) {
+                mIdent = ident;
+                mFilter = filter;
+                setFilterFlags(fflags);
+                setEnabled(enabled);
+                mOneShot = oneShot;
+                mClear = clear;
+                setData(data);
+            }
+
+            public long getIdent() {
+                return mIdent;
+            }
+
+            public short getFilter() {
+                return mFilter;
+            }
+
+            public void enable() {
+                setEnabled(true);
+            }
+
+            public void disable() {
+                setEnabled(false);
+            }
+
+            public boolean isEnabled() {
+                return mEnabled;
+            }
+
+            public long getFilterFlags() {
+                return mFilterFlags;
+            }
+
+            public void setFilterFlags(long fflags) {
+                mFilterFlags = fflags;
+            }
+
+            public boolean isOneShot() {
+                return mOneShot;
+            }
+
+            public void setOneShot() {
+                mOneShot = true;
+            }
+
+            public boolean isClear() {
+                return mClear;
+            }
+
+            public void setClear() {
+                mClear = true;
+            }
+
+            public long getData() {
+                return mData;
+            }
+
+            public void setData(long data) {
+                mData = data;
+            }
+
+            private void setEnabled(boolean enabled) {
+                mEnabled = enabled;
+            }
+        }
+
+        private class Events implements Iterable<Event> {
+
+            private class Key {
+
+                private long mIdent;
+                private short mFilter;
+
+                public Key(long ident, short filter) {
+                    mIdent = ident;
+                    mFilter = filter;
+                }
+
+                public Key(KEvent kev) {
+                    this(kev.ident, kev.filter);
+                }
+
+                @Override
+                public boolean equals(Object o) {
+                    Key key;
+                    try {
+                        key = (Key)o;
+                    }
+                    catch (ClassCastException unused) {
+                        return false;
+                    }
+                    return (mIdent == key.mIdent) && (mFilter == key.mFilter);
+                }
+
+                @Override
+                public int hashCode() {
+                    int n = Long.valueOf(mIdent).hashCode();
+                    int m = Short.valueOf(mFilter).hashCode();
+                    return n + m;
+                }
+            }
+
+            private Map<Key, Event> mEvents = new HashMap<Key, Event>();
+
+            @Override
+            public Iterator<Event> iterator() {
+                return mEvents.values().iterator();
+            }
+
+            public void change(KEvent kev) throws UnixException {
+                Key key = new Key(kev);
+                int flags = kev.flags;
+                if ((flags & KEvent.EV_ADD) != 0) {
+                    add(key, kev);
+                    return;
+                }
+
+                Event entry = mEvents.get(key);
+                if (entry == null) {
+                    throw new UnixException(Errno.ENOENT);
+                }
+                if ((flags & KEvent.EV_DELETE) != 0) {
+                    mEvents.remove(key);
+                    return;
+                }
+
+                entry.setFilterFlags(kev.fflags);
+                if ((flags & KEvent.EV_ENABLE) != 0) {
+                    entry.enable();
+                }
+                if ((flags & KEvent.EV_DISABLE) != 0) {
+                    entry.disable();
+                }
+                if ((flags & KEvent.EV_ONESHOT) != 0) {
+                    entry.setOneShot();
+                }
+                if ((flags & KEvent.EV_CLEAR) != 0) {
+                    entry.setClear();
+                }
+                if ((flags & KEvent.EV_RECEIPT) != 0) {
+                    // TODO
+                }
+                if ((flags & KEvent.EV_DISPATCH) != 0) {
+                    // TODO
+                }
+                entry.setData(kev.data);
+            }
+
+            private void add(Key key, KEvent kev) {
+                int flags = kev.flags;
+                Event entry = new Event(kev.ident, kev.filter, kev.fflags,
+                                        (flags & KEvent.EV_DISABLE) == 0,
+                                        (flags & KEvent.EV_ONESHOT) != 0,
+                                        (flags & KEvent.EV_CLEAR) != 0,
+                                        kev.data);
+                mEvents.put(key, entry);
+            }
+        }
+
+        private class Runner implements TimeoutRunner {
+
+            private int mMax;
+            private Collection<KEvent> mResults = new HashSet<KEvent>();
+
+            public Runner(int nevents) {
+                mMax = nevents;
+            }
+
+            public Collection<KEvent> getEvents() {
+                return mResults;
+            }
+
+            public Action run() throws UnixException {
+                for (Event ev: mEvents) {
+                    if (!ev.isEnabled()) {
+                        continue;
+                    }
+                    EventFilter filter = mEventFilters.get(ev.getFilter());
+                    long ident = ev.getIdent();
+                    long fflags = ev.getFilterFlags();
+                    KEvent kev = filter.scan(ident, ev.isClear(), fflags);
+                    if (kev == null) {
+                        continue;
+                    }
+                    mResults.add(kev);
+                    if (mResults.size() == mMax) {
+                        break;
+                    }
+                }
+                return 0 < mResults.size() ? Action.BREAK : Action.CONTINUE;
+            }
+        }
+
+        private Events mEvents = new Events();
 
         public boolean isReadyToRead() throws UnixException {
             return false;
@@ -97,8 +413,37 @@ public class Slave implements Runnable {
             throw new UnixException(Errno.ENOSYS);
         }
 
+        public Collection<KEvent> kevent(KEventArray changelist, int nevents,
+                                         Unix.TimeSpec timeout) throws InterruptedException, UnixException {
+            change(changelist);
+            return nevents == 0 ? new HashSet<KEvent>()
+                                : scan(nevents, timeout);
+        }
+
+        @Override
+        public void clearFilterFlags() {
+            // nothing.
+        }
+
+        @Override
+        public long getFilterFlags() {
+            return 0L;
+        }
+
         protected void doClose() throws UnixException {
             // nothing?
+        }
+
+        private void change(KEventArray changelist) throws UnixException {
+            for (KEvent kev: changelist) {
+                mEvents.change(kev);
+            }
+        }
+
+        private Collection<KEvent> scan(int nevents, Unix.TimeSpec timeout) throws InterruptedException, UnixException {
+            Runner runner = new Runner(nevents);
+            new TimeoutLoop(timeout).run(runner);
+            return runner.getEvents();
         }
     }
 
@@ -263,6 +608,10 @@ public class Slave implements Runnable {
 
         public TrueTimeoutDetector(Unix.TimeVal timeout) {
             mTime = 1000000 * timeout.tv_sec + timeout.tv_usec;
+        }
+
+        public TrueTimeoutDetector(Unix.TimeSpec timeout) {
+            mTime = 1000000 * timeout.tv_sec + timeout.tv_nsec / 1000;
         }
 
         public TrueTimeoutDetector(long msec) {
@@ -580,6 +929,16 @@ public class Slave implements Runnable {
             return mOptions.contains(option);
         }
 
+        @Override
+        public void clearFilterFlags() {
+            // TODO
+        }
+
+        @Override
+        public long getFilterFlags() {
+            return 0L;
+        }
+
         protected void doClose() throws UnixException {
             try {
                 mCore.close();
@@ -725,9 +1084,21 @@ public class Slave implements Runnable {
         public int write(byte[] buffer) throws UnixException {
             throw new UnixException(Errno.EBADF);
         }
+
+        @Override
+        public void clearFilterFlags() {
+            // does nothing.
+        }
+
+        @Override
+        public long getFilterFlags() {
+            return 0L;
+        }
     }
 
     private static class UnixOutputFile extends UnixRandomAccessFile {
+
+        private long mFilterFlags;
 
         public UnixOutputFile(String path) throws UnixException {
             super(path, "rw");
@@ -756,7 +1127,18 @@ public class Slave implements Runnable {
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
             }
+            mFilterFlags |= KEvent.NOTE_WRITE;
             return buffer.length;
+        }
+
+        @Override
+        public void clearFilterFlags() {
+            mFilterFlags = 0;
+        }
+
+        @Override
+        public long getFilterFlags() {
+            return mFilterFlags;
         }
     }
 
@@ -811,6 +1193,16 @@ public class Slave implements Runnable {
             throw new UnixException(Errno.EBADF);
         }
 
+        @Override
+        public void clearFilterFlags() {
+            // does nothing.
+        }
+
+        @Override
+        public long getFilterFlags() {
+            return 0L;
+        }
+
         protected void doClose() throws UnixException {
             try {
                 mIn.close();
@@ -824,6 +1216,7 @@ public class Slave implements Runnable {
     private static class UnixOutputStream extends UnixStream {
 
         private OutputStream mOut;
+        private long mFilterFlags;
 
         public UnixOutputStream(OutputStream out) {
             mOut = out;
@@ -852,7 +1245,18 @@ public class Slave implements Runnable {
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
             }
+            mFilterFlags |= KEvent.NOTE_WRITE;
             return buffer.length;
+        }
+
+        @Override
+        public void clearFilterFlags() {
+            mFilterFlags = 0;
+        }
+
+        @Override
+        public long getFilterFlags() {
+            return mFilterFlags;
         }
 
         protected void doClose() throws UnixException {
@@ -992,6 +1396,7 @@ public class Slave implements Runnable {
     private SlaveHelper mHelper;
     private FcntlProcs mFcntlProcs;
     private boolean mCancelled = false;
+    private EventFilters mEventFilters = new EventFilters();
 
     public Slave(Application application, Pid pid, InputStream hubIn,
                  OutputStream hubOut, String currentDirectory,
@@ -2095,6 +2500,50 @@ public class Slave implements Runnable {
         result.rusage = new Unix.Rusage();
 
         return result;
+    }
+
+    public SyscallResult.Kevent doKevent(int kq, KEventArray changelist,
+                                         int nchanges, int nevents,
+                                         Unix.TimeSpec timeout) throws IOException {
+        String fmt = "kevent(kq=%d, changelist=%s, nchanges=%d, nevents=%d, timeout=%s)";
+        String msg = String.format(fmt, kq, changelist, nchanges, nevents,
+                                   timeout);
+        mLogger.info(msg);
+        SyscallResult.Kevent retval = new SyscallResult.Kevent();
+
+        UnixFile file = getLockedFile(kq);
+        if (file == null) {
+            retval.setError(Errno.EBADF);
+            return retval;
+        }
+        try {
+            KQueue kqueue;
+            try {
+                kqueue = (KQueue)file;
+            }
+            catch (ClassCastException unused) {
+                retval.setError(Errno.EBADF);
+                return retval;
+            }
+            Collection<KEvent> eventlist;
+            try {
+                eventlist = kqueue.kevent(changelist, nevents, timeout);
+            }
+            catch (UnixException e) {
+                retval.setError(e.getErrno());
+                return retval;
+            }
+            catch (InterruptedException unused) {
+                retval.setError(Errno.EINTR);
+                return retval;
+            }
+            retval.eventlist = eventlist.toArray(new KEvent[0]);
+        }
+        finally {
+            file.unlock();
+        }
+
+        return retval;
     }
 
     private void writeOpenedFileDescriptors() throws IOException {

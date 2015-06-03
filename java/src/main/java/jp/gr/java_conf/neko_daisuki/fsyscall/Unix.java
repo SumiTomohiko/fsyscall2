@@ -39,6 +39,17 @@ public class Unix {
         }
     }
 
+    public static class TimeSpec {
+
+        public int tv_sec;
+        public long tv_nsec;
+
+        public String toString() {
+            String fmt = "TimeSpec(tv_sec=%d, tv_nsec=%d)";
+            return String.format(fmt, tv_sec, tv_nsec);
+        }
+    }
+
     public static class TimeVal {
 
         public long tv_sec;
