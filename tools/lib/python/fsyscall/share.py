@@ -222,8 +222,7 @@ SYSCALLS = {
         "fmaster_chmod": {},
         "fmaster_mkdir": {},
         "fmaster_unlink": {},
-        "fmaster_rmdir": {},
-        "fmaster_kqueue": {}
+        "fmaster_rmdir": {}
         }
 
 FMASTER_SYSCALLS = SYSCALLS

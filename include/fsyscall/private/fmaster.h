@@ -100,6 +100,7 @@ struct fmaster_data *
 void	fmaster_delete_data(struct fmaster_data *);
 
 void	fmaster_close_fd(struct thread *, int);
+int	fmaster_fd_of_master_fd(struct thread *, int, int *);
 int	fmaster_fd_of_slave_fd(struct thread *, int, int *);
 int	fmaster_type_of_fd(struct thread *, int, enum fmaster_fd_type *);
 

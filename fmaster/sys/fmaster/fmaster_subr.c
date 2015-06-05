@@ -1050,8 +1050,8 @@ fmaster_execute_return_generic32(struct thread *td, command_t expected_cmd)
 	return (errnum);
 }
 
-int
-fmaster_fd_of_slave_fd(struct thread *td, int slave_fd, int *local_fd)
+static int
+get_vfd_of_lfd(struct thread *td, enum fmaster_fd_type type, int lfd, int *vfd)
 {
 	struct fmaster_fd *fd, *fds;
 	int i;
@@ -1059,13 +1059,27 @@ fmaster_fd_of_slave_fd(struct thread *td, int slave_fd, int *local_fd)
 	fds = fmaster_fds_of_thread(td);
 	for (i = 0; i < FD_NUM; i++) {
 		fd = &fds[i];
-		if ((fd->fd_type == FD_SLAVE) || (fd->fd_local == slave_fd)) {
-			*local_fd = i;
+		if ((fd->fd_type == type) || (fd->fd_local == lfd)) {
+			*vfd = i;
 			return (0);
 		}
 	}
 
 	return (EPROTO);
+}
+
+int
+fmaster_fd_of_master_fd(struct thread *td, int master_fd, int *vfd)
+{
+
+	return (get_vfd_of_lfd(td, FD_MASTER, master_fd, vfd));
+}
+
+int
+fmaster_fd_of_slave_fd(struct thread *td, int slave_fd, int *vfd)
+{
+
+	return (get_vfd_of_lfd(td, FD_SLAVE, slave_fd, vfd));
 }
 
 int

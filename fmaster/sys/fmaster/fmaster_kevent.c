@@ -2,6 +2,7 @@
 #include <sys/event.h>
 #include <sys/malloc.h>
 #include <sys/proc.h>
+#include <sys/syscallsubr.h>
 #include <sys/systm.h>
 #include <sys/time.h>
 
@@ -162,7 +163,7 @@ timeout_to_str(char *buf, size_t bufsize, const struct timespec *t)
 
 static int
 log_args(struct thread *td, struct fmaster_kevent_args *uap,
-	 struct kevent *kchangelist)
+	 struct kevent *kchangelist, struct timespec *ktimeout)
 {
 	struct kevent *ke;
 	pid_t pid;
@@ -174,7 +175,7 @@ log_args(struct thread *td, struct fmaster_kevent_args *uap,
 	snprintf(header, sizeof(header), "fmaster[%d]: kevent", pid);
 
 	nchanges = uap->nchanges;
-	timeout_to_str(timeout_str, sizeof(timeout_str), uap->timeout);
+	timeout_to_str(timeout_str, sizeof(timeout_str), ktimeout);
 	log(LOG_DEBUG,
 	    "%s: fd=%d, changelist=%p, nchanges=%d, eventlist=%p, nevents=%d, t"
 	    "imeout=%p (%s)\n",
@@ -202,6 +203,7 @@ log_args(struct thread *td, struct fmaster_kevent_args *uap,
 	return (0);
 }
 
+#if 0
 static int
 add_changelist(struct thread *td, struct payload *payload, int nchanges,
 	       struct kevent *kchangelist)
@@ -440,6 +442,7 @@ exit:
 
 	return (error);
 }
+#endif
 
 static int
 copyin_changelist(struct kevent *changelist, int nchanges,
@@ -465,7 +468,8 @@ copyin_changelist(struct kevent *changelist, int nchanges,
 }
 
 static int
-detect_master_fd(struct thread *td, struct kevent *kchangelist, int nchanges)
+detect_fd(struct thread *td, struct kevent *kchangelist, int nchanges,
+	  enum fmaster_fd_type which)
 {
 	struct kevent *kev;
 	enum fmaster_fd_type fdtype;
@@ -480,7 +484,7 @@ detect_master_fd(struct thread *td, struct kevent *kchangelist, int nchanges)
 			error = fmaster_type_of_fd(td, kev->ident, &fdtype);
 			if (error != 0)
 				return (error);
-			if (fdtype != FD_SLAVE)
+			if (fdtype != which)
 				return (EBADF);
 			break;
 		case EVFILT_AIO:
@@ -497,23 +501,132 @@ detect_master_fd(struct thread *td, struct kevent *kchangelist, int nchanges)
 	return (0);
 }
 
+struct copyio_bonus {
+	struct thread *td;
+	struct kevent *kchangelist;
+	struct kevent *eventlist;
+	int ncopyined;
+	int ncopyouted;
+};
+
+static int
+kevent_copyout(void *arg, struct kevent *kevp, int count)
+{
+	struct thread *td;
+	struct malloc_type *mt;
+	struct kevent *p, *tmp;
+	struct copyio_bonus *bonus;
+	size_t size;
+	int error, fd, i;
+
+	size = sizeof(kevp[0]) * count;
+	mt = M_TEMP;
+	tmp = (struct kevent *)malloc(size, mt, M_WAITOK);
+	if (tmp == NULL)
+		return (ENOMEM);
+	memcpy(tmp, kevp, size);
+
+	bonus = (struct copyio_bonus *)arg;
+	td = bonus->td;
+	for (i = 0; i < count; i++) {
+		p = &kevp[i];
+		switch (p->filter) {
+		case EVFILT_READ:
+		case EVFILT_WRITE:
+		case EVFILT_VNODE:
+			error = fmaster_fd_of_master_fd(td, p->ident, &fd);
+			if (error != 0)
+				goto exit;
+			p->ident = fd;
+			break;
+		case EVFILT_AIO:
+		case EVFILT_SIGNAL:
+		case EVFILT_TIMER:
+		case EVFILT_FS:
+		case EVFILT_LIO:
+		case EVFILT_USER:
+		default:
+			break;
+		}
+	}
+	error = copyout(tmp, &bonus->eventlist[bonus->ncopyouted], size);
+	if (error != 0)
+		goto exit;
+
+	bonus->ncopyouted += count;
+	error = 0;
+exit:
+	free(tmp, mt);
+
+	return (error);
+}
+
+static int
+kevent_copyin(void *arg, struct kevent *kevp, int count)
+{
+	struct thread *td;
+	struct kevent *p;
+	struct copyio_bonus *bonus;
+	int i;
+
+	bonus = (struct copyio_bonus *)arg;
+	p = &bonus->kchangelist[bonus->ncopyined];
+	memcpy(kevp, p, sizeof(kevp[0]) * count);
+
+	td = bonus->td;
+	for (i = 0; i < count; i++) {
+		p = &kevp[i];
+		switch (p->filter) {
+		case EVFILT_READ:
+		case EVFILT_WRITE:
+		case EVFILT_VNODE:
+			p->ident = fmaster_fds_of_thread(td)[p->ident].fd_local;
+			break;
+		case EVFILT_AIO:
+		case EVFILT_SIGNAL:
+		case EVFILT_TIMER:
+		case EVFILT_FS:
+		case EVFILT_LIO:
+		case EVFILT_USER:
+		default:
+			break;
+		}
+	}
+
+	bonus->ncopyined += count;
+
+	return (0);
+}
+
 static int
 fmaster_kevent_main(struct thread *td, struct fmaster_kevent_args *uap)
 {
 	struct malloc_type *mt;
 	struct kevent *kchangelist;
+	struct timespec *ktimeout, timeout;
+	struct copyio_bonus bonus;
+	struct kevent_copyops ops;
 	enum fmaster_fd_type fdtype;
-	int error, nchanges;
+	int error, fd, lfd, nchanges;
 
 	nchanges = uap->nchanges;
 	mt = M_TEMP;
 	error = copyin_changelist(uap->changelist, nchanges, mt, &kchangelist);
 	if (error != 0)
 		return (error);
-	error = log_args(td, uap, kchangelist);
+	if (uap->timeout != NULL) {
+		ktimeout = &timeout;
+		error = copyin(uap->timeout, ktimeout, sizeof(timeout));
+		if (error != 0)
+			goto exit;
+	}
+	else
+		ktimeout = NULL;
+	error = log_args(td, uap, kchangelist, ktimeout);
 	if (error != 0)
 		goto exit;
 
+#if 0
 	/*
 	 * This implementation cannot work for the master.
 	 */
@@ -524,7 +637,7 @@ fmaster_kevent_main(struct thread *td, struct fmaster_kevent_args *uap)
 		error = EBADF;
 		goto exit;
 	}
-	error = detect_master_fd(td, kchangelist, nchanges);
+	error = detect_fd(td, kchangelist, nchanges, FD_SLAVE);
 	if (error != 0)
 		goto exit;
 
@@ -532,6 +645,30 @@ fmaster_kevent_main(struct thread *td, struct fmaster_kevent_args *uap)
 	if (error != 0)
 		goto exit;
 	error = execute_return(td, uap);
+	if (error != 0)
+		goto exit;
+#endif
+
+	fd = uap->fd;
+	error = fmaster_type_of_fd(td, fd, &fdtype);
+	if (error != 0)
+		goto exit;
+	if (fdtype != FD_MASTER) {
+		error = EBADF;
+		goto exit;
+	}
+	error = detect_fd(td, kchangelist, nchanges, FD_MASTER);
+	if (error != 0)
+		goto exit;
+	lfd = fmaster_fds_of_thread(td)[fd].fd_local;
+	bonus.td = td;
+	bonus.kchangelist = kchangelist;
+	bonus.eventlist = uap->eventlist;
+	bonus.ncopyined = bonus.ncopyouted = 0;
+	ops.arg = &bonus;
+	ops.k_copyout = kevent_copyout;
+	ops.k_copyin = kevent_copyin;
+	error = kern_kevent(td, lfd, nchanges, uap->nevents, &ops, ktimeout);
 	if (error != 0)
 		goto exit;
 

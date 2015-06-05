@@ -89,7 +89,6 @@ fmaster/sys/fmaster/fmaster_gettimeofday.c
 fmaster/sys/fmaster/fmaster_getuid.c
 fmaster/sys/fmaster/fmaster_issetugid.c
 fmaster/sys/fmaster/fmaster_kill.c
-fmaster/sys/fmaster/fmaster_kqueue.c
 fmaster/sys/fmaster/fmaster_ktimer_create.c
 fmaster/sys/fmaster/fmaster_ktimer_delete.c
 fmaster/sys/fmaster/fmaster_ktimer_getoverrun.c
