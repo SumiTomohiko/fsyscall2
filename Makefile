@@ -1,6 +1,6 @@
 
 SLAVEDIR=	fshub fslave
-SUBDIR= 	lib fmhub fmaster $(SLAVEDIR) tests tools
+SUBDIR= 	lib fmhub fmaster $(SLAVEDIR) tests
 DOCDIR=		doc
 JAVADIR=	java
 JAVASRCDIR=	java/src/main/java
