@@ -1,5 +1,0 @@
-
-cmd="kqueue/kqueue"
-expected_status="0"
-
-# vim: filetype=sh
