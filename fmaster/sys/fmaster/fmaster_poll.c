@@ -124,40 +124,91 @@ do_return(struct thread *td, struct pollfd *fds, int nfds)
 static int
 do_poll(struct thread *td, struct fmaster_poll_args *uap, struct pollfd *fds)
 {
-	size_t len;
 	int error, nfds;
 
 	nfds = uap->nfds;
-	len = sizeof(*fds) * nfds;
-	error = copyin(uap->fds, fds, len);
-	if (error != 0)
-		return (error);
 	error = do_execute(td, fds, nfds, uap->timeout);
 	if (error != 0)
 		return (error);
 	error = do_return(td, fds, nfds);
 	if (error != 0)
 		return (error);
-	error = copyout(fds, uap->fds, len);
-	if (error != 0)
-		return (error);
 
 	return (0);
+}
+
+static void
+events_to_string(char *buf, size_t bufsize, short events)
+{
+	struct flag_definition defs[] = {
+		DEFINE_FLAG(POLLIN),
+		DEFINE_FLAG(POLLPRI),
+		DEFINE_FLAG(POLLOUT),
+		DEFINE_FLAG(POLLRDNORM),
+		/*DEFINE_FLAG(POLLWRNORM),*/	/* same as POLLOUT */
+		DEFINE_FLAG(POLLRDBAND),
+		DEFINE_FLAG(POLLWRBAND),
+		DEFINE_FLAG(POLLINIGNEOF),
+		DEFINE_FLAG(POLLERR),
+		DEFINE_FLAG(POLLHUP),
+		DEFINE_FLAG(POLLNVAL)
+	};
+
+	fmaster_chain_flags(buf, bufsize, events, defs, array_sizeof(defs));
 }
 
 static int
 fmaster_poll_main(struct thread *td, struct fmaster_poll_args *uap)
 {
-	nfds_t nfds;
-	int error;
-	struct pollfd *fds;
+	struct malloc_type *mt;
+	struct pollfd *fds, *p;
+	size_t size;
+	nfds_t i, nfds;
+	pid_t pid;
+	enum fmaster_fd_type fdtype;
+	int error, fd, lfd;
+	short events;
+	const char *sfdtype;
+	char sevents[256];
 
 	nfds = uap->nfds;
-	fds = (struct pollfd *)malloc(sizeof(*fds) * nfds, M_POLLBUF, M_WAITOK);
+	size = sizeof(*fds) * nfds;
+	mt = M_POLLBUF;
+	fds = (struct pollfd *)malloc(size, mt, M_WAITOK);
 	if (fds == NULL)
 		return (ENOMEM);
+	error = copyin(uap->fds, fds, size);
+	if (error != 0)
+		goto exit;
+	pid = td->td_proc->p_pid;
+	for (i = 0; i < nfds; i++) {
+		p = &fds[i];
+		fd = p->fd;
+		error = fmaster_type_of_fd(td, fd, &fdtype);
+		if (error != 0)
+			goto exit;
+		sfdtype = fdtype == FD_MASTER ? "master"
+					      : fdtype == FD_SLAVE ? "slave"
+								   : "closed";
+		lfd = fmaster_fds_of_thread(td)[fd].fd_local;
+		events = p->events;
+		events_to_string(sevents, sizeof(sevents), events);
+		log(LOG_DEBUG,
+		    "fmaster[%d]: poll: fds[%d]: fd=%d (%s: %d), events=%d (%s)"
+		    ", revents=%d\n",
+		    pid, i, fd, sfdtype, lfd, events, sevents, p->revents);
+	}
+
 	error = do_poll(td, uap, fds);
-	free(fds, M_POLLBUF);
+	if (error != 0)
+		goto exit;
+
+	error = copyout(fds, uap->fds, size);
+	if (error != 0)
+		goto exit;
+
+exit:
+	free(fds, mt);
 
 	return (error);
 }

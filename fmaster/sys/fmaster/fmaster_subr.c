@@ -1590,6 +1590,26 @@ fmaster_get_sockopt_name(int optname)
 	return "unknown option";
 }
 
+void
+fmaster_chain_flags(char *buf, size_t bufsize, flag_t flags, struct flag_definition defs[], size_t ndefs)
+{
+	int i, len, size;
+	const char *sep;
+
+	buf[0] = '\0';
+	len = 0;
+	sep = "";
+	for (i = 0; i < ndefs; i++) {
+		if ((flags & defs[i].value) == 0)
+			continue;
+		size = bufsize - len;
+		len += snprintf(&buf[len], size, "%s%s", sep, defs[i].name);
+		sep = "|";
+	}
+	if (buf[0] == '\0')
+		snprintf(buf, bufsize, "nothing");
+}
+
 /**
  * Writes a payload with its size.
  */

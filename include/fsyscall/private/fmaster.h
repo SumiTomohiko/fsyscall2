@@ -126,6 +126,18 @@ int	fmaster_return_fd(struct thread *, enum fmaster_fd_type, int);
 int	fmaster_is_master_file(struct thread *, const char *);
 void	fmaster_schedtail(struct thread *);
 
+/* misc */
+typedef unsigned int flag_t;
+
+struct flag_definition {
+	flag_t value;
+	const char *name;
+};
+
+#define	DEFINE_FLAG(name)	{ name, #name }
+
+void	fmaster_chain_flags(char *, size_t, flag_t, struct flag_definition[],
+			    size_t);
 long	fmaster_subtract_timeval(const struct timeval *,
 				 const struct timeval *);
 void	fmaster_log_syscall_end(struct thread *, const char *,
@@ -137,6 +149,8 @@ const char *
 	const char *__fmt__ = "fmaster[%d]: " fmt "\n";		\
 	log((pri), __fmt__, (td)->td_proc->p_pid, __VA_ARGS__);	\
 } while (0)
+
+#define	array_sizeof(a)		(sizeof(a) / sizeof(a[0]))
 
 MALLOC_DECLARE(M_FMASTER);
 

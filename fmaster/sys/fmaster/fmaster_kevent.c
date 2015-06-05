@@ -9,37 +9,6 @@
 #include <fmaster/fmaster_proto.h>
 #include <fsyscall/private/fmaster.h>
 
-typedef unsigned int flag_t;
-
-struct flag_definition {
-	flag_t value;
-	const char *name;
-};
-
-#define	DEFINE_FLAG(name)	{ name, #name }
-
-#define	array_sizeof(a)		(sizeof(a) / sizeof(a[0]))
-
-static void
-chain_flags(char *buf, size_t bufsize, flag_t flags, struct flag_definition defs[], size_t ndefs)
-{
-	int i, len, size;
-	const char *sep;
-
-	buf[0] = '\0';
-	len = 0;
-	sep = "";
-	for (i = 0; i < ndefs; i++) {
-		if ((flags & defs[i].value) == 0)
-			continue;
-		size = bufsize - len;
-		len += snprintf(&buf[len], size, "%s%s", sep, defs[i].name);
-		sep = "|";
-	}
-	if (buf[0] == '\0')
-		snprintf(buf, bufsize, "nothing");
-}
-
 static void
 fflags_to_str(char *buf, size_t bufsize, int filter, unsigned int fflags)
 {
@@ -105,7 +74,7 @@ fflags_to_str(char *buf, size_t bufsize, int filter, unsigned int fflags)
 
 #undef	SET_DEFINITION
 
-	chain_flags(buf, bufsize, fflags, defs, ndefs);
+	fmaster_chain_flags(buf, bufsize, fflags, defs, ndefs);
 }
 
 static void
@@ -126,7 +95,7 @@ flags_to_str(char *buf, size_t bufsize, unsigned short flags)
 		DEFINE_FLAG(EV_ERROR)
 	};
 
-	chain_flags(buf, bufsize, flags, defs, array_sizeof(defs));
+	fmaster_chain_flags(buf, bufsize, flags, defs, array_sizeof(defs));
 }
 
 static const char *
