@@ -82,6 +82,7 @@ defsyscall	unlink
 defsyscall	rmdir
 defsyscall	kqueue
 defsyscall	kevent
+defsyscall	socketpair
 
 global _start
 _start:
