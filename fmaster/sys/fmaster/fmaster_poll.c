@@ -167,15 +167,16 @@ sys_fmaster_poll(struct thread *td, struct fmaster_poll_args *uap)
 {
 	struct timeval time_start;
 	int error;
-#define	SYSCALL	"poll"
+	const char *name = "poll";
 
-	log(LOG_DEBUG, "fmaster[%d]: " SYSCALL ": started: fds=%p, nfds=%d, timeout=%d\n", td->td_proc->p_pid, uap->fds, uap->nfds, uap->timeout);
+	log(LOG_DEBUG,
+	    "fmaster[%d]: %s: started: fds=%p, nfds=%d, timeout=%d\n",
+	    td->td_proc->p_pid, name, uap->fds, uap->nfds, uap->timeout);
 	microtime(&time_start);
 
 	error = fmaster_poll_main(td, uap);
 
-	fmaster_log_syscall_end(td, SYSCALL, &time_start, error);
-#undef SYSCALL
+	fmaster_log_syscall_end(td, name, &time_start, error);
 
 	return (error);
 }
