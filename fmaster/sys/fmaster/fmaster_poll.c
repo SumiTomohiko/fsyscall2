@@ -177,5 +177,5 @@ sys_fmaster_poll(struct thread *td, struct fmaster_poll_args *uap)
 	fmaster_log_syscall_end(td, SYSCALL, &time_start, error);
 #undef SYSCALL
 
-	return (0);
+	return (error);
 }
