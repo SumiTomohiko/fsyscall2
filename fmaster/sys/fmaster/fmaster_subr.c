@@ -51,7 +51,7 @@ fmaster_delete_data(struct fmaster_data *data)
 	free(data, M_FMASTER);
 }
 
-static long
+long
 fmaster_subtract_timeval(const struct timeval *t1, const struct timeval *t2)
 {
 	time_t diff;

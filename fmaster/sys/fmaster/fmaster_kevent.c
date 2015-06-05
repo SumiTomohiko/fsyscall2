@@ -682,8 +682,9 @@ exit:
 int
 sys_fmaster_kevent(struct thread *td, struct fmaster_kevent_args *uap)
 {
-	struct timeval time_start;
+	struct timeval time_end, time_start;
 	pid_t pid;
+	long t;
 	int error;
 	const char *name = "kevent";
 
@@ -693,7 +694,11 @@ sys_fmaster_kevent(struct thread *td, struct fmaster_kevent_args *uap)
 
 	error = fmaster_kevent_main(td, uap);
 
-	fmaster_log_syscall_end(td, name, &time_start, error);
+	microtime(&time_end);
+	t = fmaster_subtract_timeval(&time_start, &time_end);
+	log(LOG_DEBUG,
+	    "fmaster[%d]: %s: ended: error=%d, retval=%ld: %ld[usec]\n",
+	    pid, name, error, td->td_retval[0], t);
 
 	return (error);
 }

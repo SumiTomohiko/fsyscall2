@@ -126,6 +126,8 @@ int	fmaster_return_fd(struct thread *, enum fmaster_fd_type, int);
 int	fmaster_is_master_file(struct thread *, const char *);
 void	fmaster_schedtail(struct thread *);
 
+long	fmaster_subtract_timeval(const struct timeval *,
+				 const struct timeval *);
 void	fmaster_log_syscall_end(struct thread *, const char *,
 				const struct timeval *, int);
 const char *
