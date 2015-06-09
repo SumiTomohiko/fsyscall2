@@ -110,7 +110,7 @@ wait_sigchld(int fd)
 			die(1, "select(2) for fd %d failed", fd);
 		}
 		if (n == 0)
-			die(STATUS_TIMEOUT, "timeout");
+			die_with_message(STATUS_TIMEOUT, "timeout");
 		size = sizeof(c);
 		if (read(fd, &c, size) != size)
 			die(1, "read(2) for fd %d failed", fd);
