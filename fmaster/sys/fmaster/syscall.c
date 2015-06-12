@@ -115,9 +115,8 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 	struct fmaster_data *data;
 	int error, i, rfd, wfd;
 	pid_t pid;
-	const char *name = "fmaster_execve";
 	const char *fmt = "%s: pid=%d, rfd=%d, wfd=%d, fork_sock=%s, path=%s\n";
-	char fork_sock[MAXPATHLEN];
+	char fork_sock[MAXPATHLEN], head[32];
 
 	error = copyinstr(uap->fork_sock, fork_sock, sizeof(fork_sock), NULL);
 	if (error != 0)
@@ -125,11 +124,12 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 	pid = td->td_proc->p_pid;
 	rfd = uap->rfd;
 	wfd = uap->wfd;
-	log(LOG_DEBUG, fmt, name, pid, rfd, wfd, fork_sock, uap->path);
+	snprintf(head, sizeof(head), "fmaster_execve[%d]", pid);
+	log(LOG_DEBUG, fmt, head, pid, rfd, wfd, fork_sock, uap->path);
 	for (i = 0; uap->argv[i] != NULL; i++)
-		log(LOG_DEBUG, "%s: argv[%d]=%s\n", name, i, uap->argv[i]);
+		log(LOG_DEBUG, "%s: argv[%d]=%s\n", head, i, uap->argv[i]);
 	for (i = 0; uap->envp[i] != NULL; i++)
-		log(LOG_DEBUG, "%s: envp[%d]=%s\n", name, i, uap->envp[i]);
+		log(LOG_DEBUG, "%s: envp[%d]=%s\n", head, i, uap->envp[i]);
 
 	if ((error = negotiate_version(td, rfd, wfd)) != 0)
 		return (error);
