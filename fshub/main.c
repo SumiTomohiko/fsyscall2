@@ -181,6 +181,57 @@ process_exit(struct shub *shub)
 	dispose_slave(slave);
 }
 
+static bool
+compare_token(struct item *item, void *bonus)
+{
+	struct fork_info *fi = (struct fork_info *)item;
+	const char *token = (const char *)bonus;
+
+	return (strcmp(fi->token, token) == 0);
+}
+
+static struct fork_info *
+find_fork_info_or_die(struct shub *shub, const char *token)
+{
+	struct item *item;
+
+	item = list_search(&shub->fork_info, compare_token, (void *)token);
+	if (item == NULL)
+		die(1, "Cannot find fork_info for %s", token);
+
+	return (struct fork_info *)item;
+}
+
+static void
+process_fork_socket(struct shub *shub)
+{
+	struct slave *slave;
+	struct sockaddr_storage addr;
+	struct fork_info *fi;
+	socklen_t addrlen;
+	pair_id_t pair_id;
+	int fd;
+	char name[64], token[TOKEN_SIZE];
+
+	addrlen = sizeof(addr);
+	fd = accept(shub->fork_sock, (struct sockaddr *)&addr, &addrlen);
+	if (fd < 0)
+		die(1, "Cannot accept(2)");
+	read_or_die(fd, token, sizeof(token));
+	fi = find_fork_info_or_die(shub, token);
+	syslog(LOG_INFO, "A trusted slave has been connected.");
+
+	slave = (struct slave *)malloc_or_die(sizeof(*slave));
+	slave->rfd = slave->wfd = fd;
+	pair_id = slave->pair_id = fi->pair_id;
+	PREPEND_ITEM(&shub->slaves, slave);
+	snprintf(name, sizeof(name), "the new slave (pair id: %lu)", pair_id);
+	log_fds(name, slave->rfd, slave->wfd);
+
+	REMOVE_ITEM(fi);
+	free(fi);
+}
+
 static void
 process_fork(struct shub *shub)
 {
@@ -207,6 +258,8 @@ process_fork(struct shub *shub)
 	write_command(wfd, CALL_FORK);
 	write_payload_size(wfd, TOKEN_SIZE);
 	write_or_die(wfd, token, TOKEN_SIZE);
+
+	process_fork_socket(shub);
 }
 
 static void
@@ -321,57 +374,6 @@ process_slave(struct shub *shub, struct slave *slave)
 	}
 }
 
-static bool
-compare_token(struct item *item, void *bonus)
-{
-	struct fork_info *fi = (struct fork_info *)item;
-	const char *token = (const char *)bonus;
-
-	return (strcmp(fi->token, token) == 0);
-}
-
-static struct fork_info *
-find_fork_info_or_die(struct shub *shub, const char *token)
-{
-	struct item *item;
-
-	item = list_search(&shub->fork_info, compare_token, (void *)token);
-	if (item == NULL)
-		die(1, "Cannot find fork_info for %s", token);
-
-	return (struct fork_info *)item;
-}
-
-static void
-process_fork_socket(struct shub *shub)
-{
-	struct slave *slave;
-	struct sockaddr_storage addr;
-	struct fork_info *fi;
-	socklen_t addrlen;
-	pair_id_t pair_id;
-	int fd;
-	char name[64], token[TOKEN_SIZE];
-
-	addrlen = sizeof(addr);
-	fd = accept(shub->fork_sock, (struct sockaddr *)&addr, &addrlen);
-	if (fd < 0)
-		die(1, "Cannot accept(2)");
-	read_or_die(fd, token, sizeof(token));
-	fi = find_fork_info_or_die(shub, token);
-	syslog(LOG_INFO, "A trusted slave has been connected.");
-
-	slave = (struct slave *)malloc_or_die(sizeof(*slave));
-	slave->rfd = slave->wfd = fd;
-	pair_id = slave->pair_id = fi->pair_id;
-	PREPEND_ITEM(&shub->slaves, slave);
-	snprintf(name, sizeof(name), "the new slave (pair id: %lu)", pair_id);
-	log_fds(name, slave->rfd, slave->wfd);
-
-	REMOVE_ITEM(fi);
-	free(fi);
-}
-
 static void
 process_fd(struct shub *shub, int fd, fd_set *fds)
 {
@@ -385,10 +387,6 @@ process_fd(struct shub *shub, int fd, fd_set *fds)
 		return;
 	if (shub->mhub.rfd == fd) {
 		process_mhub(shub);
-		return;
-	}
-	if (shub->fork_sock == fd) {
-		process_fork_socket(shub);
 		return;
 	}
 
