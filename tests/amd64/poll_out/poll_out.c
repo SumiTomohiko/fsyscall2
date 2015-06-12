@@ -10,7 +10,7 @@ main(int argc, const char *argv[])
 		return (1);
 	path = argv[1];
 
-	fd = open(path, O_WRONLY);
+	fd = open(path, O_CREAT | O_WRONLY);
 	if (fd == -1)
 		return (2);
 	fds[0].fd = fd;
