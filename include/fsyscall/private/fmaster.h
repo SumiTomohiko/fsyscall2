@@ -33,6 +33,8 @@ struct fmaster_fd {
 struct fmaster_data {
 	int rfd;
 	int wfd;
+	int kq;		/* kqueue for rfd */
+	size_t rfdlen;	/* readable data length in the buffer of rfd */
 
 	/*
 	 * fds - What is this?
@@ -124,6 +126,8 @@ int	fmaster_register_fd_at(struct thread *td, enum fmaster_fd_type type,
 int	fmaster_return_fd(struct thread *, enum fmaster_fd_type, int);
 
 int	fmaster_is_master_file(struct thread *, const char *);
+
+int	fmaster_initialize_kqueue(struct thread *, struct fmaster_data *);
 void	fmaster_schedtail(struct thread *);
 
 /* misc */

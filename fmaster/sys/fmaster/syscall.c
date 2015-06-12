@@ -60,8 +60,9 @@ negotiate_version(struct thread *td, int rfd, int wfd)
 	return (0);
 }
 
-static struct fmaster_data *
-create_data(struct thread *td, int rfd, int wfd, const char *fork_sock)
+static int
+create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
+	    struct fmaster_data **pdata)
 {
 	struct fmaster_data *data;
 	size_t len;
@@ -69,7 +70,7 @@ create_data(struct thread *td, int rfd, int wfd, const char *fork_sock)
 
 	data = fmaster_create_data(td);
 	if (data == NULL)
-		return (NULL);
+		return (ENOMEM);
 	data->rfd = rfd;
 	data->wfd = wfd;
 	for (i = 0; i < FD_NUM; i++)
@@ -77,9 +78,19 @@ create_data(struct thread *td, int rfd, int wfd, const char *fork_sock)
 	len = sizeof(data->fork_sock);
 	error = copystr(fork_sock, data->fork_sock, len, NULL);
 	if (error != 0)
-		return (NULL);
+		goto fail;
+	error = fmaster_initialize_kqueue(td, data);
+	if (error != 0)
+		goto fail;
 
-	return (data);
+	*pdata = data;
+
+	return (0);
+
+fail:
+	free(data, M_FMASTER);
+
+	return (error);
 }
 
 static int
@@ -131,20 +142,23 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 	for (i = 0; uap->envp[i] != NULL; i++)
 		log(LOG_DEBUG, "%s: envp[%d]=%s\n", head, i, uap->envp[i]);
 
-	if ((error = negotiate_version(td, rfd, wfd)) != 0)
+	error = create_data(td, rfd, wfd, fork_sock, &data);
+	if (error != 0)
 		return (error);
-
-	data = create_data(td, rfd, wfd, fork_sock);
-	if (data == NULL)
-		return (ENOMEM);
 	td->td_proc->p_emuldata = data;
+
+	if ((error = negotiate_version(td, rfd, wfd)) != 0)
+		goto fail;
 	error = read_fds(td, data);
-	if (error != 0) {
-		fmaster_delete_data(data);
-		return (error);
-	}
+	if (error != 0)
+		goto fail;
 
 	return (sys_execve(td, (struct execve_args *)(&uap->path)));
+
+fail:
+	fmaster_delete_data(data);
+
+	return (error);
 }
 
 /*
