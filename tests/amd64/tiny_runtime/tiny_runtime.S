@@ -83,6 +83,8 @@ defsyscall	rmdir
 defsyscall	kqueue
 defsyscall	kevent
 defsyscall	socketpair
+defsyscall	nanosleep
+defsyscall	pipe
 
 global _start
 _start:

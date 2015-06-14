@@ -24,6 +24,7 @@
 %define	sys.access		33
 %define	sys.kill		37
 %define	sys.dup			41
+%define	sys.pipe		42
 %define	sys.getegid		43
 %define	sys.getgid		47
 %define	sys.ioctl		54
@@ -48,6 +49,7 @@
 %define	sys.lstat		190
 %define	sys.getdirentries	196
 %define	sys.poll		209
+%define	sys.nanosleep		240
 %define	sys.issetugid		253
 %define	sys.sigprocmask		340
 %define	sys.getresuid		360

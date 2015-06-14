@@ -323,6 +323,10 @@ tests/amd64/lseek/lseek
 tests/amd64/lstat/lstat
 tests/amd64/mkdir/mkdir
 tests/amd64/poll_in/poll_in
+tests/amd64/poll_master/poll_master
+tests/amd64/poll_master_slave_blocking/poll_master_slave_blocking
+tests/amd64/poll_master_slave_blocking2/poll_master_slave_blocking2
+tests/amd64/poll_master_slave_nonblocking/poll_master_slave_nonblocking
 tests/amd64/poll_out/poll_out
 tests/amd64/poll_timeout/poll_timeout
 tests/amd64/pread/pread
