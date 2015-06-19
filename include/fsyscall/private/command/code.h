@@ -385,6 +385,8 @@
 #define	CALL_KEVENT		424
 #define	RET_KEVENT		425
 
+/* end command (do not remove this comment) */
+
 #define	SIGNAL_DEFAULT		0
 #define	SIGNAL_IGNORE		1
 #define	SIGNAL_ACTIVE		2

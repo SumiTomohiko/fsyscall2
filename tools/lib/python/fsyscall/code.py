@@ -22,6 +22,8 @@ def read_codes(filepath):
     a = []
     with open(filepath) as fp:
         for line in fp:
+            if line.startswith("/* end command"):
+                break
             cols = split(r"\s+", line.rstrip())
             if (len(cols) != 3) or (cols[0] != "#define"):
                 continue
