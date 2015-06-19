@@ -172,10 +172,10 @@ process_exit(struct shub *shub)
 	pair_id = read_pair_id(rfd);
 	slave = find_slave_of_pair_id(shub, pair_id);
 	status = read_int32(rfd, &_);
-	syslog(LOG_DEBUG, "CALL_EXIT: pair_id=%ld, status=%d", pair_id, status);
+	syslog(LOG_DEBUG, "EXIT_CALL: pair_id=%ld, status=%d", pair_id, status);
 
 	wfd = slave->wfd;
-	write_command(wfd, CALL_EXIT);
+	write_command(wfd, EXIT_CALL);
 	write_int32(wfd, status);
 
 	dispose_slave(slave);
@@ -238,7 +238,7 @@ process_fork(struct shub *shub)
 	struct fork_info *fork_info;
 	pair_id_t child_pair_id, pair_id;
 	int rfd, wfd;
-	const char *fmt = "CALL_FORK: pair_id=%ld";
+	const char *fmt = "FORK_CALL: pair_id=%ld";
 	char *token;
 
 	rfd = shub->mhub.rfd;
@@ -255,7 +255,7 @@ process_fork(struct shub *shub)
 	PREPEND_ITEM(&shub->fork_info, fork_info);
 
 	wfd = find_slave_of_pair_id(shub, pair_id)->wfd;
-	write_command(wfd, CALL_FORK);
+	write_command(wfd, FORK_CALL);
 	write_payload_size(wfd, TOKEN_SIZE);
 	write_or_die(wfd, token, TOKEN_SIZE);
 
@@ -271,23 +271,23 @@ process_mhub(struct shub *shub)
 	cmd = read_command(shub->mhub.rfd);
 	syslog(LOG_DEBUG, fmt, get_command_name(cmd));
 	switch (cmd) {
-	case CALL_EXIT:
+	case EXIT_CALL:
 		process_exit(shub);
 		break;
-	case CALL_FORK:
+	case FORK_CALL:
 		process_fork(shub);
 		break;
-	case CALL_POLL:
-	case CALL_SELECT:
-	case CALL_CONNECT:
-	case CALL_BIND:
-	case CALL_GETPEERNAME:
-	case CALL_GETSOCKNAME:
-	case CALL_SIGACTION:
-	case CALL_ACCEPT:
-	case CALL_GETSOCKOPT:
-	case CALL_SETSOCKOPT:
-	case CALL_KEVENT:
+	case POLL_CALL:
+	case SELECT_CALL:
+	case CONNECT_CALL:
+	case BIND_CALL:
+	case GETPEERNAME_CALL:
+	case GETSOCKNAME_CALL:
+	case SIGACTION_CALL:
+	case ACCEPT_CALL:
+	case GETSOCKOPT_CALL:
+	case SETSOCKOPT_CALL:
+	case KEVENT_CALL:
 #include "dispatch_call.inc"
 		transfer_payload_to_slave(shub, cmd);
 		break;
@@ -354,18 +354,18 @@ process_slave(struct shub *shub, struct slave *slave)
 	case SIGNALED:
 		process_signaled(shub, slave, cmd);
 		break;
-	case RET_FORK:
-	case RET_POLL:
-	case RET_SELECT:
-	case RET_CONNECT:
-	case RET_BIND:
-	case RET_GETPEERNAME:
-	case RET_GETSOCKNAME:
-	case RET_SIGACTION:
-	case RET_ACCEPT:
-	case RET_GETSOCKOPT:
-	case RET_SETSOCKOPT:
-	case RET_KEVENT:
+	case FORK_RETURN:
+	case POLL_RETURN:
+	case SELECT_RETURN:
+	case CONNECT_RETURN:
+	case BIND_RETURN:
+	case GETPEERNAME_RETURN:
+	case GETSOCKNAME_RETURN:
+	case SIGACTION_RETURN:
+	case ACCEPT_RETURN:
+	case GETSOCKOPT_RETURN:
+	case SETSOCKOPT_RETURN:
+	case KEVENT_RETURN:
 #include "dispatch_ret.inc"
 		transfer_payload_from_slave(shub, slave, cmd);
 		break;

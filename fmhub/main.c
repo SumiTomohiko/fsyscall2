@@ -376,7 +376,7 @@ process_fork_return(struct mhub *mhub)
 	payload_size = payload_get_size(payload);
 
 	wfd = find_master_of_pair_id(mhub, pair_id)->wfd;
-	write_command(wfd, RET_FORK);
+	write_command(wfd, FORK_RETURN);
 	write_payload_size(wfd, payload_size + buf_size);
 	write_or_die(wfd, payload_get(payload), payload_size);
 	write_or_die(wfd, buf, buf_size);
@@ -399,20 +399,20 @@ process_shub(struct mhub *mhub)
 	case SIGNALED:
 		process_signaled(mhub, cmd);
 		break;
-	case RET_FORK:
+	case FORK_RETURN:
 		process_fork_return(mhub);
 		break;
-	case RET_POLL:
-	case RET_SELECT:
-	case RET_CONNECT:
-	case RET_BIND:
-	case RET_GETPEERNAME:
-	case RET_GETSOCKNAME:
-	case RET_SIGACTION:
-	case RET_ACCEPT:
-	case RET_GETSOCKOPT:
-	case RET_SETSOCKOPT:
-	case RET_KEVENT:
+	case POLL_RETURN:
+	case SELECT_RETURN:
+	case CONNECT_RETURN:
+	case BIND_RETURN:
+	case GETPEERNAME_RETURN:
+	case GETSOCKNAME_RETURN:
+	case SIGACTION_RETURN:
+	case ACCEPT_RETURN:
+	case GETSOCKOPT_RETURN:
+	case SETSOCKOPT_RETURN:
+	case KEVENT_RETURN:
 #include "dispatch_ret.inc"
 		transfer_payload_to_master(mhub, cmd);
 		break;
@@ -438,10 +438,10 @@ process_exit(struct mhub *mhub, struct master *master)
 
 	status = read_int32(master->rfd, &_);
 	pair_id = master->pair_id;
-	syslog(LOG_DEBUG, "CALL_EXIT: pair_id=%ld, status=%d", pair_id, status);
+	syslog(LOG_DEBUG, "EXIT_CALL: pair_id=%ld, status=%d", pair_id, status);
 
 	wfd = mhub->shub.wfd;
-	write_command(wfd, CALL_EXIT);
+	write_command(wfd, EXIT_CALL);
 	write_pair_id(wfd, pair_id);
 	write_int32(wfd, status);
 
@@ -476,7 +476,7 @@ read_fork_call(struct mhub *mhub, struct master *master)
 {
 	int len, payload_size;
 	char buf[FSYSCALL_BUFSIZE_PAYLOAD_SIZE];
-	const char *fmt = "CALL_FORK: pair_id=%ld, payload_size=%d";
+	const char *fmt = "FORK_CALL: pair_id=%ld, payload_size=%d";
 
 	len = read_numeric_sequence(master->rfd, buf, array_sizeof(buf));
 	payload_size = decode_int32(buf, len);
@@ -495,7 +495,7 @@ write_fork_call(struct mhub *mhub, struct master *master, struct fork_info *fi)
 	payload_size = encode_pair_id(fi->child_pair_id, buf, sizeof(buf));
 
 	wfd = mhub->shub.wfd;
-	write_command(wfd, CALL_FORK);
+	write_command(wfd, FORK_CALL);
 	write_pair_id(wfd, master->pair_id);
 	write_payload_size(wfd, payload_size);
 	write_or_die(wfd, buf, payload_size);
@@ -530,23 +530,23 @@ process_master(struct mhub *mhub, struct master *master)
 	pair_id = master->pair_id;
 	syslog(LOG_DEBUG, "processing %s from the master %ld.", name, pair_id);
 	switch (cmd) {
-	case CALL_EXIT:
+	case EXIT_CALL:
 		process_exit(mhub, master);
 		break;
-	case CALL_FORK:
+	case FORK_CALL:
 		process_fork_call(mhub, master);
 		break;
-	case CALL_POLL:
-	case CALL_SELECT:
-	case CALL_CONNECT:
-	case CALL_BIND:
-	case CALL_GETPEERNAME:
-	case CALL_GETSOCKNAME:
-	case CALL_SIGACTION:
-	case CALL_ACCEPT:
-	case CALL_GETSOCKOPT:
-	case CALL_SETSOCKOPT:
-	case CALL_KEVENT:
+	case POLL_CALL:
+	case SELECT_CALL:
+	case CONNECT_CALL:
+	case BIND_CALL:
+	case GETPEERNAME_CALL:
+	case GETSOCKNAME_CALL:
+	case SIGACTION_CALL:
+	case ACCEPT_CALL:
+	case GETSOCKOPT_CALL:
+	case SETSOCKOPT_CALL:
+	case KEVENT_CALL:
 #include "dispatch_call.inc"
 		transfer_payload_from_master(mhub, master, cmd);
 		break;

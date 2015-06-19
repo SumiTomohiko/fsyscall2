@@ -255,7 +255,7 @@ write_select_timeout(struct slave *slave)
 	retval_len = fsyscall_encode_int32(0, retval_buf, sizeof(retval_buf));
 
 	wfd = slave->wfd;
-	write_command(wfd, RET_SELECT);
+	write_command(wfd, SELECT_RETURN);
 	write_payload_size(wfd, retval_len);
 	write_or_die(wfd, retval_buf, retval_len);
 }
@@ -302,7 +302,7 @@ write_select_ready(struct slave *slave, int retval, int nfds, fd_set *readfds, f
 	wfd = slave->wfd;
 	payload_size = retval_len + nreadfds_len + readfds_len + nwritefds_len +
 		       writefds_len + nexceptfds_len + exceptfds_len;
-	write_command(wfd, RET_SELECT);
+	write_command(wfd, SELECT_RETURN);
 	write_payload_size(wfd, payload_size);
 	write_or_die(wfd, retval_buf, retval_len);
 	write_or_die(wfd, nreadfds_buf, nreadfds_len);
@@ -518,7 +518,7 @@ process_poll(struct slave *slave)
 	retval = poll(fds, nfds, timeout);
 
 	if ((retval == 0) || (retval == -1)) {
-		return_int(slave, RET_POLL, retval, errno);
+		return_int(slave, POLL_RETURN, retval, errno);
 		return;
 	}
 
@@ -535,7 +535,7 @@ process_poll(struct slave *slave)
 	return_payload_size = sizeof(buf) - rest_size;
 
 	wfd = slave->wfd;
-	write_command(wfd, RET_POLL);
+	write_command(wfd, POLL_RETURN);
 	write_payload_size(wfd, return_payload_size);
 	write_or_die(wfd, buf, return_payload_size);
 }
@@ -625,7 +625,7 @@ process_fork(struct slave *slave)
 
 	len = encode_int32(pid, buf, sizeof(buf));
 	wfd = slave->wfd;
-	write_command(wfd, RET_FORK);
+	write_command(wfd, FORK_RETURN);
 	write_payload_size(wfd, len);
 	write_or_die(wfd, buf, len);
 }
@@ -720,7 +720,7 @@ process_kevent(struct slave *slave)
 
 	retval = kevent(kq, changelist, nchanges, eventlist, nevents, ptimeout);
 	syslog(LOG_DEBUG, "kevent: kq=%d, nchanges=%d, nevents=%d, retval=%d", kq, nchanges, nevents, retval);
-	return_command = RET_KEVENT;
+	return_command = KEVENT_RETURN;
 	if (retval == -1) {
 		return_int(slave, return_command, retval, errno);
 		return;
@@ -773,7 +773,7 @@ process_setsockopt(struct slave *slave)
 
 	retval = setsockopt(s, level, optname, optval, optlen);
 
-	return_int(slave, RET_SETSOCKOPT, retval, errno);
+	return_int(slave, SETSOCKOPT_RETURN, retval, errno);
 }
 
 static void
@@ -807,7 +807,7 @@ process_getsockopt(struct slave *slave)
 	retval = getsockopt(s, level, optname, optval, &optlen);
 
 	if (retval == -1) {
-		return_int(slave, RET_GETSOCKOPT, retval, errno);
+		return_int(slave, GETSOCKOPT_RETURN, retval, errno);
 		return;
 	}
 
@@ -820,11 +820,11 @@ process_getsockopt(struct slave *slave)
 		payload_add_int(payload, *((int *)optval));
 		break;
 	default:
-		return_int(slave, RET_GETSOCKOPT, -1, ENOPROTOOPT);
+		return_int(slave, GETSOCKOPT_RETURN, -1, ENOPROTOOPT);
 		goto exit;
 	}
 
-	write_payloaded_command(slave, RET_GETSOCKOPT, payload);
+	write_payloaded_command(slave, GETSOCKOPT_RETURN, payload);
 
 exit:
 	payload_dispose(payload);
@@ -872,7 +872,7 @@ process_sigaction(struct slave *slave)
 
 	retval = sigaction(sig, &act, NULL);
 
-	return_int(slave, RET_SIGACTION, retval, errno);
+	return_int(slave, SIGACTION_RETURN, retval, errno);
 }
 
 static void
@@ -891,7 +891,7 @@ process_select(struct slave *slave)
 
 	switch (retval) {
 	case -1:
-		return_int(slave, RET_SELECT, retval, errno);
+		return_int(slave, SELECT_RETURN, retval, errno);
 		break;
 	case 0:
 		write_select_timeout(slave);
@@ -909,7 +909,7 @@ process_exit(struct slave *slave)
 
 	status = read_int32(slave->rfd, &_);
 
-	syslog(LOG_DEBUG, "CALL_EXIT: status=%d", status);
+	syslog(LOG_DEBUG, "EXIT_CALL: status=%d", status);
 
 	return (status);
 }
@@ -958,50 +958,51 @@ mainloop(struct slave *slave)
 			syslog(LOG_DEBUG, "processing %s.", name);
 			switch (cmd) {
 #include "dispatch.inc"
-			case CALL_FORK:
+			case FORK_CALL:
 				process_fork(slave);
 				break;
-			case CALL_SELECT:
+			case SELECT_CALL:
 				process_select(slave);
 				break;
-			case CALL_CONNECT:
-				process_connect_protocol(slave, CALL_CONNECT,
-							 RET_CONNECT, connect);
+			case CONNECT_CALL:
+				process_connect_protocol(slave, CONNECT_CALL,
+							 CONNECT_RETURN,
+							 connect);
 				break;
-			case CALL_BIND:
-				process_connect_protocol(slave, CALL_BIND,
-							 RET_BIND, bind);
+			case BIND_CALL:
+				process_connect_protocol(slave, BIND_CALL,
+							 BIND_RETURN, bind);
 				break;
-			case CALL_GETPEERNAME:
-				process_accept_protocol(slave, CALL_GETPEERNAME,
-							RET_GETPEERNAME,
+			case GETPEERNAME_CALL:
+				process_accept_protocol(slave, GETPEERNAME_CALL,
+							GETPEERNAME_RETURN,
 							getpeername);
 				break;
-			case CALL_GETSOCKNAME:
-				process_accept_protocol(slave, CALL_GETSOCKNAME,
-							RET_GETSOCKNAME,
+			case GETSOCKNAME_CALL:
+				process_accept_protocol(slave, GETSOCKNAME_CALL,
+							GETSOCKNAME_RETURN,
 							getsockname);
 				break;
-			case CALL_ACCEPT:
-				process_accept_protocol(slave, CALL_ACCEPT,
-							RET_ACCEPT, accept);
+			case ACCEPT_CALL:
+				process_accept_protocol(slave, ACCEPT_CALL,
+							ACCEPT_RETURN, accept);
 				break;
-			case CALL_SIGACTION:
+			case SIGACTION_CALL:
 				process_sigaction(slave);
 				break;
-			case CALL_POLL:
+			case POLL_CALL:
 				process_poll(slave);
 				break;
-			case CALL_GETSOCKOPT:
+			case GETSOCKOPT_CALL:
 				process_getsockopt(slave);
 				break;
-			case CALL_SETSOCKOPT:
+			case SETSOCKOPT_CALL:
 				process_setsockopt(slave);
 				break;
-			case CALL_KEVENT:
+			case KEVENT_CALL:
 				process_kevent(slave);
 				break;
-			case CALL_EXIT:
+			case EXIT_CALL:
 				return process_exit(slave);
 			default:
 				diex(-1, "unknown command (%d)", cmd);

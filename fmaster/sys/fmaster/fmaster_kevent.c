@@ -277,7 +277,7 @@ execute_call(struct thread *td, struct fmaster_kevent_args *uap,
 	error = build_payload(td, uap, kchangelist, payload);
 	if (error != 0)
 		goto exit;
-	error = fmaster_write_payloaded_command(td, CALL_KEVENT, payload);
+	error = fmaster_write_payloaded_command(td, KEVENT_CALL, payload);
 	if (error != 0)
 		goto exit;
 
@@ -365,7 +365,7 @@ execute_return(struct thread *td, struct fmaster_kevent_args *uap)
 	error = fmaster_read_command(td, &cmd);
 	if (error != 0)
 		return (error);
-	if (cmd != RET_KEVENT)
+	if (cmd != KEVENT_RETURN)
 		return (EPROTO);
 	error = fmaster_read_payload_size(td, &payload_size);
 	if (error != 0)

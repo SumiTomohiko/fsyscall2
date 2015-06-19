@@ -701,7 +701,7 @@ write_call(struct thread *td, int nfds, fd_set *readfds, fd_set *writefds, fd_se
 	payload_size = nfds_len + nreadfds_len + readfds_len + nwritefds_len +
 		       writefds_len + nexceptfds_len + exceptfds_len +
 		       timeout_len + sec_len + usec_len;
-	error = fmaster_write_command(td, CALL_SELECT);
+	error = fmaster_write_command(td, SELECT_CALL);
 	if (error != 0)
 		goto finally;
 	error = fmaster_write_payload_size(td, payload_size);
@@ -774,7 +774,7 @@ read_result(struct thread *td, fd_set *readfds, fd_set *writefds, fd_set *except
 	error = fmaster_read_command(td, &cmd);
 	if (error != 0)
 		return (error);
-	if (cmd != RET_SELECT)
+	if (cmd != SELECT_RETURN)
 		return (EPROTO);
 	error = fmaster_read_payload_size(td, &payload_size);
 	if (error != 0)

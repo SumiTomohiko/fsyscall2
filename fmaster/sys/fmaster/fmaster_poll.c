@@ -55,7 +55,7 @@ do_execute(struct thread *td, struct pollfd *fds, int nfds, int timeout)
 		return (ENOMEM);
 	rest_size -= timeout_len;
 
-	error = fmaster_write_command(td, CALL_POLL);
+	error = fmaster_write_command(td, POLL_CALL);
 	if (error != 0)
 		return (error);
 	payload_size = sizeof(payload) - rest_size;
@@ -81,7 +81,7 @@ do_return(struct thread *td, struct pollfd *fds, int nfds)
 	error = fmaster_read_command(td, &cmd);
 	if (error != 0)
 		return (error);
-	if (cmd != RET_POLL)
+	if (cmd != POLL_RETURN)
 		return (EPROTO);
 	error = fmaster_read_payload_size(td, &payload_size);
 	if (error != 0)

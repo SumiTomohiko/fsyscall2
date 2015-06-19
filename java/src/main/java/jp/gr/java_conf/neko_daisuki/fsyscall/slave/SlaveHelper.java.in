@@ -173,7 +173,7 @@ class SlaveHelper {
     private class GetpeernameProc extends AbstractAcceptProc {
 
         protected Command getRetCommand() {
-            return Command.RET_GETPEERNAME;
+            return Command.GETPEERNAME_RETURN;
         }
 
         protected SyscallResult.Accept doSyscall(int s, int addrlen) throws IOException {
@@ -184,7 +184,7 @@ class SlaveHelper {
     private class GetsocknameProc extends AbstractAcceptProc {
 
         protected Command getRetCommand() {
-            return Command.RET_GETSOCKNAME;
+            return Command.GETSOCKNAME_RETURN;
         }
 
         protected SyscallResult.Accept doSyscall(int s, int addrlen) throws IOException {
@@ -195,7 +195,7 @@ class SlaveHelper {
     private class AcceptProc extends AbstractAcceptProc {
 
         protected Command getRetCommand() {
-            return Command.RET_ACCEPT;
+            return Command.ACCEPT_RETURN;
         }
 
         protected SyscallResult.Accept doSyscall(int s, int addrlen) throws IOException {
@@ -217,7 +217,7 @@ class SlaveHelper {
                 mLogger.err("Invalid signal requested", e);
                 result = new SyscallResult.Generic32(e.getErrno());
              }
-            writeResult(Command.RET_SIGACTION, result);
+            writeResult(Command.SIGACTION_RETURN, result);
         }
     }
 
@@ -227,7 +227,7 @@ class SlaveHelper {
             PayloadSize payloadSize = mIn.readPayloadSize();
             PairId pairId = new PairId(mIn.readInteger());
             SyscallResult.Generic32 result = mSlave.doFork(pairId);
-            writeResult(Command.RET_FORK, result);
+            writeResult(Command.FORK_RETURN, result);
         }
     }
 
@@ -242,7 +242,7 @@ class SlaveHelper {
             int flag = mIn.readInteger();
             Unix.TimeVal timeout = flag == 0 ? null : readTimeVal();
             SyscallResult.Select result = mSlave.doSelect(nfds, in, ou, ex, timeout);
-            writeResult(Command.RET_SELECT, result);
+            writeResult(Command.SELECT_RETURN, result);
         }
 
         private Unix.TimeVal readTimeVal() throws IOException {
@@ -279,7 +279,7 @@ class SlaveHelper {
             switch (retval) {
             case -1:
             case 0:
-                writeResult(Command.RET_POLL, result);
+                writeResult(Command.POLL_RETURN, result);
                 break;
             default:
                 String fmt = "result (poll): retval=%d, fds=%s";
@@ -289,7 +289,7 @@ class SlaveHelper {
                 for (int i = 0; i < nfds; i++) {
                     payload.add(fds.get(i).getRevents());
                 }
-                writePayload(Command.RET_POLL, payload);
+                writePayload(Command.POLL_RETURN, payload);
                 break;
             }
         }
@@ -360,7 +360,7 @@ class SlaveHelper {
     private class BindProc extends AddressCommandProc {
 
         public BindProc() {
-            super(Command.RET_BIND);
+            super(Command.BIND_RETURN);
         }
 
         protected SyscallResult.Generic32 run(int s, UnixDomainAddress name,
@@ -372,7 +372,7 @@ class SlaveHelper {
     private class ConnectProc extends AddressCommandProc {
 
         public ConnectProc() {
-            super(Command.RET_CONNECT);
+            super(Command.CONNECT_RETURN);
         }
 
         protected SyscallResult.Generic32 run(int s, UnixDomainAddress name,
@@ -392,7 +392,7 @@ class SlaveHelper {
                 iovec[i] = mIn.readIoVec();
             }
             SyscallResult.Generic32 result = mSlave.doWritev(fd, iovec);
-            writeResult(Command.RET_WRITEV, result);
+            writeResult(Command.WRITEV_RETURN, result);
         }
     }
 
@@ -407,7 +407,7 @@ class SlaveHelper {
             SyscallResult.Getsockopt result = mSlave.doGetsockopt(s, level,
                                                                   optname,
                                                                   optlen);
-            writeResult(Command.RET_GETSOCKOPT, optname, result);
+            writeResult(Command.GETSOCKOPT_RETURN, optname, result);
         }
     }
 
@@ -425,7 +425,7 @@ class SlaveHelper {
                                                                  optname,
                                                                  optlen,
                                                                  optval);
-            writeResult(Command.RET_SETSOCKOPT, result);
+            writeResult(Command.SETSOCKOPT_RETURN, result);
         }
     }
 
@@ -489,7 +489,7 @@ class SlaveHelper {
                                                           nchanges, nevents,
                                                           timeout);
 
-            writeResult(Command.RET_KEVENT, retval);
+            writeResult(Command.KEVENT_RETURN, retval);
         }
     }
 
@@ -531,19 +531,19 @@ class SlaveHelper {
 
     private CommandDispatcher buildDispatcher() {
         CommandDispatcher dispatcher = new CommandDispatcher();
-        dispatcher.addEntry(Command.CALL_EXIT, new ExitProc());
-        dispatcher.addEntry(Command.CALL_SELECT, new SelectProc());
-        dispatcher.addEntry(Command.CALL_CONNECT, new ConnectProc());
-        dispatcher.addEntry(Command.CALL_BIND, new BindProc());
-        dispatcher.addEntry(Command.CALL_POLL, new PollProc());
-        dispatcher.addEntry(Command.CALL_FORK, new ForkProc());
-        dispatcher.addEntry(Command.CALL_SIGACTION, new SigactionProc());
-        dispatcher.addEntry(Command.CALL_ACCEPT, new AcceptProc());
-        dispatcher.addEntry(Command.CALL_GETSOCKNAME, new GetsocknameProc());
-        dispatcher.addEntry(Command.CALL_GETPEERNAME, new GetpeernameProc());
-        dispatcher.addEntry(Command.CALL_GETSOCKOPT, new GetsockoptProc());
-        dispatcher.addEntry(Command.CALL_SETSOCKOPT, new SetsockoptProc());
-        dispatcher.addEntry(Command.CALL_KEVENT, new KeventProc());
+        dispatcher.addEntry(Command.EXIT_CALL, new ExitProc());
+        dispatcher.addEntry(Command.SELECT_CALL, new SelectProc());
+        dispatcher.addEntry(Command.CONNECT_CALL, new ConnectProc());
+        dispatcher.addEntry(Command.BIND_CALL, new BindProc());
+        dispatcher.addEntry(Command.POLL_CALL, new PollProc());
+        dispatcher.addEntry(Command.FORK_CALL, new ForkProc());
+        dispatcher.addEntry(Command.SIGACTION_CALL, new SigactionProc());
+        dispatcher.addEntry(Command.ACCEPT_CALL, new AcceptProc());
+        dispatcher.addEntry(Command.GETSOCKNAME_CALL, new GetsocknameProc());
+        dispatcher.addEntry(Command.GETPEERNAME_CALL, new GetpeernameProc());
+        dispatcher.addEntry(Command.GETSOCKOPT_CALL, new GetsockoptProc());
+        dispatcher.addEntry(Command.SETSOCKOPT_CALL, new SetsockoptProc());
+        dispatcher.addEntry(Command.KEVENT_CALL, new KeventProc());
         @DISPATCHES@;
         return dispatcher;
     }

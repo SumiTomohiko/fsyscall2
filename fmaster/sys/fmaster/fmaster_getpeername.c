@@ -9,8 +9,8 @@ sys_fmaster_getpeername(struct thread *td, struct fmaster_getpeername_args *uap)
 	int error;
 
 	error = fmaster_execute_accept_protocol(td, "getpeername",
-						CALL_GETPEERNAME,
-						RET_GETPEERNAME, uap->fdes,
+						GETPEERNAME_CALL,
+						GETPEERNAME_RETURN, uap->fdes,
 						uap->asa, uap->alen);
 
 	return (error);

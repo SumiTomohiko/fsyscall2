@@ -27,7 +27,7 @@ execute_call(struct thread *td, struct fmaster_fork_args *uap)
 	payload_size_t payload_size;
 	int error;
 
-	error = fmaster_write_command(td, CALL_FORK);
+	error = fmaster_write_command(td, FORK_CALL);
 	if (error != 0)
 		return (error);
 	payload_size = 0;
@@ -87,7 +87,7 @@ execute_return(struct thread *td, struct fmaster_fork_args *uap, char **ptoken, 
 	error = fmaster_read_command(td, &cmd);
 	if (error != 0)
 		return (error);
-	if (cmd != RET_FORK)
+	if (cmd != FORK_RETURN)
 		return (EPROTO);
 	error = fmaster_read_payload_size(td, &payload_size);
 	if (error != 0)

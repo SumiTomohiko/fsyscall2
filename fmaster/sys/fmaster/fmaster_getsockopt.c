@@ -32,7 +32,7 @@ reuseaddr_write_call(struct thread *td, int s, int level, int name, socklen_t op
 	if (error != 0)
 		goto exit;
 
-	error = fmaster_write_payloaded_command(td, CALL_GETSOCKOPT, payload);
+	error = fmaster_write_payloaded_command(td, GETSOCKOPT_CALL, payload);
 	if (error != 0)
 		goto exit;
 
@@ -74,7 +74,7 @@ reuseaddr_read_return(struct thread *td, void *val, socklen_t *avalsize)
 	struct reuseaddr_bonus bonus;
 	int error;
 
-	error = fmaster_execute_return_optional32(td, RET_GETSOCKOPT,
+	error = fmaster_execute_return_optional32(td, GETSOCKOPT_RETURN,
 						  reuseaddr_callback, &bonus);
 	if (error != 0)
 		return (error);

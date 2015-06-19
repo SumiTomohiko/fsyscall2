@@ -191,8 +191,8 @@ class SlaveHub {
 
         SyscallOutputStream out = mSlaves.get(pairId).getOutputStream();
 
-        if (command == Command.CALL_EXIT) {
-            mLogger.verbose("executing CALL_EXIT.");
+        if (command == Command.EXIT_CALL) {
+            mLogger.verbose("executing EXIT_CALL.");
 
             int status = in.readInteger();
             mLogger.info(String.format("exit status is %d.", status));

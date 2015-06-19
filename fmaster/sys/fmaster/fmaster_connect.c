@@ -8,8 +8,8 @@ sys_fmaster_connect(struct thread *td, struct fmaster_connect_args *uap)
 {
 	int error;
 
-	error = fmaster_execute_connect_protocol(td, "connect", CALL_CONNECT,
-						 RET_CONNECT, uap->s,
+	error = fmaster_execute_connect_protocol(td, "connect", CONNECT_CALL,
+						 CONNECT_RETURN, uap->s,
 						 (struct sockaddr *)uap->name,
 						 uap->namelen);
 

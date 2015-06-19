@@ -38,5 +38,5 @@ process_fork(struct slave *slave)
 	int errnum, retval;
 
 	execute_call(slave, &retval, &errnum);
-	return_int(slave, RET_FORK, retval, errnum);
+	return_int(slave, FORK_RETURN, retval, errnum);
 }

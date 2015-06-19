@@ -263,7 +263,7 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
     return_func = get_fslave_return_func(syscall)
     p("""\
 \tif (retval == -1) {{
-\t\t{return_func}(slave, RET_{cmd_name}, retval, errnum);
+\t\t{return_func}(slave, {cmd_name}_RETURN, retval, errnum);
 \t\treturn;
 \t}}
 """.format(**locals()))
@@ -295,7 +295,7 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
 \tpayload_size = retval_len + {payload_size};
 
 \twfd = slave->wfd;
-\twrite_command(wfd, RET_{cmd_name});
+\twrite_command(wfd, {cmd_name}_RETURN);
 \twrite_payload_size(wfd, payload_size);
 \twrite_or_die(wfd, retval_buf, retval_len);
 """.format(**locals()))
@@ -362,7 +362,7 @@ process_{name}(struct slave *slave)
         return_func = get_fslave_return_func(syscall)
         p("""\
 \texecute_call(slave, &retval, &errnum);
-\t{return_func}(slave, RET_{cmd_name}, retval, errnum);
+\t{return_func}(slave, {cmd_name}_RETURN, retval, errnum);
 }}
 """.format(**locals()))
         return
@@ -405,7 +405,7 @@ def write_dispatch(dirpath, syscalls):
             cmd = make_cmd_name(syscall.name)
             name = drop_prefix(syscall.name)
             p("""\
-\t\t\tcase CALL_{cmd}:
+\t\t\tcase {cmd}_CALL:
 \t\t\t\tprocess_{name}(slave);
 \t\t\t\tbreak;
 """.format(**locals()))

@@ -49,7 +49,7 @@ execute_call(struct thread *td, struct fmaster_sigaction_args *uap)
 	if (error != 0)
 		goto exit;
 
-	error = fmaster_write_command(td, CALL_SIGACTION);
+	error = fmaster_write_command(td, SIGACTION_CALL);
 	if (error != 0)
 		return (error);
 	payload_size = fsyscall_payload_get_size(payload);
@@ -77,7 +77,7 @@ fmaster_sigaction_main(struct thread *td, struct fmaster_sigaction_args *uap)
 		error = execute_call(td, uap);
 		if (error != 0)
 			return (error);
-		error = fmaster_execute_return_generic32(td, RET_SIGACTION);
+		error = fmaster_execute_return_generic32(td, SIGACTION_RETURN);
 		if (error != 0)
 			return (error);
 	}
