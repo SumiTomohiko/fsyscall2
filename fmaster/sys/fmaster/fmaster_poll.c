@@ -13,9 +13,6 @@
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fmaster.h>
 
-MALLOC_DECLARE(M_POLLBUF);
-MALLOC_DEFINE(M_POLLBUF, "pollbuf", "buffer for poll(2) in fmaster");
-
 /*******************************************************************************
  * code for slave
  */
@@ -592,7 +589,7 @@ fmaster_poll_main(struct thread *td, struct fmaster_poll_args *uap)
 
 	nfds = uap->nfds;
 	size = sizeof(*fds) * nfds;
-	mt = M_POLLBUF;
+	mt = M_TEMP;
 	fds = (struct pollfd *)malloc(size, mt, M_WAITOK);
 	if (fds == NULL)
 		return (ENOMEM);

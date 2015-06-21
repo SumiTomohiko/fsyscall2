@@ -384,6 +384,9 @@
 #define	KQUEUE_RETURN			423
 #define	KEVENT_CALL			424
 #define	KEVENT_RETURN			425
+#define	POLL_START			426
+#define	POLL_END			427
+#define	POLL_ENDED			428
 
 /* end command (do not remove this comment) */
 
