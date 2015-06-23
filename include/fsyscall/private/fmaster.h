@@ -141,7 +141,7 @@ struct flag_definition {
 enum fmaster_side {
 	side_master = 0x01,
 	side_slave = 0x02,
-	side_both = side_master & side_slave
+	side_both = side_master | side_slave
 };
 
 #define	DEFINE_FLAG(name)	{ name, #name }
