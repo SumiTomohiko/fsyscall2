@@ -413,6 +413,7 @@ process_shub(struct mhub *mhub)
 	case GETSOCKOPT_RETURN:
 	case SETSOCKOPT_RETURN:
 	case KEVENT_RETURN:
+	case POLL_ENDED:
 #include "dispatch_ret.inc"
 		transfer_payload_to_master(mhub, cmd);
 		break;
@@ -446,6 +447,21 @@ process_exit(struct mhub *mhub, struct master *master)
 	write_int32(wfd, status);
 
 	dispose_master(master);
+}
+
+static void
+transfer_simple_command_from_master(struct mhub *mhub, struct master *master,
+				    command_t cmd)
+{
+	pair_id_t pair_id;
+	int wfd;
+
+	pair_id = master->pair_id;
+	syslog(LOG_DEBUG, "%s: pair_id=%ld", get_command_name(cmd), pair_id);
+
+	wfd = mhub->shub.wfd;
+	write_command(wfd, cmd);
+	write_pair_id(wfd, pair_id);
 }
 
 static void
@@ -547,8 +563,12 @@ process_master(struct mhub *mhub, struct master *master)
 	case GETSOCKOPT_CALL:
 	case SETSOCKOPT_CALL:
 	case KEVENT_CALL:
+	case POLL_START:
 #include "dispatch_call.inc"
 		transfer_payload_from_master(mhub, master, cmd);
+		break;
+	case POLL_END:
+		transfer_simple_command_from_master(mhub, master, cmd);
 		break;
 	default:
 		diex(-1, fmt, cmd, master->pair_id);

@@ -139,6 +139,19 @@ dispose_slave(struct slave *slave)
 }
 
 static void
+transfer_simple_command_to_slave(struct shub *shub, command_t cmd)
+{
+	pair_id_t pair_id;
+	int wfd;
+
+	pair_id = read_pair_id(shub->mhub.rfd);
+	syslog(LOG_DEBUG, "%s: pair_id=%ld", get_command_name(cmd), pair_id);
+
+	wfd = find_slave_of_pair_id(shub, pair_id)->wfd;
+	write_command(wfd, cmd);
+}
+
+static void
 transfer_payload_to_slave(struct shub *shub, command_t cmd)
 {
 	pair_id_t pair_id;
@@ -288,8 +301,12 @@ process_mhub(struct shub *shub)
 	case GETSOCKOPT_CALL:
 	case SETSOCKOPT_CALL:
 	case KEVENT_CALL:
+	case POLL_START:
 #include "dispatch_call.inc"
 		transfer_payload_to_slave(shub, cmd);
+		break;
+	case POLL_END:
+		transfer_simple_command_to_slave(shub, cmd);
 		break;
 	default:
 		diex(-1, "unknown command (%d) from the master hub", cmd);
@@ -366,6 +383,7 @@ process_slave(struct shub *shub, struct slave *slave)
 	case GETSOCKOPT_RETURN:
 	case SETSOCKOPT_RETURN:
 	case KEVENT_RETURN:
+	case POLL_ENDED:
 #include "dispatch_ret.inc"
 		transfer_payload_from_slave(shub, slave, cmd);
 		break;

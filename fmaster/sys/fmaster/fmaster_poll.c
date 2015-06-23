@@ -14,11 +14,64 @@
 #include <fsyscall/private/fmaster.h>
 
 /*******************************************************************************
- * code for slave
+ * shared code
  */
 
 static int
-do_execute(struct thread *td, struct pollfd *fds, int nfds, int timeout)
+read_result(struct thread *td, command_t expected_cmd, struct pollfd *fds,
+	    int nfds)
+{
+	payload_size_t actual_payload_size, payload_size;
+	command_t cmd;
+	int errnum, errnum_len, error, i, revents, revents_len, retval;
+	int retval_len;
+
+	error = fmaster_read_command(td, &cmd);
+	if (error != 0)
+		return (error);
+	if (cmd != expected_cmd)
+		return (EPROTO);
+	error = fmaster_read_payload_size(td, &payload_size);
+	if (error != 0)
+		return (error);
+
+	actual_payload_size = 0;
+	error = fmaster_read_int32(td, &retval, &retval_len);
+	if (error != 0)
+		return (error);
+	actual_payload_size += retval_len;
+	td->td_retval[0] = retval;
+
+	switch (retval) {
+	case -1:
+		error = fmaster_read_int32(td, &errnum, &errnum_len);
+		if (error != 0)
+			return (error);
+		actual_payload_size += errnum_len;
+		break;
+	case 0:
+		errnum = 0;
+		break;
+	default:
+		for (i = 0; i < nfds; i++) {
+			error = fmaster_read_int32(td, &revents, &revents_len);
+			if (error != 0)
+				return (error);
+			actual_payload_size += revents_len;
+			fds[i].revents = revents;
+		}
+		errnum = 0;
+		break;
+	}
+	if (payload_size != actual_payload_size)
+		return (EPROTO);
+
+	return (errnum);
+}
+
+static int
+write_fds_command(struct thread *td, command_t cmd, struct pollfd *fds,
+		  int nfds, int timeout)
 {
 	payload_size_t payload_size, rest_size;
 	int error, events_len, fd, fd_len, i, nfds_len, sfd, timeout_len, wfd;
@@ -59,7 +112,7 @@ do_execute(struct thread *td, struct pollfd *fds, int nfds, int timeout)
 		return (ENOMEM);
 	rest_size -= timeout_len;
 
-	error = fmaster_write_command(td, POLL_CALL);
+	error = fmaster_write_command(td, cmd);
 	if (error != 0)
 		return (error);
 	payload_size = sizeof(payload) - rest_size;
@@ -74,55 +127,32 @@ do_execute(struct thread *td, struct pollfd *fds, int nfds, int timeout)
 	return (0);
 }
 
+/*******************************************************************************
+ * code for slave
+ */
+
+static int
+do_execute(struct thread *td, struct pollfd *fds, int nfds, int timeout)
+{
+	int error;
+
+	error = write_fds_command(td, POLL_CALL, fds, nfds, timeout);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
 static int
 do_return(struct thread *td, struct pollfd *fds, int nfds)
 {
-	payload_size_t actual_payload_size, payload_size;
-	command_t cmd;
-	int errnum, errnum_len, error, i, revents, revents_len, retval;
-	int retval_len;
+	int error;
 
-	error = fmaster_read_command(td, &cmd);
-	if (error != 0)
-		return (error);
-	if (cmd != POLL_RETURN)
-		return (EPROTO);
-	error = fmaster_read_payload_size(td, &payload_size);
+	error = read_result(td, POLL_RETURN, fds, nfds);
 	if (error != 0)
 		return (error);
 
-	actual_payload_size = 0;
-	error = fmaster_read_int32(td, &retval, &retval_len);
-	if (error != 0)
-		return (error);
-	actual_payload_size += retval_len;
-	td->td_retval[0] = retval;
-
-	switch (retval) {
-	case -1:
-		error = fmaster_read_int32(td, &errnum, &errnum_len);
-		if (error != 0)
-			return (error);
-		actual_payload_size += errnum_len;
-		break;
-	case 0:
-		errnum = 0;
-		break;
-	default:
-		for (i = 0; i < nfds; i++) {
-			error = fmaster_read_int32(td, &revents, &revents_len);
-			if (error != 0)
-				return (error);
-			actual_payload_size += revents_len;
-			fds[i].revents = revents;
-		}
-		errnum = 0;
-		break;
-	}
-	if (payload_size != actual_payload_size)
-		return (EPROTO);
-
-	return (errnum);
+	return (0);
 }
 
 static int
@@ -489,7 +519,162 @@ selectuninit(void *dummy)
 }
 
 /*******************************************************************************
- * shared code
+ * code for both of master and slave
+ */
+
+static int
+count_slavefds(struct thread *td, struct pollfd *fds, nfds_t nfds,
+	       nfds_t *nslavefds)
+{
+	nfds_t i;
+	enum fmaster_fd_type fdtype;
+	int error, n;
+
+	n = 0;
+	for (i = 0; i < nfds; i++) {
+		error = fmaster_type_of_fd(td, fds[i].fd, &fdtype);
+		if (error != 0)
+			return (error);
+		n += fdtype == FD_SLAVE ? 1 : 0;
+	}
+
+	*nslavefds = n;
+
+	return (0);
+}
+
+static int
+copy_fds(struct thread *td, enum fmaster_fd_type fdtype, struct pollfd *srcfds,
+	 nfds_t nsrcfds, struct pollfd *destfds, nfds_t ndestfds)
+{
+	struct pollfd *pfd;
+	nfds_t i, n;
+	enum fmaster_fd_type t;
+	int error;
+
+	for (i = 0, n = 0; (i < nsrcfds) && (n < ndestfds); i++) {
+		pfd = &srcfds[i];
+		error = fmaster_type_of_fd(td, pfd->fd, &t);
+		if (error != 0)
+			return (error);
+		if (t != fdtype)
+			continue;
+		memcpy(&destfds[n], pfd, sizeof(*pfd));
+		n++;
+	}
+
+	return (0);
+}
+
+static int
+merge_results(struct thread *td, struct pollfd *fds, nfds_t nfds,
+	      struct pollfd *slavefds, nfds_t nslavefds,
+	      struct pollfd *masterfds, nfds_t nmasterfds)
+{
+	struct pollfd *p, *pfd;
+	nfds_t i, masterfdspos, slavefdspos;
+	enum fmaster_fd_type fdtype;
+	int error;
+
+	for (i = masterfdspos = slavefdspos = 0; i < nfds; i++) {
+		pfd = &fds[i];
+		error = fmaster_type_of_fd(td, pfd->fd, &fdtype);
+		if (error != 0)
+			return (error);
+		switch (fdtype) {
+		case FD_MASTER:
+			p = &masterfds[masterfdspos];
+			masterfdspos++;
+			break;
+		case FD_SLAVE:
+			p = &slavefds[slavefdspos];
+			slavefdspos++;
+			break;
+		case FD_CLOSED:
+		default:
+			return (EBADF);
+		}
+		pfd->revents = p->revents;
+	}
+
+	return (0);
+}
+
+static int
+master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
+		  int timeout)
+{
+	struct malloc_type *mt;
+	struct pollfd *masterfds, *mhubfd, *pfd, *slavefds;
+	nfds_t i, nmasterfds, nslavefds;
+	size_t masterfdssize, slavefdssize;
+	int error, master_retval, slave_retval;
+
+	error = count_slavefds(td, fds, nfds, &nslavefds);
+	if (error != 0)
+		return (error);
+
+	mt = M_TEMP;
+	slavefdssize = sizeof(slavefds[0]) * nslavefds;
+	slavefds = (struct pollfd *)malloc(slavefdssize, mt, M_WAITOK);
+	if (slavefds == NULL)
+		return (ENOMEM);
+	error = copy_fds(td, FD_SLAVE, fds, nfds, slavefds, nslavefds);
+	if (error != 0)
+		goto exit1;
+
+	error = write_fds_command(td, POLL_START, slavefds, nslavefds, INFTIM);
+	if (error != 0)
+		goto exit1;
+
+	nmasterfds = nfds - nslavefds;	/* does not include the mhub socket */
+	masterfdssize = sizeof(masterfds[0]) * (nmasterfds + 1);
+	masterfds = (struct pollfd *)malloc(masterfdssize, mt, M_WAITOK);
+	if (masterfds == NULL) {
+		error = ENOMEM;
+		goto exit1;
+	}
+	error = copy_fds(td, FD_MASTER, fds, nfds, masterfds, nmasterfds);
+	if (error != 0)
+		goto exit2;
+	for (i = 0; i < nmasterfds; i++) {
+		pfd = &masterfds[i];
+		pfd->fd = fmaster_fds_of_thread(td)[pfd->fd].fd_local;
+	}
+	mhubfd = &masterfds[nmasterfds];
+	mhubfd->fd = fmaster_rfd_of_thread(td);
+	mhubfd->events = POLLIN;
+	mhubfd->revents = 0;
+
+	error = sys_poll(td, masterfds, nmasterfds + 1, timeout);
+	if (error != 0)
+		goto exit2;
+	master_retval = td->td_retval[0];
+
+	error = fmaster_write_command(td, POLL_END);
+	if (error != 0)
+		goto exit2;
+	error = read_result(td, POLL_ENDED, slavefds, nslavefds);
+	if (error != 0)
+		goto exit2;
+	slave_retval = td->td_retval[0];
+
+	error = merge_results(td, fds, nfds, slavefds, nslavefds, masterfds,
+			      nmasterfds);
+	if (error != 0)
+		goto exit2;
+	td->td_retval[0] = master_retval + slave_retval;
+
+exit2:
+	free(masterfds, mt);
+exit1:
+	free(slavefds, mt);
+
+	return (0);
+}
+
+/*******************************************************************************
+ * system call entry
  */
 
 static void
@@ -611,8 +796,7 @@ fmaster_poll_main(struct thread *td, struct fmaster_poll_args *uap)
 		error = slave_poll(td, uap, fds);
 		break;
 	case side_both:
-		// TODO
-		error = EINVAL;
+		error = master_slave_poll(td, fds, nfds, uap->timeout);
 		break;
 	default:
 		error = EBADF;

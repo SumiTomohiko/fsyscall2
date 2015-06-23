@@ -486,15 +486,19 @@ process_connect_protocol(struct slave *slave, command_t call_command,
 	return_int(slave, return_command, retval, errno);
 }
 
+struct poll_args {
+	struct pollfd *fds;
+	nfds_t nfds;
+	int timeout;
+};
+
 static void
-process_poll(struct slave *slave)
+read_poll_args(struct slave *slave, struct poll_args *dest, int nfdsopts)
 {
 	struct pollfd *fds;
-	payload_size_t actual_payload_size, payload_size, return_payload_size;
-	size_t rest_size;
-	int events_len, fd_len, i, nfds, nfds_len, retval, retval_len;
-	int revents_len, rfd, timeout, timeout_len, wfd;
-	char buf[256], *p;
+	payload_size_t actual_payload_size, payload_size;
+	int events_len, fd_len, i, nfds, nfds_len;
+	int rfd, timeout, timeout_len;
 
 	rfd = slave->rfd;
 	payload_size = read_payload_size(rfd);
@@ -502,7 +506,7 @@ process_poll(struct slave *slave)
 
 	nfds = read_int32(rfd, &nfds_len);
 	actual_payload_size += nfds_len;
-	fds = (struct pollfd *)alloca(sizeof(*fds) * nfds);
+	fds = (struct pollfd *)malloc(sizeof(*fds) * (nfds + nfdsopts));
 	for (i = 0; i < nfds; i++) {
 		fds[i].fd = read_int32(rfd, &fd_len);
 		actual_payload_size += fd_len;
@@ -515,10 +519,22 @@ process_poll(struct slave *slave)
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
 
-	retval = poll(fds, nfds, timeout);
+	dest->fds = fds;
+	dest->nfds = nfds;
+	dest->timeout = timeout;
+}
+
+static void
+write_poll_result(struct slave *slave, command_t cmd, int retval, int e,
+		  struct pollfd *fds, nfds_t nfds)
+{
+	payload_size_t return_payload_size;
+	size_t rest_size;
+	int i, retval_len, revents_len, wfd;
+	char buf[256], *p;
 
 	if ((retval == 0) || (retval == -1)) {
-		return_int(slave, POLL_RETURN, retval, errno);
+		return_int(slave, cmd, retval, e);
 		return;
 	}
 
@@ -535,9 +551,58 @@ process_poll(struct slave *slave)
 	return_payload_size = sizeof(buf) - rest_size;
 
 	wfd = slave->wfd;
-	write_command(wfd, POLL_RETURN);
+	write_command(wfd, cmd);
 	write_payload_size(wfd, return_payload_size);
 	write_or_die(wfd, buf, return_payload_size);
+}
+
+static void
+process_poll(struct slave *slave)
+{
+	struct poll_args args;
+	struct pollfd *fds;
+	nfds_t nfds;
+	int retval;
+
+	read_poll_args(slave, &args, 0);
+
+	fds = args.fds;
+	nfds = args.nfds;
+	retval = poll(fds, nfds, args.timeout);
+
+	write_poll_result(slave, POLL_RETURN, retval, errno, fds, nfds);
+
+	free(fds);
+}
+
+static void
+process_poll_start(struct slave *slave)
+{
+	struct poll_args args;
+	struct pollfd *fds, *shubfd;
+	nfds_t nfds;
+	command_t cmd;
+	int n, retval;
+
+	read_poll_args(slave, &args, 1);
+
+	fds = args.fds;
+	nfds = args.nfds;
+	shubfd = &fds[nfds];
+	shubfd->fd = slave->rfd;
+	shubfd->events = POLLIN;
+	shubfd->revents = 0;
+
+	retval = poll(fds, nfds, INFTIM);
+
+	n = (retval != -1) && ((shubfd->revents & POLLIN) != 0) ? 1 : 0;
+	write_poll_result(slave, POLL_ENDED, retval - n, errno, fds, nfds);
+
+	free(fds);
+
+	cmd = read_command(slave->rfd);
+	if (cmd != POLL_END)
+		die(1, "protocol error: %s (%d)", get_command_name(cmd), cmd);
 }
 
 static void
@@ -1001,6 +1066,9 @@ mainloop(struct slave *slave)
 				break;
 			case KEVENT_CALL:
 				process_kevent(slave);
+				break;
+			case POLL_START:
+				process_poll_start(slave);
 				break;
 			case EXIT_CALL:
 				return process_exit(slave);
