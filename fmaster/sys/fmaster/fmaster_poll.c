@@ -18,6 +18,20 @@
  */
 
 static int
+vfd_to_lfd(struct thread *td, struct pollfd *fds, nfds_t nfds)
+{
+	struct pollfd *pfd;
+	nfds_t i;
+
+	for (i = 0; i < nfds; i++) {
+		pfd = &fds[i];
+		pfd->fd = fmaster_fds_of_thread(td)[pfd->fd].fd_local;
+	}
+
+	return (0);
+}
+
+static int
 read_result(struct thread *td, command_t expected_cmd, struct pollfd *fds,
 	    int nfds)
 {
@@ -458,20 +472,6 @@ done:
 }
 
 static int
-vfd_to_lfd(struct thread *td, struct pollfd *fds, nfds_t nfds)
-{
-	struct pollfd *pfd;
-	nfds_t i;
-
-	for (i = 0; i < nfds; i++) {
-		pfd = &fds[i];
-		pfd->fd = fmaster_fds_of_thread(td)[pfd->fd].fd_local;
-	}
-
-	return (0);
-}
-
-static int
 master_poll(struct thread *td, struct pollfd *fds, nfds_t nfds, int timeout)
 {
 	nfds_t i;
@@ -605,8 +605,8 @@ master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
 		  int timeout)
 {
 	struct malloc_type *mt;
-	struct pollfd *masterfds, *mhubfd, *pfd, *slavefds;
-	nfds_t i, nmasterfds, nslavefds;
+	struct pollfd *masterfds, *mhubfd, *slavefds;
+	nfds_t nmasterfds, nslavefds;
 	size_t masterfdssize, slavefdssize;
 	int error, master_retval, slave_retval;
 
@@ -637,10 +637,9 @@ master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
 	error = copy_fds(td, FD_MASTER, fds, nfds, masterfds, nmasterfds);
 	if (error != 0)
 		goto exit2;
-	for (i = 0; i < nmasterfds; i++) {
-		pfd = &masterfds[i];
-		pfd->fd = fmaster_fds_of_thread(td)[pfd->fd].fd_local;
-	}
+	error = vfd_to_lfd(td, masterfds, nmasterfds);
+	if (error != 0)
+		goto exit2;
 	mhubfd = &masterfds[nmasterfds];
 	mhubfd->fd = fmaster_rfd_of_thread(td);
 	mhubfd->events = POLLIN;
