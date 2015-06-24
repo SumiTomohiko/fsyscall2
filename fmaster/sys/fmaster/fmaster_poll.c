@@ -745,16 +745,16 @@ detect_side(struct thread *td, struct pollfd *fds, nfds_t nfds,
 			return (error);
 		switch (fdtype) {
 		case FD_MASTER:
-			*side |= side_master;
+			*side |= SIDE_MASTER;
 			break;
 		case FD_SLAVE:
-			*side |= side_slave;
+			*side |= SIDE_SLAVE;
 			break;
 		case FD_CLOSED:
 		default:
 			return (EBADF);
 		}
-		if (*side == side_both)
+		if (*side == SIDE_BOTH)
 			break;
 	}
 
@@ -788,13 +788,13 @@ fmaster_poll_main(struct thread *td, struct fmaster_poll_args *uap)
 	if (error != 0)
 		goto exit;
 	switch (side) {
-	case side_master:
+	case SIDE_MASTER:
 		error = master_poll(td, fds, nfds, uap->timeout);
 		break;
-	case side_slave:
+	case SIDE_SLAVE:
 		error = slave_poll(td, uap, fds);
 		break;
-	case side_both:
+	case SIDE_BOTH:
 		error = master_slave_poll(td, fds, nfds, uap->timeout);
 		break;
 	default:

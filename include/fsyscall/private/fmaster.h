@@ -139,9 +139,9 @@ struct flag_definition {
 };
 
 enum fmaster_side {
-	side_master = 0x01,
-	side_slave = 0x02,
-	side_both = side_master | side_slave
+	SIDE_MASTER = 0x01,
+	SIDE_SLAVE = 0x02,
+	SIDE_BOTH = SIDE_MASTER | SIDE_SLAVE
 };
 
 #define	DEFINE_FLAG(name)	{ name, #name }
