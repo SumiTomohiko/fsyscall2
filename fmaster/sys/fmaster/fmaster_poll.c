@@ -5,8 +5,9 @@
 #include <sys/malloc.h>
 #include <sys/poll.h>
 #include <sys/proc.h>
-#include <sys/selinfo.h>
+#include <sys/syscallsubr.h>
 #include <sys/syslog.h>
+#include <sys/sysproto.h>
 #include <sys/systm.h>
 
 #include <fmaster/fmaster_proto.h>
@@ -16,6 +17,191 @@
 /*******************************************************************************
  * shared code
  */
+
+#define	EVENTS_FOR_EVFILT_READ	(POLLIN | POLLRDNORM)
+#define	EVENTS_FOR_EVFILT_WRITE	(POLLOUT | POLLWRNORM)
+
+static int
+count_kevents(struct pollfd *fds, nfds_t nfds)
+{
+	nfds_t i;
+	int events, nkev;
+
+	nkev = 0;
+	for (i = 0; i < nfds; i++) {
+		events = fds[i].events;
+		if ((events & EVENTS_FOR_EVFILT_READ) != 0)
+			nkev++;
+		if ((events & EVENTS_FOR_EVFILT_WRITE) != 0)
+			nkev++;
+		/* TODO: The other events are ignored */
+	}
+
+	return (nkev);
+}
+
+static int
+convert_pollfd_to_kevent(struct kevent *kev, struct pollfd *fds, nfds_t nfds)
+{
+	struct kevent *pkev;
+	struct pollfd *pfd;
+	nfds_t i;
+	int events, fd;
+
+	pkev = kev;
+	for (i = 0; i < nfds; i++) {
+		pfd = &fds[i];
+		fd = pfd->fd;
+		events = pfd->events;
+		if ((events & EVENTS_FOR_EVFILT_READ) != 0) {
+			EV_SET(pkev, fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0,
+			       NULL);
+			pkev++;
+		}
+		if ((events & EVENTS_FOR_EVFILT_WRITE) != 0) {
+			EV_SET(pkev, fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0,
+			       NULL);
+			pkev++;
+		}
+
+	}
+
+	return (0);
+}
+
+struct kevent_bonus {
+	struct kevent *changelist;
+	struct kevent *eventlist;
+};
+
+static int
+kevent_copyin(void *arg, struct kevent *kevp, int count)
+{
+	struct kevent_bonus *bonus;
+
+	bonus = (struct kevent_bonus *)arg;
+	memcpy(kevp, bonus->changelist, sizeof(kevp[0]) * count);
+	bonus->changelist += count;
+
+	return (0);
+}
+
+static int
+kevent_copyout(void *arg, struct kevent *kevp, int count)
+{
+	struct kevent_bonus *bonus;
+
+	bonus = (struct kevent_bonus *)arg;
+	memcpy(bonus->eventlist, kevp, sizeof(kevp[0]) * count);
+	bonus->eventlist += count;
+
+	return (0);
+}
+
+static int
+convert_kevent_to_pollfd(struct pollfd *fds, nfds_t nfds, struct kevent *kev,
+			 int nkev)
+{
+	struct kevent *pkev;
+	struct pollfd *pfd;
+	nfds_t j;
+	int fd, i;
+
+	for (i = 0; i < nkev; i++) {
+		pkev = &kev[i];
+		fd = pkev->ident;
+		for (j = 0; (j < nfds) && (fds[j].fd != fd); j++)
+			;
+		if (j == nfds)
+			return (EINVAL);
+		pfd = &fds[j];
+		switch (pkev->filter) {
+		case EVFILT_READ:
+			pfd->revents |= (pfd->events & EVENTS_FOR_EVFILT_READ);
+			break;
+		case EVFILT_WRITE:
+			pfd->revents |= (pfd->events & EVENTS_FOR_EVFILT_WRITE);
+			break;
+		default:
+			/* TODO */
+			break;
+		}
+	}
+
+	return (0);
+}
+
+static int
+kevent_poll(struct thread *td, struct pollfd *fds, nfds_t nfds, int timeout)
+{
+	struct malloc_type *mt;
+	struct kevent_copyops kops;
+	struct kevent_bonus kbonus;
+	struct kevent *changelist, *eventlist;
+	struct timespec *pts, ts;
+	size_t size;
+	nfds_t i;
+	int error, error2, kq, n, neventlist, nkev;
+
+	error = sys_kqueue(td, NULL);
+	if (error != 0)
+		return (error);
+	kq = td->td_retval[0];
+
+	nkev = count_kevents(fds, nfds);
+	size = sizeof(changelist[0]) * nkev;
+	mt = M_TEMP;
+	changelist = (struct kevent *)malloc(size, mt, M_WAITOK);
+	if (changelist == NULL) {
+		error = ENOMEM;
+		goto exit1;
+	}
+	error = convert_pollfd_to_kevent(changelist, fds, nfds);
+	if (error != 0)
+		goto exit2;
+	eventlist = (struct kevent *)malloc(size, mt, M_WAITOK);
+	if (eventlist == NULL) {
+		error = ENOMEM;
+		goto exit2;
+	}
+
+	kbonus.changelist = changelist;
+	kbonus.eventlist = eventlist;
+	kops.arg = &kbonus;
+	kops.k_copyout = kevent_copyout;
+	kops.k_copyin = kevent_copyin;
+	if (timeout != INFTIM) {
+		ts.tv_sec = timeout / 1000;
+		ts.tv_nsec = (timeout % 1000) * 1000000;
+		pts = &ts;
+	}
+	else
+		pts = NULL;
+	error = kern_kevent(td, kq, nkev, nkev, &kops, pts);
+	if (error != 0)
+		goto exit3;
+	neventlist = td->td_retval[0];
+	error = convert_kevent_to_pollfd(fds, nfds, eventlist, neventlist);
+	if (error != 0)
+		goto exit3;
+
+exit3:
+	free(eventlist, mt);
+exit2:
+	free(changelist, mt);
+exit1:
+	error2 = kern_close(td, kq);
+	error = (error == 0) && (error2 != 0) ? error2 : error;
+
+	if (error == 0) {
+		n = 0;
+		for (i = 0; i < nfds; i++)
+			n += fds[i].revents != 0 ? 1 : 0;
+		td->td_retval[0] = n;
+	}
+
+	return (error);
+}
 
 static int
 vfd_to_lfd(struct thread *td, struct pollfd *fds, nfds_t nfds)
@@ -189,333 +375,24 @@ slave_poll(struct thread *td, struct fmaster_poll_args *uap, struct pollfd *fds)
  * code for master
  */
 
-static MALLOC_DEFINE(M_SELECT, "fselect", "select() buffer for fmaster");
-
-/*
- * One seltd per-thread allocated on demand as needed.
- *
- *	t - protected by st_mtx
- * 	k - Only accessed by curthread or read-only
- */
-struct seltd {
-	STAILQ_HEAD(, selfd)	st_selq;	/* (k) List of selfds. */
-	struct selfd		*st_free1;	/* (k) free fd for read set. */
-	struct selfd		*st_free2;	/* (k) free fd for write set. */
-	struct mtx		st_mtx;		/* Protects struct seltd */
-	struct cv		st_wait;	/* (t) Wait channel. */
-	int			st_flags;	/* (t) SELTD_ flags. */
-};
-
-#define	SELTD_PENDING	0x0001			/* We have pending events. */
-#define	SELTD_RESCAN	0x0002			/* Doing a rescan. */
-
-/*
- * One selfd allocated per-thread per-file-descriptor.
- *	f - protected by sf_mtx
- */
-struct selfd {
-	STAILQ_ENTRY(selfd)	sf_link;	/* (k) fds owned by this td. */
-	TAILQ_ENTRY(selfd)	sf_threads;	/* (f) fds on this selinfo. */
-	struct selinfo		*sf_si;		/* (f) selinfo when linked. */
-	struct mtx		*sf_mtx;	/* Pointer to selinfo mtx. */
-	struct seltd		*sf_td;		/* (k) owning seltd. */
-	void			*sf_cookie;	/* (k) fd or pollfd. */
-};
-
-static uma_zone_t selfd_zone;
-
-static void
-seltdinit(struct thread *td)
-{
-	struct seltd *stp;
-
-	if ((stp = td->td_sel) != NULL)
-		goto out;
-	td->td_sel = stp = malloc(sizeof(*stp), M_SELECT, M_WAITOK|M_ZERO);
-	mtx_init(&stp->st_mtx, "sellck", NULL, MTX_DEF);
-	cv_init(&stp->st_wait, "select");
-out:
-	stp->st_flags = 0;
-	STAILQ_INIT(&stp->st_selq);
-}
-
-/*
- * Preallocate two selfds associated with 'cookie'.  Some fo_poll routines
- * have two select sets, one for read and another for write.
- */
-static void
-selfdalloc(struct thread *td, void *cookie)
-{
-	struct seltd *stp;
-
-	stp = td->td_sel;
-	if (stp->st_free1 == NULL)
-		stp->st_free1 = uma_zalloc(selfd_zone, M_WAITOK|M_ZERO);
-	stp->st_free1->sf_td = stp;
-	stp->st_free1->sf_cookie = cookie;
-	if (stp->st_free2 == NULL)
-		stp->st_free2 = uma_zalloc(selfd_zone, M_WAITOK|M_ZERO);
-	stp->st_free2->sf_td = stp;
-	stp->st_free2->sf_cookie = cookie;
-}
-
-static int
-pollscan(struct thread *td, struct pollfd *fds, u_int nfd)
-{
-	struct filedesc *fdp = td->td_proc->p_fd;
-	int i;
-	struct file *fp;
-	int n = 0;
-
-	FILEDESC_SLOCK(fdp);
-	for (i = 0; i < nfd; i++, fds++) {
-		if (fds->fd >= fdp->fd_nfiles) {
-			fds->revents = POLLNVAL;
-			n++;
-		} else if (fds->fd < 0) {
-			fds->revents = 0;
-		} else {
-			fp = fdp->fd_ofiles[fds->fd];
-#ifdef CAPABILITIES
-			if ((fp == NULL)
-			    || (cap_funwrap(fp, CAP_POLL_EVENT, &fp) != 0)) {
-#else
-			if (fp == NULL) {
-#endif
-				fds->revents = POLLNVAL;
-				n++;
-			} else {
-				/*
-				 * Note: backend also returns POLLHUP and
-				 * POLLERR if appropriate.
-				 */
-				selfdalloc(td, fds);
-				fds->revents = fo_poll(fp, fds->events,
-				    td->td_ucred, td);
-				/*
-				 * POSIX requires POLLOUT to be never
-				 * set simultaneously with POLLHUP.
-				 */
-				if ((fds->revents & POLLHUP) != 0)
-					fds->revents &= ~POLLOUT;
-
-				if (fds->revents != 0)
-					n++;
-			}
-		}
-	}
-	FILEDESC_SUNLOCK(fdp);
-	td->td_retval[0] = n;
-	return (0);
-}
-
-static int
-seltdwait(struct thread *td, int timo)
-{
-	struct seltd *stp;
-	int error;
-
-	stp = td->td_sel;
-	/*
-	 * An event of interest may occur while we do not hold the seltd
-	 * locked so check the pending flag before we sleep.
-	 */
-	mtx_lock(&stp->st_mtx);
-	/*
-	 * Any further calls to selrecord will be a rescan.
-	 */
-	stp->st_flags |= SELTD_RESCAN;
-	if (stp->st_flags & SELTD_PENDING) {
-		mtx_unlock(&stp->st_mtx);
-		return (0);
-	}
-	if (timo > 0)
-		error = cv_timedwait_sig(&stp->st_wait, &stp->st_mtx, timo);
-	else
-		error = cv_wait_sig(&stp->st_wait, &stp->st_mtx);
-	mtx_unlock(&stp->st_mtx);
-
-	return (error);
-}
-
-static void
-selfdfree(struct seltd *stp, struct selfd *sfp)
-{
-	STAILQ_REMOVE(&stp->st_selq, sfp, selfd, sf_link);
-	mtx_lock(sfp->sf_mtx);
-	if (sfp->sf_si)
-		TAILQ_REMOVE(&sfp->sf_si->si_tdlist, sfp, sf_threads);
-	mtx_unlock(sfp->sf_mtx);
-	uma_zfree(selfd_zone, sfp);
-}
-
-static int
-pollrescan(struct thread *td)
-{
-	struct seltd *stp;
-	struct selfd *sfp;
-	struct selfd *sfn;
-	struct selinfo *si;
-	struct filedesc *fdp;
-	struct file *fp;
-	struct pollfd *fd;
-	int n;
-
-	n = 0;
-	fdp = td->td_proc->p_fd;
-	stp = td->td_sel;
-	FILEDESC_SLOCK(fdp);
-	STAILQ_FOREACH_SAFE(sfp, &stp->st_selq, sf_link, sfn) {
-		fd = (struct pollfd *)sfp->sf_cookie;
-		si = sfp->sf_si;
-		selfdfree(stp, sfp);
-		/* If the selinfo wasn't cleared the event didn't fire. */
-		if (si != NULL)
-			continue;
-		fp = fdp->fd_ofiles[fd->fd];
-#ifdef CAPABILITIES
-		if ((fp == NULL)
-		    || (cap_funwrap(fp, CAP_POLL_EVENT, &fp) != 0)) {
-#else
-		if (fp == NULL) {
-#endif
-			fd->revents = POLLNVAL;
-			n++;
-			continue;
-		}
-
-		/*
-		 * Note: backend also returns POLLHUP and
-		 * POLLERR if appropriate.
-		 */
-		fd->revents = fo_poll(fp, fd->events, td->td_ucred, td);
-		if (fd->revents != 0)
-			n++;
-	}
-	FILEDESC_SUNLOCK(fdp);
-	stp->st_flags = 0;
-	td->td_retval[0] = n;
-	return (0);
-}
-
-/*
- * Remove the references to the thread from all of the objects we were
- * polling.
- */
-static void
-seltdclear(struct thread *td)
-{
-	struct seltd *stp;
-	struct selfd *sfp;
-	struct selfd *sfn;
-
-	stp = td->td_sel;
-	STAILQ_FOREACH_SAFE(sfp, &stp->st_selq, sf_link, sfn)
-		selfdfree(stp, sfp);
-	stp->st_flags = 0;
-}
-
-static int
-sys_poll(struct thread *td, struct pollfd *bits, nfds_t nfds, int timeout)
-{
-	struct timeval atv, rtv, ttv;
-	int error, timo;
-
-	if (nfds > maxfilesperproc && nfds > FD_SETSIZE)
-		return (EINVAL);
-	if (timeout != INFTIM) {
-		atv.tv_sec = timeout / 1000;
-		atv.tv_usec = (timeout % 1000) * 1000;
-		if (itimerfix(&atv)) {
-			error = EINVAL;
-			goto done;
-		}
-		getmicrouptime(&rtv);
-		timevaladd(&atv, &rtv);
-	} else {
-		atv.tv_sec = 0;
-		atv.tv_usec = 0;
-	}
-	timo = 0;
-	seltdinit(td);
-	/* Iterate until the timeout expires or descriptors become ready. */
-	for (;;) {
-		error = pollscan(td, bits, nfds);
-		if (error || td->td_retval[0] != 0)
-			break;
-		if (atv.tv_sec || atv.tv_usec) {
-			getmicrouptime(&rtv);
-			if (timevalcmp(&rtv, &atv, >=))
-				break;
-			ttv = atv;
-			timevalsub(&ttv, &rtv);
-			timo = ttv.tv_sec > 24 * 60 * 60 ?
-			    24 * 60 * 60 * hz : tvtohz(&ttv);
-		}
-		error = seltdwait(td, timo);
-		if (error)
-			break;
-		error = pollrescan(td);
-		if (error || td->td_retval[0] != 0)
-			break;
-	}
-	seltdclear(td);
-
-done:
-	/* poll is not restarted after signals... */
-	if (error == ERESTART)
-		error = EINTR;
-	if (error == EWOULDBLOCK)
-		error = 0;
-
-	return (error);
-}
-
 static int
 master_poll(struct thread *td, struct pollfd *fds, nfds_t nfds, int timeout)
 {
-	nfds_t i;
-	int error, n;
+	int error;
 
 	error = vfd_to_lfd(td, fds, nfds);
 	if (error != 0)
 		return (error);
 
-	error = sys_poll(td, fds, nfds, timeout);
+	error = kevent_poll(td, fds, nfds, timeout);
 	if (error != 0)
 		return (error);
-
-	n = 0;
-	for (i = 0; i < nfds; i++)
-		n += fds[i].revents != 0 ? 1 : 0;
-	td->td_retval[0] = n;
 	/*
 	 * File descriptors are still local. Because what will be copyouted are
 	 * only revents.
 	 */
 
 	return (0);
-}
-
-static void selectinit(void *);
-SYSINIT(fselect, SI_SUB_SYSCALLS, SI_ORDER_ANY, selectinit, NULL);
-
-static void
-selectinit(void *dummy __unused)
-{
-
-	selfd_zone = uma_zcreate("fselfd", sizeof(struct selfd), NULL, NULL,
-	    NULL, NULL, UMA_ALIGN_PTR, 0);
-}
-
-static void selectuninit(void *);
-SYSUNINIT(fselect, SI_SUB_SYSCALLS, SI_ORDER_ANY, selectuninit, NULL);
-
-static void
-selectuninit(void *dummy)
-{
-
-	uma_zdestroy(selfd_zone);
 }
 
 /*******************************************************************************
@@ -645,7 +522,7 @@ master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
 	mhubfd->events = POLLIN;
 	mhubfd->revents = 0;
 
-	error = sys_poll(td, masterfds, nmasterfds + 1, timeout);
+	error = kevent_poll(td, masterfds, nmasterfds + 1, timeout);
 	if (error != 0)
 		goto exit2;
 	master_retval = td->td_retval[0];
