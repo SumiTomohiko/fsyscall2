@@ -74,9 +74,6 @@ tester="${tests_dir}/tester/tester"
 tmp_dir="${dir}/tmp.tests"
 arch=$(uname -p)
 
-rm -rf "${tmp_dir}" || exit 1
-mkdir -p "${tmp_dir}" || exit 1
-
 filter="/usr/bin/true"
 repeat="1"
 tester_opts=""
@@ -130,6 +127,9 @@ do
 			print_result "${t}" "SKIP"
 			continue
 		fi
+
+		rm -rf "${tmp_dir}" || exit 1
+		mkdir -p "${tmp_dir}" || exit 1
 
 		unset actual_stdout args cmd expected_status expected_stdout
 		unset status unexpected_status
