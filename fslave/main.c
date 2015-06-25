@@ -602,7 +602,7 @@ process_poll_start(struct slave *slave)
 
 	cmd = read_command(slave->rfd);
 	if (cmd != POLL_END)
-		die(1, "protocol error: %s (%d)", get_command_name(cmd), cmd);
+		diex(1, "protocol error: %s (%d)", get_command_name(cmd), cmd);
 }
 
 static void
