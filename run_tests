@@ -78,6 +78,7 @@ filter="/usr/bin/true"
 repeat="1"
 tester_opts=""
 stop_on_ng="no"
+syslog=""
 while [ 0 -lt $# ]
 do
 	case "$1" in
@@ -96,6 +97,10 @@ do
 	"--stop-on-ng")
 		stop_on_ng="yes"
 		shift
+		;;
+	"--syslog")
+		syslog="$2"
+		shift 2
 		;;
 	*)
 		break
@@ -142,8 +147,18 @@ do
 
 		exe="${tests_dir}/${arch}/${cmd}"
 		stdout_log="${tmp_dir}/stdout.log"
+
+		if [ -n "${syslog}" ]; then
+			tail -0cf /var/log/all.log > "${syslog}" &
+			tailpid="$!"
+		fi
+
 		"${tester}" ${tester_opts} "${exe}" ${args} > "${stdout_log}"
 		status="${?}"
+
+		if [ -n "${syslog}" ]; then
+			kill -TERM "${tailpid}"
+		fi
 
 		if [ "${status}" = 255 ]; then
 			result="NG (timeouted)"
