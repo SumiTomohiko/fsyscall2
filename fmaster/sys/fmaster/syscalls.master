@@ -564,7 +564,7 @@
 339	AUE_NULL	UNIMPL	{ int fmaster_nnpfs_syscall(int operation, \
 				    char *a_pathP, int a_opcode, \
 				    void *a_paramsP, int a_followSymlinks); }
-340	AUE_SIGPROCMASK	NOPROTO	{ int sigprocmask(int how, \
+340	AUE_SIGPROCMASK	STD	{ int fmaster_sigprocmask(int how, \
 				    const sigset_t *set, sigset_t *oset); }
 341	AUE_SIGSUSPEND	NOPROTO	{ int sigsuspend(const sigset_t *sigmask); }
 342	AUE_SIGACTION	OBSOL	sigaction

@@ -606,6 +606,28 @@ process_poll_start(struct slave *slave)
 }
 
 static void
+process_sigprocmask(struct slave *slave)
+{
+	sigset_t set;
+	payload_size_t actual_payload_size, payload_size;
+	int how, how_len, retval, rfd, set_len;
+
+	rfd = slave->rfd;
+	payload_size = read_payload_size(rfd);
+
+	how = read_int(rfd, &how_len);
+	actual_payload_size = how_len;
+	read_sigset(rfd, &set, &set_len);
+	actual_payload_size += set_len;
+
+	die_if_payload_size_mismatched(payload_size, actual_payload_size);
+
+	retval = sigprocmask(how, &set, NULL);
+
+	return_int(slave, SIGPROCMASK_RETURN, retval, errno);
+}
+
+static void
 signal_handler(int sig)
 {
 	char c = (char)sig;
@@ -1069,6 +1091,9 @@ mainloop(struct slave *slave)
 				break;
 			case POLL_START:
 				process_poll_start(slave);
+				break;
+			case SIGPROCMASK_CALL:
+				process_sigprocmask(slave);
 				break;
 			case EXIT_CALL:
 				return process_exit(slave);

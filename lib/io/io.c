@@ -206,3 +206,15 @@ read_string(int rfd, uint64_t *total_len)
 
 	return (ptr);
 }
+
+void
+read_sigset(int rfd, sigset_t *set, int *len)
+{
+	int i, n;
+
+	*len = 0;
+	for (i = 0; i < _SIG_WORDS; i++) {
+		set->__bits[i] = read_uint32(rfd, &n);
+		*len += n;
+	}
+}

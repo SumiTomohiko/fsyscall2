@@ -13,6 +13,7 @@ int32_t		read_int32(int, int *);
 int64_t		read_int64(int, int *);
 payload_size_t	read_payload_size(int);
 pair_id_t	read_pair_id(int);
+void		read_sigset(int, sigset_t *, int *);
 char *		read_string(int, uint64_t *);
 #define		read_uint8(fd, len)	((uint8_t)read_int8((fd), (len)))
 #define		read_uint16(fd, len)	((uint16_t)read_int16((fd), (len)))

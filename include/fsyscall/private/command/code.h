@@ -387,6 +387,8 @@
 #define	POLL_START			426
 #define	POLL_END			427
 #define	POLL_ENDED			428
+#define	SIGPROCMASK_CALL		430
+#define	SIGPROCMASK_RETURN		431
 
 /* end command (do not remove this comment) */
 
