@@ -22,12 +22,12 @@ class Syscall:
     const_name = property(get_const_name)
 
     def get_call_name(self):
-        return "CALL_" + self.get_const_name()
+        return "{0}_CALL".format(self.get_const_name())
 
     call_name = property(get_call_name)
 
     def get_ret_name(self):
-        return "RET_" + self.get_const_name()
+        return "{0}_RETURN".format(self.get_const_name())
 
     ret_name = property(get_ret_name)
 
