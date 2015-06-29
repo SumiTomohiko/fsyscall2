@@ -3,10 +3,20 @@ package jp.gr.java_conf.neko_daisuki.fsyscall;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 
 public class SignalSet implements Cloneable {
+
+    private static class SignalComparator implements Comparator<Signal> {
+
+        public int compare(Signal a, Signal b) {
+            return a.getNumber() - b.getNumber();
+        }
+    }
+
+    private static Comparator<Signal> SIGNAL_COMPARATOR = new SignalComparator();
 
     private Collection<Signal> mSet;
 
@@ -61,21 +71,22 @@ public class SignalSet implements Cloneable {
     }
 
     private String listSignals() {
-        List<String> l;
+        List<Signal> l;
         synchronized (mSet) {
             if (mSet.isEmpty()) {
                 return "";
             }
-            l = new ArrayList<String>();
+            l = new ArrayList<Signal>();
             for (Signal sig: mSet) {
-                l.add(sig.getName());
+                l.add(sig);
             }
         }
-        StringBuilder buffer = new StringBuilder(l.get(0));
+        Collections.sort(l, SIGNAL_COMPARATOR);
+        StringBuilder buffer = new StringBuilder(l.get(0).getName());
         int size = l.size();
         for (int i = 1; i < size; i++) {
             buffer.append(", ");
-            buffer.append(l.get(i));
+            buffer.append(l.get(i).getName());
         }
         return buffer.toString();
     }
