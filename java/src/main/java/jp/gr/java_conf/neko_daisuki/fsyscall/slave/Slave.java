@@ -1497,6 +1497,28 @@ public class Slave implements Runnable {
         return mState == State.ZOMBIE;
     }
 
+    public SyscallResult.Generic32 doSigprocmask(int how, SignalSet set) {
+        String fmt = "sigprocmask(how=%d (%s), set=%s)";
+        String howString;
+        switch (how) {
+        case Unix.Constants.SIG_BLOCK:
+            howString = "SIG_BLOCK";
+            break;
+        case Unix.Constants.SIG_UNBLOCK:
+            howString = "SIG_UNBLOCK";
+            break;
+        case Unix.Constants.SIG_SETMASK:
+            howString = "SIG_SETMASK";
+            break;
+        default:
+            howString = "invalid";
+            break;
+        }
+        mLogger.info(String.format(fmt, how, howString, set));
+
+        return new SyscallResult.Generic32();
+    }
+
     public SyscallResult.Generic32 doSigaction(int sig, Sigaction act) throws IOException {
         String fmt = "sigaction(sig=%d (%s), act=%s)";
         mLogger.info(String.format(fmt, sig, Signal.toString(sig), act));

@@ -306,6 +306,10 @@ public class Unix {
         public static final int S_IWOTH = 0000002;
         public static final int S_IXOTH = 0000001;
         public static final int ACCESSPERMS = S_IRWXU | S_IRWXG | S_IRWXO;
+
+        public static final int SIG_BLOCK = 1;
+        public static final int SIG_UNBLOCK = 2;
+        public static final int SIG_SETMASK = 3;
     }
 
     public static final int _WSTOPPED = 0177;
