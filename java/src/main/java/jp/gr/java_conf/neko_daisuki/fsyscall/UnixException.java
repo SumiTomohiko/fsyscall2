@@ -4,6 +4,11 @@ public class UnixException extends Exception {
 
     private Errno mErrno;
 
+    public UnixException(Errno errno, String message) {
+        super(message);
+        initialize(errno);
+    }
+
     public UnixException(Errno errno, Throwable e) {
         super(e);
         initialize(errno);
