@@ -1489,10 +1489,6 @@ public class Slave implements Runnable {
         return mPid;
     }
 
-    public boolean isReady() throws IOException {
-        return mIn.isReady();
-    }
-
     public boolean isZombie() {
         return mState == State.ZOMBIE;
     }
