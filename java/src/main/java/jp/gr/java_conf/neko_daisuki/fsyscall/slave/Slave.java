@@ -73,7 +73,7 @@ public class Slave implements Runnable {
 
         public enum Action { CONTINUE, BREAK };
 
-        public Action run() throws UnixException;
+        public Action run() throws IOException, UnixException;
     }
 
     private class TimeoutLoop {
@@ -85,7 +85,23 @@ public class Slave implements Runnable {
                                         : new InfinityTimeoutDetector();
         }
 
-        public void run(TimeoutRunner runner) throws InterruptedException, UnixException {
+        public TimeoutLoop(int timeout) {
+            switch (timeout) {
+            case Unix.Constants.INFTIM:
+                mDetector = new InfinityTimeoutDetector();
+                break;
+            case 0:
+                mDetector = new ZeroTimeoutDetector();
+                break;
+            default:
+                mDetector = new TrueTimeoutDetector(timeout);
+                break;
+            }
+        }
+
+        public void run(TimeoutRunner runner) throws IOException,
+                                                     InterruptedException,
+                                                     UnixException {
             TimeoutRunner.Action act = runner.run();
             int interval = 10;  // msec
             long t = 1000 * interval; // usec
@@ -94,6 +110,65 @@ public class Slave implements Runnable {
                 t += 1000 * interval;
                 act = runner.run();
             }
+        }
+    }
+
+    private class PollRunner implements TimeoutRunner {
+
+        private int mReadyFdsNumber;
+        private PollFds mFds;
+
+        public PollRunner(PollFds fds) {
+            mFds = fds;
+        }
+
+        public int getReadyFdsNumber() {
+            return mReadyFdsNumber;
+        }
+
+        public Action run() throws IOException, UnixException {
+            for (PollFd fd: mFds) {
+                UnixFile file = getValidFile(fd.getFd());
+                try {
+                    int events = fd.getEvents();
+                    if ((events & Unix.Constants.POLLIN) != 0) {
+                        if (file.isReadyToRead()) {
+                            fd.addRevents(Unix.Constants.POLLIN);
+                        }
+                    }
+                    if ((events & Unix.Constants.POLLOUT) != 0) {
+                        if (file.isReadyToWrite()) {
+                            fd.addRevents(Unix.Constants.POLLOUT);
+                        }
+                    }
+                }
+                finally {
+                    file.unlock();
+                }
+            }
+            int nReadyFds = 0;
+            for (PollFd fd: mFds) {
+                nReadyFds += (fd.getRevents() != 0 ? 1 : 0);
+            }
+            if (0 < nReadyFds) {
+                mReadyFdsNumber = nReadyFds;
+                return Action.BREAK;
+            }
+
+            return Action.CONTINUE;
+        }
+    }
+
+    private class InterruptablePollRunner extends PollRunner {
+
+        public InterruptablePollRunner(PollFds fds) {
+            super(fds);
+        }
+
+        public Action run() throws IOException, UnixException {
+            Action action = super.run();
+            return (action == Action.BREAK) || mIn.isReady() ? Action.BREAK
+                                                             : Action.CONTINUE;
         }
     }
 
@@ -414,7 +489,7 @@ public class Slave implements Runnable {
         }
 
         public Collection<KEvent> kevent(KEventArray changelist, int nevents,
-                                         Unix.TimeSpec timeout) throws InterruptedException, UnixException {
+                                         Unix.TimeSpec timeout) throws IOException, InterruptedException, UnixException {
             change(changelist);
             return nevents == 0 ? new HashSet<KEvent>()
                                 : scan(nevents, timeout);
@@ -440,7 +515,7 @@ public class Slave implements Runnable {
             }
         }
 
-        private Collection<KEvent> scan(int nevents, Unix.TimeSpec timeout) throws InterruptedException, UnixException {
+        private Collection<KEvent> scan(int nevents, Unix.TimeSpec timeout) throws IOException, InterruptedException, UnixException {
             Runner runner = new Runner(nevents);
             new TimeoutLoop(timeout).run(runner);
             return runner.getEvents();
@@ -1431,9 +1506,11 @@ public class Slave implements Runnable {
         if (sig == null) {
             throw new UnixException(Errno.EINVAL);
         }
+        /*
         if (!mActiveSignals.contains(sig)) {
             return;
         }
+        */
         mPendingSignals.add(sig);
     }
 
@@ -2040,74 +2117,18 @@ public class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Generic32 doPollStart(PollFds fds, int nfds, int timeout) throws IOException {
+        String fmt = "interruptable poll(fds=%s, nfds=%d, timeout=%d)";
+        mLogger.info(String.format(fmt, fds, nfds, timeout));
+
+        return runPoll(new InterruptablePollRunner(fds), timeout);
+    }
+
     public SyscallResult.Generic32 doPoll(PollFds fds, int nfds, int timeout) throws IOException {
         String fmt = "poll(fds=%s, nfds=%d, timeout=%d)";
         mLogger.info(String.format(fmt, fds, nfds, timeout));
-        SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        TimeoutDetector timeoutDetector;
-        switch (timeout) {
-        case Unix.Constants.INFTIM:
-            timeoutDetector = new InfinityTimeoutDetector();
-            break;
-        case 0:
-            timeoutDetector = new ZeroTimeoutDetector();
-            break;
-        default:
-            timeoutDetector = new TrueTimeoutDetector(timeout);
-            break;
-        }
-
-        long usecInterval = 100 * 1000;
-        long usecTime = 0;
-        while (!timeoutDetector.isTimeout(usecTime) && !mCancelled) {
-            for (PollFd fd: fds) {
-                try {
-                    UnixFile file = getValidFile(fd.getFd());
-                    try {
-                        int events = fd.getEvents();
-                        if ((events & Unix.Constants.POLLIN) != 0) {
-                            if (file.isReadyToRead()) {
-                                fd.addRevents(Unix.Constants.POLLIN);
-                            }
-                        }
-                        if ((events & Unix.Constants.POLLOUT) != 0) {
-                            if (file.isReadyToWrite()) {
-                                fd.addRevents(Unix.Constants.POLLOUT);
-                            }
-                        }
-                    }
-                    finally {
-                        file.unlock();
-                    }
-                }
-                catch (UnixException e) {
-                    result.retval = -1;
-                    result.errno = e.getErrno();
-                    return result;
-                }
-            }
-            int nReadyFds = 0;
-            for (PollFd fd: fds) {
-                nReadyFds += (fd.getRevents() != 0 ? 1 : 0);
-            }
-            if (0 < nReadyFds) {
-                result.retval = nReadyFds;
-                break;
-            }
-
-            try {
-                Thread.sleep(usecInterval / 1000);
-            }
-            catch (InterruptedException e) {
-                result.retval = -1;
-                result.errno = Errno.EINTR;
-                return result;
-            }
-            usecTime += usecInterval;
-        }
-
-        return result;
+        return runPoll(new PollRunner(fds), timeout);
     }
 
     public SyscallResult.Select doSelect(int nfds, Collection<Integer> in, Collection<Integer> ou, Collection<Integer> ex, Unix.TimeVal timeout) throws IOException {
@@ -2562,6 +2583,28 @@ public class Slave implements Runnable {
         }
 
         return retval;
+    }
+
+    private SyscallResult.Generic32 runPoll(PollRunner runner,
+                                            int timeout) throws IOException {
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        TimeoutLoop loop = new TimeoutLoop(timeout);
+        try {
+            loop.run(runner);
+        }
+        catch (InterruptedException unused) {
+            result.setError(Errno.EINTR);
+            return result;
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+
+        result.retval = runner.getReadyFdsNumber();
+
+        return result;
     }
 
     private void writeOpenedFileDescriptors() throws IOException {

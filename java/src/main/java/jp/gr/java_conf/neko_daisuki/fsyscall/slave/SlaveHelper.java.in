@@ -282,10 +282,22 @@ class SlaveHelper {
         }
     }
 
-    private class PollProc extends CommandDispatcher.Proc {
+    private abstract class PollProcBase extends CommandDispatcher.Proc {
 
-        public void call(Command command) throws IOException {
-            PayloadSize payloadSize = mIn.readPayloadSize();
+        protected class PollArgs {
+
+            public int nfds;
+            public PollFds fds;
+            public int timeout;
+
+            public PollArgs(int nfds, PollFds fds, int timeout) {
+                this.nfds = nfds;
+                this.fds = fds;
+                this.timeout = timeout;
+            }
+        }
+
+        protected PollArgs readArgs() throws IOException {
             int nfds = mIn.readInteger();
             PollFds fds = new PollFds();
             for (int i = 0; i < nfds; i++) {
@@ -294,24 +306,66 @@ class SlaveHelper {
                 fds.add(new PollFd(fd, events));
             }
             int timeout = mIn.readInteger();
-            SyscallResult.Generic32 result = mSlave.doPoll(fds, nfds, timeout);
+
+            return new PollArgs(nfds, fds, timeout);
+        }
+
+        protected void writeResult(Command command, String name,
+                                   SyscallResult.Generic32 result, PollFds fds,
+                                   int nfds) throws IOException {
             int retval = result.retval;
             switch (retval) {
             case -1:
             case 0:
-                writeResult(Command.POLL_RETURN, result);
+                SlaveHelper.this.writeResult(command, result);
                 break;
             default:
-                String fmt = "result (poll): retval=%d, fds=%s";
-                mLogger.info(String.format(fmt, retval, fds.toString()));
+                String fmt = "result (%s): retval=%d, fds=%s";
+                mLogger.info(String.format(fmt, name, retval, fds.toString()));
                 Payload payload = new Payload();
                 payload.add(retval);
                 for (int i = 0; i < nfds; i++) {
                     payload.add(fds.get(i).getRevents());
                 }
-                writePayload(Command.POLL_RETURN, payload);
+                writePayload(command, payload);
                 break;
             }
+        }
+    }
+
+    private class PollStartProc extends PollProcBase {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            PollArgs args = readArgs();
+            PollFds fds = args.fds;
+            int nfds = args.nfds;
+            SyscallResult.Generic32 result = mSlave.doPollStart(fds, nfds,
+                                                                args.timeout);
+            writeResult(Command.POLL_ENDED, "interruptable poll", result, fds,
+                        nfds);
+            waitEnd();
+        }
+
+        private void waitEnd() throws IOException {
+            Command command = mIn.readCommand();
+            if (command != Command.POLL_END) {
+                String fmt = "expected POLL_END, but actual %s";
+                throw new ProtocolError(String.format(fmt, command));
+            }
+        }
+    }
+
+    private class PollProc extends PollProcBase {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            PollArgs args = readArgs();
+            int nfds = args.nfds;
+            PollFds fds = args.fds;
+            int timeout = args.timeout;
+            SyscallResult.Generic32 result = mSlave.doPoll(fds, nfds, timeout);
+            writeResult(Command.POLL_RETURN, "poll", result, fds, nfds);
         }
     }
 
@@ -565,6 +619,7 @@ class SlaveHelper {
         dispatcher.addEntry(Command.SETSOCKOPT_CALL, new SetsockoptProc());
         dispatcher.addEntry(Command.KEVENT_CALL, new KeventProc());
         dispatcher.addEntry(Command.SIGPROCMASK_CALL, new SigprocmaskProc());
+        dispatcher.addEntry(Command.POLL_START, new PollStartProc());
         @DISPATCHES@;
         return dispatcher;
     }

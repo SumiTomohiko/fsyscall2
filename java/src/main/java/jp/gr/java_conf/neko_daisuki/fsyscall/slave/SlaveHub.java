@@ -191,7 +191,8 @@ class SlaveHub {
 
         SyscallOutputStream out = mSlaves.get(pairId).getOutputStream();
 
-        if (command == Command.EXIT_CALL) {
+        switch (command) {
+        case EXIT_CALL:
             mLogger.verbose("executing EXIT_CALL.");
 
             int status = in.readInteger();
@@ -202,6 +203,11 @@ class SlaveHub {
 
             mSlaves.remove(pairId).close();
             return;
+        case POLL_END:
+            out.write(command);
+            return;
+        default:
+            break;
         }
 
         PayloadSize payloadSize = in.readPayloadSize();
