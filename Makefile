@@ -1,6 +1,6 @@
 
 SLAVEDIR=	fshub fslave
-SUBDIR= 	lib fmhub fmaster $(SLAVEDIR) tests tools
+SUBDIR= 	lib fmhub fmaster $(SLAVEDIR) tests
 DOCDIR=		doc
 JAVADIR=	java
 JAVASRCDIR=	java/src/main/java
@@ -63,7 +63,6 @@ i: ia
 ia: install-all
 im: install-master
 is: install-slave
-j: java
 ca: clean all
 
 .include "Makefile.gmake"

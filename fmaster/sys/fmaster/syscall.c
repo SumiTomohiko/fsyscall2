@@ -60,8 +60,9 @@ negotiate_version(struct thread *td, int rfd, int wfd)
 	return (0);
 }
 
-static struct fmaster_data *
-create_data(struct thread *td, int rfd, int wfd, const char *fork_sock)
+static int
+create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
+	    struct fmaster_data **pdata)
 {
 	struct fmaster_data *data;
 	size_t len;
@@ -69,7 +70,7 @@ create_data(struct thread *td, int rfd, int wfd, const char *fork_sock)
 
 	data = fmaster_create_data(td);
 	if (data == NULL)
-		return (NULL);
+		return (ENOMEM);
 	data->rfd = rfd;
 	data->wfd = wfd;
 	for (i = 0; i < FD_NUM; i++)
@@ -77,9 +78,19 @@ create_data(struct thread *td, int rfd, int wfd, const char *fork_sock)
 	len = sizeof(data->fork_sock);
 	error = copystr(fork_sock, data->fork_sock, len, NULL);
 	if (error != 0)
-		return (NULL);
+		goto fail;
+	error = fmaster_initialize_kqueue(td, data);
+	if (error != 0)
+		goto fail;
 
-	return (data);
+	*pdata = data;
+
+	return (0);
+
+fail:
+	free(data, M_FMASTER);
+
+	return (error);
 }
 
 static int
@@ -115,9 +126,8 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 	struct fmaster_data *data;
 	int error, i, rfd, wfd;
 	pid_t pid;
-	const char *name = "fmaster_execve";
 	const char *fmt = "%s: pid=%d, rfd=%d, wfd=%d, fork_sock=%s, path=%s\n";
-	char fork_sock[MAXPATHLEN];
+	char fork_sock[MAXPATHLEN], head[32];
 
 	error = copyinstr(uap->fork_sock, fork_sock, sizeof(fork_sock), NULL);
 	if (error != 0)
@@ -125,26 +135,30 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 	pid = td->td_proc->p_pid;
 	rfd = uap->rfd;
 	wfd = uap->wfd;
-	log(LOG_DEBUG, fmt, name, pid, rfd, wfd, fork_sock, uap->path);
+	snprintf(head, sizeof(head), "fmaster_execve[%d]", pid);
+	log(LOG_DEBUG, fmt, head, pid, rfd, wfd, fork_sock, uap->path);
 	for (i = 0; uap->argv[i] != NULL; i++)
-		log(LOG_DEBUG, "%s: argv[%d]=%s\n", name, i, uap->argv[i]);
+		log(LOG_DEBUG, "%s: argv[%d]=%s\n", head, i, uap->argv[i]);
 	for (i = 0; uap->envp[i] != NULL; i++)
-		log(LOG_DEBUG, "%s: envp[%d]=%s\n", name, i, uap->envp[i]);
+		log(LOG_DEBUG, "%s: envp[%d]=%s\n", head, i, uap->envp[i]);
+
+	error = create_data(td, rfd, wfd, fork_sock, &data);
+	if (error != 0)
+		return (error);
+	td->td_proc->p_emuldata = data;
 
 	if ((error = negotiate_version(td, rfd, wfd)) != 0)
-		return (error);
-
-	data = create_data(td, rfd, wfd, fork_sock);
-	if (data == NULL)
-		return (ENOMEM);
-	td->td_proc->p_emuldata = data;
+		goto fail;
 	error = read_fds(td, data);
-	if (error != 0) {
-		fmaster_delete_data(data);
-		return (error);
-	}
+	if (error != 0)
+		goto fail;
 
 	return (sys_execve(td, (struct execve_args *)(&uap->path)));
+
+fail:
+	fmaster_delete_data(data);
+
+	return (error);
 }
 
 /*

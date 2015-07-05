@@ -33,7 +33,7 @@ reuseaddr_write_call(struct thread *td, int s, int level, int optname,
 	if (error != 0)
 		goto exit;
 
-	error = fmaster_write_payloaded_command(td, CALL_SETSOCKOPT, payload);
+	error = fmaster_write_payloaded_command(td, SETSOCKOPT_CALL, payload);
 	if (error != 0)
 		goto exit;
 
@@ -60,7 +60,7 @@ reuseaddr_main(struct thread *td, int s, int level, int optname, void *val,
 	error = reuseaddr_write_call(td, d, level, optname, optval, valsize);
 	if (error != 0)
 		return (error);
-	error = fmaster_execute_return_generic32(td, RET_SETSOCKOPT);
+	error = fmaster_execute_return_generic32(td, SETSOCKOPT_RETURN);
 	if (error != 0)
 		return (error);
 

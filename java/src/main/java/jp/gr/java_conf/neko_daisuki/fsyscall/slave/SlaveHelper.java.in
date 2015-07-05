@@ -13,6 +13,8 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
+import jp.gr.java_conf.neko_daisuki.fsyscall.KEvent;
+import jp.gr.java_conf.neko_daisuki.fsyscall.KEventArray;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
@@ -20,7 +22,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFds;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
-import jp.gr.java_conf.neko_daisuki.fsyscall.Sigaction;
+import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SocketAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SocketOption;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
@@ -171,7 +173,7 @@ class SlaveHelper {
     private class GetpeernameProc extends AbstractAcceptProc {
 
         protected Command getRetCommand() {
-            return Command.RET_GETPEERNAME;
+            return Command.GETPEERNAME_RETURN;
         }
 
         protected SyscallResult.Accept doSyscall(int s, int addrlen) throws IOException {
@@ -182,7 +184,7 @@ class SlaveHelper {
     private class GetsocknameProc extends AbstractAcceptProc {
 
         protected Command getRetCommand() {
-            return Command.RET_GETSOCKNAME;
+            return Command.GETSOCKNAME_RETURN;
         }
 
         protected SyscallResult.Accept doSyscall(int s, int addrlen) throws IOException {
@@ -193,7 +195,7 @@ class SlaveHelper {
     private class AcceptProc extends AbstractAcceptProc {
 
         protected Command getRetCommand() {
-            return Command.RET_ACCEPT;
+            return Command.ACCEPT_RETURN;
         }
 
         protected SyscallResult.Accept doSyscall(int s, int addrlen) throws IOException {
@@ -201,21 +203,22 @@ class SlaveHelper {
         }
     }
 
-    private class SigactionProc extends CommandDispatcher.Proc {
+    private class SigprocmaskProc extends CommandDispatcher.Proc {
 
         public void call(Command command) throws IOException {
-            PayloadSize payloadSize = mIn.readPayloadSize();
-            int sig = mIn.readInteger();
             SyscallResult.Generic32 result;
-             try {
-                Sigaction act = mIn.readSigaction();
-                result = mSlave.doSigaction(sig, act);
-             }
-             catch (UnixException e) {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int how = mIn.readInteger();
+            SignalSet set;
+            try {
+                set = mIn.readSignalSet();
+                result = mSlave.doSigprocmask(how, set);
+            }
+            catch (UnixException e) {
                 mLogger.err("Invalid signal requested", e);
                 result = new SyscallResult.Generic32(e.getErrno());
-             }
-            writeResult(Command.RET_SIGACTION, result);
+            }
+            writeResult(Command.SIGPROCMASK_RETURN, result);
         }
     }
 
@@ -225,7 +228,7 @@ class SlaveHelper {
             PayloadSize payloadSize = mIn.readPayloadSize();
             PairId pairId = new PairId(mIn.readInteger());
             SyscallResult.Generic32 result = mSlave.doFork(pairId);
-            writeResult(Command.RET_FORK, result);
+            writeResult(Command.FORK_RETURN, result);
         }
     }
 
@@ -240,7 +243,7 @@ class SlaveHelper {
             int flag = mIn.readInteger();
             Unix.TimeVal timeout = flag == 0 ? null : readTimeVal();
             SyscallResult.Select result = mSlave.doSelect(nfds, in, ou, ex, timeout);
-            writeResult(Command.RET_SELECT, result);
+            writeResult(Command.SELECT_RETURN, result);
         }
 
         private Unix.TimeVal readTimeVal() throws IOException {
@@ -260,10 +263,22 @@ class SlaveHelper {
         }
     }
 
-    private class PollProc extends CommandDispatcher.Proc {
+    private abstract class PollProcBase extends CommandDispatcher.Proc {
 
-        public void call(Command command) throws IOException {
-            PayloadSize payloadSize = mIn.readPayloadSize();
+        protected class PollArgs {
+
+            public int nfds;
+            public PollFds fds;
+            public int timeout;
+
+            public PollArgs(int nfds, PollFds fds, int timeout) {
+                this.nfds = nfds;
+                this.fds = fds;
+                this.timeout = timeout;
+            }
+        }
+
+        protected PollArgs readArgs() throws IOException {
             int nfds = mIn.readInteger();
             PollFds fds = new PollFds();
             for (int i = 0; i < nfds; i++) {
@@ -272,24 +287,66 @@ class SlaveHelper {
                 fds.add(new PollFd(fd, events));
             }
             int timeout = mIn.readInteger();
-            SyscallResult.Generic32 result = mSlave.doPoll(fds, nfds, timeout);
+
+            return new PollArgs(nfds, fds, timeout);
+        }
+
+        protected void writeResult(Command command, String name,
+                                   SyscallResult.Generic32 result, PollFds fds,
+                                   int nfds) throws IOException {
             int retval = result.retval;
             switch (retval) {
             case -1:
             case 0:
-                writeResult(Command.RET_POLL, result);
+                SlaveHelper.this.writeResult(command, result);
                 break;
             default:
-                String fmt = "result (poll): retval=%d, fds=%s";
-                mLogger.info(String.format(fmt, retval, fds.toString()));
+                String fmt = "result (%s): retval=%d, fds=%s";
+                mLogger.info(String.format(fmt, name, retval, fds.toString()));
                 Payload payload = new Payload();
                 payload.add(retval);
                 for (int i = 0; i < nfds; i++) {
                     payload.add(fds.get(i).getRevents());
                 }
-                writePayload(Command.RET_POLL, payload);
+                writePayload(command, payload);
                 break;
             }
+        }
+    }
+
+    private class PollStartProc extends PollProcBase {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            PollArgs args = readArgs();
+            PollFds fds = args.fds;
+            int nfds = args.nfds;
+            SyscallResult.Generic32 result = mSlave.doPollStart(fds, nfds,
+                                                                args.timeout);
+            writeResult(Command.POLL_ENDED, "interruptable poll", result, fds,
+                        nfds);
+            waitEnd();
+        }
+
+        private void waitEnd() throws IOException {
+            Command command = mIn.readCommand();
+            if (command != Command.POLL_END) {
+                String fmt = "expected POLL_END, but actual %s";
+                throw new ProtocolError(String.format(fmt, command));
+            }
+        }
+    }
+
+    private class PollProc extends PollProcBase {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            PollArgs args = readArgs();
+            int nfds = args.nfds;
+            PollFds fds = args.fds;
+            int timeout = args.timeout;
+            SyscallResult.Generic32 result = mSlave.doPoll(fds, nfds, timeout);
+            writeResult(Command.POLL_RETURN, "poll", result, fds, nfds);
         }
     }
 
@@ -358,7 +415,7 @@ class SlaveHelper {
     private class BindProc extends AddressCommandProc {
 
         public BindProc() {
-            super(Command.RET_BIND);
+            super(Command.BIND_RETURN);
         }
 
         protected SyscallResult.Generic32 run(int s, UnixDomainAddress name,
@@ -370,7 +427,7 @@ class SlaveHelper {
     private class ConnectProc extends AddressCommandProc {
 
         public ConnectProc() {
-            super(Command.RET_CONNECT);
+            super(Command.CONNECT_RETURN);
         }
 
         protected SyscallResult.Generic32 run(int s, UnixDomainAddress name,
@@ -390,7 +447,7 @@ class SlaveHelper {
                 iovec[i] = mIn.readIoVec();
             }
             SyscallResult.Generic32 result = mSlave.doWritev(fd, iovec);
-            writeResult(Command.RET_WRITEV, result);
+            writeResult(Command.WRITEV_RETURN, result);
         }
     }
 
@@ -405,7 +462,7 @@ class SlaveHelper {
             SyscallResult.Getsockopt result = mSlave.doGetsockopt(s, level,
                                                                   optname,
                                                                   optlen);
-            writeResult(Command.RET_GETSOCKOPT, optname, result);
+            writeResult(Command.GETSOCKOPT_RETURN, optname, result);
         }
     }
 
@@ -423,7 +480,71 @@ class SlaveHelper {
                                                                  optname,
                                                                  optlen,
                                                                  optval);
-            writeResult(Command.RET_SETSOCKOPT, result);
+            writeResult(Command.SETSOCKOPT_RETURN, result);
+        }
+    }
+
+    private class KeventProc extends CommandDispatcher.Proc {
+
+        private static final int KEVENT_CHANGELIST_NULL = 0;
+        private static final int KEVENT_CHANGELIST_NOT_NULL = 1;
+        private static final int KEVENT_TIMEOUT_NULL = 0;
+        private static final int KEVENT_TIMEOUT_NOT_NULL = 1;
+        private static final int KEVENT_UDATA_NULL = 0;
+        private static final int KEVENT_UDATA_NOT_NULL = 1;
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int kq = mIn.readInteger();
+            int nchanges = mIn.readInteger();
+            KEventArray changelist;
+            int changelist_code = mIn.readInteger();
+            switch (changelist_code) {
+            case KEVENT_CHANGELIST_NOT_NULL:
+                changelist = new KEventArray(nchanges);
+                for (int i = 0; i < nchanges; i++) {
+                    KEvent kev = changelist.get(i);
+                    kev.ident = mIn.readInteger();
+                    kev.filter = mIn.readShort();
+                    kev.flags = mIn.readInteger();
+                    kev.fflags = mIn.readInteger();
+                    kev.data = mIn.readInteger();
+                    int udata_code = mIn.readInteger();
+                    if (udata_code != KEVENT_UDATA_NULL) {
+                        String fmt = "unsupported udata code: %d";
+                        throw new ProtocolError(String.format(fmt, udata_code));
+                    }
+                }
+                break;
+            case KEVENT_CHANGELIST_NULL:
+                changelist = null;
+                break;
+            default:
+                String fmt = "invalid changelist code: %d";
+                throw new ProtocolError(String.format(fmt, changelist_code));
+            }
+            int nevents = mIn.readInteger();
+            Unix.TimeSpec timeout;
+            int timeout_code = mIn.readInteger();
+            switch (timeout_code) {
+            case KEVENT_TIMEOUT_NOT_NULL:
+                timeout = new Unix.TimeSpec();
+                timeout.tv_sec = mIn.readInteger();
+                timeout.tv_nsec = mIn.readInteger();
+                break;
+            case KEVENT_TIMEOUT_NULL:
+                timeout = null;
+                break;
+            default:
+                String fmt = "invalid timeout code: %d";
+                throw new ProtocolError(String.format(fmt, timeout_code));
+            }
+
+            SyscallResult.Kevent retval = mSlave.doKevent(kq, changelist,
+                                                          nchanges, nevents,
+                                                          timeout);
+
+            writeResult(Command.KEVENT_RETURN, retval);
         }
     }
 
@@ -465,18 +586,20 @@ class SlaveHelper {
 
     private CommandDispatcher buildDispatcher() {
         CommandDispatcher dispatcher = new CommandDispatcher();
-        dispatcher.addEntry(Command.CALL_EXIT, new ExitProc());
-        dispatcher.addEntry(Command.CALL_SELECT, new SelectProc());
-        dispatcher.addEntry(Command.CALL_CONNECT, new ConnectProc());
-        dispatcher.addEntry(Command.CALL_BIND, new BindProc());
-        dispatcher.addEntry(Command.CALL_POLL, new PollProc());
-        dispatcher.addEntry(Command.CALL_FORK, new ForkProc());
-        dispatcher.addEntry(Command.CALL_SIGACTION, new SigactionProc());
-        dispatcher.addEntry(Command.CALL_ACCEPT, new AcceptProc());
-        dispatcher.addEntry(Command.CALL_GETSOCKNAME, new GetsocknameProc());
-        dispatcher.addEntry(Command.CALL_GETPEERNAME, new GetpeernameProc());
-        dispatcher.addEntry(Command.CALL_GETSOCKOPT, new GetsockoptProc());
-        dispatcher.addEntry(Command.CALL_SETSOCKOPT, new SetsockoptProc());
+        dispatcher.addEntry(Command.EXIT_CALL, new ExitProc());
+        dispatcher.addEntry(Command.SELECT_CALL, new SelectProc());
+        dispatcher.addEntry(Command.CONNECT_CALL, new ConnectProc());
+        dispatcher.addEntry(Command.BIND_CALL, new BindProc());
+        dispatcher.addEntry(Command.POLL_CALL, new PollProc());
+        dispatcher.addEntry(Command.FORK_CALL, new ForkProc());
+        dispatcher.addEntry(Command.ACCEPT_CALL, new AcceptProc());
+        dispatcher.addEntry(Command.GETSOCKNAME_CALL, new GetsocknameProc());
+        dispatcher.addEntry(Command.GETPEERNAME_CALL, new GetpeernameProc());
+        dispatcher.addEntry(Command.GETSOCKOPT_CALL, new GetsockoptProc());
+        dispatcher.addEntry(Command.SETSOCKOPT_CALL, new SetsockoptProc());
+        dispatcher.addEntry(Command.KEVENT_CALL, new KeventProc());
+        dispatcher.addEntry(Command.SIGPROCMASK_CALL, new SigprocmaskProc());
+        dispatcher.addEntry(Command.POLL_START, new PollStartProc());
         @DISPATCHES@;
         return dispatcher;
     }
@@ -653,6 +776,21 @@ class SlaveHelper {
     private void writeResult(Command command, SyscallResult.Getresuid result) throws IOException {
         writeResult(command, "getresuid", result.retval, result.errno,
                     result.ruid, result.euid, result.suid);
+    }
+
+    private void writeResult(Command command, SyscallResult.Kevent result) throws IOException {
+        String logHead = "result (kevent)";
+
+        long retval = result.retval;
+        if (retval == -1) {
+            String fmt = "%s: retval=%d, errno=%s";
+            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            writeError(command, result);
+            return;
+        }
+
+        // TODO
+        throw new IOException();
     }
 
     private void writeResult(Command command, SyscallResult.Accept result) throws IOException {

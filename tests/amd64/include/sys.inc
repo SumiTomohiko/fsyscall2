@@ -24,6 +24,7 @@
 %define	sys.access		33
 %define	sys.kill		37
 %define	sys.dup			41
+%define	sys.pipe		42
 %define	sys.getegid		43
 %define	sys.getgid		47
 %define	sys.ioctl		54
@@ -40,6 +41,7 @@
 %define	sys.gettimeofday	116
 %define	sys.getsockopt		118
 %define	sys.writev		121
+%define	sys.socketpair		135
 %define	sys.mkdir		136
 %define	sys.rmdir		137
 %define	sys.stat		188
@@ -47,11 +49,13 @@
 %define	sys.lstat		190
 %define	sys.getdirentries	196
 %define	sys.poll		209
+%define	sys.nanosleep		240
 %define	sys.issetugid		253
 %define	sys.sigprocmask		340
 %define	sys.getresuid		360
 %define	sys.getresgid		361
 %define	sys.kqueue		362
+%define	sys.kevent		363
 %define	sys.fstatfs		397
 %define	sys.sigaction		416
 %define	sys.sigwait		429

@@ -53,7 +53,8 @@ public class Signal {
     public static Signal valueOf(int signum) throws UnixException {
         Signal signal = mSignals.get(signum);
         if (signal == null) {
-            throw new UnixException(Errno.EINVAL);
+            String message = String.format("invalid signum: %d", signum);
+            throw new UnixException(Errno.EINVAL, message);
         }
         return signal;
     }

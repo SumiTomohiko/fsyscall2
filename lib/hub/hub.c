@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <ctype.h>
+#include <err.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -31,12 +32,17 @@ hub_open_fork_socket(const char *path)
 {
 	struct sockaddr_storage sockaddr;
 	struct sockaddr_un *paddr = (struct sockaddr_un *)&sockaddr;
-	int sock;
+	socklen_t optlen;
+	int optval, sock;
 
 	unlink(path);
 	sock = socket(PF_LOCAL, SOCK_STREAM, 0);
 	if (sock == -1)
 		die(1, "socket(2) failed");
+	optval = 1;
+	optlen = sizeof(optval);
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &optval, optlen) == -1)
+		die(1, "setsockopt(2) failed");
 	paddr->sun_len = sizeof(sockaddr);
 	paddr->sun_family = AF_LOCAL;
 	strcpy(paddr->sun_path, path);
@@ -52,6 +58,14 @@ void
 hub_close_fork_socket(int sock)
 {
 	close_or_die(sock);
+}
+
+void
+hub_unlink_socket(const char *path)
+{
+
+	if (unlink(path) == -1)
+		warn("cannot remove the socket: %s", path);
 }
 
 static char

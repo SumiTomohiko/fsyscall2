@@ -1,0 +1,6 @@
+
+cmd="poll_master_slave_blocking/poll_master_slave_blocking"
+args="${tmp_dir}/poll_master_slave_blocking.$$"
+expected_status="0"
+
+# vim: filetype=sh

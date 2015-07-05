@@ -139,6 +139,19 @@ dispose_slave(struct slave *slave)
 }
 
 static void
+transfer_simple_command_to_slave(struct shub *shub, command_t cmd)
+{
+	pair_id_t pair_id;
+	int wfd;
+
+	pair_id = read_pair_id(shub->mhub.rfd);
+	syslog(LOG_DEBUG, "%s: pair_id=%ld", get_command_name(cmd), pair_id);
+
+	wfd = find_slave_of_pair_id(shub, pair_id)->wfd;
+	write_command(wfd, cmd);
+}
+
+static void
 transfer_payload_to_slave(struct shub *shub, command_t cmd)
 {
 	pair_id_t pair_id;
@@ -172,13 +185,64 @@ process_exit(struct shub *shub)
 	pair_id = read_pair_id(rfd);
 	slave = find_slave_of_pair_id(shub, pair_id);
 	status = read_int32(rfd, &_);
-	syslog(LOG_DEBUG, "CALL_EXIT: pair_id=%ld, status=%d", pair_id, status);
+	syslog(LOG_DEBUG, "EXIT_CALL: pair_id=%ld, status=%d", pair_id, status);
 
 	wfd = slave->wfd;
-	write_command(wfd, CALL_EXIT);
+	write_command(wfd, EXIT_CALL);
 	write_int32(wfd, status);
 
 	dispose_slave(slave);
+}
+
+static bool
+compare_token(struct item *item, void *bonus)
+{
+	struct fork_info *fi = (struct fork_info *)item;
+	const char *token = (const char *)bonus;
+
+	return (strcmp(fi->token, token) == 0);
+}
+
+static struct fork_info *
+find_fork_info_or_die(struct shub *shub, const char *token)
+{
+	struct item *item;
+
+	item = list_search(&shub->fork_info, compare_token, (void *)token);
+	if (item == NULL)
+		die(1, "Cannot find fork_info for %s", token);
+
+	return (struct fork_info *)item;
+}
+
+static void
+process_fork_socket(struct shub *shub)
+{
+	struct slave *slave;
+	struct sockaddr_storage addr;
+	struct fork_info *fi;
+	socklen_t addrlen;
+	pair_id_t pair_id;
+	int fd;
+	char name[64], token[TOKEN_SIZE];
+
+	addrlen = sizeof(addr);
+	fd = accept(shub->fork_sock, (struct sockaddr *)&addr, &addrlen);
+	if (fd < 0)
+		die(1, "Cannot accept(2)");
+	read_or_die(fd, token, sizeof(token));
+	fi = find_fork_info_or_die(shub, token);
+	syslog(LOG_INFO, "A trusted slave has been connected.");
+
+	slave = (struct slave *)malloc_or_die(sizeof(*slave));
+	slave->rfd = slave->wfd = fd;
+	pair_id = slave->pair_id = fi->pair_id;
+	PREPEND_ITEM(&shub->slaves, slave);
+	snprintf(name, sizeof(name), "the new slave (pair id: %lu)", pair_id);
+	log_fds(name, slave->rfd, slave->wfd);
+
+	REMOVE_ITEM(fi);
+	free(fi);
 }
 
 static void
@@ -187,7 +251,7 @@ process_fork(struct shub *shub)
 	struct fork_info *fork_info;
 	pair_id_t child_pair_id, pair_id;
 	int rfd, wfd;
-	const char *fmt = "CALL_FORK: pair_id=%ld";
+	const char *fmt = "FORK_CALL: pair_id=%ld";
 	char *token;
 
 	rfd = shub->mhub.rfd;
@@ -204,9 +268,11 @@ process_fork(struct shub *shub)
 	PREPEND_ITEM(&shub->fork_info, fork_info);
 
 	wfd = find_slave_of_pair_id(shub, pair_id)->wfd;
-	write_command(wfd, CALL_FORK);
+	write_command(wfd, FORK_CALL);
 	write_payload_size(wfd, TOKEN_SIZE);
 	write_or_die(wfd, token, TOKEN_SIZE);
+
+	process_fork_socket(shub);
 }
 
 static void
@@ -218,24 +284,29 @@ process_mhub(struct shub *shub)
 	cmd = read_command(shub->mhub.rfd);
 	syslog(LOG_DEBUG, fmt, get_command_name(cmd));
 	switch (cmd) {
-	case CALL_EXIT:
+	case EXIT_CALL:
 		process_exit(shub);
 		break;
-	case CALL_FORK:
+	case FORK_CALL:
 		process_fork(shub);
 		break;
-	case CALL_POLL:
-	case CALL_SELECT:
-	case CALL_CONNECT:
-	case CALL_BIND:
-	case CALL_GETPEERNAME:
-	case CALL_GETSOCKNAME:
-	case CALL_SIGACTION:
-	case CALL_ACCEPT:
-	case CALL_GETSOCKOPT:
-	case CALL_SETSOCKOPT:
+	case POLL_CALL:
+	case SELECT_CALL:
+	case CONNECT_CALL:
+	case BIND_CALL:
+	case GETPEERNAME_CALL:
+	case GETSOCKNAME_CALL:
+	case ACCEPT_CALL:
+	case GETSOCKOPT_CALL:
+	case SETSOCKOPT_CALL:
+	case KEVENT_CALL:
+	case POLL_START:
+	case SIGPROCMASK_CALL:
 #include "dispatch_call.inc"
 		transfer_payload_to_slave(shub, cmd);
+		break;
+	case POLL_END:
+		transfer_simple_command_to_slave(shub, cmd);
 		break;
 	default:
 		diex(-1, "unknown command (%d) from the master hub", cmd);
@@ -250,6 +321,7 @@ process_signaled(struct shub *shub, struct slave *slave, command_t cmd)
 	char sig;
 
 	read_or_die(slave->rfd, &sig, sizeof(sig));
+	syslog(LOG_DEBUG, "signal: %d (SIG%s)", sig, sys_signame[(int)sig]);
 
 	wfd = shub->mhub.wfd;
 	write_command(wfd, cmd);
@@ -282,82 +354,42 @@ transfer_payload_from_slave(struct shub *shub, struct slave *slave, command_t cm
 static void
 process_slave(struct shub *shub, struct slave *slave)
 {
+	pair_id_t pair_id;
 	command_t cmd;
-	const char *fmt = "unknown command (%d) from slave %ld";
-	const char *logfmt = "processing %s from the slave of pair id %d";
+	int rfd;
+	const char *errfmt = "unknown command (%d) from slave %ld";
+	const char *fmt = "the slave of pair id %ld (rfd %d) is ready to read";
+	const char *fmt2 = "processing %s from the slave of pair id %d";
+
+	pair_id = slave->pair_id;
+	rfd = slave->rfd;
+	syslog(LOG_DEBUG, fmt, pair_id, rfd);
 
 	cmd = read_command(slave->rfd);
-	syslog(LOG_DEBUG, logfmt, get_command_name(cmd), slave->pair_id);
+	syslog(LOG_DEBUG, fmt2, get_command_name(cmd), pair_id);
 	switch (cmd) {
 	case SIGNALED:
 		process_signaled(shub, slave, cmd);
 		break;
-	case RET_FORK:
-	case RET_POLL:
-	case RET_SELECT:
-	case RET_CONNECT:
-	case RET_BIND:
-	case RET_GETPEERNAME:
-	case RET_GETSOCKNAME:
-	case RET_SIGACTION:
-	case RET_ACCEPT:
-	case RET_GETSOCKOPT:
-	case RET_SETSOCKOPT:
+	case FORK_RETURN:
+	case POLL_RETURN:
+	case SELECT_RETURN:
+	case CONNECT_RETURN:
+	case BIND_RETURN:
+	case GETPEERNAME_RETURN:
+	case GETSOCKNAME_RETURN:
+	case ACCEPT_RETURN:
+	case GETSOCKOPT_RETURN:
+	case SETSOCKOPT_RETURN:
+	case KEVENT_RETURN:
+	case POLL_ENDED:
+	case SIGPROCMASK_RETURN:
 #include "dispatch_ret.inc"
 		transfer_payload_from_slave(shub, slave, cmd);
 		break;
 	default:
-		diex(-1, fmt, cmd, slave->pair_id);
+		diex(-1, errfmt, cmd, slave->pair_id);
 	}
-}
-
-static bool
-compare_token(struct item *item, void *bonus)
-{
-	struct fork_info *fi = (struct fork_info *)item;
-	const char *token = (const char *)bonus;
-
-	return (strcmp(fi->token, token) == 0);
-}
-
-static struct fork_info *
-find_fork_info_or_die(struct shub *shub, const char *token)
-{
-	struct item *item;
-
-	item = list_search(&shub->fork_info, compare_token, (void *)token);
-	if (item == NULL)
-		die(1, "Cannot find fork_info for %s", token);
-
-	return (struct fork_info *)item;
-}
-
-static void
-process_fork_socket(struct shub *shub)
-{
-	struct slave *slave;
-	struct sockaddr_storage addr;
-	struct fork_info *fi;
-	socklen_t addrlen;
-	int fd;
-	char token[TOKEN_SIZE];
-
-	addrlen = sizeof(addr);
-	fd = accept(shub->fork_sock, (struct sockaddr *)&addr, &addrlen);
-	if (fd < 0)
-		die(1, "Cannot accept(2)");
-	read_or_die(fd, token, sizeof(token));
-	fi = find_fork_info_or_die(shub, token);
-	syslog(LOG_INFO, "A trusted slave has been connected.");
-
-	slave = (struct slave *)malloc_or_die(sizeof(*slave));
-	slave->rfd = slave->wfd = fd;
-	slave->pair_id = fi->pair_id;
-	PREPEND_ITEM(&shub->slaves, slave);
-	log_fds("the new slave", slave->rfd, slave->wfd);
-
-	REMOVE_ITEM(fi);
-	free(fi);
 }
 
 static void
@@ -373,10 +405,6 @@ process_fd(struct shub *shub, int fd, fd_set *fds)
 		return;
 	if (shub->mhub.rfd == fd) {
 		process_mhub(shub);
-		return;
-	}
-	if (shub->fork_sock == fd) {
-		process_fork_socket(shub);
 		return;
 	}
 
@@ -441,6 +469,26 @@ shub_main(struct shub *shub)
 	return (0);
 }
 
+static void
+ignore_sigpipe()
+{
+	/*
+	 * Assume a session including two or more slaves. The parent slave can
+	 * be signaled with SIGCHLD even after all of the master ended. If the
+	 * shub writes a SIGNALED command to a disconnected master, it causes
+	 * SIGPIPE which terminates the shub process. So the shub ignores
+	 * SIGPIPE to avoid being terminated (and libio ignores EPIPE in
+	 * write(2)).
+	 */
+	struct sigaction act;
+
+	act.sa_handler = SIG_IGN;
+	act.sa_flags = 0;
+	sigemptyset(&act.sa_mask);
+	if (sigaction(SIGPIPE, &act, NULL) == -1)
+		die(1, "sigaction(2) for SIGPIPE");
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -451,6 +499,7 @@ main(int argc, char *argv[])
 	};
 	struct shub *pshub, shub;
 	int fork_sock, opt, status;
+	const char *sock_path;
 	char **args;
 
 	pshub = &shub;
@@ -487,10 +536,13 @@ main(int argc, char *argv[])
 	PREPEND_ITEM(&pshub->slaves, slave);
 	log_fds("slave", slave->rfd, slave->wfd);
 
-	pshub->fork_sock = fork_sock = hub_open_fork_socket(args[4]);
+	sock_path = args[4];
+	pshub->fork_sock = fork_sock = hub_open_fork_socket(sock_path);
 	initialize_list(&pshub->fork_info);
+	ignore_sigpipe();
 	status = shub_main(pshub);
 	hub_close_fork_socket(fork_sock);
+	hub_unlink_socket(sock_path);
 	log_graceful_exit(status);
 
 	return (status);

@@ -14,6 +14,6 @@ void __build_asserting_message(const char *, ...);
 		__build_asserting_message msg;			\
 		__die_for_assertion(__FILE__, __LINE__, #expr);	\
 	}							\
-}while (0)
+} while (0)
 
 #endif

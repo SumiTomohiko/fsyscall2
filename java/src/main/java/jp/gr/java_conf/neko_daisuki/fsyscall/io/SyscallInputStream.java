@@ -73,6 +73,17 @@ public class SyscallInputStream {
         return n + ((m & 0x7f) << shift);
     }
 
+    public short readShort() throws IOException {
+        short n = 0;
+        int shift = 0;
+        byte m;
+        while (((m = readByte()) & 0x80) != 0) {
+            n += ((m & 0x7f) << shift);
+            shift += 7;
+        }
+        return (short)(n + ((m & 0x7f) << shift));
+    }
+
     public long readLong() throws IOException {
         long n = 0;
         int shift = 0;
@@ -131,26 +142,24 @@ public class SyscallInputStream {
     public SignalSet readSignalSet() throws IOException, UnixException {
         Collection<Signal> c = new HashSet<Signal>();
 
-        UnixException ue = null;
         for (int index = 0; index < 4; index++) {
             long bits = readLong();
-            for (int bit = 0; bit < 5; bit++) {
+            for (int bit = 0; bit < 32; bit++) {
                 if ((bits & (1 << bit)) == 0) {
                     continue;
                 }
                 Signal signal;
                 try {
-                    signal = Signal.valueOf(5 * index + bit + 1);
+                    signal = Signal.valueOf(32 * index + bit + 1);
                 }
                 catch (UnixException e) {
-                    ue = e;
+                    /*
+                     * sigfillset(3) sets unused bits. Ignore these.
+                     */
                     continue;
                 }
                 c.add(signal);
             }
-        }
-        if (ue != null) {
-            throw ue;
         }
 
         return new SignalSet(c);

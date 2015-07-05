@@ -87,7 +87,7 @@ void
 __die_for_assertion(const char *filename, int lineno, const char *expr)
 {
 	size_t msgsize;
-	const char *fmt = "assertion: %s: %s: %d: %s: %s";
+	const char *fmt = "assertion at %s:%u for %s: %s";
 	char msg[8192];
 
 	msgsize = sizeof(msg);

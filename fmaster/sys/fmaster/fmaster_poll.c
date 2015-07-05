@@ -1,77 +1,225 @@
 #include <sys/param.h>
+#include <sys/file.h>
+#include <sys/filedesc.h>
 #include <sys/kernel.h>
 #include <sys/malloc.h>
 #include <sys/poll.h>
 #include <sys/proc.h>
+#include <sys/syscallsubr.h>
 #include <sys/syslog.h>
+#include <sys/sysproto.h>
 #include <sys/systm.h>
 
 #include <fmaster/fmaster_proto.h>
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fmaster.h>
 
-MALLOC_DECLARE(M_POLLBUF);
-MALLOC_DEFINE(M_POLLBUF, "pollbuf", "buffer for poll(2) in fmaster");
+/*******************************************************************************
+ * shared code
+ */
+
+#define	EVENTS_FOR_EVFILT_READ	(POLLIN | POLLRDNORM)
+#define	EVENTS_FOR_EVFILT_WRITE	(POLLOUT | POLLWRNORM)
 
 static int
-do_execute(struct thread *td, struct pollfd *fds, int nfds, int timeout)
+count_kevents(struct pollfd *fds, nfds_t nfds)
 {
-	payload_size_t payload_size, rest_size;
-	int error, events_len, fd, fd_len, i, nfds_len, sfd, timeout_len, wfd;
-	enum fmaster_fd_type type;
-	char *p, payload[256];
+	nfds_t i;
+	int events, nkev;
 
-	rest_size = sizeof(payload);
-	p = payload;
-	nfds_len = fsyscall_encode_int32(nfds, p, rest_size);
-	if (nfds_len == -1)
-		return (ENOMEM);
-	rest_size -= nfds_len;
-	p += nfds_len;
-
+	nkev = 0;
 	for (i = 0; i < nfds; i++) {
-		fd = fds[i].fd;
-		error = fmaster_type_of_fd(td, fd, &type);
-		if (error != 0)
-			return (error);
-		if (type != FD_SLAVE)
-			return (EBADF);
-		sfd = fmaster_fds_of_thread(td)[fd].fd_local;
-		fd_len = fsyscall_encode_int32(sfd, p, rest_size);
-		if (fd_len == -1)
-			return (ENOMEM);
-		rest_size -= fd_len;
-		p += fd_len;
-
-		events_len = fsyscall_encode_int16(fds[i].events, p, rest_size);
-		if (events_len == -1)
-			return (ENOMEM);
-		rest_size -= events_len;
-		p += events_len;
+		events = fds[i].events;
+		if ((events & EVENTS_FOR_EVFILT_READ) != 0)
+			nkev++;
+		if ((events & EVENTS_FOR_EVFILT_WRITE) != 0)
+			nkev++;
+		/* TODO: The other events are ignored */
 	}
 
-	timeout_len = fsyscall_encode_int32(timeout, p, rest_size);
-	if (timeout_len == -1)
-		return (ENOMEM);
-	rest_size -= timeout_len;
+	return (nkev);
+}
 
-	error = fmaster_write_command(td, CALL_POLL);
-	if (error != 0)
-		return (error);
-	payload_size = sizeof(payload) - rest_size;
-	error = fmaster_write_payload_size(td, payload_size);
-	if (error != 0)
-		return (error);
-	wfd = fmaster_wfd_of_thread(td);
-	error = fmaster_write(td, wfd, payload, payload_size);
-	if (error != 0)
-		return (error);
+static int
+convert_pollfd_to_kevent(struct kevent *kev, struct pollfd *fds, nfds_t nfds)
+{
+	struct kevent *pkev;
+	struct pollfd *pfd;
+	nfds_t i;
+	int events, fd;
+
+	pkev = kev;
+	for (i = 0; i < nfds; i++) {
+		pfd = &fds[i];
+		fd = pfd->fd;
+		events = pfd->events;
+		if ((events & EVENTS_FOR_EVFILT_READ) != 0) {
+			EV_SET(pkev, fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0,
+			       NULL);
+			pkev++;
+		}
+		if ((events & EVENTS_FOR_EVFILT_WRITE) != 0) {
+			EV_SET(pkev, fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0,
+			       NULL);
+			pkev++;
+		}
+
+	}
+
+	return (0);
+}
+
+struct kevent_bonus {
+	struct kevent *changelist;
+	struct kevent *eventlist;
+};
+
+static int
+kevent_copyin(void *arg, struct kevent *kevp, int count)
+{
+	struct kevent_bonus *bonus;
+
+	bonus = (struct kevent_bonus *)arg;
+	memcpy(kevp, bonus->changelist, sizeof(kevp[0]) * count);
+	bonus->changelist += count;
 
 	return (0);
 }
 
 static int
-do_return(struct thread *td, struct pollfd *fds, int nfds)
+kevent_copyout(void *arg, struct kevent *kevp, int count)
+{
+	struct kevent_bonus *bonus;
+
+	bonus = (struct kevent_bonus *)arg;
+	memcpy(bonus->eventlist, kevp, sizeof(kevp[0]) * count);
+	bonus->eventlist += count;
+
+	return (0);
+}
+
+static int
+convert_kevent_to_pollfd(struct pollfd *fds, nfds_t nfds, struct kevent *kev,
+			 int nkev)
+{
+	struct kevent *pkev;
+	struct pollfd *pfd;
+	nfds_t j;
+	int fd, i;
+
+	for (i = 0; i < nkev; i++) {
+		pkev = &kev[i];
+		fd = pkev->ident;
+		for (j = 0; (j < nfds) && (fds[j].fd != fd); j++)
+			;
+		if (j == nfds)
+			return (EINVAL);
+		pfd = &fds[j];
+		switch (pkev->filter) {
+		case EVFILT_READ:
+			pfd->revents |= (pfd->events & EVENTS_FOR_EVFILT_READ);
+			break;
+		case EVFILT_WRITE:
+			pfd->revents |= (pfd->events & EVENTS_FOR_EVFILT_WRITE);
+			break;
+		default:
+			/* TODO */
+			break;
+		}
+	}
+
+	return (0);
+}
+
+static int
+kevent_poll(struct thread *td, struct pollfd *fds, nfds_t nfds, int timeout)
+{
+	struct malloc_type *mt;
+	struct kevent_copyops kops;
+	struct kevent_bonus kbonus;
+	struct kevent *changelist, *eventlist;
+	struct timespec *pts, ts;
+	size_t size;
+	nfds_t i;
+	int error, error2, kq, n, neventlist, nkev;
+
+	error = sys_kqueue(td, NULL);
+	if (error != 0)
+		return (error);
+	kq = td->td_retval[0];
+
+	nkev = count_kevents(fds, nfds);
+	size = sizeof(changelist[0]) * nkev;
+	mt = M_TEMP;
+	changelist = (struct kevent *)malloc(size, mt, M_WAITOK);
+	if (changelist == NULL) {
+		error = ENOMEM;
+		goto exit1;
+	}
+	error = convert_pollfd_to_kevent(changelist, fds, nfds);
+	if (error != 0)
+		goto exit2;
+	eventlist = (struct kevent *)malloc(size, mt, M_WAITOK);
+	if (eventlist == NULL) {
+		error = ENOMEM;
+		goto exit2;
+	}
+
+	kbonus.changelist = changelist;
+	kbonus.eventlist = eventlist;
+	kops.arg = &kbonus;
+	kops.k_copyout = kevent_copyout;
+	kops.k_copyin = kevent_copyin;
+	if (timeout != INFTIM) {
+		ts.tv_sec = timeout / 1000;
+		ts.tv_nsec = (timeout % 1000) * 1000000;
+		pts = &ts;
+	}
+	else
+		pts = NULL;
+	error = kern_kevent(td, kq, nkev, nkev, &kops, pts);
+	if (error != 0)
+		goto exit3;
+	neventlist = td->td_retval[0];
+	error = convert_kevent_to_pollfd(fds, nfds, eventlist, neventlist);
+	if (error != 0)
+		goto exit3;
+
+exit3:
+	free(eventlist, mt);
+exit2:
+	free(changelist, mt);
+exit1:
+	error2 = kern_close(td, kq);
+	error = (error == 0) && (error2 != 0) ? error2 : error;
+
+	if (error == 0) {
+		n = 0;
+		for (i = 0; i < nfds; i++)
+			n += fds[i].revents != 0 ? 1 : 0;
+		td->td_retval[0] = n;
+	}
+
+	return (error);
+}
+
+static int
+vfd_to_lfd(struct thread *td, struct pollfd *fds, nfds_t nfds)
+{
+	struct pollfd *pfd;
+	nfds_t i;
+
+	for (i = 0; i < nfds; i++) {
+		pfd = &fds[i];
+		pfd->fd = fmaster_fds_of_thread(td)[pfd->fd].fd_local;
+	}
+
+	return (0);
+}
+
+static int
+read_result(struct thread *td, command_t expected_cmd, struct pollfd *fds,
+	    int nfds)
 {
 	payload_size_t actual_payload_size, payload_size;
 	command_t cmd;
@@ -81,7 +229,7 @@ do_return(struct thread *td, struct pollfd *fds, int nfds)
 	error = fmaster_read_command(td, &cmd);
 	if (error != 0)
 		return (error);
-	if (cmd != RET_POLL)
+	if (cmd != expected_cmd)
 		return (EPROTO);
 	error = fmaster_read_payload_size(td, &payload_size);
 	if (error != 0)
@@ -122,23 +270,73 @@ do_return(struct thread *td, struct pollfd *fds, int nfds)
 }
 
 static int
-do_poll(struct thread *td, struct fmaster_poll_args *uap, struct pollfd *fds)
+write_fds_command(struct thread *td, command_t cmd, struct pollfd *fds,
+		  int nfds, int timeout)
 {
-	size_t len;
-	int error, nfds;
+	payload_size_t payload_size, rest_size;
+	int error, events_len, fd, fd_len, i, nfds_len, sfd, timeout_len, wfd;
+	enum fmaster_fd_type type;
+	char *p, payload[256];
 
-	nfds = uap->nfds;
-	len = sizeof(*fds) * nfds;
-	error = copyin(uap->fds, fds, len);
+	rest_size = sizeof(payload);
+	p = payload;
+	nfds_len = fsyscall_encode_int32(nfds, p, rest_size);
+	if (nfds_len == -1)
+		return (ENOMEM);
+	rest_size -= nfds_len;
+	p += nfds_len;
+
+	for (i = 0; i < nfds; i++) {
+		fd = fds[i].fd;
+		error = fmaster_type_of_fd(td, fd, &type);
+		if (error != 0)
+			return (error);
+		if (type != FD_SLAVE)
+			return (EBADF);
+		sfd = fmaster_fds_of_thread(td)[fd].fd_local;
+		fd_len = fsyscall_encode_int32(sfd, p, rest_size);
+		if (fd_len == -1)
+			return (ENOMEM);
+		rest_size -= fd_len;
+		p += fd_len;
+
+		events_len = fsyscall_encode_int16(fds[i].events, p, rest_size);
+		if (events_len == -1)
+			return (ENOMEM);
+		rest_size -= events_len;
+		p += events_len;
+	}
+
+	timeout_len = fsyscall_encode_int32(timeout, p, rest_size);
+	if (timeout_len == -1)
+		return (ENOMEM);
+	rest_size -= timeout_len;
+
+	error = fmaster_write_command(td, cmd);
 	if (error != 0)
 		return (error);
-	error = do_execute(td, fds, nfds, uap->timeout);
+	payload_size = sizeof(payload) - rest_size;
+	error = fmaster_write_payload_size(td, payload_size);
 	if (error != 0)
 		return (error);
-	error = do_return(td, fds, nfds);
+	wfd = fmaster_wfd_of_thread(td);
+	error = fmaster_write(td, wfd, payload, payload_size);
 	if (error != 0)
 		return (error);
-	error = copyout(fds, uap->fds, len);
+
+	return (0);
+}
+
+/*******************************************************************************
+ * code for slave
+ */
+
+static int
+do_execute(struct thread *td, struct pollfd *fds, int nfds, int timeout)
+{
+	int error;
+
+	error = write_fds_command(td, POLL_CALL, fds, nfds, timeout);
 	if (error != 0)
 		return (error);
 
@@ -146,18 +344,356 @@ do_poll(struct thread *td, struct fmaster_poll_args *uap, struct pollfd *fds)
 }
 
 static int
-fmaster_poll_main(struct thread *td, struct fmaster_poll_args *uap)
+do_return(struct thread *td, struct pollfd *fds, int nfds)
 {
-	nfds_t nfds;
 	int error;
-	struct pollfd *fds;
+
+	error = read_result(td, POLL_RETURN, fds, nfds);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+static int
+slave_poll(struct thread *td, struct fmaster_poll_args *uap, struct pollfd *fds)
+{
+	int error, nfds;
 
 	nfds = uap->nfds;
-	fds = (struct pollfd *)malloc(sizeof(*fds) * nfds, M_POLLBUF, M_WAITOK);
+	error = do_execute(td, fds, nfds, uap->timeout);
+	if (error != 0)
+		return (error);
+	error = do_return(td, fds, nfds);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+/*******************************************************************************
+ * code for master
+ */
+
+static int
+master_poll(struct thread *td, struct pollfd *fds, nfds_t nfds, int timeout)
+{
+	int error;
+
+	error = vfd_to_lfd(td, fds, nfds);
+	if (error != 0)
+		return (error);
+
+	error = kevent_poll(td, fds, nfds, timeout);
+	if (error != 0)
+		return (error);
+	/*
+	 * File descriptors are still local. Because what will be copyouted are
+	 * only revents.
+	 */
+
+	return (0);
+}
+
+/*******************************************************************************
+ * code for both of master and slave
+ */
+
+static int
+count_slavefds(struct thread *td, struct pollfd *fds, nfds_t nfds,
+	       nfds_t *nslavefds)
+{
+	nfds_t i;
+	enum fmaster_fd_type fdtype;
+	int error, n;
+
+	n = 0;
+	for (i = 0; i < nfds; i++) {
+		error = fmaster_type_of_fd(td, fds[i].fd, &fdtype);
+		if (error != 0)
+			return (error);
+		n += fdtype == FD_SLAVE ? 1 : 0;
+	}
+
+	*nslavefds = n;
+
+	return (0);
+}
+
+static int
+copy_fds(struct thread *td, enum fmaster_fd_type fdtype, struct pollfd *srcfds,
+	 nfds_t nsrcfds, struct pollfd *destfds, nfds_t ndestfds)
+{
+	struct pollfd *pfd;
+	nfds_t i, n;
+	enum fmaster_fd_type t;
+	int error;
+
+	for (i = 0, n = 0; (i < nsrcfds) && (n < ndestfds); i++) {
+		pfd = &srcfds[i];
+		error = fmaster_type_of_fd(td, pfd->fd, &t);
+		if (error != 0)
+			return (error);
+		if (t != fdtype)
+			continue;
+		memcpy(&destfds[n], pfd, sizeof(*pfd));
+		n++;
+	}
+
+	return (0);
+}
+
+static int
+merge_results(struct thread *td, struct pollfd *fds, nfds_t nfds,
+	      struct pollfd *slavefds, nfds_t nslavefds,
+	      struct pollfd *masterfds, nfds_t nmasterfds)
+{
+	struct pollfd *p, *pfd;
+	nfds_t i, masterfdspos, slavefdspos;
+	enum fmaster_fd_type fdtype;
+	int error;
+
+	for (i = masterfdspos = slavefdspos = 0; i < nfds; i++) {
+		pfd = &fds[i];
+		error = fmaster_type_of_fd(td, pfd->fd, &fdtype);
+		if (error != 0)
+			return (error);
+		switch (fdtype) {
+		case FD_MASTER:
+			p = &masterfds[masterfdspos];
+			masterfdspos++;
+			break;
+		case FD_SLAVE:
+			p = &slavefds[slavefdspos];
+			slavefdspos++;
+			break;
+		case FD_CLOSED:
+		default:
+			return (EBADF);
+		}
+		pfd->revents = p->revents;
+	}
+
+	return (0);
+}
+
+static int
+master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
+		  int timeout)
+{
+	struct malloc_type *mt;
+	struct pollfd *masterfds, *mhubfd, *slavefds;
+	nfds_t nmasterfds, nslavefds;
+	size_t masterfdssize, slavefdssize;
+	int error, master_retval, slave_retval;
+
+	error = count_slavefds(td, fds, nfds, &nslavefds);
+	if (error != 0)
+		return (error);
+
+	mt = M_TEMP;
+	slavefdssize = sizeof(slavefds[0]) * nslavefds;
+	slavefds = (struct pollfd *)malloc(slavefdssize, mt, M_WAITOK);
+	if (slavefds == NULL)
+		return (ENOMEM);
+	error = copy_fds(td, FD_SLAVE, fds, nfds, slavefds, nslavefds);
+	if (error != 0)
+		goto exit1;
+
+	error = write_fds_command(td, POLL_START, slavefds, nslavefds, INFTIM);
+	if (error != 0)
+		goto exit1;
+
+	nmasterfds = nfds - nslavefds;	/* does not include the mhub socket */
+	masterfdssize = sizeof(masterfds[0]) * (nmasterfds + 1);
+	masterfds = (struct pollfd *)malloc(masterfdssize, mt, M_WAITOK);
+	if (masterfds == NULL) {
+		error = ENOMEM;
+		goto exit1;
+	}
+	error = copy_fds(td, FD_MASTER, fds, nfds, masterfds, nmasterfds);
+	if (error != 0)
+		goto exit2;
+	error = vfd_to_lfd(td, masterfds, nmasterfds);
+	if (error != 0)
+		goto exit2;
+	mhubfd = &masterfds[nmasterfds];
+	mhubfd->fd = fmaster_rfd_of_thread(td);
+	mhubfd->events = POLLIN;
+	mhubfd->revents = 0;
+
+	error = kevent_poll(td, masterfds, nmasterfds + 1, timeout);
+	if (error != 0)
+		goto exit2;
+	master_retval = td->td_retval[0];
+
+	error = fmaster_write_command(td, POLL_END);
+	if (error != 0)
+		goto exit2;
+	error = read_result(td, POLL_ENDED, slavefds, nslavefds);
+	if (error != 0)
+		goto exit2;
+	slave_retval = td->td_retval[0];
+
+	error = merge_results(td, fds, nfds, slavefds, nslavefds, masterfds,
+			      nmasterfds);
+	if (error != 0)
+		goto exit2;
+	td->td_retval[0] = master_retval + slave_retval;
+
+exit2:
+	free(masterfds, mt);
+exit1:
+	free(slavefds, mt);
+
+	return (0);
+}
+
+/*******************************************************************************
+ * system call entry
+ */
+
+static void
+events_to_string(char *buf, size_t bufsize, short events)
+{
+	struct flag_definition defs[] = {
+		DEFINE_FLAG(POLLIN),
+		DEFINE_FLAG(POLLPRI),
+		DEFINE_FLAG(POLLOUT),
+		DEFINE_FLAG(POLLRDNORM),
+		/*DEFINE_FLAG(POLLWRNORM),*/	/* same as POLLOUT */
+		DEFINE_FLAG(POLLRDBAND),
+		DEFINE_FLAG(POLLWRBAND),
+		DEFINE_FLAG(POLLINIGNEOF),
+		DEFINE_FLAG(POLLERR),
+		DEFINE_FLAG(POLLHUP),
+		DEFINE_FLAG(POLLNVAL)
+	};
+
+	fmaster_chain_flags(buf, bufsize, events, defs, array_sizeof(defs));
+}
+
+static int
+log_args(struct thread *td, struct pollfd *fds, nfds_t nfds)
+{
+	struct pollfd *pfd;
+	nfds_t i;
+	pid_t pid;
+	enum fmaster_fd_type fdtype;
+	int error, fd, lfd;
+	short events;
+	const char *sfdtype;
+	char sevents[256];
+
+	pid = td->td_proc->p_pid;
+	for (i = 0; i < nfds; i++) {
+		pfd = &fds[i];
+		fd = pfd->fd;
+		error = fmaster_type_of_fd(td, fd, &fdtype);
+		if (error != 0)
+			return (error);
+		sfdtype = fdtype == FD_MASTER ? "master"
+					      : fdtype == FD_SLAVE ? "slave"
+								   : "closed";
+		lfd = fmaster_fds_of_thread(td)[fd].fd_local;
+		events = pfd->events;
+		events_to_string(sevents, sizeof(sevents), events);
+		log(LOG_DEBUG,
+		    "fmaster[%d]: poll: fds[%d]: fd=%d (%s: %d), events=%d (%s)"
+		    ", revents=%d\n",
+		    pid, i, fd, sfdtype, lfd, events, sevents, pfd->revents);
+	}
+
+	return (0);
+}
+
+static int
+detect_side(struct thread *td, struct pollfd *fds, nfds_t nfds,
+	    enum fmaster_side *side)
+{
+	nfds_t i;
+	enum fmaster_fd_type fdtype;
+	int error;
+
+	*side = 0;
+	for (i = 0; i < nfds; i++) {
+		error = fmaster_type_of_fd(td, fds[i].fd, &fdtype);
+		if (error != 0)
+			return (error);
+		switch (fdtype) {
+		case FD_MASTER:
+			*side |= SIDE_MASTER;
+			break;
+		case FD_SLAVE:
+			*side |= SIDE_SLAVE;
+			break;
+		case FD_CLOSED:
+		default:
+			return (EBADF);
+		}
+		if (*side == SIDE_BOTH)
+			break;
+	}
+
+	return (0);
+}
+
+static int
+fmaster_poll_main(struct thread *td, struct fmaster_poll_args *uap)
+{
+	struct malloc_type *mt;
+	struct pollfd *dest, *fds, *src;
+	size_t size;
+	nfds_t i, nfds;
+	enum fmaster_side side;
+	int error;
+
+	nfds = uap->nfds;
+	size = sizeof(*fds) * nfds;
+	mt = M_TEMP;
+	fds = (struct pollfd *)malloc(size, mt, M_WAITOK);
 	if (fds == NULL)
 		return (ENOMEM);
-	error = do_poll(td, uap, fds);
-	free(fds, M_POLLBUF);
+	error = copyin(uap->fds, fds, size);
+	if (error != 0)
+		goto exit;
+	error = log_args(td, fds, nfds);
+	if (error != 0)
+		goto exit;
+
+	error = detect_side(td, fds, nfds, &side);
+	if (error != 0)
+		goto exit;
+	switch (side) {
+	case SIDE_MASTER:
+		error = master_poll(td, fds, nfds, uap->timeout);
+		break;
+	case SIDE_SLAVE:
+		error = slave_poll(td, uap, fds);
+		break;
+	case SIDE_BOTH:
+		error = master_slave_poll(td, fds, nfds, uap->timeout);
+		break;
+	default:
+		error = EBADF;
+		break;
+	}
+	if (error != 0)
+		goto exit;
+
+	dest = uap->fds;
+	src = fds;
+	for (i = 0; i < nfds; i++) {
+		error = copyout(&src->revents, &dest->revents,
+				sizeof(src->revents));
+		if (error != 0)
+			goto exit;
+		dest++;
+		src++;
+	}
+
+exit:
+	free(fds, mt);
 
 	return (error);
 }
@@ -167,15 +703,16 @@ sys_fmaster_poll(struct thread *td, struct fmaster_poll_args *uap)
 {
 	struct timeval time_start;
 	int error;
-#define	SYSCALL	"poll"
+	const char *name = "poll";
 
-	log(LOG_DEBUG, "fmaster[%d]: " SYSCALL ": started: fds=%p, nfds=%d, timeout=%d\n", td->td_proc->p_pid, uap->fds, uap->nfds, uap->timeout);
+	log(LOG_DEBUG,
+	    "fmaster[%d]: %s: started: fds=%p, nfds=%d, timeout=%d\n",
+	    td->td_proc->p_pid, name, uap->fds, uap->nfds, uap->timeout);
 	microtime(&time_start);
 
 	error = fmaster_poll_main(td, uap);
 
-	fmaster_log_syscall_end(td, SYSCALL, &time_start, error);
-#undef SYSCALL
+	fmaster_log_syscall_end(td, name, &time_start, error);
 
-	return (0);
+	return (error);
 }

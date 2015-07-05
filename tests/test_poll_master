@@ -1,5 +1,5 @@
 
-cmd="kqueue/kqueue"
+cmd="poll_master/poll_master"
 expected_status="0"
 
 # vim: filetype=sh

@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
@@ -23,6 +24,8 @@ import java.util.TimeZone;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
+import jp.gr.java_conf.neko_daisuki.fsyscall.KEvent;
+import jp.gr.java_conf.neko_daisuki.fsyscall.KEventArray;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
@@ -66,7 +69,395 @@ public class Slave implements Runnable {
                                     SocketAddress addr);
     }
 
+    private interface TimeoutRunner {
+
+        public enum Action { CONTINUE, BREAK };
+
+        public Action run() throws IOException, UnixException;
+    }
+
+    private class TimeoutLoop {
+
+        private TimeoutDetector mDetector;
+
+        public TimeoutLoop(Unix.TimeSpec timeout) {
+            mDetector = timeout != null ? new TrueTimeoutDetector(timeout)
+                                        : new InfinityTimeoutDetector();
+        }
+
+        public TimeoutLoop(int timeout) {
+            switch (timeout) {
+            case Unix.Constants.INFTIM:
+                mDetector = new InfinityTimeoutDetector();
+                break;
+            case 0:
+                mDetector = new ZeroTimeoutDetector();
+                break;
+            default:
+                mDetector = new TrueTimeoutDetector(timeout);
+                break;
+            }
+        }
+
+        public void run(TimeoutRunner runner) throws IOException,
+                                                     InterruptedException,
+                                                     UnixException {
+            TimeoutRunner.Action act = runner.run();
+            int interval = 10;  // msec
+            long t = 1000 * interval; // usec
+            while (!mDetector.isTimeout(t) && (act == TimeoutRunner.Action.CONTINUE) && !mCancelled) {
+                Thread.sleep(interval);
+                t += 1000 * interval;
+                act = runner.run();
+            }
+        }
+    }
+
+    private class PollRunner implements TimeoutRunner {
+
+        private int mReadyFdsNumber;
+        private PollFds mFds;
+
+        public PollRunner(PollFds fds) {
+            mFds = fds;
+        }
+
+        public int getReadyFdsNumber() {
+            return mReadyFdsNumber;
+        }
+
+        public Action run() throws IOException, UnixException {
+            for (PollFd fd: mFds) {
+                UnixFile file = getValidFile(fd.getFd());
+                try {
+                    int events = fd.getEvents();
+                    if ((events & Unix.Constants.POLLIN) != 0) {
+                        if (file.isReadyToRead()) {
+                            fd.addRevents(Unix.Constants.POLLIN);
+                        }
+                    }
+                    if ((events & Unix.Constants.POLLOUT) != 0) {
+                        if (file.isReadyToWrite()) {
+                            fd.addRevents(Unix.Constants.POLLOUT);
+                        }
+                    }
+                }
+                finally {
+                    file.unlock();
+                }
+            }
+            int nReadyFds = 0;
+            for (PollFd fd: mFds) {
+                nReadyFds += (fd.getRevents() != 0 ? 1 : 0);
+            }
+            if (0 < nReadyFds) {
+                mReadyFdsNumber = nReadyFds;
+                return Action.BREAK;
+            }
+
+            return Action.CONTINUE;
+        }
+    }
+
+    private class InterruptablePollRunner extends PollRunner {
+
+        public InterruptablePollRunner(PollFds fds) {
+            super(fds);
+        }
+
+        public Action run() throws IOException, UnixException {
+            Action action = super.run();
+            return (action == Action.BREAK) || mIn.isReady() ? Action.BREAK
+                                                             : Action.CONTINUE;
+        }
+    }
+
+    private interface EventFilter {
+
+        public KEvent scan(long ident, boolean clear, long fflags) throws UnixException;
+    }
+
+    public class NoSysEventFilter implements EventFilter {
+
+        @Override
+        public KEvent scan(long ident, boolean clear, long fflags) throws UnixException {
+            throw new UnixException(Errno.ENOSYS);
+        }
+    }
+
+    public class ReadEventFilter extends NoSysEventFilter {
+    }
+
+    public class WriteEventFilter extends NoSysEventFilter {
+    }
+
+    public class AioEventFilter extends NoSysEventFilter {
+    }
+
+    public class VNodeEventFilter extends NoSysEventFilter {
+    }
+
+    public class ProcEventFilter extends NoSysEventFilter {
+    }
+
+    public class SignalEventFilter extends NoSysEventFilter {
+    }
+
+    public class TimerEventFilter extends NoSysEventFilter {
+    }
+
+    public class NetDevEventFilter extends NoSysEventFilter {
+    }
+
+    public class FsEventFilter extends NoSysEventFilter {
+    }
+
+    public class LioEventFilter extends NoSysEventFilter {
+    }
+
+    public class UserEventFilter extends NoSysEventFilter {
+    }
+
+    private class EventFilters {
+
+        private Map<Short, EventFilter> mFilters;
+
+        public EventFilters() {
+            mFilters = new HashMap<Short, EventFilter>();
+            put(KEvent.EVFILT_READ, new ReadEventFilter());
+            put(KEvent.EVFILT_WRITE, new WriteEventFilter());
+            put(KEvent.EVFILT_AIO, new AioEventFilter());
+            put(KEvent.EVFILT_VNODE, new VNodeEventFilter());
+            put(KEvent.EVFILT_PROC, new ProcEventFilter());
+            put(KEvent.EVFILT_SIGNAL, new SignalEventFilter());
+            put(KEvent.EVFILT_TIMER, new TimerEventFilter());
+            put(KEvent.EVFILT_NETDEV, new NetDevEventFilter());
+            put(KEvent.EVFILT_FS, new FsEventFilter());
+            put(KEvent.EVFILT_LIO, new LioEventFilter());
+            put(KEvent.EVFILT_USER, new UserEventFilter());
+        }
+
+        public EventFilter get(short filter) throws UnixException {
+            EventFilter ef = mFilters.get(Short.valueOf(filter));
+            if (ef == null) {
+                throw new UnixException(Errno.EINVAL);
+            }
+            return ef;
+        }
+
+        private void put(short filter, EventFilter ef) {
+            mFilters.put(Short.valueOf(filter), ef);
+        }
+    }
+
     private class KQueue extends UnixFile {
+
+        private class Event {
+
+            private long mIdent;
+            private short mFilter;
+            private long mFilterFlags;
+            private boolean mEnabled;
+            private boolean mOneShot;
+            private boolean mClear;
+            private long mData;
+
+            public Event(long ident, short filter, long fflags, boolean enabled,
+                         boolean oneShot, boolean clear, long data) {
+                mIdent = ident;
+                mFilter = filter;
+                setFilterFlags(fflags);
+                setEnabled(enabled);
+                mOneShot = oneShot;
+                mClear = clear;
+                setData(data);
+            }
+
+            public long getIdent() {
+                return mIdent;
+            }
+
+            public short getFilter() {
+                return mFilter;
+            }
+
+            public void enable() {
+                setEnabled(true);
+            }
+
+            public void disable() {
+                setEnabled(false);
+            }
+
+            public boolean isEnabled() {
+                return mEnabled;
+            }
+
+            public long getFilterFlags() {
+                return mFilterFlags;
+            }
+
+            public void setFilterFlags(long fflags) {
+                mFilterFlags = fflags;
+            }
+
+            public boolean isOneShot() {
+                return mOneShot;
+            }
+
+            public void setOneShot() {
+                mOneShot = true;
+            }
+
+            public boolean isClear() {
+                return mClear;
+            }
+
+            public void setClear() {
+                mClear = true;
+            }
+
+            public long getData() {
+                return mData;
+            }
+
+            public void setData(long data) {
+                mData = data;
+            }
+
+            private void setEnabled(boolean enabled) {
+                mEnabled = enabled;
+            }
+        }
+
+        private class Events implements Iterable<Event> {
+
+            private class Key {
+
+                private long mIdent;
+                private short mFilter;
+
+                public Key(long ident, short filter) {
+                    mIdent = ident;
+                    mFilter = filter;
+                }
+
+                public Key(KEvent kev) {
+                    this(kev.ident, kev.filter);
+                }
+
+                @Override
+                public boolean equals(Object o) {
+                    Key key;
+                    try {
+                        key = (Key)o;
+                    }
+                    catch (ClassCastException unused) {
+                        return false;
+                    }
+                    return (mIdent == key.mIdent) && (mFilter == key.mFilter);
+                }
+
+                @Override
+                public int hashCode() {
+                    int n = Long.valueOf(mIdent).hashCode();
+                    int m = Short.valueOf(mFilter).hashCode();
+                    return n + m;
+                }
+            }
+
+            private Map<Key, Event> mEvents = new HashMap<Key, Event>();
+
+            @Override
+            public Iterator<Event> iterator() {
+                return mEvents.values().iterator();
+            }
+
+            public void change(KEvent kev) throws UnixException {
+                Key key = new Key(kev);
+                int flags = kev.flags;
+                if ((flags & KEvent.EV_ADD) != 0) {
+                    add(key, kev);
+                    return;
+                }
+
+                Event entry = mEvents.get(key);
+                if (entry == null) {
+                    throw new UnixException(Errno.ENOENT);
+                }
+                if ((flags & KEvent.EV_DELETE) != 0) {
+                    mEvents.remove(key);
+                    return;
+                }
+
+                entry.setFilterFlags(kev.fflags);
+                if ((flags & KEvent.EV_ENABLE) != 0) {
+                    entry.enable();
+                }
+                if ((flags & KEvent.EV_DISABLE) != 0) {
+                    entry.disable();
+                }
+                if ((flags & KEvent.EV_ONESHOT) != 0) {
+                    entry.setOneShot();
+                }
+                if ((flags & KEvent.EV_CLEAR) != 0) {
+                    entry.setClear();
+                }
+                if ((flags & KEvent.EV_RECEIPT) != 0) {
+                    // TODO
+                }
+                if ((flags & KEvent.EV_DISPATCH) != 0) {
+                    // TODO
+                }
+                entry.setData(kev.data);
+            }
+
+            private void add(Key key, KEvent kev) {
+                int flags = kev.flags;
+                Event entry = new Event(kev.ident, kev.filter, kev.fflags,
+                                        (flags & KEvent.EV_DISABLE) == 0,
+                                        (flags & KEvent.EV_ONESHOT) != 0,
+                                        (flags & KEvent.EV_CLEAR) != 0,
+                                        kev.data);
+                mEvents.put(key, entry);
+            }
+        }
+
+        private class Runner implements TimeoutRunner {
+
+            private int mMax;
+            private Collection<KEvent> mResults = new HashSet<KEvent>();
+
+            public Runner(int nevents) {
+                mMax = nevents;
+            }
+
+            public Collection<KEvent> getEvents() {
+                return mResults;
+            }
+
+            public Action run() throws UnixException {
+                for (Event ev: mEvents) {
+                    if (!ev.isEnabled()) {
+                        continue;
+                    }
+                    EventFilter filter = mEventFilters.get(ev.getFilter());
+                    long ident = ev.getIdent();
+                    long fflags = ev.getFilterFlags();
+                    KEvent kev = filter.scan(ident, ev.isClear(), fflags);
+                    if (kev == null) {
+                        continue;
+                    }
+                    mResults.add(kev);
+                    if (mResults.size() == mMax) {
+                        break;
+                    }
+                }
+                return 0 < mResults.size() ? Action.BREAK : Action.CONTINUE;
+            }
+        }
+
+        private Events mEvents = new Events();
 
         public boolean isReadyToRead() throws UnixException {
             return false;
@@ -97,8 +488,37 @@ public class Slave implements Runnable {
             throw new UnixException(Errno.ENOSYS);
         }
 
+        public Collection<KEvent> kevent(KEventArray changelist, int nevents,
+                                         Unix.TimeSpec timeout) throws IOException, InterruptedException, UnixException {
+            change(changelist);
+            return nevents == 0 ? new HashSet<KEvent>()
+                                : scan(nevents, timeout);
+        }
+
+        @Override
+        public void clearFilterFlags() {
+            // nothing.
+        }
+
+        @Override
+        public long getFilterFlags() {
+            return 0L;
+        }
+
         protected void doClose() throws UnixException {
             // nothing?
+        }
+
+        private void change(KEventArray changelist) throws UnixException {
+            for (KEvent kev: changelist) {
+                mEvents.change(kev);
+            }
+        }
+
+        private Collection<KEvent> scan(int nevents, Unix.TimeSpec timeout) throws IOException, InterruptedException, UnixException {
+            Runner runner = new Runner(nevents);
+            new TimeoutLoop(timeout).run(runner);
+            return runner.getEvents();
         }
     }
 
@@ -162,7 +582,8 @@ public class Slave implements Runnable {
 
             switch (mFlags & Unix.Constants.O_ACCMODE) {
             case Unix.Constants.O_RDONLY:
-                file = new UnixInputFile(mPath);
+                boolean create = (mFlags & Unix.Constants.O_CREAT) != 0;
+                file = new UnixInputFile(mPath, create);
                 break;
             case Unix.Constants.O_WRONLY:
                 // XXX: Here ignores O_CREAT.
@@ -262,6 +683,10 @@ public class Slave implements Runnable {
 
         public TrueTimeoutDetector(Unix.TimeVal timeout) {
             mTime = 1000000 * timeout.tv_sec + timeout.tv_usec;
+        }
+
+        public TrueTimeoutDetector(Unix.TimeSpec timeout) {
+            mTime = 1000000 * timeout.tv_sec + timeout.tv_nsec / 1000;
         }
 
         public TrueTimeoutDetector(long msec) {
@@ -579,6 +1004,16 @@ public class Slave implements Runnable {
             return mOptions.contains(option);
         }
 
+        @Override
+        public void clearFilterFlags() {
+            // TODO
+        }
+
+        @Override
+        public long getFilterFlags() {
+            return 0L;
+        }
+
         protected void doClose() throws UnixException {
             try {
                 mCore.close();
@@ -675,8 +1110,8 @@ public class Slave implements Runnable {
 
     private static class UnixInputFile extends UnixRandomAccessFile {
 
-        public UnixInputFile(String path) throws UnixException {
-            super(path, "r");
+        public UnixInputFile(String path, boolean create) throws UnixException {
+            super(path, create ? "rw" : "r");
         }
 
         public boolean isReadyToRead() throws UnixException {
@@ -724,9 +1159,21 @@ public class Slave implements Runnable {
         public int write(byte[] buffer) throws UnixException {
             throw new UnixException(Errno.EBADF);
         }
+
+        @Override
+        public void clearFilterFlags() {
+            // does nothing.
+        }
+
+        @Override
+        public long getFilterFlags() {
+            return 0L;
+        }
     }
 
     private static class UnixOutputFile extends UnixRandomAccessFile {
+
+        private long mFilterFlags;
 
         public UnixOutputFile(String path) throws UnixException {
             super(path, "rw");
@@ -755,7 +1202,18 @@ public class Slave implements Runnable {
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
             }
+            mFilterFlags |= KEvent.NOTE_WRITE;
             return buffer.length;
+        }
+
+        @Override
+        public void clearFilterFlags() {
+            mFilterFlags = 0;
+        }
+
+        @Override
+        public long getFilterFlags() {
+            return mFilterFlags;
         }
     }
 
@@ -810,6 +1268,16 @@ public class Slave implements Runnable {
             throw new UnixException(Errno.EBADF);
         }
 
+        @Override
+        public void clearFilterFlags() {
+            // does nothing.
+        }
+
+        @Override
+        public long getFilterFlags() {
+            return 0L;
+        }
+
         protected void doClose() throws UnixException {
             try {
                 mIn.close();
@@ -823,6 +1291,7 @@ public class Slave implements Runnable {
     private static class UnixOutputStream extends UnixStream {
 
         private OutputStream mOut;
+        private long mFilterFlags;
 
         public UnixOutputStream(OutputStream out) {
             mOut = out;
@@ -851,7 +1320,18 @@ public class Slave implements Runnable {
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
             }
+            mFilterFlags |= KEvent.NOTE_WRITE;
             return buffer.length;
+        }
+
+        @Override
+        public void clearFilterFlags() {
+            mFilterFlags = 0;
+        }
+
+        @Override
+        public long getFilterFlags() {
+            return mFilterFlags;
         }
 
         protected void doClose() throws UnixException {
@@ -984,13 +1464,13 @@ public class Slave implements Runnable {
     private String mCurrentDirectory;
     private UnixFile[] mFiles;
     private SignalSet mPendingSignals = new SignalSet();
-    private SignalSet mActiveSignals;
     private Integer mExitStatus;
 
     // helpers
     private SlaveHelper mHelper;
     private FcntlProcs mFcntlProcs;
     private boolean mCancelled = false;
+    private EventFilters mEventFilters = new EventFilters();
 
     public Slave(Application application, Pid pid, InputStream hubIn,
                  OutputStream hubOut, String currentDirectory,
@@ -1004,7 +1484,7 @@ public class Slave implements Runnable {
         files[2] = new UnixOutputStream(stderr);
 
         initialize(application, pid, hubIn, hubOut, currentDirectory, files,
-                   permissions, links, listener, new SignalSet());
+                   permissions, links, listener);
 
         writeOpenedFileDescriptors();
         mLogger.verbose("file descripters were transfered from the slave.");
@@ -1015,18 +1495,14 @@ public class Slave implements Runnable {
      */
     public Slave(Application application, Pid pid, InputStream hubIn,
                  OutputStream hubOut, String currentDirectory, UnixFile[] files,
-                 Permissions permissions, Links links, Listener listener,
-                 SignalSet activeSignals) {
+                 Permissions permissions, Links links, Listener listener) {
         initialize(application, pid, hubIn, hubOut, currentDirectory, files,
-                   permissions, links, listener, activeSignals.clone());
+                   permissions, links, listener);
     }
 
     public void kill(Signal sig) throws UnixException {
         if (sig == null) {
             throw new UnixException(Errno.EINVAL);
-        }
-        if (!mActiveSignals.contains(sig)) {
-            return;
         }
         mPendingSignals.add(sig);
     }
@@ -1082,36 +1558,30 @@ public class Slave implements Runnable {
         return mPid;
     }
 
-    public boolean isReady() throws IOException {
-        return mIn.isReady();
-    }
-
     public boolean isZombie() {
         return mState == State.ZOMBIE;
     }
 
-    public SyscallResult.Generic32 doSigaction(int sig, Sigaction act) throws IOException {
-        String fmt = "sigaction(sig=%d (%s), act=%s)";
-        mLogger.info(String.format(fmt, sig, Signal.toString(sig), act));
+    public SyscallResult.Generic32 doSigprocmask(int how, SignalSet set) {
+        String fmt = "sigprocmask(how=%d (%s), set=%s)";
+        String howString;
+        switch (how) {
+        case Unix.Constants.SIG_BLOCK:
+            howString = "SIG_BLOCK";
+            break;
+        case Unix.Constants.SIG_UNBLOCK:
+            howString = "SIG_UNBLOCK";
+            break;
+        case Unix.Constants.SIG_SETMASK:
+            howString = "SIG_SETMASK";
+            break;
+        default:
+            howString = "invalid";
+            break;
+        }
+        mLogger.info(String.format(fmt, how, howString, set));
 
-        SyscallResult.Generic32 result = new SyscallResult.Generic32();
-
-        Signal signal;
-        try {
-            signal = Signal.valueOf(sig);
-        }
-        catch (UnixException e) {
-            result.setError(e.getErrno());
-            return result;
-        }
-        if (act.sa_handler == Sigaction.Handler.ACTIVE) {
-            mActiveSignals.add(signal);
-        }
-        else {
-            mActiveSignals.remove(signal);
-        }
-
-        return result;
+        return new SyscallResult.Generic32();
     }
 
     public SyscallResult.Generic32 doKill(int pid, int signum) throws IOException {
@@ -1191,8 +1661,11 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doOpen(String path, int flags, int mode) throws IOException {
-        String fmt = "open(path=%s, flags=%d, mode=%d)";
-        mLogger.info(String.format(fmt, path, flags, mode));
+        String fmt = "open(path=%s, flags=0o%o (%s), mode=0o%o (%s))";
+        String msg = String.format(fmt, path, flags,
+                                   Unix.Constants.Open.toString(flags), mode,
+                                   Unix.Constants.Mode.toString(mode));
+        mLogger.info(msg);
 
         String s = getPathUnderCurrentDirectory(path);
 
@@ -1612,74 +2085,18 @@ public class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Generic32 doPollStart(PollFds fds, int nfds, int timeout) throws IOException {
+        String fmt = "interruptable poll(fds=%s, nfds=%d, timeout=%d)";
+        mLogger.info(String.format(fmt, fds, nfds, timeout));
+
+        return runPoll(new InterruptablePollRunner(fds), timeout);
+    }
+
     public SyscallResult.Generic32 doPoll(PollFds fds, int nfds, int timeout) throws IOException {
         String fmt = "poll(fds=%s, nfds=%d, timeout=%d)";
         mLogger.info(String.format(fmt, fds, nfds, timeout));
-        SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        TimeoutDetector timeoutDetector;
-        switch (timeout) {
-        case Unix.Constants.INFTIM:
-            timeoutDetector = new InfinityTimeoutDetector();
-            break;
-        case 0:
-            timeoutDetector = new ZeroTimeoutDetector();
-            break;
-        default:
-            timeoutDetector = new TrueTimeoutDetector(timeout);
-            break;
-        }
-
-        long usecInterval = 100 * 1000;
-        long usecTime = 0;
-        while (!timeoutDetector.isTimeout(usecTime) && !mCancelled) {
-            for (PollFd fd: fds) {
-                try {
-                    UnixFile file = getValidFile(fd.getFd());
-                    try {
-                        int events = fd.getEvents();
-                        if ((events & Unix.Constants.POLLIN) != 0) {
-                            if (file.isReadyToRead()) {
-                                fd.addRevents(Unix.Constants.POLLIN);
-                            }
-                        }
-                        if ((events & Unix.Constants.POLLOUT) != 0) {
-                            if (file.isReadyToWrite()) {
-                                fd.addRevents(Unix.Constants.POLLOUT);
-                            }
-                        }
-                    }
-                    finally {
-                        file.unlock();
-                    }
-                }
-                catch (UnixException e) {
-                    result.retval = -1;
-                    result.errno = e.getErrno();
-                    return result;
-                }
-            }
-            int nReadyFds = 0;
-            for (PollFd fd: fds) {
-                nReadyFds += (fd.getRevents() != 0 ? 1 : 0);
-            }
-            if (0 < nReadyFds) {
-                result.retval = nReadyFds;
-                break;
-            }
-
-            try {
-                Thread.sleep(usecInterval / 1000);
-            }
-            catch (InterruptedException e) {
-                result.retval = -1;
-                result.errno = Errno.EINTR;
-                return result;
-            }
-            usecTime += usecInterval;
-        }
-
-        return result;
+        return runPoll(new PollRunner(fds), timeout);
     }
 
     public SyscallResult.Select doSelect(int nfds, Collection<Integer> in, Collection<Integer> ou, Collection<Integer> ex, Unix.TimeVal timeout) throws IOException {
@@ -1968,8 +2385,7 @@ public class Slave implements Runnable {
             files[i] = mFiles[i];
         }
         Slave slave = mApplication.newSlave(pairId, mCurrentDirectory, files,
-                                            mPermissions, mLinks, mListener,
-                                            mActiveSignals);
+                                            mPermissions, mLinks, mListener);
         new Thread(slave).start();
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
@@ -2088,6 +2504,72 @@ public class Slave implements Runnable {
         result.retval = slave.getPid().toInteger();
         result.status = Unix.W_EXITCODE(slave.getExitStatus().intValue(), 0);
         result.rusage = new Unix.Rusage();
+
+        return result;
+    }
+
+    public SyscallResult.Kevent doKevent(int kq, KEventArray changelist,
+                                         int nchanges, int nevents,
+                                         Unix.TimeSpec timeout) throws IOException {
+        String fmt = "kevent(kq=%d, changelist=%s, nchanges=%d, nevents=%d, timeout=%s)";
+        String msg = String.format(fmt, kq, changelist, nchanges, nevents,
+                                   timeout);
+        mLogger.info(msg);
+        SyscallResult.Kevent retval = new SyscallResult.Kevent();
+
+        UnixFile file = getLockedFile(kq);
+        if (file == null) {
+            retval.setError(Errno.EBADF);
+            return retval;
+        }
+        try {
+            KQueue kqueue;
+            try {
+                kqueue = (KQueue)file;
+            }
+            catch (ClassCastException unused) {
+                retval.setError(Errno.EBADF);
+                return retval;
+            }
+            Collection<KEvent> eventlist;
+            try {
+                eventlist = kqueue.kevent(changelist, nevents, timeout);
+            }
+            catch (UnixException e) {
+                retval.setError(e.getErrno());
+                return retval;
+            }
+            catch (InterruptedException unused) {
+                retval.setError(Errno.EINTR);
+                return retval;
+            }
+            retval.eventlist = eventlist.toArray(new KEvent[0]);
+        }
+        finally {
+            file.unlock();
+        }
+
+        return retval;
+    }
+
+    private SyscallResult.Generic32 runPoll(PollRunner runner,
+                                            int timeout) throws IOException {
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        TimeoutLoop loop = new TimeoutLoop(timeout);
+        try {
+            loop.run(runner);
+        }
+        catch (InterruptedException unused) {
+            result.setError(Errno.EINTR);
+            return result;
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+
+        result.retval = runner.getReadyFdsNumber();
 
         return result;
     }
@@ -2455,8 +2937,7 @@ public class Slave implements Runnable {
     private void initialize(Application application, Pid pid, InputStream hubIn,
                             OutputStream hubOut, String currentDirectory,
                             UnixFile[] files, Permissions permissions,
-                            Links links, Listener listener,
-                            SignalSet activeSignals) {
+                            Links links, Listener listener) {
         mApplication = application;
         mPid = pid;
         mIn = new SyscallInputStream(hubIn);
@@ -2466,7 +2947,6 @@ public class Slave implements Runnable {
         setListener(listener);
         mCurrentDirectory = currentDirectory;
         mFiles = files;
-        mActiveSignals = activeSignals;
 
         mHelper = new SlaveHelper(this, mIn, mOut);
         mFcntlProcs = new FcntlProcs();

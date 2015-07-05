@@ -25,9 +25,9 @@ it from include/fsyscall/private/command/code.h manually.
 def number_syscalls(syscalls, codes):
     for code in codes:
         name = code.name
-        if (not name.startswith("CALL_")) and (not name.startswith("RET_")):
+        if (not name.endswith("_CALL")) and (not name.endswith("_RETURN")):
             continue
-        which, name = name.split("_", 1)
+        name, which = name.rsplit("_", 1)
         syscall = find_syscall_of_name(syscalls, name)
         attr = "call_id" if which == "CALL" else "ret_id"
         setattr(syscall, attr, code.value)

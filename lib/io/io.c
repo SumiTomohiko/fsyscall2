@@ -33,8 +33,16 @@ write_or_die(int fd, const void *buf, size_t nbytes)
 
 	while (n < nbytes) {
 		m = write(fd, (char *)buf + n, nbytes - n);
-		if (m < 0)
+		if (m < 0) {
+			/*
+			 * For more about design information, please read the
+			 * comment in ignore_sigpipe() in fshub/main.c. The
+			 * comment tells why here ignores EPIPE.
+			 */
+			if (errno == EPIPE)
+				return;
 			die(-1, "cannot write to fd %d", fd);
+		}
 		n -= m;
 	}
 }
@@ -197,4 +205,16 @@ read_string(int rfd, uint64_t *total_len)
 	*total_len = len_len + len;
 
 	return (ptr);
+}
+
+void
+read_sigset(int rfd, sigset_t *set, int *len)
+{
+	int i, n;
+
+	*len = 0;
+	for (i = 0; i < _SIG_WORDS; i++) {
+		set->__bits[i] = read_uint32(rfd, &n);
+		*len += n;
+	}
 }

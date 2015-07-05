@@ -116,7 +116,7 @@ def print_fmaster_write(p, buf, size, indent=1):
 def print_write(p, print_newline, syscall):
     cmd_name = make_cmd_name(syscall.name)
     p("""\
-\terror = fmaster_write_command(td, CALL_{cmd_name});
+\terror = fmaster_write_command(td, {cmd_name}_CALL);
 \tif (error != 0)
 \t\treturn (error);
 """.format(**locals()))
@@ -341,7 +341,7 @@ static int
 \terror = execute_call(td, uap);
 \tif (error != 0)
 \t\treturn (error);
-\terror = fmaster_execute_return_generic{bit_num}(td, RET_{cmd_name});
+\terror = fmaster_execute_return_generic{bit_num}(td, {cmd_name}_RETURN);
 \tif (error != 0)
 \t\treturn (error);
 """.format(**locals()))
@@ -409,8 +409,8 @@ execute_return(struct thread *td, struct {name}_args *uap)
 \terror = fmaster_read_command(td, &cmd);
 \tif (error != 0)
 \t\treturn (error);
-\tif (cmd != RET_{cmd_name}) {{
-\t\tlog(LOG_ERR, \"fmaster[%d]: command mismatched: expected=%d, actual=%d\\n\", td->td_proc->p_pid, RET_{cmd_name}, cmd);
+\tif (cmd != {cmd_name}_RETURN) {{
+\t\tlog(LOG_ERR, \"fmaster[%d]: command mismatched: expected=%d, actual=%d\\n\", td->td_proc->p_pid, {cmd_name}_RETURN, cmd);
 \t\treturn (EPROTO);
 \t}}
 \terror = fmaster_read_payload_size(td, &payload_size);

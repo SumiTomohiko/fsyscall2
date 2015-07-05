@@ -39,6 +39,17 @@ public class Unix {
         }
     }
 
+    public static class TimeSpec {
+
+        public int tv_sec;
+        public long tv_nsec;
+
+        public String toString() {
+            String fmt = "TimeSpec(tv_sec=%d, tv_nsec=%d)";
+            return String.format(fmt, tv_sec, tv_nsec);
+        }
+    }
+
     public static class TimeVal {
 
         public long tv_sec;
@@ -174,6 +185,49 @@ public class Unix {
             }
         }
 
+        public static class Open {
+
+            private static final Flag[] FLAGS = {
+                new Flag(O_CREAT, "O_CREAT"),
+                new Flag(O_NONBLOCK, "O_NONBLOCK"),
+                new Flag(O_APPEND, "O_APPEND"),
+                new Flag(O_ASYNC, "O_ASYNC"),
+                new Flag(O_DIRECT, "O_DIRECT")
+            };
+
+            private static final String[] MODE = {
+                "O_RDONLY",
+                "O_WRONLY",
+                "O_RDWR"
+            };
+
+            public static String toString(int flags) {
+                String s = MODE[flags & O_ACCMODE];
+                String t = Flag.toString(FLAGS, flags);
+                String sep = 0 < t.length() ? "|" : "";
+                return s + sep + t;
+            }
+        }
+
+        public static class Mode {
+
+            private static final Flag[] FLAGS = {
+                new Flag(S_IRUSR, "S_IRUSR"),
+                new Flag(S_IWUSR, "S_IWUSR"),
+                new Flag(S_IXUSR, "S_IXUSR"),
+                new Flag(S_IRGRP, "S_IRGRP"),
+                new Flag(S_IWGRP, "S_IWGRP"),
+                new Flag(S_IXGRP, "S_IXGRP"),
+                new Flag(S_IROTH, "S_IROTH"),
+                new Flag(S_IWOTH, "S_IWOTH"),
+                new Flag(S_IXOTH, "S_IXOTH")
+            };
+
+            public static String toString(int flags) {
+                return Flag.toString(FLAGS, flags);
+            }
+        }
+
         public static final int O_RDONLY = 0x0000;
         public static final int O_WRONLY = 0x0001;
         public static final int O_RDWR = 0x0002;
@@ -252,6 +306,10 @@ public class Unix {
         public static final int S_IWOTH = 0000002;
         public static final int S_IXOTH = 0000001;
         public static final int ACCESSPERMS = S_IRWXU | S_IRWXG | S_IRWXO;
+
+        public static final int SIG_BLOCK = 1;
+        public static final int SIG_UNBLOCK = 2;
+        public static final int SIG_SETMASK = 3;
     }
 
     public static final int _WSTOPPED = 0177;

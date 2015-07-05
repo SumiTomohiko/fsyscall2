@@ -33,6 +33,8 @@ struct fmaster_fd {
 struct fmaster_data {
 	int rfd;
 	int wfd;
+	int kq;		/* kqueue for rfd */
+	size_t rfdlen;	/* readable data length in the buffer of rfd */
 
 	/*
 	 * fds - What is this?
@@ -71,7 +73,12 @@ int	fmaster_read_to_userspace(struct thread *, int, void *, size_t);
 			fmaster_read_int32((td), (int32_t *)(dest), (size))
 #define	fmaster_read_uint64(td, dest, size) \
 			fmaster_read_int64((td), (int64_t *)(dest), (size))
+#define	fmaster_read_short	fmaster_read_int16
 #define	fmaster_read_int	fmaster_read_int32
+#define	fmaster_read_long	fmaster_read_int64
+#define	fmaster_read_ushort	fmaster_read_uint16
+#define	fmaster_read_uint	fmaster_read_uint32
+#define	fmaster_read_ulong	fmaster_read_uint64
 #define	fmaster_read_socklen	fmaster_read_uint32
 
 int	fmaster_write(struct thread *, int, const void *, size_t);
@@ -95,6 +102,7 @@ struct fmaster_data *
 void	fmaster_delete_data(struct fmaster_data *);
 
 void	fmaster_close_fd(struct thread *, int);
+int	fmaster_fd_of_master_fd(struct thread *, int, int *);
 int	fmaster_fd_of_slave_fd(struct thread *, int, int *);
 int	fmaster_type_of_fd(struct thread *, int, enum fmaster_fd_type *);
 
@@ -118,8 +126,30 @@ int	fmaster_register_fd_at(struct thread *td, enum fmaster_fd_type type,
 int	fmaster_return_fd(struct thread *, enum fmaster_fd_type, int);
 
 int	fmaster_is_master_file(struct thread *, const char *);
+
+int	fmaster_initialize_kqueue(struct thread *, struct fmaster_data *);
 void	fmaster_schedtail(struct thread *);
 
+/* misc */
+typedef unsigned int flag_t;
+
+struct flag_definition {
+	flag_t value;
+	const char *name;
+};
+
+enum fmaster_side {
+	SIDE_MASTER = 0x01,
+	SIDE_SLAVE = 0x02,
+	SIDE_BOTH = SIDE_MASTER | SIDE_SLAVE
+};
+
+#define	DEFINE_FLAG(name)	{ name, #name }
+
+void	fmaster_chain_flags(char *, size_t, flag_t, struct flag_definition[],
+			    size_t);
+long	fmaster_subtract_timeval(const struct timeval *,
+				 const struct timeval *);
 void	fmaster_log_syscall_end(struct thread *, const char *,
 				const struct timeval *, int);
 const char *
@@ -129,6 +159,8 @@ const char *
 	const char *__fmt__ = "fmaster[%d]: " fmt "\n";		\
 	log((pri), __fmt__, (td)->td_proc->p_pid, __VA_ARGS__);	\
 } while (0)
+
+#define	array_sizeof(a)		(sizeof(a) / sizeof(a[0]))
 
 MALLOC_DECLARE(M_FMASTER);
 

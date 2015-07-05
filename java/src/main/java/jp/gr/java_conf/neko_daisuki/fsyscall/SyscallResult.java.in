@@ -63,6 +63,11 @@ public interface SyscallResult {
         public int n;
     }
 
+    public static class Kevent extends Generic32 {
+
+        public KEvent[] eventlist;
+    }
+
     @RESULTS@
 }
 

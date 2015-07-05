@@ -89,7 +89,6 @@ fmaster/sys/fmaster/fmaster_gettimeofday.c
 fmaster/sys/fmaster/fmaster_getuid.c
 fmaster/sys/fmaster/fmaster_issetugid.c
 fmaster/sys/fmaster/fmaster_kill.c
-fmaster/sys/fmaster/fmaster_kqueue.c
 fmaster/sys/fmaster/fmaster_ktimer_create.c
 fmaster/sys/fmaster/fmaster_ktimer_delete.c
 fmaster/sys/fmaster/fmaster_ktimer_getoverrun.c
@@ -319,12 +318,15 @@ tests/amd64/getuid/getuid
 tests/amd64/ioctl/ioctl
 tests/amd64/issetugid/issetugid
 tests/amd64/kill/kill
-tests/amd64/kqueue/kqueue
 tests/amd64/listen/listen
 tests/amd64/lseek/lseek
 tests/amd64/lstat/lstat
 tests/amd64/mkdir/mkdir
 tests/amd64/poll_in/poll_in
+tests/amd64/poll_master/poll_master
+tests/amd64/poll_master_slave_blocking/poll_master_slave_blocking
+tests/amd64/poll_master_slave_blocking2/poll_master_slave_blocking2
+tests/amd64/poll_master_slave_nonblocking/poll_master_slave_nonblocking
 tests/amd64/poll_out/poll_out
 tests/amd64/poll_timeout/poll_timeout
 tests/amd64/pread/pread
@@ -337,7 +339,9 @@ tests/amd64/select/select
 tests/amd64/select2/select2
 tests/amd64/setsockopt/setsockopt
 tests/amd64/sigaction/sigaction
+tests/amd64/sigprocmask/sigprocmask
 tests/amd64/socket/socket
+tests/amd64/socketpair/socketpair
 tests/amd64/stat/stat
 tests/amd64/unlink/unlink
 tests/amd64/wait4_rusage/wait4_rusage

@@ -6,7 +6,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 
-abstract class UnixFile {
+abstract class UnixFile implements EventScannee {
 
     private abstract class Closer {
 
@@ -75,6 +75,8 @@ abstract class UnixFile {
     public abstract int write(byte[] buffer) throws UnixException;
     public abstract long lseek(long offset, int whence) throws UnixException;
     public abstract Unix.Stat fstat() throws UnixException;
+    public abstract long getFilterFlags();
+    public abstract void clearFilterFlags();
 
     protected boolean isNonBlocking() {
         return mNonBlocking;

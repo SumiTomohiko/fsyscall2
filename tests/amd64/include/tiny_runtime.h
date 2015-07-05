@@ -36,4 +36,6 @@ int	tr_run_chdir_x_test(int, const char *[], tr_chdir_callback);
 int	tr_run_client_server(const char *, tr_accept_callback,
 			     tr_connect_callback);
 
+#define	array_sizeof(a)	(sizeof(a) / sizeof(a[0]))
+
 #endif

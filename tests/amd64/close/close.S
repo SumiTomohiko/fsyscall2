@@ -27,7 +27,7 @@ _start:
 	call	exit
 
 .error:
-	mov	rdi, -1
+	mov	rdi, 128
 	call	exit
 
 ; vim: filetype=nasm

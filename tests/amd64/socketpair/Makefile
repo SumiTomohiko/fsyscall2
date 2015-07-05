@@ -1,4 +1,4 @@
 
-PROG=	sigaction
+PROG=	socketpair
 
 .include "../Makefile.cprog"
