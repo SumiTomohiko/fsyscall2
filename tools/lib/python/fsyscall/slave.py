@@ -74,6 +74,7 @@ def make_fslave_payload_size_expr(syscall):
 def print_fslave_call(p, print_newline, syscall):
     local_vars = []
     for datatype, name in (
+            ("sigset_t", "oset"),
             ("payload_size_t", "payload_size"),
             ("payload_size_t", "actual_payload_size"),
             ("int", "rfd")):
@@ -194,8 +195,10 @@ def print_fslave_call(p, print_newline, syscall):
         ast = (1 if data.out and data.is_array else 0) * "*"
         args.append("{ast}{name}".format(ast=ast, name=a.name))
     p("""\
+\tsuspend_signal(slave, &oset);
 \t*retval = {name}({args});
 \t*errnum = errno;
+\tresume_signal(slave, &oset);
 """.format(name=drop_prefix(syscall.name), args=", ".join(args)))
 
     for a in syscall.args:

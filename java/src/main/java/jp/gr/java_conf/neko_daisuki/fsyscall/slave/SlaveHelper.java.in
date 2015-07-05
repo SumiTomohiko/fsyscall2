@@ -22,7 +22,6 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFds;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
-import jp.gr.java_conf.neko_daisuki.fsyscall.Sigaction;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SocketAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SocketOption;
@@ -220,24 +219,6 @@ class SlaveHelper {
                 result = new SyscallResult.Generic32(e.getErrno());
             }
             writeResult(Command.SIGPROCMASK_RETURN, result);
-        }
-    }
-
-    private class SigactionProc extends CommandDispatcher.Proc {
-
-        public void call(Command command) throws IOException {
-            PayloadSize payloadSize = mIn.readPayloadSize();
-            int sig = mIn.readInteger();
-            SyscallResult.Generic32 result;
-             try {
-                Sigaction act = mIn.readSigaction();
-                result = mSlave.doSigaction(sig, act);
-             }
-             catch (UnixException e) {
-                mLogger.err("Invalid signal requested", e);
-                result = new SyscallResult.Generic32(e.getErrno());
-             }
-            writeResult(Command.SIGACTION_RETURN, result);
         }
     }
 
@@ -611,7 +592,6 @@ class SlaveHelper {
         dispatcher.addEntry(Command.BIND_CALL, new BindProc());
         dispatcher.addEntry(Command.POLL_CALL, new PollProc());
         dispatcher.addEntry(Command.FORK_CALL, new ForkProc());
-        dispatcher.addEntry(Command.SIGACTION_CALL, new SigactionProc());
         dispatcher.addEntry(Command.ACCEPT_CALL, new AcceptProc());
         dispatcher.addEntry(Command.GETSOCKNAME_CALL, new GetsocknameProc());
         dispatcher.addEntry(Command.GETPEERNAME_CALL, new GetpeernameProc());

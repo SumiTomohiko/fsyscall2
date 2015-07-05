@@ -1464,7 +1464,6 @@ public class Slave implements Runnable {
     private String mCurrentDirectory;
     private UnixFile[] mFiles;
     private SignalSet mPendingSignals = new SignalSet();
-    private SignalSet mActiveSignals;
     private Integer mExitStatus;
 
     // helpers
@@ -1485,7 +1484,7 @@ public class Slave implements Runnable {
         files[2] = new UnixOutputStream(stderr);
 
         initialize(application, pid, hubIn, hubOut, currentDirectory, files,
-                   permissions, links, listener, new SignalSet());
+                   permissions, links, listener);
 
         writeOpenedFileDescriptors();
         mLogger.verbose("file descripters were transfered from the slave.");
@@ -1496,21 +1495,15 @@ public class Slave implements Runnable {
      */
     public Slave(Application application, Pid pid, InputStream hubIn,
                  OutputStream hubOut, String currentDirectory, UnixFile[] files,
-                 Permissions permissions, Links links, Listener listener,
-                 SignalSet activeSignals) {
+                 Permissions permissions, Links links, Listener listener) {
         initialize(application, pid, hubIn, hubOut, currentDirectory, files,
-                   permissions, links, listener, activeSignals.clone());
+                   permissions, links, listener);
     }
 
     public void kill(Signal sig) throws UnixException {
         if (sig == null) {
             throw new UnixException(Errno.EINVAL);
         }
-        /*
-        if (!mActiveSignals.contains(sig)) {
-            return;
-        }
-        */
         mPendingSignals.add(sig);
     }
 
@@ -1590,30 +1583,6 @@ public class Slave implements Runnable {
         mLogger.info(String.format(fmt, how, howString, set));
 
         return new SyscallResult.Generic32();
-    }
-
-    public SyscallResult.Generic32 doSigaction(int sig, Sigaction act) throws IOException {
-        String fmt = "sigaction(sig=%d (%s), act=%s)";
-        mLogger.info(String.format(fmt, sig, Signal.toString(sig), act));
-
-        SyscallResult.Generic32 result = new SyscallResult.Generic32();
-
-        Signal signal;
-        try {
-            signal = Signal.valueOf(sig);
-        }
-        catch (UnixException e) {
-            result.setError(e.getErrno());
-            return result;
-        }
-        if (act.sa_handler == Sigaction.Handler.ACTIVE) {
-            mActiveSignals.add(signal);
-        }
-        else {
-            mActiveSignals.remove(signal);
-        }
-
-        return result;
     }
 
     public SyscallResult.Generic32 doKill(int pid, int signum) throws IOException {
@@ -2417,8 +2386,7 @@ public class Slave implements Runnable {
             files[i] = mFiles[i];
         }
         Slave slave = mApplication.newSlave(pairId, mCurrentDirectory, files,
-                                            mPermissions, mLinks, mListener,
-                                            mActiveSignals);
+                                            mPermissions, mLinks, mListener);
         new Thread(slave).start();
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
@@ -2970,8 +2938,7 @@ public class Slave implements Runnable {
     private void initialize(Application application, Pid pid, InputStream hubIn,
                             OutputStream hubOut, String currentDirectory,
                             UnixFile[] files, Permissions permissions,
-                            Links links, Listener listener,
-                            SignalSet activeSignals) {
+                            Links links, Listener listener) {
         mApplication = application;
         mPid = pid;
         mIn = new SyscallInputStream(hubIn);
@@ -2981,7 +2948,6 @@ public class Slave implements Runnable {
         setListener(listener);
         mCurrentDirectory = currentDirectory;
         mFiles = files;
-        mActiveSignals = activeSignals;
 
         mHelper = new SlaveHelper(this, mIn, mOut);
         mFcntlProcs = new FcntlProcs();

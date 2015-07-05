@@ -378,8 +378,8 @@
 #define	SETLOGINCLASS_CALL		416
 #define	SETLOGINCLASS_RETURN		417
 #define	SIGNALED			418
-#define	SIGACTION_CALL			420
-#define	SIGACTION_RETURN		421
+/*#define	SIGACTION_CALL		420*/
+/*#define	SIGACTION_RETURN	421*/
 #define	KQUEUE_CALL			422
 #define	KQUEUE_RETURN			423
 #define	KEVENT_CALL			424
@@ -391,10 +391,6 @@
 #define	SIGPROCMASK_RETURN		431
 
 /* end command (do not remove this comment) */
-
-#define	SIGNAL_DEFAULT		0
-#define	SIGNAL_IGNORE		1
-#define	SIGNAL_ACTIVE		2
 
 #define	KEVENT_CHANGELIST_NULL		0
 #define	KEVENT_CHANGELIST_NOT_NULL	1

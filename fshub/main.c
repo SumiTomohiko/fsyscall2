@@ -296,7 +296,6 @@ process_mhub(struct shub *shub)
 	case BIND_CALL:
 	case GETPEERNAME_CALL:
 	case GETSOCKNAME_CALL:
-	case SIGACTION_CALL:
 	case ACCEPT_CALL:
 	case GETSOCKOPT_CALL:
 	case SETSOCKOPT_CALL:
@@ -379,7 +378,6 @@ process_slave(struct shub *shub, struct slave *slave)
 	case BIND_RETURN:
 	case GETPEERNAME_RETURN:
 	case GETSOCKNAME_RETURN:
-	case SIGACTION_RETURN:
 	case ACCEPT_RETURN:
 	case GETSOCKOPT_RETURN:
 	case SETSOCKOPT_RETURN:

@@ -326,6 +326,7 @@ def datasize_of_datatype(datatype):
     if t == "enum":
         return 32
     DATASIZE_OF_DATATYPE = {
+            "sigset_t": 32 * 4,
             "caddr_t": 64,
             "u_int": 32,
             "__dev_t": 32,

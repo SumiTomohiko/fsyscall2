@@ -13,7 +13,7 @@ SUBDIR=	${LIBDIR} accept access bind chdir chdir_access chdir_error \
 	open poll_in poll_master poll_master_slave_blocking \
 	poll_master_slave_blocking2 poll_master_slave_nonblocking poll_out \
 	poll_timeout pread read readlink rmdir select select2 setsockopt \
-	sigaction sigprocmask socket socketpair stat unlink wait4_rusage \
-	wait4_status wait4_successful write writev
+	sigprocmask socket socketpair stat unlink wait4_rusage wait4_status \
+	wait4_successful write writev
 
 .include <bsd.subdir.mk>

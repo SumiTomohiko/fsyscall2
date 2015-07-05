@@ -35,7 +35,65 @@
 #include <fsyscall/private/read_sockaddr.h>
 #include <fsyscall/private/select.h>
 
+static int sigs[] = { SIGHUP, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT,
+		      SIGFPE, SIGBUS, /*SIGSEGV,*/ SIGSYS, SIGPIPE, SIGALRM,
+		      SIGTERM, SIGURG, SIGTSTP, SIGCONT, SIGCHLD, SIGTTIN,
+		      SIGTTOU, SIGIO, SIGXCPU, SIGXFSZ, SIGVTALRM, SIGPROF,
+		      SIGWINCH, SIGINFO, SIGUSR1, SIGUSR2, SIGTHR };
+static int nsigs = array_sizeof(sigs);
+
 static int sigw;
+
+static void
+process_signal(struct slave *slave)
+{
+	int n, wfd;
+	char sig;
+
+	read_or_die(slave->sigr, &sig, sizeof(sig));
+	n = (int)sig;
+	syslog(LOG_DEBUG, "signaled: %d (SIG%s)", n, sys_signame[n]);
+
+	wfd = slave->wfd;
+	write_command(wfd, SIGNALED);
+	write_or_die(wfd, &sig, sizeof(sig));
+}
+
+void
+suspend_signal(struct slave *slave, sigset_t *oset)
+{
+
+	if (sigprocmask(SIG_SETMASK, &slave->mask, oset) == -1)
+		die(1, "failed sigprocmask(2) to suspend signal");
+}
+
+void
+resume_signal(struct slave *slave, sigset_t *set)
+{
+	fd_set fds, *pfds;
+	struct timeval timeout;
+	int n, sigr;
+
+	if (sigprocmask(SIG_SETMASK, set, NULL) == -1)
+		die(1, "failed sigprocmask(2) to resume signal");
+
+	pfds = &fds;
+	sigr = slave->sigr;
+	timeout.tv_sec = timeout.tv_usec = 0;
+	for (;;) {
+		FD_ZERO(pfds);
+		FD_SET(sigr, pfds);
+		n = select(sigr + 1, pfds, NULL, NULL, &timeout);
+		if (n == -1) {
+			if (errno != EINTR)
+				die(1, "failed select(2)");
+			continue;
+		}
+		if (n == 0)
+			return;
+		process_signal(slave);
+	}
+}
 
 static void
 usage()
@@ -366,15 +424,19 @@ process_accept_protocol(struct slave *slave, command_t call_command,
 {
 	struct sockaddr_storage addr;
 	struct sockaddr *paddr;
+	sigset_t oset;
 	socklen_t namelen;
-	int retval, s;
+	int e, retval, s;
 
 	read_accept_protocol_request(slave, &s);
 	paddr = (struct sockaddr *)&addr;
 	namelen = sizeof(addr);
+	suspend_signal(slave, &oset);
 	retval = syscall(s, paddr, &namelen);
+	e = errno;
+	resume_signal(slave, &oset);
 	if (retval == -1) {
-		return_int(slave, return_command, retval, errno);
+		return_int(slave, return_command, retval, e);
 		return;
 	}
 	write_accept_protocol_response(slave, return_command, retval, paddr,
@@ -462,9 +524,10 @@ process_connect_protocol(struct slave *slave, command_t call_command,
 			 command_t return_command, connect_syscall syscall)
 {
 	struct sockaddr *name;
+	sigset_t oset;
 	payload_size_t actual_payload_size, payload_size;
 	socklen_t namelen;
-	int namelen_len, retval, rfd, s, s_len, sockaddr_len;
+	int e, namelen_len, retval, rfd, s, s_len, sockaddr_len;
 
 	rfd = slave->rfd;
 	actual_payload_size = 0;
@@ -482,8 +545,12 @@ process_connect_protocol(struct slave *slave, command_t call_command,
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
 
+	suspend_signal(slave, &oset);
 	retval = syscall(s, name, namelen);
-	return_int(slave, return_command, retval, errno);
+	e = errno;
+	resume_signal(slave, &oset);
+
+	return_int(slave, return_command, retval, e);
 }
 
 struct poll_args {
@@ -561,16 +628,20 @@ process_poll(struct slave *slave)
 {
 	struct poll_args args;
 	struct pollfd *fds;
+	sigset_t oset;
 	nfds_t nfds;
-	int retval;
+	int e, retval;
 
 	read_poll_args(slave, &args, 0);
 
 	fds = args.fds;
 	nfds = args.nfds;
+	suspend_signal(slave, &oset);
 	retval = poll(fds, nfds, args.timeout);
+	e = errno;
+	resume_signal(slave, &oset);
 
-	write_poll_result(slave, POLL_RETURN, retval, errno, fds, nfds);
+	write_poll_result(slave, POLL_RETURN, retval, e, fds, nfds);
 
 	free(fds);
 }
@@ -580,9 +651,10 @@ process_poll_start(struct slave *slave)
 {
 	struct poll_args args;
 	struct pollfd *fds, *shubfd;
+	sigset_t oset;
 	nfds_t nfds;
 	command_t cmd;
-	int n, retval;
+	int e, n, retval;
 
 	read_poll_args(slave, &args, 1);
 
@@ -593,10 +665,13 @@ process_poll_start(struct slave *slave)
 	shubfd->events = POLLIN;
 	shubfd->revents = 0;
 
+	suspend_signal(slave, &oset);
 	retval = poll(fds, nfds, INFTIM);
+	e = errno;
+	resume_signal(slave, &oset);
 
 	n = (retval != -1) && ((shubfd->revents & POLLIN) != 0) ? 1 : 0;
-	write_poll_result(slave, POLL_ENDED, retval - n, errno, fds, nfds);
+	write_poll_result(slave, POLL_ENDED, retval - n, e, fds, nfds);
 
 	free(fds);
 
@@ -606,25 +681,61 @@ process_poll_start(struct slave *slave)
 }
 
 static void
+merge_sigset(struct slave *slave, sigset_t *set, int (*f)(sigset_t *, int),
+	     int *retval, int *errnum)
+{
+	int i, sig;
+
+	for (i = 0; i < nsigs; i++) {
+		sig = sigs[i];
+		if (sigismember(set, sig))
+			if (f(&slave->mask, sig) == -1) {
+				*retval = -1;
+				*errnum = errno;
+				return;
+			}
+	}
+
+	*retval = 0;
+}
+
+static void
 process_sigprocmask(struct slave *slave)
 {
-	sigset_t set;
+	sigset_t *pset, set;
 	payload_size_t actual_payload_size, payload_size;
-	int how, how_len, retval, rfd, set_len;
+	int errnum, how, how_len, retval, rfd, set_len;
+
+	pset = &set;
 
 	rfd = slave->rfd;
 	payload_size = read_payload_size(rfd);
 
 	how = read_int(rfd, &how_len);
 	actual_payload_size = how_len;
-	read_sigset(rfd, &set, &set_len);
+	read_sigset(rfd, pset, &set_len);
 	actual_payload_size += set_len;
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
 
-	retval = sigprocmask(how, &set, NULL);
+	switch (how) {
+	case SIG_BLOCK:
+		merge_sigset(slave, pset, sigaddset, &retval, &errnum);
+		break;
+	case SIG_UNBLOCK:
+		merge_sigset(slave, pset, sigdelset, &retval, &errnum);
+		break;
+	case SIG_SETMASK:
+		memcpy(&slave->mask, pset, sizeof(slave->mask));
+		retval = errnum = 0;
+		break;
+	default:
+		retval = -1;
+		errnum = EINVAL;
+		break;
+	}
 
-	return_int(slave, SIGPROCMASK_RETURN, retval, errno);
+	return_int(slave, SIGPROCMASK_RETURN, retval, errnum);
 }
 
 static void
@@ -723,10 +834,11 @@ process_kevent(struct slave *slave)
 	struct kevent *changelist, *eventlist, *kev;
 	struct payload *payload;
 	struct timespec timeout, *ptimeout;
+	sigset_t oset;
 	payload_size_t actual_payload_size, payload_size;
 	size_t size;
 	command_t return_command;
-	int changelist_code, i, kq, len, nchanges, nevents, retval, rfd;
+	int changelist_code, e, i, kq, len, nchanges, nevents, retval, rfd;
 	int timeout_code, udata_code;
 	const char *fmt = "Invalid kevent(2) changelist code: %d";
 	const char *fmt2 = "Invalid kevent(2) timeout code: %d";
@@ -805,11 +917,14 @@ process_kevent(struct slave *slave)
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
 
+	suspend_signal(slave, &oset);
 	retval = kevent(kq, changelist, nchanges, eventlist, nevents, ptimeout);
+	e = errno;
+	resume_signal(slave, &oset);
 	syslog(LOG_DEBUG, "kevent: kq=%d, nchanges=%d, nevents=%d, retval=%d", kq, nchanges, nevents, retval);
 	return_command = KEVENT_RETURN;
 	if (retval == -1) {
-		return_int(slave, return_command, retval, errno);
+		return_int(slave, return_command, retval, e);
 		return;
 	}
 
@@ -824,10 +939,11 @@ process_kevent(struct slave *slave)
 static void
 process_setsockopt(struct slave *slave)
 {
+	sigset_t oset;
 	payload_size_t actual_payload_size, payload_size;
 	socklen_t optlen;
-	int level, level_len, n, optname, optname_len, optlen_len, optval_len;
-	int retval, rfd, s, s_len;
+	int e, level, level_len, n, optname, optname_len, optlen_len;
+	int optval_len, retval, rfd, s, s_len;
 	void *optval;
 
 	rfd = slave->rfd;
@@ -858,19 +974,23 @@ process_setsockopt(struct slave *slave)
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
 
+	suspend_signal(slave, &oset);
 	retval = setsockopt(s, level, optname, optval, optlen);
+	e = errno;
+	resume_signal(slave, &oset);
 
-	return_int(slave, SETSOCKOPT_RETURN, retval, errno);
+	return_int(slave, SETSOCKOPT_RETURN, retval, e);
 }
 
 static void
 process_getsockopt(struct slave *slave)
 {
 	struct payload *payload;
+	sigset_t oset;
 	payload_size_t actual_payload_size, payload_size;
 	socklen_t optlen;
-	int level, level_len, optname, optname_len, optlen_len, retval, rfd, s;
-	int s_len;
+	int e, level, level_len, optname, optname_len, optlen_len, retval, rfd;
+	int s, s_len;
 	void *optval;
 
 	rfd = slave->rfd;
@@ -891,10 +1011,13 @@ process_getsockopt(struct slave *slave)
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
 
 	optval = alloca(optlen);
+	suspend_signal(slave, &oset);
 	retval = getsockopt(s, level, optname, optval, &optlen);
+	e = errno;
+	resume_signal(slave, &oset);
 
 	if (retval == -1) {
-		return_int(slave, GETSOCKOPT_RETURN, retval, errno);
+		return_int(slave, GETSOCKOPT_RETURN, retval, e);
 		return;
 	}
 
@@ -918,67 +1041,26 @@ exit:
 }
 
 static void
-process_sigaction(struct slave *slave)
-{
-	struct sigaction act;
-	payload_size_t actual_payload_size, payload_size;
-	int actcode, actcode_len, bits_len, flags, flags_len, i, retval, rfd;
-	int sig, sig_len;
-
-	rfd = slave->rfd;
-	payload_size = read_payload_size(rfd);
-
-	sig = read_int32(rfd, &sig_len);
-	actual_payload_size = sig_len;
-
-	actcode = read_uint8(rfd, &actcode_len);
-	actual_payload_size += actcode_len;
-
-	flags = read_int32(rfd, &flags_len);
-	actual_payload_size += flags_len;
-
-	switch (actcode) {
-	case SIGNAL_DEFAULT:
-	case SIGNAL_IGNORE:
-		flags |= SA_RESTART;
-		break;
-	case SIGNAL_ACTIVE:
-		break;
-	default:
-		die(1, "invalid sigaction code (%d)", actcode);
-	}
-	act.sa_handler = signal_handler;
-	act.sa_flags = flags & ~SA_SIGINFO;
-
-	for (i = 0; i < _SIG_WORDS; i++) {
-		act.sa_mask.__bits[i] = read_uint32(rfd, &bits_len);
-		actual_payload_size += bits_len;
-	}
-
-	die_if_payload_size_mismatched(payload_size, actual_payload_size);
-
-	retval = sigaction(sig, &act, NULL);
-
-	return_int(slave, SIGACTION_RETURN, retval, errno);
-}
-
-static void
 process_select(struct slave *slave)
 {
+	sigset_t oset;
 	struct timeval *ptimeout, timeout;
 	fd_set exceptfds, readfds, writefds;
-	int nfds, retval;
+	int e, nfds, retval;
 
 	FD_ZERO(&exceptfds);
 	FD_ZERO(&readfds);
 	FD_ZERO(&writefds);
 	read_select_parameters(slave, &nfds, &readfds, &writefds, &exceptfds, &timeout, &ptimeout);
 
+	suspend_signal(slave, &oset);
 	retval = select(nfds, &readfds, &writefds, &exceptfds, ptimeout);
+	e = errno;
+	resume_signal(slave, &oset);
 
 	switch (retval) {
 	case -1:
-		return_int(slave, SELECT_RETURN, retval, errno);
+		return_int(slave, SELECT_RETURN, retval, e);
 		break;
 	case 0:
 		write_select_timeout(slave);
@@ -999,21 +1081,6 @@ process_exit(struct slave *slave)
 	syslog(LOG_DEBUG, "EXIT_CALL: status=%d", status);
 
 	return (status);
-}
-
-static void
-process_signal(struct slave *slave)
-{
-	int n, wfd;
-	char sig;
-
-	read_or_die(slave->sigr, &sig, sizeof(sig));
-	n = (int)sig;
-	syslog(LOG_DEBUG, "signaled: %d (SIG%s)", n, sys_signame[n]);
-
-	wfd = slave->wfd;
-	write_command(wfd, SIGNALED);
-	write_or_die(wfd, &sig, sizeof(sig));
 }
 
 static int
@@ -1074,9 +1141,6 @@ mainloop(struct slave *slave)
 				process_accept_protocol(slave, ACCEPT_CALL,
 							ACCEPT_RETURN, accept);
 				break;
-			case SIGACTION_CALL:
-				process_sigaction(slave);
-				break;
 			case POLL_CALL:
 				process_poll(slave);
 				break;
@@ -1121,12 +1185,7 @@ static int
 initialize_sigaction()
 {
 	struct sigaction act;
-	int i, nsigs, sig;
-	int sigs[] = { SIGHUP, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
-		       SIGEMT, SIGFPE, SIGBUS, /*SIGSEGV,*/ SIGSYS, SIGPIPE,
-		       SIGALRM, SIGTERM, SIGURG, SIGTSTP, SIGCONT, SIGCHLD,
-		       SIGTTIN, SIGTTOU, SIGIO, SIGXCPU, SIGXFSZ, SIGVTALRM,
-		       SIGPROF, SIGWINCH, SIGINFO, SIGUSR1, SIGUSR2, SIGTHR };
+	int i, sig;
 	const char *fmt = "cannot sigaction(2) for %d (SIG%s)";
 
 	act.sa_handler = signal_handler;
@@ -1134,7 +1193,6 @@ initialize_sigaction()
 	if (sigfillset(&act.sa_mask) == -1)
 		die(1, "cannot sigemptyset(3)");
 
-	nsigs = array_sizeof(sigs);
 	for (i = 0; i < nsigs; i++) {
 		sig = sigs[i];
 		if (sigaction(sig, &act, NULL) == -1)
@@ -1184,6 +1242,8 @@ main(int argc, char* argv[])
 	if (initialize_sigaction() != 0)
 		return (4);
 	slave.fork_sock = args[2];
+	if (sigprocmask(SIG_BLOCK, NULL, &slave.mask) == -1)
+		return (5);
 
 	status = slave_main(&slave);
 	log_graceful_exit(status);
