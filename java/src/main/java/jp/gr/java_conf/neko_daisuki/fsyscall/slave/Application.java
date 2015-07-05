@@ -65,7 +65,7 @@ public class Application {
         }
 
         public synchronized Collection<Pid> pids() {
-            return mSlaves.keySet();
+            return new HashSet<Pid>(mSlaves.keySet());
         }
 
         @Override
