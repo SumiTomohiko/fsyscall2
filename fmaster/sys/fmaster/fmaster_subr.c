@@ -66,11 +66,15 @@ fmaster_log_syscall_end(struct thread *td, const char *name,
 {
 	struct timeval t2;
 	long delta;
-	const char *fmt = "fmaster[%d]: %s: ended: error=%d: %ld[usec]\n";
+	int retval;
+	const char *fmt;
+
+	fmt = "fmaster[%d]: %s: ended: retval=%d, error=%d: %ld[usec]\n";
 
 	microtime(&t2);
 	delta = fmaster_subtract_timeval(t1, &t2);
-	log(LOG_DEBUG, fmt, td->td_proc->p_pid, name, error, delta);
+	retval = td->td_retval[0];
+	log(LOG_DEBUG, fmt, td->td_proc->p_pid, name, retval, error, delta);
 }
 
 int
