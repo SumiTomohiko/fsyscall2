@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -525,6 +526,24 @@ public class Slave implements Runnable {
     private interface FileRegisteringCallback {
 
         public UnixFile call() throws UnixException;
+    }
+
+    private class OpenResourceCallback implements FileRegisteringCallback {
+
+        private URL mUrl;
+
+        public OpenResourceCallback(URL url) {
+            mUrl = url;
+        }
+
+        public UnixFile call() throws UnixException {
+            try {
+                return new UnixInputStream(mUrl.openStream());
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+        }
     }
 
     private class KQueueCallback implements FileRegisteringCallback {
@@ -1650,12 +1669,7 @@ public class Slave implements Runnable {
         mLogger.info("kqueue()");
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        try {
-            result.retval = registerFile(KQUEUE_CALLBACK);
-        }
-        catch (UnixException e) {
-            result.setError(e.getErrno());
-        }
+        registerFile(KQUEUE_CALLBACK, result);
 
         return result;
     }
@@ -2071,16 +2085,7 @@ public class Slave implements Runnable {
 
         FileRegisteringCallback callback = new SocketCallback(domain, type,
                                                               protocol);
-        int fd;
-        try {
-            fd = registerFile(callback);
-        }
-        catch (UnixException e) {
-            result.setError(e.getErrno());
-            return result;
-        }
-
-        result.retval = fd;
+        registerFile(callback, result);
 
         return result;
     }
@@ -2244,22 +2249,12 @@ public class Slave implements Runnable {
             return result;
         }
 
-        int newfd;
         try {
-            FileRegisteringCallback callback = new DupCallback(file);
-            try {
-                newfd = registerFile(callback);
-            }
-            catch (UnixException e) {
-                result.setError(e.getErrno());
-                return result;
-            }
+            registerFile(new DupCallback(file), result);
         }
         finally {
             file.unlock();
         }
-
-        result.retval = newfd;
 
         return result;
     }
@@ -2662,10 +2657,35 @@ public class Slave implements Runnable {
         return fd;
     }
 
+    private void registerFile(FileRegisteringCallback callback,
+                              SyscallResult.Generic32 result) {
+        int fd;
+        try {
+            fd = registerFile(callback);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return;
+        }
+
+        result.retval = fd;
+    }
+
     private SyscallResult.Generic32 openActualFile(String absPath, int flags, int mode) throws IOException {
         String fmt = "open actual file: %s";
         mLogger.info(String.format(fmt, absPath, flags, mode));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        if ("/etc/pwd.db".equals(absPath)) {
+            // This file is special.
+            URL url = getClass().getResource("pwd.db");
+            if (url == null) {
+                result.setError(Errno.ENOENT);
+                return result;
+            }
+            registerFile(new OpenResourceCallback(url), result);
+            return result;
+        }
 
         if (!mPermissions.isAllowed(absPath)) {
             result.retval = -1;
@@ -2673,18 +2693,7 @@ public class Slave implements Runnable {
             return result;
         }
 
-        FileRegisteringCallback callback = new OpenCallback(absPath, flags);
-        int fd;
-        try {
-            fd = registerFile(callback);
-        }
-        catch (UnixException e) {
-            result.setError(e.getErrno());
-            return result;
-        }
-
-        result.retval = fd;
-
+        registerFile(new OpenCallback(absPath, flags), result);
         return result;
     }
 

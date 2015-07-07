@@ -74,10 +74,13 @@ tester="${tests_dir}/tester/tester"
 tmp_dir="${dir}/tmp.tests"
 arch=$(uname -p)
 
+YES="yes"
+NO="no"
+
 filter="/usr/bin/true"
 repeat="1"
-tester_opts=""
-stop_on_ng="no"
+java="${NO}"
+stop_on_ng="${NO}"
 syslog=""
 while [ 0 -lt $# ]
 do
@@ -87,7 +90,7 @@ do
 		shift 2
 		;;
 	"--java")
-		tester_opts="--java"
+		java="${YES}"
 		shift
 		;;
 	"--repeat")
@@ -95,7 +98,7 @@ do
 		shift 2
 		;;
 	"--stop-on-ng")
-		stop_on_ng="yes"
+		stop_on_ng="${YES}"
 		shift
 		;;
 	"--syslog")
@@ -109,9 +112,18 @@ do
 done
 
 if [ $# -eq 0 ]; then
-	tests=$(find "${tests_dir}" -name "test_*" | sort)
+	if [ "${java}" = "${YES}" ]; then
+		tests=$(find "${tests_dir}" -name "test_*" | sort)
+	else
+		tests=$(find "${tests_dir}" -name "test_*" | grep -wv java | sort)
+	fi
 else
 	tests="${@}"
+fi
+if [ "${java}" = "${YES}" ]; then
+	tester_opts="--java"
+else
+	tester_opts=""
 fi
 
 show_title "*" "Running Tests"
@@ -199,7 +211,8 @@ ${summary}"
 			postcmd
 		fi
 
-		if [ "${result}" != "OK" ] && [ "${stop_on_ng}" = "yes" ]; then
+		if [ "${result}" != "OK" ] && [ "${stop_on_ng}" = "${YES}" ]
+		then
 			break 2
 		fi
 	done
