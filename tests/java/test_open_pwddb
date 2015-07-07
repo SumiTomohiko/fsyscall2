@@ -1,0 +1,5 @@
+
+cmd="open_pwddb/open_pwddb"
+expected_status="0"
+
+# vim: filetype=sh

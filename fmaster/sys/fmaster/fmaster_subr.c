@@ -96,7 +96,6 @@ fmaster_is_master_file(struct thread *td, const char *path)
 		"/dev/null",
 		"/dev/urandom",
 		"/etc/nsswitch.conf",
-		"/etc/pwd.db",
 		"/usr/local/etc/fonts/fonts.conf",
 		"/usr/local/share/applications/gedit.desktop",
 		"/var/db/dbus/machine-id",

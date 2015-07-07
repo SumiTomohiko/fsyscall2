@@ -45,6 +45,9 @@ java:
 java-clean:
 	@cd $(JAVADIR) && $(JAVABUILDER) clean
 
+__java-resources__:
+	@cd $(JAVADIR) && $(MAKE) resources
+
 tests-clean:
 	@cd tests && make clean
 

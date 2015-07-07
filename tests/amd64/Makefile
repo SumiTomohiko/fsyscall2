@@ -10,7 +10,7 @@ SUBDIR=	${LIBDIR} accept access bind chdir chdir_access chdir_error \
 	getresuid_suid getsockname_family getsockname_server getsockopt \
 	gettimeofday_dsttime gettimeofday_minuteswest gettimeofday_sec \
 	gettimeofday_usec getuid ioctl issetugid kill listen lseek lstat mkdir \
-	open poll_in poll_master poll_master_slave_blocking \
+	open open_pwddb poll_in poll_master poll_master_slave_blocking \
 	poll_master_slave_blocking2 poll_master_slave_nonblocking poll_out \
 	poll_timeout pread read readlink rmdir select select2 setsockopt \
 	sigprocmask socket socketpair stat unlink wait4_rusage wait4_status \
