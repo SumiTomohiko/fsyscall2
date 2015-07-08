@@ -2814,7 +2814,7 @@ public class Slave implements Runnable {
     }
 
     private String getPathUnderCurrentDirectory(String path) throws IOException {
-        return getFileUnderCurrentDirectory(path).getCanonicalPath();
+        return getFileUnderCurrentDirectory(path).getPath();
     }
 
     private SyscallResult.Generic32 runSetsockopt(int s, SocketLevel level,
