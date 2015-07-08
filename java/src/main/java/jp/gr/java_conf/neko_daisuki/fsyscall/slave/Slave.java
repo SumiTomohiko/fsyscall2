@@ -1534,8 +1534,7 @@ public class Slave implements Runnable {
 
     @Override
     public void run() {
-        String name = Thread.currentThread().getName();
-        mLogger.info(String.format("a slave started: %s", name));
+        mLogger.info(String.format("a slave started: pid=%s", mPid));
 
         try {
             try {
@@ -2817,7 +2816,7 @@ public class Slave implements Runnable {
     }
 
     private String getPathUnderCurrentDirectory(String path) throws IOException {
-        return getFileUnderCurrentDirectory(path).getCanonicalPath();
+        return getFileUnderCurrentDirectory(path).getPath();
     }
 
     private SyscallResult.Generic32 runSetsockopt(int s, SocketLevel level,
