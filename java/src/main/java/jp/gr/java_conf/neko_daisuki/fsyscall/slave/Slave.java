@@ -537,12 +537,14 @@ public class Slave implements Runnable {
         }
 
         public UnixFile call() throws UnixException {
+            String path;
             try {
-                return new UnixInputStream(mUrl.openStream());
+                path = mApplication.getResourcePath(mUrl);
             }
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
             }
+            return new UnixInputFile(path, false);
         }
     }
 

@@ -1,11 +1,15 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
+import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.net.URL;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -135,6 +139,43 @@ public class Application {
         }
     }
 
+    private class ResourceFiles {
+
+        private void copy(File file, URL url) throws IOException {
+            InputStream in = url.openStream();
+            try {
+                BufferedInputStream bin = new BufferedInputStream(in);
+                try {
+                    OutputStream out = new FileOutputStream(file);
+                    try {
+                        byte buf[] = new byte[4096];
+                        while (bin.read(buf) != -1) {
+                            out.write(buf);
+                        }
+                    }
+                    finally {
+                        out.close();
+                    }
+                }
+                finally {
+                    bin.close();
+                }
+            }
+            finally {
+                in.close();
+            }
+        }
+
+        public synchronized String getPath(URL url) throws IOException {
+            String name = String.format("%08x", url.hashCode());
+            File file = new File(mResourceDirectory, name);
+            if (!file.exists()) {
+                copy(file, url);
+            }
+            return file.getAbsolutePath();
+        }
+    }
+
     private static Logging.Logger mLogger;
 
     private Slaves mSlaves = new Slaves();
@@ -145,6 +186,8 @@ public class Application {
     private Object mTerminatingMonitor = new Object();
     private boolean mCancelled = false;
     private LocalBoundSockets mLocalBoundSockets = new LocalBoundSockets();
+    private String mResourceDirectory;
+    private ResourceFiles mResourceFiles = new ResourceFiles();
 
     public Slave newSlave(PairId pairId, String currentDirectory,
                           UnixFile[] files, Permissions permissions,
@@ -166,8 +209,14 @@ public class Application {
         return slave;
     }
 
-    public int run(InputStream in, OutputStream out, String currentDirectory, InputStream stdin, OutputStream stdout, OutputStream stderr, Permissions permissions, Links links, Slave.Listener listener) throws IOException, InterruptedException {
+    public int run(InputStream in, OutputStream out, String currentDirectory,
+                   InputStream stdin, OutputStream stdout, OutputStream stderr,
+                   Permissions permissions, Links links,
+                   Slave.Listener listener, String resourceDirectory)
+                   throws IOException, InterruptedException {
         mLogger.info("starting a slave application");
+
+        mResourceDirectory = resourceDirectory;
 
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
@@ -244,6 +293,10 @@ public class Application {
         slave.kill(sig);
     }
 
+    public String getResourcePath(URL url) throws IOException {
+        return mResourceFiles.getPath(url);
+    }
+
     public void onSlaveTerminated(Slave slave) {
         mExitStatus = slave.getExitStatus();
         synchronized (mTerminatingMonitor) {
@@ -256,7 +309,22 @@ public class Application {
     }
 
     private static void usage(PrintStream out) {
-        out.println("usage: Main rfd wfd");
+        out.println("usage: Main rfd wfd currentDirectory resourceDirectory");
+    }
+
+    private static void deleteDirectory(String path) {
+        File file = new File(path);
+        File children[] = file.listFiles();
+        int nChildren = children.length;
+        for (int i = 0; i < nChildren; i++) {
+            File f = children[i];
+            if (f.isDirectory()) {
+                deleteDirectory(f.getPath());
+                continue;
+            }
+            f.delete();
+        }
+        file.delete();
     }
 
     /**
@@ -296,9 +364,9 @@ public class Application {
             System.exit(1);
             return;
         }
-        String fmt = "/dev/fd/%d";
-        String inPath = String.format(fmt, new Integer(rfd));
-        String outPath = String.format(fmt, new Integer(wfd));
+        String fdFormat = "/dev/fd/%d";
+        String inPath = String.format(fdFormat, new Integer(rfd));
+        String outPath = String.format(fdFormat, new Integer(wfd));
         InputStream in;
         OutputStream out;
         try {
@@ -311,20 +379,41 @@ public class Application {
             return;
         }
 
+        Calendar now = Calendar.getInstance();
+        String resourceFormat = "/tmp/slave.resource.%04d%02d%02d%02d%02d%02d";
+        String resourceDir = String.format(resourceFormat,
+                                           now.get(Calendar.YEAR),
+                                           now.get(Calendar.MONTH) + 1,
+                                           now.get(Calendar.DAY_OF_MONTH),
+                                           now.get(Calendar.HOUR_OF_DAY),
+                                           now.get(Calendar.MINUTE),
+                                           now.get(Calendar.SECOND));
+        if (!new File(resourceDir).mkdir()) {
+            String messageFormat = "cannot make the resource directory: %s\n";
+            System.err.format(messageFormat, resourceDir);
+            System.exit(32);
+        }
         int exitStatus;
-        Application app = new Application();
-        InputStream stdin = System.in;
-        OutputStream stdout = System.out;
-        OutputStream stderr = System.err;
-        Permissions perm = new Permissions(true);
-        Links links = new Links();
         try {
-            exitStatus = app.run(in, out, args[2], stdin, stdout, stderr, perm, links, null);
+            Application app = new Application();
+            InputStream stdin = System.in;
+            OutputStream stdout = System.out;
+            OutputStream stderr = System.err;
+            Permissions perm = new Permissions(true);
+            Links links = new Links();
+            try {
+                exitStatus = app.run(in, out, args[2], stdin, stdout, stderr,
+                                     perm, links, null, resourceDir);
+            }
+            catch (Throwable e) {
+                e.printStackTrace();
+                exitStatus = 1;
+            }
         }
-        catch (Throwable e) {
-            e.printStackTrace();
-            exitStatus = 1;
+        finally {
+            deleteDirectory(resourceDir);
         }
+
         System.exit(exitStatus);
     }
 
