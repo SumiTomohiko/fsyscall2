@@ -149,8 +149,9 @@ public class Application {
                     OutputStream out = new FileOutputStream(file);
                     try {
                         byte buf[] = new byte[4096];
-                        while (bin.read(buf) != -1) {
-                            out.write(buf);
+                        int nBytes;
+                        while ((nBytes = bin.read(buf)) != -1) {
+                            out.write(buf, 0, nBytes);
                         }
                     }
                     finally {
