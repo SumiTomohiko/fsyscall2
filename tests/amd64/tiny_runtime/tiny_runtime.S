@@ -85,6 +85,7 @@ defsyscall	kevent
 defsyscall	socketpair
 defsyscall	nanosleep
 defsyscall	pipe
+defsyscall	fstat
 
 global _start
 _start:

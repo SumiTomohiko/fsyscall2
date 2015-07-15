@@ -920,7 +920,25 @@ public class Slave implements Runnable {
         }
 
         public Unix.Stat fstat() throws UnixException {
-            throw new UnixException(Errno.ENOSYS);
+            Unix.Stat st = new Unix.Stat();
+            st.st_dev = -1;
+            st.st_mode = Unix.Constants.S_IRUSR
+                       | Unix.Constants.S_IWUSR
+                       | Unix.Constants.S_IRGRP
+                       | Unix.Constants.S_IWGRP
+                       | Unix.Constants.S_IROTH
+                       | Unix.Constants.S_IWOTH
+                       | Unix.Constants.S_IFDIR
+                       | Unix.Constants.S_IFBLK
+                       | Unix.Constants.S_IFREG
+                       | Unix.Constants.S_IFLNK
+                       | Unix.Constants.S_IFSOCK
+                       | Unix.Constants.S_IFWHT;
+            st.st_uid = UID;
+            st.st_gid = GID;
+            st.st_blksize = 8192;
+
+            return st;
         }
 
         public void connect(UnixDomainAddress addr) throws UnixException {
@@ -960,7 +978,13 @@ public class Slave implements Runnable {
                 throw new UnixException(Errno.EINVAL);
             }
             mConnectingRequests = new LinkedList<ConnectingRequest>();
-            String path = addr.getPath();
+            String path;
+            try {
+                path = getPathUnderCurrentDirectory(addr.getPath());
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
             mApplication.bindSocket(path, this);
             setCore(new LocalBoundCore(path));
             mName = addr;
@@ -2448,7 +2472,7 @@ public class Slave implements Runnable {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         File file = getFileUnderCurrentDirectory(path);
-        String absPath = file.getCanonicalPath();
+        String absPath = file.getAbsolutePath();
         try {
             mApplication.unlinkUnixDomainNode(absPath);
             return result;

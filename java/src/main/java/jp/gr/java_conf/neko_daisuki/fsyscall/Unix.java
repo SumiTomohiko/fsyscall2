@@ -212,6 +212,9 @@ public class Unix {
         public static class Mode {
 
             private static final Flag[] FLAGS = {
+                new Flag(S_ISUID, "S_ISUID"),
+                new Flag(S_ISGID, "S_ISGID"),
+                new Flag(S_ISTXT, "S_ISTXT"),
                 new Flag(S_IRUSR, "S_IRUSR"),
                 new Flag(S_IWUSR, "S_IWUSR"),
                 new Flag(S_IXUSR, "S_IXUSR"),
@@ -220,7 +223,16 @@ public class Unix {
                 new Flag(S_IXGRP, "S_IXGRP"),
                 new Flag(S_IROTH, "S_IROTH"),
                 new Flag(S_IWOTH, "S_IWOTH"),
-                new Flag(S_IXOTH, "S_IXOTH")
+                new Flag(S_IXOTH, "S_IXOTH"),
+                new Flag(S_IFIFO, "S_IFIFO"),
+                new Flag(S_IFCHR, "S_IFCHR"),
+                new Flag(S_IFDIR, "S_IFDIR"),
+                new Flag(S_IFBLK, "S_IFBLK"),
+                new Flag(S_IFREG, "S_IFREG"),
+                new Flag(S_IFLNK, "S_IFLNK"),
+                new Flag(S_IFSOCK, "S_IFSOCK"),
+                new Flag(S_ISVTX, "S_ISVTX"),
+                new Flag(S_IFWHT, "S_IFWHT")
             };
 
             public static String toString(int flags) {
@@ -293,6 +305,9 @@ public class Unix {
         public static final int POLLWRBAND = 0x0100;
         public static final int POLLINIGNEOF = 0x2000;
 
+        public static final int S_ISUID = 0004000;
+        public static final int S_ISGID = 0002000;
+        public static final int S_ISTXT = 0001000;
         public static final int S_IRWXU = 0000700;
         public static final int S_IRUSR = 0000400;
         public static final int S_IWUSR = 0000200;
@@ -306,6 +321,16 @@ public class Unix {
         public static final int S_IWOTH = 0000002;
         public static final int S_IXOTH = 0000001;
         public static final int ACCESSPERMS = S_IRWXU | S_IRWXG | S_IRWXO;
+        public static final int S_IFMT = 0170000;
+        public static final int S_IFIFO = 0010000;
+        public static final int S_IFCHR = 0020000;
+        public static final int S_IFDIR = 0040000;
+        public static final int S_IFBLK = 0060000;
+        public static final int S_IFREG = 0100000;
+        public static final int S_IFLNK = 0120000;
+        public static final int S_IFSOCK = 0140000;
+        public static final int S_ISVTX = 0001000;
+        public static final int S_IFWHT = 0160000;
 
         public static final int SIG_BLOCK = 1;
         public static final int SIG_UNBLOCK = 2;

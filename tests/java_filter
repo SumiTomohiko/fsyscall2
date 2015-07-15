@@ -26,7 +26,7 @@ class RegexpPattern(Pattern):
         return self.regexp.match(name) is not None
 
 excludes = [
-        RegexpPattern(r"\Atest_[fl]?stat_(?!size)"),
+        RegexpPattern(r"\Atest_[fl]?stat_(?!size|bind)"),
         RegexpPattern(r"\Atest_readlink\Z"),
         RegexpPattern(r"\Atest_access2\Z"),
         StrictPattern("test_uid"),
