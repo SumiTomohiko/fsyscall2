@@ -29,7 +29,7 @@ public class SyscallInputStream {
         Sigaction.Handler.ACTIVE
     };
 
-    private static Logging.Logger mLogger;
+    //private static Logging.Logger mLogger;
 
     private Status mStatus;
     private InputStream mIn;
@@ -45,11 +45,11 @@ public class SyscallInputStream {
 
     public Command readCommand() throws IOException {
         int n = readInteger();
-        String fmt = "numeric representation of the command is %d.";
-        mLogger.debug(String.format(fmt, n));
+        //String fmt = "numeric representation of the command is %d.";
+        //mLogger.debug(String.format(fmt, n));
 
-        Command command = Command.fromInteger(n);
-        mLogger.debug(String.format("command is %s.", command));
+        //Command command = Command.fromInteger(n);
+        //mLogger.debug(String.format("command is %s.", command));
 
         return Command.fromInteger(n);
     }
@@ -176,7 +176,7 @@ public class SyscallInputStream {
     }
 
     static {
-        mLogger = new Logging.Logger("SyscallInputStream");
+        //mLogger = new Logging.Logger("SyscallInputStream");
     }
 }
 
