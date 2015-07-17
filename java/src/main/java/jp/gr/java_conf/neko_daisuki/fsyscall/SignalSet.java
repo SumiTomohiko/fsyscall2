@@ -74,7 +74,7 @@ public class SignalSet implements Cloneable {
         List<Signal> l;
         synchronized (mSet) {
             if (mSet.isEmpty()) {
-                return "";
+                return "empty";
             }
             l = new ArrayList<Signal>();
             for (Signal sig: mSet) {
@@ -85,7 +85,7 @@ public class SignalSet implements Cloneable {
         StringBuilder buffer = new StringBuilder(l.get(0).getName());
         int size = l.size();
         for (int i = 1; i < size; i++) {
-            buffer.append(", ");
+            buffer.append(",");
             buffer.append(l.get(i).getName());
         }
         return buffer.toString();
