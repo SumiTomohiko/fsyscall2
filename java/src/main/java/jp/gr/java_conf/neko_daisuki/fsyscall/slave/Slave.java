@@ -45,6 +45,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
 
 /**
  * The class for fsyscall process.
@@ -1677,7 +1678,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doChdir(String path) throws IOException {
-        mLogger.info(String.format("chdir(path=%s)", path));
+        mLogger.info(String.format("chdir(path=%s)", StringUtil.quote(path)));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         File file = getFileUnderCurrentDirectory(path);
@@ -1702,7 +1703,7 @@ public class Slave implements Runnable {
 
     public SyscallResult.Generic32 doOpen(String path, int flags, int mode) throws IOException {
         String fmt = "open(path=%s, flags=0o%o (%s), mode=0o%o (%s))";
-        String msg = String.format(fmt, path, flags,
+        String msg = String.format(fmt, StringUtil.quote(path), flags,
                                    Unix.Constants.Open.toString(flags), mode,
                                    Unix.Constants.Mode.toString(mode));
         mLogger.info(msg);
@@ -1917,7 +1918,7 @@ public class Slave implements Runnable {
      * java.nio.files package).
      */
     public SyscallResult.Lstat doLstat(String path) throws IOException {
-        mLogger.info(String.format("lstat(path=%s)", path));
+        mLogger.info(String.format("lstat(path=%s)", StringUtil.quote(path)));
 
         SyscallResult.Lstat result = new SyscallResult.Lstat();
 
@@ -1956,7 +1957,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Stat doStat(String path) throws IOException {
-        mLogger.info(String.format("stat(path=%s)", path));
+        mLogger.info(String.format("stat(path=%s)", StringUtil.quote(path)));
 
         String s = getPathUnderCurrentDirectory(path);
 
@@ -2193,7 +2194,7 @@ public class Slave implements Runnable {
      */
     public SyscallResult.Readlink doReadlink(String path, long count) throws IOException {
         String fmt = "readlink(path=%s, count=%d)";
-        mLogger.info(String.format(fmt, path, count));
+        mLogger.info(String.format(fmt, StringUtil.quote(path), count));
 
         String s = getPathUnderCurrentDirectory(path);
 
@@ -2205,7 +2206,7 @@ public class Slave implements Runnable {
      */
     public SyscallResult.Generic32 doAccess(String path, int flags) throws IOException {
         String fmt = "access(path=%s, flags=0x%02x)";
-        mLogger.info(String.format(fmt, path, flags));
+        mLogger.info(String.format(fmt, StringUtil.quote(path), flags));
 
         String s = getPathUnderCurrentDirectory(path);
 
@@ -2213,7 +2214,9 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doLink(String path1, String path2) throws IOException {
-        mLogger.info(String.format("link(path1=%s, path2=%s)", path1, path2));
+        String s1 = StringUtil.quote(path1);
+        String s2 = StringUtil.quote(path2);
+        mLogger.info(String.format("link(path1=%s, path2=%s)", s1, s2));
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
         result.retval = -1;
@@ -2422,7 +2425,8 @@ public class Slave implements Runnable {
 
     public SyscallResult.Generic32 doChmod(String path,
                                            int mode) throws IOException {
-        mLogger.info(String.format("chmod(path=%s, mode=0o%o)", path, mode));
+        String fmt = "chmod(path=%s, mode=0o%o)";
+        mLogger.info(String.format(fmt, StringUtil.quote(path), mode));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         File file = getFileUnderCurrentDirectory(path);
@@ -2451,7 +2455,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doRmdir(String path) throws IOException {
-        mLogger.info(String.format("rmdir(path=%s)", path));
+        mLogger.info(String.format("rmdir(path=%s)", StringUtil.quote(path)));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         File file = getFileUnderCurrentDirectory(path);
@@ -2468,7 +2472,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doUnlink(String path) throws IOException {
-        mLogger.info(String.format("unlink(path=%s)", path));
+        mLogger.info(String.format("unlink(path=%s)", StringUtil.quote(path)));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         File file = getFileUnderCurrentDirectory(path);
@@ -2494,7 +2498,8 @@ public class Slave implements Runnable {
 
     public SyscallResult.Generic32 doMkdir(String path,
                                            int mode) throws IOException {
-        mLogger.info(String.format("mkdir(path=%s, mode=0o%o)", path, mode));
+        String fmt = "mkdir(path=%s, mode=0o%o)";
+        mLogger.info(String.format(fmt, StringUtil.quote(path), mode));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         if (!getFileUnderCurrentDirectory(path).mkdir()) {

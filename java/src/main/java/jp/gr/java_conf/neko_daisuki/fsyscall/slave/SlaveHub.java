@@ -86,7 +86,7 @@ class SlaveHub {
     }
 
     public void work() throws IOException {
-        mLogger.verbose("works of the slave hub are being processed.");
+        //mLogger.verbose("works of the slave hub are being processed.");
 
         try {
             addNewSlaves();
@@ -114,7 +114,7 @@ class SlaveHub {
             close();
         }
 
-        mLogger.verbose("works of the slave hub were finished.");
+        //mLogger.verbose("works of the slave hub were finished.");
     }
 
     public SlavePeer addSlave(InputStream in, OutputStream out, PairId pairId) {
@@ -158,7 +158,7 @@ class SlaveHub {
     }
 
     private void processSlave(SlavePeer slave) throws IOException {
-        mLogger.verbose("the work for the slave is being processed.");
+        //mLogger.verbose("the work for the slave is being processed.");
 
         SyscallInputStream in = slave.getInputStream();
         Command command = in.readCommand();
@@ -168,8 +168,8 @@ class SlaveHub {
         }
         PayloadSize payloadSize = in.readPayloadSize();
 
-        String fmt = "from the slave to the master: command=%s, payloadSize=%s";
-        mLogger.debug(String.format(fmt, command, payloadSize));
+        //String fmt = "from the slave to the master: command=%s, payloadSize=%s";
+        //mLogger.debug(String.format(fmt, command, payloadSize));
 
         SyscallOutputStream out = mMhub.getOutputStream();
         out.write(command);
@@ -177,17 +177,17 @@ class SlaveHub {
         out.write(payloadSize);
         out.copyInputStream(in, payloadSize);
 
-        mLogger.verbose("the work for the slave was finished.");
+        //mLogger.verbose("the work for the slave was finished.");
     }
 
     private void processMasterHub() throws IOException {
-        mLogger.verbose("the work for the master hub is being processed.");
+        //mLogger.verbose("the work for the master hub is being processed.");
 
         SyscallInputStream in = mMhub.getInputStream();
         Command command = in.readCommand();
         PairId pairId = in.readPairId();
-        String fmt = "command received: command=%s, pairId=%s";
-        mLogger.debug(String.format(fmt, command, pairId));
+        //String fmt = "command received: command=%s, pairId=%s";
+        //mLogger.debug(String.format(fmt, command, pairId));
 
         SyscallOutputStream out = mSlaves.get(pairId).getOutputStream();
 
@@ -212,8 +212,8 @@ class SlaveHub {
 
         PayloadSize payloadSize = in.readPayloadSize();
 
-        fmt = "from the master to the slave: command=%s, payloadSize=%s";
-        mLogger.debug(String.format(fmt, command, payloadSize));
+        //fmt = "from the master to the slave: command=%s, payloadSize=%s";
+        //mLogger.debug(String.format(fmt, command, payloadSize));
 
         out.write(command);
         out.write(payloadSize);
