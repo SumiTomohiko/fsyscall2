@@ -943,7 +943,13 @@ public class Slave implements Runnable {
         }
 
         public void connect(UnixDomainAddress addr) throws UnixException {
-            String path = addr.getPath();
+            String path;
+            try {
+                path = getPathUnderCurrentDirectory(addr.getPath());
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
             Socket peer = (Socket)mApplication.getUnixDomainSocket(path);
             mName = new UnixDomainAddress(2, addr.getFamily(), "");
             connect(peer);
