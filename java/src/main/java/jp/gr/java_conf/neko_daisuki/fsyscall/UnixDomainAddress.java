@@ -1,5 +1,7 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
+
 public class UnixDomainAddress extends SocketAddress {
 
     private String mPath;
@@ -20,7 +22,7 @@ public class UnixDomainAddress extends SocketAddress {
 
     public String toString() {
         String fmt = "UnixDomainAddress(%s, sun_path=%s)";
-        return String.format(fmt, getBaseString(), mPath);
+        return String.format(fmt, getBaseString(), StringUtil.quote(mPath));
     }
 }
 
