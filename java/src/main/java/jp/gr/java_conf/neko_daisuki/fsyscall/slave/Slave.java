@@ -1722,7 +1722,14 @@ public class Slave implements Runnable {
 
         String s = getPathUnderCurrentDirectory(path);
 
-        return openActualFile(mLinks.get((s)), flags, mode);
+        try {
+            return openActualFile(mLinks.get((s)), flags, mode);
+        }
+        catch (Links.NotAbsolutePathException unused) {
+            SyscallResult.Generic32 result = new SyscallResult.Generic32();
+            result.setError(Errno.EINVAL);
+            return result;
+        }
     }
 
     public SyscallResult.Read doRead(int fd, long nbytes) throws IOException {
@@ -1973,7 +1980,14 @@ public class Slave implements Runnable {
 
         String s = getPathUnderCurrentDirectory(path);
 
-        return statActualFile(mLinks.get(s));
+        try {
+            return statActualFile(mLinks.get(s));
+        }
+        catch (Links.NotAbsolutePathException unused) {
+            SyscallResult.Stat result = new SyscallResult.Stat();
+            result.setError(Errno.EINVAL);
+            return result;
+        }
     }
 
     public SyscallResult.Generic32 doBind(int s, UnixDomainAddress addr,
@@ -2210,7 +2224,14 @@ public class Slave implements Runnable {
 
         String s = getPathUnderCurrentDirectory(path);
 
-        return readlinkActualFile(mLinks.get(s), count);
+        try {
+            return readlinkActualFile(mLinks.get(s), count);
+        }
+        catch (Links.NotAbsolutePathException unused) {
+            SyscallResult.Readlink result = new SyscallResult.Readlink();
+            result.setError(Errno.EINVAL);
+            return result;
+        }
     }
 
     /**
@@ -2222,7 +2243,14 @@ public class Slave implements Runnable {
 
         String s = getPathUnderCurrentDirectory(path);
 
-        return accessActualFile(mLinks.get(s), flags);
+        try {
+            return accessActualFile(mLinks.get(s), flags);
+        }
+        catch (Links.NotAbsolutePathException unused) {
+            SyscallResult.Generic32 result = new SyscallResult.Generic32();
+            result.setError(Errno.EINVAL);
+            return result;
+        }
     }
 
     public SyscallResult.Generic32 doLink(String path1, String path2) throws IOException {
