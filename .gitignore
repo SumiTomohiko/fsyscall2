@@ -324,6 +324,7 @@ tests/amd64/lseek/lseek
 tests/amd64/lstat/lstat
 tests/amd64/mkdir/mkdir
 tests/amd64/open_pwddb/open_pwddb
+tests/amd64/poll_bind/poll_bind
 tests/amd64/poll_in/poll_in
 tests/amd64/poll_master/poll_master
 tests/amd64/poll_master_slave_blocking/poll_master_slave_blocking

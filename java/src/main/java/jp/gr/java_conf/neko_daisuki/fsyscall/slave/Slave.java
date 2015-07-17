@@ -856,6 +856,12 @@ public class Slave implements Runnable {
         }
 
         public boolean isReadyToRead() throws UnixException {
+            if (mConnectingRequests != null) {
+                synchronized (mConnectingRequests) {
+                    return !mConnectingRequests.isEmpty();
+                }
+            }
+
             InputStream in = mCore.getInputStream();
             if (in == null) {
                 throw new UnixException(Errno.ENOTCONN);

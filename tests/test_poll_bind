@@ -1,0 +1,6 @@
+
+cmd="poll_bind/poll_bind"
+args="${tmp_dir}/$$.sock"
+expected_status="0"
+
+# vim: filetype=sh
