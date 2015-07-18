@@ -948,9 +948,10 @@ public class Slave implements Runnable {
         }
 
         public void connect(UnixDomainAddress addr) throws UnixException {
+            String addrPath = addr.getPath();
             String path;
             try {
-                path = getPathUnderCurrentDirectory(addr.getPath());
+                path = getActualPath(addrPath);
             }
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
@@ -990,9 +991,10 @@ public class Slave implements Runnable {
                 throw new UnixException(Errno.EINVAL);
             }
             mConnectingRequests = new LinkedList<ConnectingRequest>();
+            String addrPath = addr.getPath();
             String path;
             try {
-                path = getPathUnderCurrentDirectory(addr.getPath());
+                path = getActualPath(addrPath);
             }
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
@@ -1692,7 +1694,8 @@ public class Slave implements Runnable {
         mLogger.info(String.format("chdir(path=%s)", StringUtil.quote(path)));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        File file = getFileUnderCurrentDirectory(path);
+        String actPath = getActualPath(path);
+        File file = new File(actPath);
         if (!file.isDirectory()) {
             result.setError(file.exists() ? Errno.ENOTDIR : Errno.ENOENT);
             return result;
@@ -1719,16 +1722,7 @@ public class Slave implements Runnable {
                                    Unix.Constants.Mode.toString(mode));
         mLogger.info(msg);
 
-        String s = getPathUnderCurrentDirectory(path);
-
-        try {
-            return openActualFile(mLinks.get((s)), flags, mode);
-        }
-        catch (Links.NotAbsolutePathException unused) {
-            SyscallResult.Generic32 result = new SyscallResult.Generic32();
-            result.setError(Errno.EINVAL);
-            return result;
-        }
+        return openActualFile(getActualPath(path), flags, mode);
     }
 
     public SyscallResult.Read doRead(int fd, long nbytes) throws IOException {
@@ -1976,17 +1970,7 @@ public class Slave implements Runnable {
 
     public SyscallResult.Stat doStat(String path) throws IOException {
         mLogger.info(String.format("stat(path=%s)", StringUtil.quote(path)));
-
-        String s = getPathUnderCurrentDirectory(path);
-
-        try {
-            return statActualFile(mLinks.get(s));
-        }
-        catch (Links.NotAbsolutePathException unused) {
-            SyscallResult.Stat result = new SyscallResult.Stat();
-            result.setError(Errno.EINVAL);
-            return result;
-        }
+        return statActualFile(getActualPath(path));
     }
 
     public SyscallResult.Generic32 doBind(int s, UnixDomainAddress addr,
@@ -2221,16 +2205,7 @@ public class Slave implements Runnable {
         String fmt = "readlink(path=%s, count=%d)";
         mLogger.info(String.format(fmt, StringUtil.quote(path), count));
 
-        String s = getPathUnderCurrentDirectory(path);
-
-        try {
-            return readlinkActualFile(mLinks.get(s), count);
-        }
-        catch (Links.NotAbsolutePathException unused) {
-            SyscallResult.Readlink result = new SyscallResult.Readlink();
-            result.setError(Errno.EINVAL);
-            return result;
-        }
+        return readlinkActualFile(getActualPath(path), count);
     }
 
     /**
@@ -2240,16 +2215,7 @@ public class Slave implements Runnable {
         String fmt = "access(path=%s, flags=0x%02x)";
         mLogger.info(String.format(fmt, StringUtil.quote(path), flags));
 
-        String s = getPathUnderCurrentDirectory(path);
-
-        try {
-            return accessActualFile(mLinks.get(s), flags);
-        }
-        catch (Links.NotAbsolutePathException unused) {
-            SyscallResult.Generic32 result = new SyscallResult.Generic32();
-            result.setError(Errno.EINVAL);
-            return result;
-        }
+        return accessActualFile(getActualPath(path), flags);
     }
 
     public SyscallResult.Generic32 doLink(String path1, String path2) throws IOException {
@@ -2468,11 +2434,10 @@ public class Slave implements Runnable {
         mLogger.info(String.format(fmt, StringUtil.quote(path), mode));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        File file = getFileUnderCurrentDirectory(path);
-        String absPath = file.getCanonicalPath();
+        String actPath = getActualPath(path);
         Object socket;
         try {
-            socket = mApplication.getUnixDomainSocket(absPath);
+            socket = mApplication.getUnixDomainSocket(actPath);
         }
         catch (UnixException e) {
             socket = null;
@@ -2481,6 +2446,7 @@ public class Slave implements Runnable {
             return result;
         }
 
+        File file = new File(actPath);
         if (!file.exists()) {
             result.setError(Errno.ENOENT);
             return result;
@@ -2497,7 +2463,8 @@ public class Slave implements Runnable {
         mLogger.info(String.format("rmdir(path=%s)", StringUtil.quote(path)));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        File file = getFileUnderCurrentDirectory(path);
+        String actPath = getActualPath(path);
+        File file = new File(actPath);
         if (!file.isDirectory()) {
             result.setError(file.exists() ? Errno.ENOTDIR : Errno.ENOENT);
             return result;
@@ -2514,15 +2481,16 @@ public class Slave implements Runnable {
         mLogger.info(String.format("unlink(path=%s)", StringUtil.quote(path)));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        File file = getFileUnderCurrentDirectory(path);
-        String absPath = file.getAbsolutePath();
+        String actPath = getActualPath(path);
         try {
-            mApplication.unlinkUnixDomainNode(absPath);
+            mApplication.unlinkUnixDomainNode(actPath);
             return result;
         }
         catch (UnixException unused) {
             // nothing
         }
+
+        File file = new File(actPath);
         if (!file.isFile()) {
             result.setError(file.exists() ? Errno.EISDIR : Errno.ENOENT);
             return result;
@@ -2541,7 +2509,8 @@ public class Slave implements Runnable {
         mLogger.info(String.format(fmt, StringUtil.quote(path), mode));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        if (!getFileUnderCurrentDirectory(path).mkdir()) {
+        String actPath = getActualPath(path);
+        if (!new File(actPath).mkdir()) {
             result.setError(Errno.EACCES);
             return result;
         }
@@ -2883,8 +2852,19 @@ public class Slave implements Runnable {
                                     : new File(mCurrentDirectory, path);
     }
 
-    private String getPathUnderCurrentDirectory(String path) throws IOException {
+    private String getAbsolutePath(String path) throws IOException {
         return getFileUnderCurrentDirectory(path).getPath();
+    }
+
+    private String getActualPath(String path) throws IOException {
+        String absPath = getAbsolutePath(path);
+        try {
+            return mLinks.get(absPath);
+        }
+        catch (Links.NotAbsolutePathException unused) {
+            // never works.
+            return null;
+        }
     }
 
     private SyscallResult.Generic32 runSetsockopt(int s, SocketLevel level,
