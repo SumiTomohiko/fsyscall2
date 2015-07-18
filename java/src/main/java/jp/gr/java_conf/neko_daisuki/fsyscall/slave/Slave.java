@@ -1701,7 +1701,7 @@ public class Slave implements Runnable {
             return result;
         }
 
-        mCurrentDirectory = file.getCanonicalPath();
+        mCurrentDirectory = getAbsolutePath(path);
 
         return result;
     }
