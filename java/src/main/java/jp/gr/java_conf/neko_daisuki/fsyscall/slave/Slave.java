@@ -1695,6 +1695,11 @@ public class Slave implements Runnable {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         String actPath = getActualPath(path);
+        if (!mPermissions.isAllowed(actPath)) {
+            result.setError(Errno.EPERM);
+            return result;
+        }
+
         File file = new File(actPath);
         if (!file.isDirectory()) {
             result.setError(file.exists() ? Errno.ENOTDIR : Errno.ENOENT);
@@ -2446,6 +2451,11 @@ public class Slave implements Runnable {
             return result;
         }
 
+        if (!mPermissions.isAllowed(actPath)) {
+            result.setError(Errno.EPERM);
+            return result;
+        }
+
         File file = new File(actPath);
         if (!file.exists()) {
             result.setError(Errno.ENOENT);
@@ -2464,6 +2474,11 @@ public class Slave implements Runnable {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         String actPath = getActualPath(path);
+        if (!mPermissions.isAllowed(actPath)) {
+            result.setError(Errno.EPERM);
+            return result;
+        }
+
         File file = new File(actPath);
         if (!file.isDirectory()) {
             result.setError(file.exists() ? Errno.ENOTDIR : Errno.ENOENT);
@@ -2490,6 +2505,11 @@ public class Slave implements Runnable {
             // nothing
         }
 
+        if (!mPermissions.isAllowed(actPath)) {
+            result.setError(Errno.EPERM);
+            return result;
+        }
+
         File file = new File(actPath);
         if (!file.isFile()) {
             result.setError(file.exists() ? Errno.EISDIR : Errno.ENOENT);
@@ -2510,6 +2530,11 @@ public class Slave implements Runnable {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         String actPath = getActualPath(path);
+        if (!mPermissions.isAllowed(actPath)) {
+            result.setError(Errno.EPERM);
+            return result;
+        }
+
         if (!new File(actPath).mkdir()) {
             result.setError(Errno.EACCES);
             return result;
