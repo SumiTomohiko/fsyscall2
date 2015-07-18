@@ -34,6 +34,20 @@ public class Permissions {
         }
     }
 
+    private static class DirectoryPermission extends Permission {
+
+        private String mDirPath;
+
+        public DirectoryPermission(String dirPath, boolean allowed) {
+            super(allowed);
+            mDirPath = dirPath + "/";
+        }
+
+        public boolean isMatched(String path) {
+            return path.startsWith(mDirPath);
+        }
+    }
+
     private List<Permission> mPermissions;
     private boolean mDefault;
 
@@ -47,6 +61,10 @@ public class Permissions {
 
     public void allowPath(String path) {
         mPermissions.add(new PathPermission(path, true));
+    }
+
+    public void allowDirectoryContents(String dirPath) {
+        mPermissions.add(new DirectoryPermission(dirPath, true));
     }
 
     public boolean isAllowed(String path) {
