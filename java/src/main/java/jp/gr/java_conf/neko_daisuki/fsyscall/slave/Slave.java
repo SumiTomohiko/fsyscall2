@@ -1695,10 +1695,12 @@ public class Slave implements Runnable {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         String actPath = getActualPath(path);
+        /*
         if (!mPermissions.isAllowed(actPath)) {
             result.setError(Errno.EPERM);
             return result;
         }
+        */
 
         File file = new File(actPath);
         if (!file.isDirectory()) {
