@@ -1,3 +1,19 @@
 
+JAVASRCDIR=	java/src/main/java
+
 syscalls:
 	@python3 tools/makesyscalls.py
+
+prepare:
+	@rm -f jp.gr.java_conf.neko_daisuki.fsyscall
+	@rm -f jp.gr.java_conf.neko_daisuki.fsyscall.io
+	@rm -f jp.gr.java_conf.neko_daisuki.fsyscall.slave
+	@rm -f jp.gr.java_conf.neko_daisuki.fsyscall.util
+	@ln -s $(JAVASRCDIR)/jp/gr/java_conf/neko_daisuki/fsyscall \
+		jp.gr.java_conf.neko_daisuki.fsyscall
+	@ln -s $(JAVASRCDIR)/jp/gr/java_conf/neko_daisuki/fsyscall/io \
+		jp.gr.java_conf.neko_daisuki.fsyscall.io
+	@ln -s $(JAVASRCDIR)/jp/gr/java_conf/neko_daisuki/fsyscall/slave \
+		jp.gr.java_conf.neko_daisuki.fsyscall.slave
+	@ln -s $(JAVASRCDIR)/jp/gr/java_conf/neko_daisuki/fsyscall/util \
+		jp.gr.java_conf.neko_daisuki.fsyscall.util
