@@ -22,10 +22,10 @@ public class NormalizedPath {
             throw new NullPointerException("null given as path");
         }
         boolean isAbsolute = path.startsWith(SEPARATOR);
-        String s = isAbsolute ? path
-                              : String.format("%s%s%s",
-                parent.toString(),
-                SEPARATOR, path);
+        String s = isAbsolute ? path : String.format("%s%s%s",
+                                                     parent.toString(),
+                                                     SEPARATOR,
+                                                     path);
         mPath = normalize(s);
     }
 
