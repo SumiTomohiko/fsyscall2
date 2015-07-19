@@ -260,6 +260,7 @@ java/src/main/java/jp/gr/java_conf/neko_daisuki/fsyscall/slave/SlaveHelper.java
 jp.gr.java_conf.neko_daisuki.fsyscall
 jp.gr.java_conf.neko_daisuki.fsyscall.io
 jp.gr.java_conf.neko_daisuki.fsyscall.slave
+jp.gr.java_conf.neko_daisuki.fsyscall.util
 lib/command/names.inc
 log.txt
 tests/*/access/access

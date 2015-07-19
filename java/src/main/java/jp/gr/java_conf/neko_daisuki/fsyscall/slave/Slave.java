@@ -44,6 +44,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
 
 /**
@@ -590,10 +591,10 @@ public class Slave implements Runnable {
 
     private class OpenCallback implements FileRegisteringCallback {
 
-        private String mPath;
+        private NormalizedPath mPath;
         private int mFlags;
 
-        public OpenCallback(String path, int flags) {
+        public OpenCallback(NormalizedPath path, int flags) {
             mPath = path;
             mFlags = flags;
         }
@@ -604,11 +605,11 @@ public class Slave implements Runnable {
             switch (mFlags & Unix.Constants.O_ACCMODE) {
             case Unix.Constants.O_RDONLY:
                 boolean create = (mFlags & Unix.Constants.O_CREAT) != 0;
-                file = new UnixInputFile(mPath, create);
+                file = new UnixInputFile(mPath.toString(), create);
                 break;
             case Unix.Constants.O_WRONLY:
                 // XXX: Here ignores O_CREAT.
-                file = new UnixOutputFile(mPath);
+                file = new UnixOutputFile(mPath.toString());
                 break;
             default:
                 throw new UnixException(Errno.EINVAL);
@@ -749,16 +750,6 @@ public class Slave implements Runnable {
         }
 
         private class LocalBoundCore implements SocketCore {
-
-            private String mPath;
-
-            public LocalBoundCore(String path) {
-                mPath = path;
-            }
-
-            public String getPath() {
-                return mPath;
-            }
 
             @Override
             public InputStream getInputStream() {
@@ -949,7 +940,7 @@ public class Slave implements Runnable {
 
         public void connect(UnixDomainAddress addr) throws UnixException {
             String addrPath = addr.getPath();
-            String path;
+            NormalizedPath path;
             try {
                 path = getActualPath(addrPath);
             }
@@ -992,7 +983,7 @@ public class Slave implements Runnable {
             }
             mConnectingRequests = new LinkedList<ConnectingRequest>();
             String addrPath = addr.getPath();
-            String path;
+            NormalizedPath path;
             try {
                 path = getActualPath(addrPath);
             }
@@ -1000,7 +991,7 @@ public class Slave implements Runnable {
                 throw new UnixException(Errno.EIO, e);
             }
             mApplication.bindSocket(path, this);
-            setCore(new LocalBoundCore(path));
+            setCore(new LocalBoundCore());
             mName = addr;
         }
 
@@ -1520,7 +1511,7 @@ public class Slave implements Runnable {
     // states
     private Pid mPid;
     private State mState = State.NORMAL;
-    private String mCurrentDirectory;
+    private NormalizedPath mCurrentDirectory;
     private UnixFile[] mFiles;
     private SignalSet mPendingSignals = new SignalSet();
     private Integer mExitStatus;
@@ -1532,7 +1523,7 @@ public class Slave implements Runnable {
     private EventFilters mEventFilters = new EventFilters();
 
     public Slave(Application application, Pid pid, InputStream hubIn,
-                 OutputStream hubOut, String currentDirectory,
+                 OutputStream hubOut, NormalizedPath currentDirectory,
                  InputStream stdin, OutputStream stdout, OutputStream stderr,
                  Permissions permissions, Links links, Listener listener) throws IOException {
         mLogger.info("a slave is starting.");
@@ -1553,8 +1544,9 @@ public class Slave implements Runnable {
      * Constructor for fork(2).
      */
     public Slave(Application application, Pid pid, InputStream hubIn,
-                 OutputStream hubOut, String currentDirectory, UnixFile[] files,
-                 Permissions permissions, Links links, Listener listener) {
+                 OutputStream hubOut, NormalizedPath currentDirectory,
+                 UnixFile[] files, Permissions permissions, Links links,
+                 Listener listener) {
         initialize(application, pid, hubIn, hubOut, currentDirectory, files,
                    permissions, links, listener);
     }
@@ -1694,7 +1686,7 @@ public class Slave implements Runnable {
         mLogger.info(String.format("chdir(path=%s)", StringUtil.quote(path)));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        String actPath = getActualPath(path);
+        NormalizedPath actPath = getActualPath(path);
         /*
         if (!mPermissions.isAllowed(actPath)) {
             result.setError(Errno.EPERM);
@@ -1702,13 +1694,13 @@ public class Slave implements Runnable {
         }
         */
 
-        File file = new File(actPath);
+        File file = new File(actPath.toString());
         if (!file.isDirectory()) {
             result.setError(file.exists() ? Errno.ENOTDIR : Errno.ENOENT);
             return result;
         }
 
-        mCurrentDirectory = getAbsolutePath(path);
+        mCurrentDirectory = new NormalizedPath(mCurrentDirectory, path);
 
         return result;
     }
@@ -2441,7 +2433,7 @@ public class Slave implements Runnable {
         mLogger.info(String.format(fmt, StringUtil.quote(path), mode));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        String actPath = getActualPath(path);
+        NormalizedPath actPath = getActualPath(path);
         Object socket;
         try {
             socket = mApplication.getUnixDomainSocket(actPath);
@@ -2458,7 +2450,7 @@ public class Slave implements Runnable {
             return result;
         }
 
-        File file = new File(actPath);
+        File file = new File(actPath.toString());
         if (!file.exists()) {
             result.setError(Errno.ENOENT);
             return result;
@@ -2475,13 +2467,13 @@ public class Slave implements Runnable {
         mLogger.info(String.format("rmdir(path=%s)", StringUtil.quote(path)));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        String actPath = getActualPath(path);
+        NormalizedPath actPath = getActualPath(path);
         if (!mPermissions.isAllowed(actPath)) {
             result.setError(Errno.EPERM);
             return result;
         }
 
-        File file = new File(actPath);
+        File file = new File(actPath.toString());
         if (!file.isDirectory()) {
             result.setError(file.exists() ? Errno.ENOTDIR : Errno.ENOENT);
             return result;
@@ -2498,7 +2490,7 @@ public class Slave implements Runnable {
         mLogger.info(String.format("unlink(path=%s)", StringUtil.quote(path)));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        String actPath = getActualPath(path);
+        NormalizedPath actPath = getActualPath(path);
         try {
             mApplication.unlinkUnixDomainNode(actPath);
             return result;
@@ -2512,7 +2504,7 @@ public class Slave implements Runnable {
             return result;
         }
 
-        File file = new File(actPath);
+        File file = new File(actPath.toString());
         if (!file.isFile()) {
             result.setError(file.exists() ? Errno.EISDIR : Errno.ENOENT);
             return result;
@@ -2531,13 +2523,13 @@ public class Slave implements Runnable {
         mLogger.info(String.format(fmt, StringUtil.quote(path), mode));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        String actPath = getActualPath(path);
+        NormalizedPath actPath = getActualPath(path);
         if (!mPermissions.isAllowed(actPath)) {
             result.setError(Errno.EPERM);
             return result;
         }
 
-        if (!new File(actPath).mkdir()) {
+        if (!new File(actPath.toString()).mkdir()) {
             result.setError(Errno.EACCES);
             return result;
         }
@@ -2737,7 +2729,7 @@ public class Slave implements Runnable {
         result.retval = fd;
     }
 
-    private SyscallResult.Generic32 openActualFile(String absPath, int flags, int mode) throws IOException {
+    private SyscallResult.Generic32 openActualFile(NormalizedPath absPath, int flags, int mode) throws IOException {
         String fmt = "open actual file: %s";
         mLogger.info(String.format(fmt, absPath, flags, mode));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
@@ -2763,7 +2755,7 @@ public class Slave implements Runnable {
         return result;
     }
 
-    private SyscallResult.Stat statActualFile(String absPath) throws IOException {
+    private SyscallResult.Stat statActualFile(NormalizedPath absPath) throws IOException {
         mLogger.info(String.format("stat actual file: %s", absPath));
 
         SyscallResult.Stat result = new SyscallResult.Stat();
@@ -2774,7 +2766,7 @@ public class Slave implements Runnable {
             return result;
         }
 
-        File file = new File(absPath);
+        File file = new File(absPath.toString());
         long size;
         try {
             size = file.length();
@@ -2796,7 +2788,9 @@ public class Slave implements Runnable {
         return result;
     }
 
-    private SyscallResult.Readlink readlinkActualFile(String absPath, long count) throws IOException {
+    private SyscallResult.Readlink readlinkActualFile(NormalizedPath absPath,
+                                                      long count)
+                                                      throws IOException {
         mLogger.info(String.format("readlink actual file: %s", absPath));
 
         SyscallResult.Readlink result = new SyscallResult.Readlink();
@@ -2813,7 +2807,9 @@ public class Slave implements Runnable {
         return result;
     }
 
-    private SyscallResult.Generic32 accessActualFile(String absPath, int flags) throws IOException {
+    private SyscallResult.Generic32 accessActualFile(NormalizedPath absPath,
+                                                     int flags)
+                                                     throws IOException {
         mLogger.info(String.format("access actual file: %s", absPath));
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
@@ -2874,6 +2870,7 @@ public class Slave implements Runnable {
         return sock;
     }
 
+    /*
     private File getFileUnderCurrentDirectory(String path) {
         return path.startsWith("/") ? new File(path)
                                     : new File(mCurrentDirectory, path);
@@ -2882,16 +2879,12 @@ public class Slave implements Runnable {
     private String getAbsolutePath(String path) throws IOException {
         return getFileUnderCurrentDirectory(path).getPath();
     }
+    */
 
-    private String getActualPath(String path) throws IOException {
-        String absPath = getAbsolutePath(path);
-        try {
-            return mLinks.get(absPath);
-        }
-        catch (Links.NotAbsolutePathException unused) {
-            // never works.
-            return null;
-        }
+    private NormalizedPath getActualPath(String path) throws IOException {
+        NormalizedPath normPath = new NormalizedPath(mCurrentDirectory, path);
+        //String absPath = getAbsolutePath(path);
+        return mLinks.get(normPath);
     }
 
     private SyscallResult.Generic32 runSetsockopt(int s, SocketLevel level,
@@ -3021,9 +3014,10 @@ public class Slave implements Runnable {
     }
 
     private void initialize(Application application, Pid pid, InputStream hubIn,
-                            OutputStream hubOut, String currentDirectory,
-                            UnixFile[] files, Permissions permissions,
-                            Links links, Listener listener) {
+                            OutputStream hubOut,
+                            NormalizedPath currentDirectory, UnixFile[] files,
+                            Permissions permissions, Links links,
+                            Listener listener) {
         mApplication = application;
         mPid = pid;
         mIn = new SyscallInputStream(hubIn);

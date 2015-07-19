@@ -23,6 +23,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
 
 public class Application {
 
@@ -106,9 +107,14 @@ public class Application {
 
     private static class LocalBoundSockets {
 
-        private Map<String, Object> mSockets = new HashMap<String, Object>();
+        private Map<NormalizedPath, Object> mSockets;
 
-        public void bind(String path, Object socket) throws UnixException {
+        public LocalBoundSockets() {
+            mSockets = new HashMap<NormalizedPath, Object>();
+        }
+
+        public void bind(NormalizedPath path,
+                         Object socket) throws UnixException {
             synchronized (mSockets) {
                 if (mSockets.get(path) != null) {
                     throw new UnixException(Errno.EADDRINUSE);
@@ -117,7 +123,7 @@ public class Application {
             }
         }
 
-        public Object get(String path) throws UnixException {
+        public Object get(NormalizedPath path) throws UnixException {
             Object socket;
             synchronized (mSockets) {
                 socket = mSockets.get(path);
@@ -128,7 +134,7 @@ public class Application {
             return socket;
         }
 
-        public void unlink(String path) throws UnixException {
+        public void unlink(NormalizedPath path) throws UnixException {
             Object socket;
             synchronized (mSockets) {
                 socket = mSockets.remove(path);
@@ -190,7 +196,7 @@ public class Application {
     private String mResourceDirectory;
     private ResourceFiles mResourceFiles = new ResourceFiles();
 
-    public Slave newSlave(PairId pairId, String currentDirectory,
+    public Slave newSlave(PairId pairId, NormalizedPath currentDirectory,
                           UnixFile[] files, Permissions permissions,
                           Links links, Slave.Listener listener) throws IOException {
         Pipe slave2hub = new Pipe();
@@ -210,8 +216,9 @@ public class Application {
         return slave;
     }
 
-    public int run(InputStream in, OutputStream out, String currentDirectory,
-                   InputStream stdin, OutputStream stdout, OutputStream stderr,
+    public int run(InputStream in, OutputStream out,
+                   NormalizedPath currentDirectory, InputStream stdin,
+                   OutputStream stdout, OutputStream stderr,
                    Permissions permissions, Links links,
                    Slave.Listener listener, String resourceDirectory)
                    throws IOException, InterruptedException {
@@ -255,7 +262,7 @@ public class Application {
      * Binds a Unix domain socket to a path. This method handles a socket as an
      * Object instance, because I dislike disclosing the Slave.Socket class.
      */
-    public void bindSocket(String path, Object socket) throws UnixException {
+    public void bindSocket(NormalizedPath path, Object socket) throws UnixException {
         mLocalBoundSockets.bind(path, socket);
     }
 
@@ -263,11 +270,11 @@ public class Application {
      * Returns a socket bound to a given path. This method returns an Object.
      * Callers have responsibility to cast it to Slave.Socket.
      */
-    public Object getUnixDomainSocket(String path) throws UnixException {
+    public Object getUnixDomainSocket(NormalizedPath path) throws UnixException {
         return mLocalBoundSockets.get(path);
     }
 
-    public void unlinkUnixDomainNode(String path) throws UnixException {
+    public void unlinkUnixDomainNode(NormalizedPath path) throws UnixException {
         mLocalBoundSockets.unlink(path);
     }
 
@@ -408,8 +415,9 @@ public class Application {
             Permissions perm = new Permissions(true);
             Links links = new Links();
             try {
-                exitStatus = app.run(in, out, args[2], stdin, stdout, stderr,
-                                     perm, links, null, resourceDir);
+                exitStatus = app.run(in, out, new NormalizedPath(args[2]),
+                                     stdin, stdout, stderr, perm, links, null,
+                                     resourceDir);
             }
             catch (Throwable e) {
                 e.printStackTrace();
