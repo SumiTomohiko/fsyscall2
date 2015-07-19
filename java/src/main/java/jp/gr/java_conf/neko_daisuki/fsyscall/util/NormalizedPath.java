@@ -33,7 +33,7 @@ public class NormalizedPath {
         if (path == null) {
             throw new NullPointerException("null given as path");
         }
-        if (path.startsWith(SEPARATOR)) {
+        if (!path.startsWith(SEPARATOR)) {
             throw new InvalidPathException("path must be absolute", path);
         }
         mPath = normalize(path);
