@@ -3,6 +3,7 @@ package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 import java.util.ArrayList;
 import java.util.List;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
 
 public class Permissions {
@@ -16,6 +17,7 @@ public class Permissions {
         }
 
         public abstract boolean isMatched(NormalizedPath path);
+        public abstract String represent();
 
         public boolean isAllowed() {
             return mAllowed;
@@ -34,6 +36,10 @@ public class Permissions {
         public boolean isMatched(NormalizedPath path) {
             return mPath.equals(path);
         }
+
+        public String represent() {
+            return mPath.toString();
+        }
     }
 
     private static class DirectoryPermission extends Permission {
@@ -48,7 +54,13 @@ public class Permissions {
         public boolean isMatched(NormalizedPath path) {
             return path.toString().startsWith(mDirPath);
         }
+
+        public String represent() {
+            return String.format("%s**", mDirPath);
+        }
     }
+
+    private static Logging.Logger mLogger;
 
     private List<Permission> mPermissions;
     private boolean mDefault;
@@ -72,7 +84,11 @@ public class Permissions {
     public boolean isAllowed(NormalizedPath path) {
         for (Permission p: mPermissions) {
             if (p.isMatched(path)) {
-                return p.isAllowed();
+                boolean allowed = p.isAllowed();
+                String fmt = "matched: %s: %s";
+                String s = allowed ? "accepted" : "rejected";
+                mLogger.info(String.format(fmt, p.represent(), s));
+                return allowed;
             }
         }
         return mDefault;
@@ -81,6 +97,10 @@ public class Permissions {
     private void initialize(boolean default_) {
         mDefault = default_;
         mPermissions = new ArrayList<Permission>();
+    }
+
+    static {
+        mLogger = new Logging.Logger("Permissions");
     }
 }
 
