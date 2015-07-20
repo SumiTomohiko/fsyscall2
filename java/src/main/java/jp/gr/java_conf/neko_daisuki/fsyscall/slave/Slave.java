@@ -2414,10 +2414,14 @@ public class Slave implements Runnable {
         }
         Slave slave = mApplication.newSlave(pairId, mCurrentDirectory, files,
                                             mPermissions, mLinks, mListener);
-        new Thread(slave).start();
+        Pid pid = slave.getPid();
+        Thread thread = new Thread(slave);
+        thread.start();
+        String fmt = "forked: thread=%s, pairId=%s, pid=%s";
+        mLogger.info(String.format(fmt, thread.getName(), pairId, pid));
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
-        result.retval = slave.getPid().toInteger();
+        result.retval = pid.toInteger();
 
         return result;
     }
