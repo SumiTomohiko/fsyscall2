@@ -2533,8 +2533,9 @@ public class Slave implements Runnable {
             return result;
         }
 
-        if (!new File(actPath.toString()).mkdir()) {
-            result.setError(Errno.EACCES);
+        File file = new File(actPath.toString());
+        if (!file.mkdir()) {
+            result.setError(file.exists() ? Errno.EEXIST : Errno.EACCES);
             return result;
         }
 
