@@ -43,7 +43,7 @@ public class NormalizedPath {
     public boolean equals(Object o) {
         NormalizedPath path;
         try {
-            path = (NormalizedPath) o;
+            path = (NormalizedPath)o;
         }
         catch (ClassCastException unused) {
             return false;
