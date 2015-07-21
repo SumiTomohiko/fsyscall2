@@ -2734,8 +2734,7 @@ public class Slave implements Runnable {
     }
 
     private SyscallResult.Generic32 openActualFile(NormalizedPath absPath, int flags, int mode) throws IOException {
-        String fmt = "open actual file: %s";
-        mLogger.info(String.format(fmt, absPath, flags, mode));
+        mLogger.info(String.format("open actual file: %s", absPath));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         if ("/etc/pwd.db".equals(absPath)) {
