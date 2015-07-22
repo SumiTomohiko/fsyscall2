@@ -5,6 +5,7 @@ import java.util.List;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
 
 public class Permissions {
 
@@ -85,9 +86,12 @@ public class Permissions {
         for (Permission p: mPermissions) {
             if (p.isMatched(path)) {
                 boolean allowed = p.isAllowed();
-                String fmt = "matched: %s: %s";
+                String fmt = "matched: %s: %s %s";
                 String s = allowed ? "accepted" : "rejected";
-                mLogger.info(String.format(fmt, p.represent(), s));
+                String msg = String.format(fmt, p.represent(),
+                                           StringUtil.quote(path.toString()),
+                                           s);
+                mLogger.info(msg);
                 return allowed;
             }
         }

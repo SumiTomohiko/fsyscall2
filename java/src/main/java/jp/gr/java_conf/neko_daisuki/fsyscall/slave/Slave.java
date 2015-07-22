@@ -1495,6 +1495,7 @@ public class Slave implements Runnable {
     };
 
     // static helpers
+    private static NormalizedPath mPwdDbPath;
     private static Map<Integer, String> mFcntlCommands;
     private static Logging.Logger mLogger;
 
@@ -2533,8 +2534,9 @@ public class Slave implements Runnable {
             return result;
         }
 
-        if (!new File(actPath.toString()).mkdir()) {
-            result.setError(Errno.EACCES);
+        File file = new File(actPath.toString());
+        if (!file.mkdir()) {
+            result.setError(file.exists() ? Errno.EEXIST : Errno.EACCES);
             return result;
         }
 
@@ -2734,11 +2736,10 @@ public class Slave implements Runnable {
     }
 
     private SyscallResult.Generic32 openActualFile(NormalizedPath absPath, int flags, int mode) throws IOException {
-        String fmt = "open actual file: %s";
-        mLogger.info(String.format(fmt, absPath, flags, mode));
+        mLogger.info(String.format("open actual file: %s", absPath));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        if ("/etc/pwd.db".equals(absPath)) {
+        if (absPath.equals(mPwdDbPath)) {
             // This file is special.
             URL url = getClass().getResource("pwd.db");
             if (url == null) {
@@ -3040,6 +3041,13 @@ public class Slave implements Runnable {
     }
 
     static {
+        try {
+            mPwdDbPath = new NormalizedPath("/etc/pwd.db");
+        }
+        catch (NormalizedPath.InvalidPathException unused) {
+            // never works.
+        }
+
         mFcntlCommands = new HashMap<Integer, String>();
         mFcntlCommands.put(0, "F_DUPFD");
         mFcntlCommands.put(1, "F_GETFD");
