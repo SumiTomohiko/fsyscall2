@@ -2831,7 +2831,7 @@ public class Slave implements Runnable {
     private void logPossibleDyingMessage(byte[] buf) {
         int size = Math.min(buf.length, 256);
         for (int i = 0; i < size; i++) {
-            String fmt = "write(2) for fd 2: buf[%d]=0x%02x (%s)";
+            String fmt = "write(2) to fd 2: buf[%d]=0x%02x (%s)";
             byte c = buf[i];
             mLogger.debug(String.format(fmt, i, c, CHARS[c]));
         }
