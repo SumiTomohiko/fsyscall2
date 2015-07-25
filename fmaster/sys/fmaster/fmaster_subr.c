@@ -80,7 +80,7 @@ fmaster_log_syscall_end(struct thread *td, const char *name,
 int
 fmaster_is_master_file(struct thread *td, const char *path)
 {
-	int i;
+	int i, ndirs, nfiles;
 	const char *dirs[] = {
 		"/lib/",
 		"/usr/lib/",
@@ -103,15 +103,16 @@ fmaster_is_master_file(struct thread *td, const char *path)
 	};
 	const char *s;
 
-	for (i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++) {
+	ndirs = array_sizeof(dirs);
+	for (i = 0; i < ndirs; i++) {
 		s = dirs[i];
 		if (strncmp(path, s, strlen(s)) == 0)
 			return (1);
 	}
-	for (i = 0; i < sizeof(files) / sizeof(files[0]); i++) {
+	nfiles = array_sizeof(files);
+	for (i = 0; i < nfiles; i++)
 		if (strcmp(path, files[i]) == 0)
 			return (1);
-	}
 
 	return (0);
 }
