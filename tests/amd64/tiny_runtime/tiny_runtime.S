@@ -36,6 +36,20 @@ _exit:
 	syscall
 	; NOTREACHED
 
+global pipe
+pipe:
+	mov rax, sys.pipe
+	syscall
+	jnc .exit
+	mov [error], rax
+	mov rax, -1
+	ret
+.exit:
+	mov [rdi], eax
+	mov [rdi + 4], edx
+	mov rax, 0
+	ret
+
 defsyscall	write
 defsyscall	select
 defsyscall	getpid
@@ -84,7 +98,6 @@ defsyscall	kqueue
 defsyscall	kevent
 defsyscall	socketpair
 defsyscall	nanosleep
-defsyscall	pipe
 defsyscall	fstat
 
 global _start
