@@ -151,9 +151,6 @@ SYSCALLS = {
         "fmaster_open": {
             "mode": Argument(opt="(flags & O_CREAT) != 0")
             },
-        "fmaster_close": {
-            "fd": Argument(fd=True)
-            },
         "fmaster_link": {},
         "fmaster_access": {},
         "fmaster_fstat": {

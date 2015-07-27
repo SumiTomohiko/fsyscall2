@@ -106,6 +106,7 @@ int	fmaster_fd_of_master_fd(struct thread *, int, int *);
 int	fmaster_fd_of_slave_fd(struct thread *, int, int *);
 int	fmaster_type_of_fd(struct thread *, int, enum fmaster_fd_type *);
 
+int	fmaster_execute_close(struct thread *, int);
 int	fmaster_execute_return_optional32(struct thread *, command_t,
 					  int (*)(struct thread *, int,
 						  payload_size_t *, void *),

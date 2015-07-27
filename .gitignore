@@ -41,7 +41,6 @@ fmaster/sys/fmaster/fmaster_chown.c
 fmaster/sys/fmaster/fmaster_chroot.c
 fmaster/sys/fmaster/fmaster_clock_getres.c
 fmaster/sys/fmaster/fmaster_clock_settime.c
-fmaster/sys/fmaster/fmaster_close.c
 fmaster/sys/fmaster/fmaster_dup.c
 fmaster/sys/fmaster/fmaster_dup2.c
 fmaster/sys/fmaster/fmaster_faccessat.c
@@ -218,7 +217,6 @@ fslave/fslave
 fslave/fslave_access.c
 fslave/fslave_chdir.c
 fslave/fslave_chmod.c
-fslave/fslave_close.c
 fslave/fslave_dup.c
 fslave/fslave_dup2.c
 fslave/fslave_fcntl.c

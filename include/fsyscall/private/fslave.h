@@ -19,4 +19,6 @@ void return_ssize(struct slave *, command_t, ssize_t, int);
 void resume_signal(struct slave *, sigset_t *);
 void suspend_signal(struct slave *, sigset_t *);
 
+void process_close(struct slave *);
+
 #endif

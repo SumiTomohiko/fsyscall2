@@ -402,6 +402,7 @@ process_shub(struct mhub *mhub)
 	case FORK_RETURN:
 		process_fork_return(mhub);
 		break;
+	case CLOSE_RETURN:
 	case POLL_RETURN:
 	case SELECT_RETURN:
 	case CONNECT_RETURN:
@@ -552,6 +553,7 @@ process_master(struct mhub *mhub, struct master *master)
 	case FORK_CALL:
 		process_fork_call(mhub, master);
 		break;
+	case CLOSE_CALL:
 	case POLL_CALL:
 	case SELECT_CALL:
 	case CONNECT_CALL:

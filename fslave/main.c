@@ -1112,6 +1112,9 @@ mainloop(struct slave *slave)
 			syslog(LOG_DEBUG, "processing %s.", name);
 			switch (cmd) {
 #include "dispatch.inc"
+			case CLOSE_CALL:
+				process_close(slave);
+				break;
 			case FORK_CALL:
 				process_fork(slave);
 				break;

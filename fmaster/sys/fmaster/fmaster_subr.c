@@ -1199,3 +1199,41 @@ fmaster_write_payloaded_command(struct thread *td, command_t cmd,
 
 	return (0);
 }
+
+static int
+execute_close_call(struct thread *td, int lfd)
+{
+	struct payload *payload;
+	int error;
+
+	payload = fsyscall_payload_create();
+	if (payload == NULL)
+		return (ENOMEM);
+	error = fsyscall_payload_add_int(payload, lfd);
+	if (error != 0)
+		goto exit;
+
+	error = fmaster_write_payloaded_command(td, CLOSE_CALL, payload);
+	if (error != 0)
+		goto exit;
+
+exit:
+	fsyscall_payload_dispose(payload);
+
+	return (error);
+}
+
+int
+fmaster_execute_close(struct thread *td, int lfd)
+{
+	int error;
+
+	error = execute_close_call(td, lfd);
+	if (error != 0)
+		return (error);
+	error = fmaster_execute_return_generic32(td, CLOSE_RETURN);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}

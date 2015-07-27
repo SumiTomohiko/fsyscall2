@@ -290,6 +290,7 @@ process_mhub(struct shub *shub)
 	case FORK_CALL:
 		process_fork(shub);
 		break;
+	case CLOSE_CALL:
 	case POLL_CALL:
 	case SELECT_CALL:
 	case CONNECT_CALL:
@@ -372,6 +373,7 @@ process_slave(struct shub *shub, struct slave *slave)
 		process_signaled(shub, slave, cmd);
 		break;
 	case FORK_RETURN:
+	case CLOSE_RETURN:
 	case POLL_RETURN:
 	case SELECT_RETURN:
 	case CONNECT_RETURN:

@@ -1,6 +1,6 @@
 
 PROG=		fslave
-SRCS=		main.c
+SRCS=		fslave_close.c main.c
 TOP_DIR=	..
 CFLAGS=		-I${TOP_DIR}/include
 LIB_DIR=	${TOP_DIR}/lib
