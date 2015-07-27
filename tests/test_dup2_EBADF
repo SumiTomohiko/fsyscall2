@@ -1,5 +1,0 @@
-
-cmd="dup2_EBADF/dup2_EBADF"
-expected_status="0"
-
-# vim: filetype=sh

@@ -1,0 +1,12 @@
+
+cmd="dup2_slave2closed/dup2_slave2closed"
+file="${tmp_dir}/$$"
+args="${file}"
+expected_status="0"
+
+postcmd()
+{
+	rm -f "${file}"
+}
+
+# vim: filetype=sh

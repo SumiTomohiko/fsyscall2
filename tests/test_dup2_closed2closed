@@ -1,0 +1,5 @@
+
+cmd="dup2_closed2closed/dup2_closed2closed"
+expected_status="0"
+
+# vim: filetype=sh

@@ -1,4 +1,4 @@
 
-PROG=	dup2
+PROG=	dup2_master2slave
 
 .include "../Makefile.cprog"

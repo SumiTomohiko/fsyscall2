@@ -36,6 +36,10 @@ int	tr_run_chdir_x_test(int, const char *[], tr_chdir_callback);
 int	tr_run_client_server(const char *, tr_accept_callback,
 			     tr_connect_callback);
 
+int	tr_run_dup2_closed2x_test(int);
+int	tr_run_dup2_master2x_test(int);
+int	tr_run_dup2_slave2x_test(int, const char *);
+
 #define	array_sizeof(a)	(sizeof(a) / sizeof(a[0]))
 
 #endif

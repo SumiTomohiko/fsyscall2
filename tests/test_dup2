@@ -1,5 +1,0 @@
-
-cmd="dup2/dup2"
-expected_stdout="OK"
-
-# vim: filetype=sh

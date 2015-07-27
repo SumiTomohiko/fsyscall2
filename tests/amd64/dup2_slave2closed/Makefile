@@ -1,4 +1,4 @@
 
-PROG=	dup2_in_use
+PROG=	dup2_slave2closed
 
 .include "../Makefile.cprog"
