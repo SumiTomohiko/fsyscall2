@@ -222,6 +222,16 @@ class SlaveHelper {
         }
     }
 
+    private class CloseProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int fd = mIn.readInteger();
+            SyscallResult.Generic32 result = mSlave.doClose(fd);
+            writeResult(Command.CLOSE_RETURN, result);
+        }
+    }
+
     private class ForkProc extends CommandDispatcher.Proc {
 
         public void call(Command command) throws IOException {
@@ -587,6 +597,7 @@ class SlaveHelper {
     private CommandDispatcher buildDispatcher() {
         CommandDispatcher dispatcher = new CommandDispatcher();
         dispatcher.addEntry(Command.EXIT_CALL, new ExitProc());
+        dispatcher.addEntry(Command.CLOSE_CALL, new CloseProc());
         dispatcher.addEntry(Command.SELECT_CALL, new SelectProc());
         dispatcher.addEntry(Command.CONNECT_CALL, new ConnectProc());
         dispatcher.addEntry(Command.BIND_CALL, new BindProc());

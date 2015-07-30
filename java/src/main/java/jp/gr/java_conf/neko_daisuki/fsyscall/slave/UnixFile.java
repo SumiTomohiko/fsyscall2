@@ -8,36 +8,9 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 
 abstract class UnixFile implements EventScannee {
 
-    private abstract class Closer {
-
-        public abstract void close() throws UnixException;
-    }
-
-    private class TrueCloser extends Closer {
-
-        public void close() throws UnixException {
-            doClose();
-        }
-    }
-
-    private class RefCountCloser extends Closer {
-
-        public void close() throws UnixException {
-            mRefCount--;
-            mCloser = mRefCount == 1 ? new TrueCloser() : mCloser;
-        }
-    }
-
-    private int mRefCount;
-    private Closer mCloser;
     private boolean mNonBlocking = false;
     private boolean mCloseOnExec = false;
     private Lock mLock = new ReentrantReadWriteLock().writeLock();
-
-    public UnixFile() {
-        mRefCount = 1;
-        mCloser = new TrueCloser();
-    }
 
     public void lock() {
         mLock.lock();
@@ -55,13 +28,8 @@ abstract class UnixFile implements EventScannee {
         return mCloseOnExec;
     }
 
-    public void acquire() {
-        mRefCount++;
-        mCloser = mRefCount == 2 ? new RefCountCloser() : mCloser;
-    }
-
     public void close() throws UnixException {
-        mCloser.close();
+        doClose();
     }
 
     public void enableNonBlocking(boolean nonBlocking) {

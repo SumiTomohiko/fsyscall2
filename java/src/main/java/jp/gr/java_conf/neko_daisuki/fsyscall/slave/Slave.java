@@ -556,20 +556,6 @@ public class Slave implements Runnable {
         }
     }
 
-    private class DupCallback implements FileRegisteringCallback {
-
-        private UnixFile mFile;
-
-        public DupCallback(UnixFile file) {
-            mFile = file;
-        }
-
-        public UnixFile call() throws UnixException {
-            mFile.acquire();
-            return mFile;
-        }
-    }
-
     private class SocketCallback implements FileRegisteringCallback {
 
         private int mDomain;
@@ -583,9 +569,7 @@ public class Slave implements Runnable {
         }
 
         public UnixFile call() throws UnixException {
-            UnixFile file = new Socket(mDomain, mType, mProtocol);
-            file.acquire();
-            return file;
+            return new Socket(mDomain, mType, mProtocol);
         }
     }
 
@@ -614,7 +598,6 @@ public class Slave implements Runnable {
             default:
                 throw new UnixException(Errno.EINVAL);
             }
-            file.acquire();
 
             return file;
         }
@@ -1678,11 +1661,6 @@ public class Slave implements Runnable {
         return result;
     }
 
-    public SyscallResult.Generic32 doDup2(long from, long to) throws IOException {
-        mLogger.info(String.format("dup2(from=%d, to=%d)", from, to));
-        return dup2((int)from, (int)to);
-    }
-
     public SyscallResult.Generic32 doChdir(String path) throws IOException {
         mLogger.info(String.format("chdir(path=%s)", StringUtil.quote(path)));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
@@ -2263,28 +2241,6 @@ public class Slave implements Runnable {
 
         try {
             mFcntlProcs.run(result, file, fd, cmd, arg);
-        }
-        finally {
-            file.unlock();
-        }
-
-        return result;
-    }
-
-    public SyscallResult.Generic32 doDup(long oldd) throws IOException {
-        mLogger.info(String.format("dup(oldd=%d)", oldd));
-        SyscallResult.Generic32 result = new SyscallResult.Generic32();
-
-        int d = (int)oldd;
-        UnixFile file = getLockedFile(d);
-        if (file == null) {
-            result.retval = -1;
-            result.errno = Errno.EBADF;
-            return result;
-        }
-
-        try {
-            registerFile(new DupCallback(file), result);
         }
         finally {
             file.unlock();
@@ -2952,46 +2908,6 @@ public class Slave implements Runnable {
         }
 
         result.setError(Errno.ENOPROTOOPT);
-        return result;
-    }
-
-    private SyscallResult.Generic32 dup2(int from, int to) throws IOException {
-        SyscallResult.Generic32 result = new SyscallResult.Generic32();
-
-        synchronized (mFiles) {
-            UnixFile file = getLockedFile(from);
-            if (file == null) {
-                result.setError(Errno.EBADF);
-                return result;
-            }
-
-            try {
-                if (from == to) {
-                    return result;
-                }
-
-                UnixFile old = getLockedFile(to);
-                if (old != null) {
-                    try {
-                        old.close();
-                    }
-                    catch (UnixException e) {
-                        result.setError(e.getErrno());
-                        return result;
-                    }
-                    finally {
-                        old.unlock();
-                    }
-                }
-
-                file.acquire();
-                registerFileAt(file, to);
-            }
-            finally {
-                file.unlock();
-            }
-        }
-
         return result;
     }
 
