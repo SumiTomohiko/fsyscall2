@@ -27,7 +27,6 @@ fmaster/Makefile.makesyscalls
 fmaster/export_syms
 fmaster/machine
 fmaster/sys/fmaster/fmaster_abort2.c
-fmaster/sys/fmaster/fmaster_accept.c
 fmaster/sys/fmaster/fmaster_access.c
 fmaster/sys/fmaster/fmaster_acct.c
 fmaster/sys/fmaster/fmaster_adjtime.c
