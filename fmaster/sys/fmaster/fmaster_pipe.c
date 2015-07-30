@@ -34,10 +34,10 @@ sys_fmaster_pipe(struct thread *td, struct fmaster_pipe_args *uap)
 	if (error != 0)
 		return (error);
 
-	error = fmaster_register_fd(td, FD_MASTER, fildes[0], &fds[0]);
+	error = fmaster_register_file(td, FFP_MASTER, fildes[0], &fds[0]);
 	if (error != 0)
 		return (error);
-	error = fmaster_register_fd(td, FD_MASTER, fildes[1], &fds[1]);
+	error = fmaster_register_file(td, FFP_MASTER, fildes[1], &fds[1]);
 	if (error != 0)
 		return (error);
 	td->td_retval[0] = fds[0];

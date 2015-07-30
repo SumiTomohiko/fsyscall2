@@ -8,5 +8,5 @@ int
 fmaster_socket_post_execute(struct thread *td, struct fmaster_socket_args *uap)
 {
 
-	return (fmaster_return_fd(td, FD_SLAVE, td->td_retval[0]));
+	return (fmaster_return_fd(td, FFP_SLAVE, td->td_retval[0]));
 }

@@ -21,7 +21,13 @@ def make_string_locals(name):
         a.append(Variable(datatype, fmt.format(**locals()), size))
     return a
 
-def print_head(p, name):
+def print_head(syscall, p, name):
+    formal_args = ", ".join([
+            "struct thread *td",
+            "struct {name}_args *uap".format(**locals())
+            ] + (["int lfd"]
+                  if find_file_descriptor_argument(syscall) is not None
+                  else []))
     print_caution(p)
     p("""\
 #include <sys/param.h>
@@ -44,7 +50,7 @@ def print_head(p, name):
 #include <sys/fmaster/fmaster_proto.h>
 
 static int
-execute_call(struct thread *td, struct {name}_args *uap)
+execute_call({formal_args})
 {{
 """.format(**locals()))
 
@@ -54,7 +60,7 @@ def print_encoding(p, syscall):
             continue
 
         if data_of_argument(syscall, a).fd:
-            fmt = "{name} = fmaster_fds_of_thread(td)[uap->{name}].fd_local"
+            fmt = "{name} = lfd"
         else:
             fmt = "{name} = uap->{name}"
         p("\t" + fmt.format(**vars(a)) + ";\n")
@@ -211,10 +217,11 @@ def print_call_tail(p, print_newline):
     print_newline()
 
 def make_basic_local_vars(syscall):
-    return [Variable("int", "error")] + (
-            [Variable("enum fmaster_fd_type", "type_of_fd")]
-            if find_file_descriptor_argument(syscall) is not None
-            else [])
+    return [Variable("int", "error")] + ([
+        Variable("enum fmaster_file_place", "place"),
+        Variable("int", "lfd")]
+        if find_file_descriptor_argument(syscall) is not None
+        else [])
 
 def find_file_descriptor_argument(syscall):
     for a in syscall.args:
@@ -228,17 +235,13 @@ def print_master_call(p, print_newline, syscall):
         return
     name = drop_prefix(syscall.name)
     p("""\
-\terror = fmaster_type_of_fd(td, uap->{a}, &type_of_fd);
+\terror = fmaster_get_vnode_info(td, uap->{a}, &place, &lfd);
 \tif (error != 0)
 \t\treturn (error);
-\tif (type_of_fd == FD_CLOSED) {{
-\t\treturn (EBADF);
-\t}}
-\tif (type_of_fd == FD_MASTER) {{
+\tif (place == FFP_MASTER) {{
 \t\tstruct {name}_args a;
-\t\tstruct fmaster_fd *fds = fmaster_fds_of_thread(td);
 \t\tmemcpy(&a, uap, sizeof(a));
-\t\ta.{a} = fds[uap->{a}].fd_local;
+\t\ta.{a} = lfd;
 \t\terror = sys_{name}(td, &a);
 \t\tif (error != 0)
 \t\t\treturn (error);
@@ -321,6 +324,9 @@ def print_pre_execute(p, print_newline, syscall):
 """.format(**vars(syscall)))
     print_newline()
 
+def build_actual_args(syscall):
+    return ", ".join(["td", "uap"] + (["lfd"] if find_file_descriptor_argument(syscall) is not None else []))
+
 def print_generic_tail(p, print_newline, syscall):
     print_call_tail(p, print_newline)
 
@@ -335,10 +341,11 @@ static int
     print_newline()
     print_pre_execute(p, print_newline, syscall)
     print_master_call(p, print_newline, syscall)
+    act_args = build_actual_args(syscall)
     cmd_name = make_cmd_name(name)
     bit_num = 32 if syscall.rettype == "int" else 64
     p("""\
-\terror = execute_call(td, uap);
+\terror = execute_call({act_args});
 \tif (error != 0)
 \t\treturn (error);
 \terror = fmaster_execute_return_generic{bit_num}(td, {cmd_name}_RETURN);
@@ -495,6 +502,7 @@ execute_return(struct thread *td, struct {name}_args *uap)
 def print_syscall(p, print_newline, syscall):
     local_vars = make_basic_local_vars(syscall)
     name = syscall.name
+    act_args = build_actual_args(syscall)
     p("""\
 static int
 {name}_main(struct thread *td, struct {name}_args *uap)
@@ -505,7 +513,7 @@ static int
     print_master_call(p, print_newline, syscall)
     print_pre_execute(p, print_newline, syscall)
     p("""\
-\terror = execute_call(td, uap);
+\terror = execute_call({act_args});
 \tif (error != 0)
 \t\treturn (error);
 \treturn (execute_return(td, uap));
@@ -561,7 +569,7 @@ def write_syscall(dirpath, syscall):
     name = syscall.name
     with open(join(dirpath, name) + ".c", "w") as fp:
         p, print_newline = partial_print(fp)
-        print_head(p, name)
+        print_head(syscall, p, name)
         print_locals(p, local_vars)
         print_newline()
         print_encoding(p, syscall)

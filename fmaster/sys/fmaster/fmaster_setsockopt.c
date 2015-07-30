@@ -49,7 +49,9 @@ reuseaddr_main(struct thread *td, int s, int level, int optname, void *val,
 {
 	int d, error, optval;
 
-	d = fmaster_fds_of_thread(td)[s].fd_local;
+	error = fmaster_get_vnode_info(td, s, NULL, &d);
+	if (error != 0)
+		return (error);
 
 	if (valsize != sizeof(int))
 		return (EFAULT);

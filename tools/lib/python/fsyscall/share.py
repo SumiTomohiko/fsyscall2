@@ -181,9 +181,6 @@ SYSCALLS = {
         "fmaster_fcntl": {
             "fd": Argument(fd=True)
             },
-        "fmaster_dup": {
-            "fd": Argument(fd=True)
-            },
         "fmaster_getpid": {},
         "fmaster_getuid": {},
         "fmaster_geteuid": {},
@@ -212,9 +209,6 @@ SYSCALLS = {
             "s": Argument(fd=True)
             },
         "fmaster_kill": {},
-        "fmaster_dup2": {
-            "from": Argument(fd=True)
-            },
         "fmaster_chdir": {},
         "fmaster_chmod": {},
         "fmaster_mkdir": {},

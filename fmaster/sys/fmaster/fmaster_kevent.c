@@ -438,10 +438,10 @@ copyin_changelist(struct kevent *changelist, int nchanges,
 
 static int
 detect_fd(struct thread *td, struct kevent *kchangelist, int nchanges,
-	  enum fmaster_fd_type which)
+	  enum fmaster_file_place which)
 {
 	struct kevent *kev;
-	enum fmaster_fd_type fdtype;
+	enum fmaster_file_place place;
 	int error, i;
 
 	for (i = 0; i < nchanges; i++) {
@@ -450,10 +450,11 @@ detect_fd(struct thread *td, struct kevent *kchangelist, int nchanges,
 		case EVFILT_READ:
 		case EVFILT_WRITE:
 		case EVFILT_VNODE:
-			error = fmaster_type_of_fd(td, kev->ident, &fdtype);
+			error = fmaster_get_vnode_info(td, kev->ident, &place,
+						       NULL);
 			if (error != 0)
 				return (error);
-			if (fdtype != which)
+			if (place != which)
 				return (EBADF);
 			break;
 		case EVFILT_AIO:
@@ -536,7 +537,7 @@ kevent_copyin(void *arg, struct kevent *kevp, int count)
 	struct thread *td;
 	struct kevent *p;
 	struct copyio_bonus *bonus;
-	int i;
+	int error, i, lfd;
 
 	bonus = (struct copyio_bonus *)arg;
 	p = &bonus->kchangelist[bonus->ncopyined];
@@ -549,7 +550,11 @@ kevent_copyin(void *arg, struct kevent *kevp, int count)
 		case EVFILT_READ:
 		case EVFILT_WRITE:
 		case EVFILT_VNODE:
-			p->ident = fmaster_fds_of_thread(td)[p->ident].fd_local;
+			error = fmaster_get_vnode_info(td, p->ident, NULL,
+						       &lfd);
+			if (error != 0)
+				return (error);
+			p->ident = lfd;
 			break;
 		case EVFILT_AIO:
 		case EVFILT_SIGNAL:
@@ -575,8 +580,8 @@ fmaster_kevent_main(struct thread *td, struct fmaster_kevent_args *uap)
 	struct timespec *ktimeout, timeout;
 	struct copyio_bonus bonus;
 	struct kevent_copyops ops;
-	enum fmaster_fd_type fdtype;
-	int error, fd, lfd, nchanges;
+	enum fmaster_file_place place;
+	int error, lfd, nchanges;
 
 	nchanges = uap->nchanges;
 	mt = M_TEMP;
@@ -595,41 +600,16 @@ fmaster_kevent_main(struct thread *td, struct fmaster_kevent_args *uap)
 	if (error != 0)
 		goto exit;
 
-#if 0
-	/*
-	 * This implementation cannot work for the master.
-	 */
-	error = fmaster_type_of_fd(td, uap->fd, &fdtype);
+	error = fmaster_get_vnode_info(td, uap->fd, &place, &lfd);
 	if (error != 0)
 		goto exit;
-	if (fdtype != FD_SLAVE) {
+	if (place != FFP_MASTER) {
 		error = EBADF;
 		goto exit;
 	}
-	error = detect_fd(td, kchangelist, nchanges, FD_SLAVE);
+	error = detect_fd(td, kchangelist, nchanges, FFP_MASTER);
 	if (error != 0)
 		goto exit;
-
-	error = execute_call(td, uap, kchangelist);
-	if (error != 0)
-		goto exit;
-	error = execute_return(td, uap);
-	if (error != 0)
-		goto exit;
-#endif
-
-	fd = uap->fd;
-	error = fmaster_type_of_fd(td, fd, &fdtype);
-	if (error != 0)
-		goto exit;
-	if (fdtype != FD_MASTER) {
-		error = EBADF;
-		goto exit;
-	}
-	error = detect_fd(td, kchangelist, nchanges, FD_MASTER);
-	if (error != 0)
-		goto exit;
-	lfd = fmaster_fds_of_thread(td)[fd].fd_local;
 	bonus.td = td;
 	bonus.kchangelist = kchangelist;
 	bonus.eventlist = uap->eventlist;

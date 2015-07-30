@@ -1,40 +1,29 @@
 #include <sys/param.h>
-#include <sys/errno.h>
 #include <sys/syscallsubr.h>
 
 #include <fsyscall/private/fmaster.h>
-#include <sys/fmaster/fmaster_pre_post.h>
 #include <sys/fmaster/fmaster_proto.h>
 
 static int
 fmaster_close_main(struct thread *td, struct fmaster_close_args *uap)
 {
-	enum fmaster_fd_type type_of_fd;
-	int error, fd, lfd;
+	int (*closef)(struct thread *, int);
+	enum fmaster_file_place place;
+	int error, fd, lfd, refcount;
 
 	fd = uap->fd;
-	error = fmaster_type_of_fd(td, fd, &type_of_fd);
+	error = fmaster_unref_fd(td, fd, &place, &lfd, &refcount);
 	if (error != 0)
 		return (error);
-	if (type_of_fd == FD_CLOSED)
-		return (EBADF);
-	lfd = fmaster_fds_of_thread(td)[fd].fd_local;
-	if (type_of_fd == FD_MASTER) {
-		error = kern_close(td, lfd);
+
+	if (refcount == 0) {
+		closef = place == FFP_MASTER ? kern_close
+					     : fmaster_execute_close;
+		error = closef(td, lfd);
 		if (error != 0)
 			return (error);
-		error = fmaster_close_post_common(td, uap);
-		if (error != 0)
-			return (error);
-		return (0);
 	}
 
-	error = fmaster_execute_close(td, lfd);
-	if (error != 0)
-		return (error);
-	error = fmaster_close_post_common(td, uap);
-	if (error != 0)
-		return (error);
 	return (0);
 }
 

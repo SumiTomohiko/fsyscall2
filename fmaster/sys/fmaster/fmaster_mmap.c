@@ -7,13 +7,12 @@
 #include <sys/fmaster/fmaster_proto.h>
 
 static int
-mmap_main(struct thread *td, struct fmaster_mmap_args *uap)
+mmap_main(struct thread *td, struct fmaster_mmap_args *uap, int lfd)
 {
 	struct mmap_args a;
 
 	memcpy(&a, uap, sizeof(a));
-	if ((uap->flags & MAP_ANON) == 0)
-		a.fd = fmaster_fds_of_thread(td)[uap->fd].fd_local;
+	a.fd = lfd;
 
 	return (sys_mmap(td, &a));
 }
@@ -21,16 +20,16 @@ mmap_main(struct thread *td, struct fmaster_mmap_args *uap)
 int
 sys_fmaster_mmap(struct thread *td, struct fmaster_mmap_args *uap)
 {
-	enum fmaster_fd_type type;
-	int error;
+	enum fmaster_file_place place;
+	int error, lfd;
 
 	if ((uap->flags & MAP_ANON) != 0)
-		return (mmap_main(td, uap));
-	error = fmaster_type_of_fd(td, uap->fd, &type);
+		return (sys_mmap(td, (struct mmap_args *)uap));
+	error = fmaster_get_vnode_info(td, uap->fd, &place, &lfd);
 	if (error != 0)
 		return (error);
-	if (type == FD_MASTER)
-		return (mmap_main(td, uap));
+	if (place == FFP_MASTER)
+		return (mmap_main(td, uap, lfd));
 
 	return (EBADF);
 }

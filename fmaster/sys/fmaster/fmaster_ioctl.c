@@ -1,3 +1,5 @@
+#include <sys/param.h>
+#include <sys/syscallsubr.h>
 #include <sys/sysproto.h>
 
 #include <fsyscall/private/fmaster.h>
@@ -6,20 +8,14 @@
 int
 sys_fmaster_ioctl(struct thread *td, struct fmaster_ioctl_args *uap)
 {
-	struct ioctl_args a;
-	enum fmaster_fd_type type;
-	int error, fd;
+	enum fmaster_file_place place;
+	int error, lfd;
 
-	fd = uap->fd;
-	error = fmaster_type_of_fd(td, fd, &type);
+	error = fmaster_get_vnode_info(td, uap->fd, &place, &lfd);
 	if (error != 0)
 		return (error);
-	if (type == FD_CLOSED)
-		return (EBADF);
-	if (type == FD_SLAVE)
+	if (place != FFP_MASTER)
 		return (ENOTTY);
-	a.fd = fmaster_fds_of_thread(td)[fd].fd_local;
-	a.com = uap->com;
-	a.data = uap->data;
-	return (sys_ioctl(td, &a));
+
+	return (kern_ioctl(td, lfd, uap->com, uap->data));
 }

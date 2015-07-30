@@ -14,6 +14,8 @@
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fmaster.h>
 
+#define	ENABLE_DEBUG	0
+
 /*******************************************************************************
  * shared code
  */
@@ -208,10 +210,14 @@ vfd_to_lfd(struct thread *td, struct pollfd *fds, nfds_t nfds)
 {
 	struct pollfd *pfd;
 	nfds_t i;
+	int error, lfd;
 
 	for (i = 0; i < nfds; i++) {
 		pfd = &fds[i];
-		pfd->fd = fmaster_fds_of_thread(td)[pfd->fd].fd_local;
+		error = fmaster_get_vnode_info(td, pfd->fd, NULL, &lfd);
+		if (error != 0)
+			return (error);
+		pfd->fd = lfd;
 	}
 
 	return (0);
@@ -275,7 +281,7 @@ write_fds_command(struct thread *td, command_t cmd, struct pollfd *fds,
 {
 	payload_size_t payload_size, rest_size;
 	int error, events_len, fd, fd_len, i, nfds_len, sfd, timeout_len, wfd;
-	enum fmaster_fd_type type;
+	enum fmaster_file_place place;
 	char *p, payload[256];
 
 	rest_size = sizeof(payload);
@@ -288,12 +294,11 @@ write_fds_command(struct thread *td, command_t cmd, struct pollfd *fds,
 
 	for (i = 0; i < nfds; i++) {
 		fd = fds[i].fd;
-		error = fmaster_type_of_fd(td, fd, &type);
+		error = fmaster_get_vnode_info(td, fd, &place, &sfd);
 		if (error != 0)
 			return (error);
-		if (type != FD_SLAVE)
+		if (place != FFP_SLAVE)
 			return (EBADF);
-		sfd = fmaster_fds_of_thread(td)[fd].fd_local;
 		fd_len = fsyscall_encode_int32(sfd, p, rest_size);
 		if (fd_len == -1)
 			return (ENOMEM);
@@ -404,15 +409,15 @@ count_slavefds(struct thread *td, struct pollfd *fds, nfds_t nfds,
 	       nfds_t *nslavefds)
 {
 	nfds_t i;
-	enum fmaster_fd_type fdtype;
+	enum fmaster_file_place place;
 	int error, n;
 
 	n = 0;
 	for (i = 0; i < nfds; i++) {
-		error = fmaster_type_of_fd(td, fds[i].fd, &fdtype);
+		error = fmaster_get_vnode_info(td, fds[i].fd, &place, NULL);
 		if (error != 0)
 			return (error);
-		n += fdtype == FD_SLAVE ? 1 : 0;
+		n += place == FFP_SLAVE ? 1 : 0;
 	}
 
 	*nslavefds = n;
@@ -421,20 +426,21 @@ count_slavefds(struct thread *td, struct pollfd *fds, nfds_t nfds,
 }
 
 static int
-copy_fds(struct thread *td, enum fmaster_fd_type fdtype, struct pollfd *srcfds,
-	 nfds_t nsrcfds, struct pollfd *destfds, nfds_t ndestfds)
+copy_fds(struct thread *td, enum fmaster_file_place place,
+	 struct pollfd *srcfds, nfds_t nsrcfds, struct pollfd *destfds,
+	 nfds_t ndestfds)
 {
 	struct pollfd *pfd;
 	nfds_t i, n;
-	enum fmaster_fd_type t;
+	enum fmaster_file_place p;
 	int error;
 
 	for (i = 0, n = 0; (i < nsrcfds) && (n < ndestfds); i++) {
 		pfd = &srcfds[i];
-		error = fmaster_type_of_fd(td, pfd->fd, &t);
+		error = fmaster_get_vnode_info(td, pfd->fd, &p, NULL);
 		if (error != 0)
 			return (error);
-		if (t != fdtype)
+		if (p != place)
 			continue;
 		memcpy(&destfds[n], pfd, sizeof(*pfd));
 		n++;
@@ -450,24 +456,23 @@ merge_results(struct thread *td, struct pollfd *fds, nfds_t nfds,
 {
 	struct pollfd *p, *pfd;
 	nfds_t i, masterfdspos, slavefdspos;
-	enum fmaster_fd_type fdtype;
+	enum fmaster_file_place place;
 	int error;
 
 	for (i = masterfdspos = slavefdspos = 0; i < nfds; i++) {
 		pfd = &fds[i];
-		error = fmaster_type_of_fd(td, pfd->fd, &fdtype);
+		error = fmaster_get_vnode_info(td, pfd->fd, &place, NULL);
 		if (error != 0)
 			return (error);
-		switch (fdtype) {
-		case FD_MASTER:
+		switch (place) {
+		case FFP_MASTER:
 			p = &masterfds[masterfdspos];
 			masterfdspos++;
 			break;
-		case FD_SLAVE:
+		case FFP_SLAVE:
 			p = &slavefds[slavefdspos];
 			slavefdspos++;
 			break;
-		case FD_CLOSED:
 		default:
 			return (EBADF);
 		}
@@ -477,6 +482,25 @@ merge_results(struct thread *td, struct pollfd *fds, nfds_t nfds,
 	return (0);
 }
 
+#if ENABLE_DEBUG
+static void
+dump_fds(struct thread *td, const char *name, struct pollfd *fds, nfds_t nfds)
+{
+	struct pollfd *pfd;
+	pid_t pid;
+	nfds_t i;
+
+	pid = td->td_proc->p_pid;
+	for (i = 0; i < nfds; i++) {
+		pfd = &fds[i];
+		log(LOG_DEBUG,
+		    "fmaster[%d]: poll: %s: fds[%d]: fd=%d, events=%d, revents="
+		    "%d\n",
+		    pid, name, i, pfd->fd, pfd->events, pfd->revents);
+	}
+}
+#endif
+
 static int
 master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
 		  int timeout)
@@ -485,7 +509,7 @@ master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
 	struct pollfd *masterfds, *mhubfd, *slavefds;
 	nfds_t nmasterfds, nslavefds;
 	size_t masterfdssize, slavefdssize;
-	int error, master_retval, slave_retval;
+	int error, master_retval, mhub_retval, slave_retval;
 
 	error = count_slavefds(td, fds, nfds, &nslavefds);
 	if (error != 0)
@@ -496,7 +520,7 @@ master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
 	slavefds = (struct pollfd *)malloc(slavefdssize, mt, M_WAITOK);
 	if (slavefds == NULL)
 		return (ENOMEM);
-	error = copy_fds(td, FD_SLAVE, fds, nfds, slavefds, nslavefds);
+	error = copy_fds(td, FFP_SLAVE, fds, nfds, slavefds, nslavefds);
 	if (error != 0)
 		goto exit1;
 
@@ -511,7 +535,7 @@ master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
 		error = ENOMEM;
 		goto exit1;
 	}
-	error = copy_fds(td, FD_MASTER, fds, nfds, masterfds, nmasterfds);
+	error = copy_fds(td, FFP_MASTER, fds, nfds, masterfds, nmasterfds);
 	if (error != 0)
 		goto exit2;
 	error = vfd_to_lfd(td, masterfds, nmasterfds);
@@ -525,7 +549,8 @@ master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
 	error = kevent_poll(td, masterfds, nmasterfds + 1, timeout);
 	if (error != 0)
 		goto exit2;
-	master_retval = td->td_retval[0];
+	mhub_retval = (mhubfd->revents & POLLIN) != 0 ? 1 : 0;
+	master_retval = td->td_retval[0] - mhub_retval;
 
 	error = fmaster_write_command(td, POLL_END);
 	if (error != 0)
@@ -535,10 +560,22 @@ master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
 		goto exit2;
 	slave_retval = td->td_retval[0];
 
+#if ENABLE_DEBUG
+	dump_fds(td, "master", masterfds, nmasterfds + 1);
+	dump_fds(td, "slave", slavefds, nslavefds);
+#endif
 	error = merge_results(td, fds, nfds, slavefds, nslavefds, masterfds,
 			      nmasterfds);
 	if (error != 0)
 		goto exit2;
+#if ENABLE_DEBUG
+	log(LOG_DEBUG,
+	    "fmaster[%d]: poll: master_retval=%d\n",
+	    td->td_proc->p_pid, master_retval);
+	log(LOG_DEBUG,
+	    "fslave[%d]: poll: slave_retval=%d\n",
+	    td->td_proc->p_pid, slave_retval);
+#endif
 	td->td_retval[0] = master_retval + slave_retval;
 
 exit2:
@@ -579,29 +616,28 @@ log_args(struct thread *td, struct pollfd *fds, nfds_t nfds)
 	struct pollfd *pfd;
 	nfds_t i;
 	pid_t pid;
-	enum fmaster_fd_type fdtype;
+	enum fmaster_file_place place;
 	int error, fd, lfd;
 	short events;
-	const char *sfdtype;
+	const char *splace;
 	char sevents[256];
 
 	pid = td->td_proc->p_pid;
 	for (i = 0; i < nfds; i++) {
 		pfd = &fds[i];
 		fd = pfd->fd;
-		error = fmaster_type_of_fd(td, fd, &fdtype);
+		error = fmaster_get_vnode_info(td, fd, &place, &lfd);
 		if (error != 0)
 			return (error);
-		sfdtype = fdtype == FD_MASTER ? "master"
-					      : fdtype == FD_SLAVE ? "slave"
-								   : "closed";
-		lfd = fmaster_fds_of_thread(td)[fd].fd_local;
+		splace = place == FFP_MASTER ? "master"
+					     : place == FFP_SLAVE ? "slave"
+								  : "invalid";
 		events = pfd->events;
 		events_to_string(sevents, sizeof(sevents), events);
 		log(LOG_DEBUG,
 		    "fmaster[%d]: poll: fds[%d]: fd=%d (%s: %d), events=%d (%s)"
 		    ", revents=%d\n",
-		    pid, i, fd, sfdtype, lfd, events, sevents, pfd->revents);
+		    pid, i, fd, splace, lfd, events, sevents, pfd->revents);
 	}
 
 	return (0);
@@ -612,22 +648,21 @@ detect_side(struct thread *td, struct pollfd *fds, nfds_t nfds,
 	    enum fmaster_side *side)
 {
 	nfds_t i;
-	enum fmaster_fd_type fdtype;
+	enum fmaster_file_place place;
 	int error;
 
 	*side = 0;
 	for (i = 0; i < nfds; i++) {
-		error = fmaster_type_of_fd(td, fds[i].fd, &fdtype);
+		error = fmaster_get_vnode_info(td, fds[i].fd, &place, NULL);
 		if (error != 0)
 			return (error);
-		switch (fdtype) {
-		case FD_MASTER:
+		switch (place) {
+		case FFP_MASTER:
 			*side |= SIDE_MASTER;
 			break;
-		case FD_SLAVE:
+		case FFP_SLAVE:
 			*side |= SIDE_SLAVE;
 			break;
-		case FD_CLOSED:
 		default:
 			return (EBADF);
 		}

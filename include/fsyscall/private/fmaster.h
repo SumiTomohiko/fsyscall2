@@ -1,33 +1,38 @@
 #if !defined(FSYSCALL_FMASTER_H_INCLUDED)
 #define FSYSCALL_FMASTER_H_INCLUDED
 
-#include <sys/types.h>
-#include <sys/cdefs.h>
+#include <sys/param.h>
 #include <sys/lock.h>
 #include <sys/malloc.h>
 #include <sys/mutex.h>
-#include <sys/param.h>
+#include <sys/mutex.h>
 #include <sys/proc.h>
+#include <sys/queue.h>
 #include <sys/socket.h>
 #include <sys/syslog.h>
 #include <sys/systm.h>
+#include <vm/uma.h>
 
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/payload.h>
 
-#define	FD_NUM	1024
-
-enum fmaster_fd_type {
-	FD_CLOSED,
-	FD_SLAVE,
-	FD_MASTER
+enum fmaster_file_place {
+	FFP_MASTER,
+	FFP_SLAVE
 };
 
-struct fmaster_fd {
-	enum fmaster_fd_type fd_type;
-	int fd_local;
+struct fmaster_vnode {
+	struct mtx		fv_lock;
+	enum fmaster_file_place	fv_place;
+	int			fv_local;
+	int			fv_refcount;
 };
 
+struct fmaster_file {
+	struct fmaster_vnode	*ff_vnode;
+};
+
+#define	FILES_NUM	256
 #define	DATA_TOKEN_SIZE	64
 
 struct fmaster_data {
@@ -37,23 +42,25 @@ struct fmaster_data {
 	size_t rfdlen;	/* readable data length in the buffer of rfd */
 
 	/*
-	 * fds - What is this?
+	 * fdata_files - What is this?
 	 *
-	 * A master process handles two kinds of file descriptors. One is fds
-	 * opened in the slave process (slave fd), another one is fds opened in
-	 * the master process (master fd), like pipes. In some cases, a slave fd
-	 * may be same as a master fd. So, if a master process requests open(2),
-	 * and the slave process successed the request, the fmaster kernel
-	 * module returns a virtual fd. This virtual fd is index of
-	 * fmaster_data::fds.
+	 * A master process handles two kinds of file. One is file opened in the
+	 * slave process, another one is file opened in the master process, like
+	 * pipes. In some cases, a slave file may be same as a master fd. So, if
+	 * a master process requests open(2), and the slave process successed
+	 * the request, the fmaster kernel module returns a virtual fd. This
+	 * virtual fd is index of fmaster_data::fdata_files.
 	 */
-	struct fmaster_fd fds[FD_NUM];
+	struct fmaster_file	fdata_files[FILES_NUM];
+	struct mtx		fdata_files_lock;
+	uma_zone_t		fdata_vnodes;
 
 	char fork_sock[MAXPATHLEN];
 	uint64_t token_size;
 	char token[DATA_TOKEN_SIZE];
 };
 
+/* I/O */
 int	fmaster_read_command(struct thread *, command_t *);
 int	fmaster_read_int8(struct thread *, int8_t *, int *);
 int	fmaster_read_int16(struct thread *, int16_t *, int *);
@@ -90,22 +97,39 @@ int	fmaster_write_from_userspace(struct thread *, int, const void *, size_t);
 int	fmaster_write_payloaded_command(struct thread *, command_t,
 					struct payload *);
 
+/* thread attributes */
 struct fmaster_data *
 	fmaster_data_of_thread(struct thread *);
 int	fmaster_rfd_of_thread(struct thread *);
 int	fmaster_wfd_of_thread(struct thread *);
-struct fmaster_fd *
-	fmaster_fds_of_thread(struct thread *);
 
+/* lifecycle of emuldata */
 struct fmaster_data *
 	fmaster_create_data(struct thread *);
 void	fmaster_delete_data(struct fmaster_data *);
 
-void	fmaster_close_fd(struct thread *, int);
+/* vnode operations */
+void			fmaster_lock_file_table(struct thread *);
+void			fmaster_unlock_file_table(struct thread *);
+struct fmaster_vnode 	*fmaster_alloc_vnode(struct thread *);
+void			fmaster_unlock_vnode(struct thread *,
+					     struct fmaster_vnode *);
+int			fmaster_get_vnode_info(struct thread *, int,
+					       enum fmaster_file_place *,
+					       int *);
+
+/* file operations */
+int	fmaster_register_file(struct thread *, enum fmaster_file_place, int,
+			      int *);
+int	fmaster_unref_fd(struct thread *, int, enum fmaster_file_place *, int *,
+			 int *);
+int	fmaster_dup(struct thread*, int, int *);
+int	fmaster_dup2(struct thread*, int, int);
+
 int	fmaster_fd_of_master_fd(struct thread *, int, int *);
 int	fmaster_fd_of_slave_fd(struct thread *, int, int *);
-int	fmaster_type_of_fd(struct thread *, int, enum fmaster_fd_type *);
 
+/* protocols */
 int	fmaster_execute_close(struct thread *, int);
 int	fmaster_execute_return_optional32(struct thread *, command_t,
 					  int (*)(struct thread *, int,
@@ -121,11 +145,11 @@ int	fmaster_execute_connect_protocol(struct thread *td, const char *command,
 int	fmaster_execute_accept_protocol(struct thread *, const char *,
 					command_t, command_t, int,
 					struct sockaddr *, socklen_t *);
-int	fmaster_register_fd(struct thread *, enum fmaster_fd_type, int, int *);
-int	fmaster_register_fd_at(struct thread *td, enum fmaster_fd_type type,
-			       int mfd, int sfd);
-int	fmaster_return_fd(struct thread *, enum fmaster_fd_type, int);
+int	fmaster_return_fd(struct thread *, enum fmaster_file_place, int);
 
+/* anything else */
+int	fmaster_copy_data(struct thread *, struct fmaster_data *);
+int	fmaster_set_token(struct fmaster_data *, const char *, size_t);
 int	fmaster_is_master_file(struct thread *, const char *);
 
 int	fmaster_initialize_kqueue(struct thread *, struct fmaster_data *);

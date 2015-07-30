@@ -491,16 +491,18 @@ static int
 map_to_virtual_fd(struct thread *td, int nfds, fd_set *local_fds, fd_set *fds)
 {
 	struct malloc_type *mt = M_TEMP;
-	struct fmaster_fd *pfd;
-	int *l2v, lfd, vfd;
+	enum fmaster_file_place place;
+	int error, *l2v, lfd, vfd;
 
 	l2v = (int *)malloc(sizeof(int) * nfds, mt, M_ZERO | M_WAITOK);
 	if (l2v == NULL)
 		return (ENOMEM);
-	for (vfd = 0; vfd < FD_NUM; vfd++) {
-		pfd = &fmaster_fds_of_thread(td)[vfd];
-		if (pfd->fd_type == FD_MASTER)
-			l2v[pfd->fd_local] = vfd;
+	for (vfd = 0; vfd < FILES_NUM; vfd++) {
+		error = fmaster_get_vnode_info(td, vfd, &place, &lfd);
+		if (error != 0)
+			goto exit;
+		if (place == FFP_MASTER)
+			l2v[lfd] = vfd;
 	}
 
 	FD_ZERO(fds);
@@ -508,22 +510,26 @@ map_to_virtual_fd(struct thread *td, int nfds, fd_set *local_fds, fd_set *fds)
 		if (FD_ISSET(lfd, local_fds))
 			FD_SET(l2v[lfd], fds);
 
+	error = 0;
+exit:
 	free(l2v, mt);
 
-	return (0);
+	return (error);
 }
 
 static int
 map_to_local_fd(struct thread *td, int nfds, fd_set *fds, int *nd, fd_set *local_fds)
 {
-	int fd, local_fd, max_fd;
+	int error, fd, local_fd, max_fd;
 
 	max_fd = 0;
 	FD_ZERO(local_fds);
 
 	for (fd = 0; fd < nfds; fd++)
 		if (FD_ISSET(fd, fds)) {
-			local_fd = fmaster_fds_of_thread(td)[fd].fd_local;
+			error = fmaster_get_vnode_info(td, fd, NULL, &local_fd);
+			if (error != 0)
+				return (error);
 			max_fd = MAX(max_fd, local_fd);
 			FD_SET(local_fd, fds);
 		}
@@ -588,13 +594,15 @@ static int
 encode_fds(struct thread *td, int nfds, struct fd_set *fds, char *buf, size_t bufsize, payload_size_t *data_len)
 {
 	size_t pos;
-	int fd, i, len;
+	int error, fd, i, len;
 
 	pos = 0;
 	for (i = 0; i < nfds; i++) {
 		if (!FD_ISSET(i, fds))
 			continue;
-		fd = fmaster_fds_of_thread(td)[i].fd_local;
+		error = fmaster_get_vnode_info(td, i, NULL, &fd);
+		if (error != 0)
+			return (error);
 		len = fsyscall_encode_int32(fd, buf + pos, bufsize - pos);
 		if (len == -1)
 			return (ENOMEM);
@@ -842,7 +850,7 @@ select_slave(struct thread *td, int nfds, fd_set *readfds, fd_set *writefds, fd_
 static int
 detect_fd_side(struct thread *td, int nfds, fd_set *fds, bool *master, bool *slave)
 {
-	enum fmaster_fd_type t;
+	enum fmaster_file_place place;
 	int error, fd;
 	bool *p;
 
@@ -851,10 +859,10 @@ detect_fd_side(struct thread *td, int nfds, fd_set *fds, bool *master, bool *sla
 
 	for (fd = 0; fd < nfds; fd++)
 		if (FD_ISSET(fd, fds)) {
-			error = fmaster_type_of_fd(td, fd, &t);
+			error = fmaster_get_vnode_info(td, fd, &place, NULL);
 			if (error != 0)
 				return (error);
-			p = t == FD_MASTER ? master : slave;
+			p = place == FFP_MASTER ? master : slave;
 			*p = true;
 		}
 
@@ -933,7 +941,7 @@ static int
 log_fdset(struct thread *td, const char *name, int nd, fd_set *fdset)
 {
 	pid_t pid;
-	enum fmaster_fd_type t;
+	enum fmaster_file_place place;
 	int error, fd, lfd;
 	const char *fmt = "fmaster[%d]: select: %s: %d (%s: %d)\n", *side;
 
@@ -941,11 +949,10 @@ log_fdset(struct thread *td, const char *name, int nd, fd_set *fdset)
 
 	for (fd = 0; fd < nd; fd++)
 		if (FD_ISSET(fd, fdset)) {
-			error = fmaster_type_of_fd(td, fd, &t);
+			error = fmaster_get_vnode_info(td, fd, &place, &lfd);
 			if (error != 0)
 				return (error);
-			side = t == FD_MASTER ? "master" : "slave";
-			lfd = fmaster_fds_of_thread(td)[fd].fd_local;
+			side = place == FFP_MASTER ? "master" : "slave";
 			log(LOG_DEBUG, fmt, pid, name, fd, side, lfd);
 		}
 

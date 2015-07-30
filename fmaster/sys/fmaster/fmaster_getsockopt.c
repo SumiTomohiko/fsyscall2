@@ -12,14 +12,19 @@ static int
 reuseaddr_write_call(struct thread *td, int s, int level, int name, socklen_t optlen)
 {
 	struct payload *payload;
-	int error, d;
+	enum fmaster_file_place place;
+	int error, lfd;
 
-	d = fmaster_fds_of_thread(td)[s].fd_local;
+	error = fmaster_get_vnode_info(td, s, &place, &lfd);
+	if (error != 0)
+		return (error);
+	if (place != FFP_SLAVE)
+		return (EPERM);
 
 	payload = fsyscall_payload_create();
 	if (payload == NULL)
 		return (ENOMEM);
-	error = fsyscall_payload_add_int(payload, d);
+	error = fsyscall_payload_add_int(payload, lfd);
 	if (error != 0)
 		goto exit;
 	error = fsyscall_payload_add_int(payload, level);

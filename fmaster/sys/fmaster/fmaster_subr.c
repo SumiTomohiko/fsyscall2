@@ -30,15 +30,88 @@
 #include <fsyscall/private/payload.h>
 #include <fsyscall/private/read_sockaddr.h>
 
-MALLOC_DEFINE(M_FMASTER, "fmaster", "fmaster");
+MALLOC_DEFINE(M_FMASTER, "fdata", "emuldata of fmaster");
+
+static void
+vnode_dtor(void *mem, int size, void *arg)
+{
+#if 1
+	struct fmaster_vnode *vnode;
+
+	if (size < sizeof(struct fmaster_vnode))
+		return;
+
+	vnode = (struct fmaster_vnode *)mem;
+	mtx_destroy(&vnode->fv_lock);
+#endif
+}
+
+static int
+vnode_ctor(void *mem, int size, void *arg, int flags)
+{
+	struct fmaster_vnode *vnode;
+
+	if (size < sizeof(struct fmaster_vnode))
+		return (EINVAL);
+
+	vnode = (struct fmaster_vnode *)mem;
+#if 1
+	/*
+	 * zone(9) is saying that I can initialize mutexes in vnode_init. But it
+	 * causes crash. I do not why. mtx_init(9) in the constructor works.
+	 */
+	mtx_init(&vnode->fv_lock, "fvnode", NULL, MTX_DEF);
+#endif
+	vnode->fv_refcount = 1;
+
+	return (0);
+}
+
+static int
+vnode_init(void *mem, int size, int flags)
+{
+#if 0
+	struct fmaster_vnode *vnode;
+
+	if (size < sizeof(struct fmaster_vnode))
+		return (EINVAL);
+
+	vnode = (struct fmaster_vnode *)mem;
+	mtx_init(&vnode->fv_lock, "fvnode", NULL, MTX_DEF);
+#endif
+
+	return (0);
+}
+
+static void
+vnode_fini(void *mem, int size)
+{
+#if 0
+	struct fmaster_vnode *vnode;
+
+	if (size < sizeof(struct fmaster_vnode))
+		return;
+
+	vnode = (struct fmaster_vnode *)mem;
+	mtx_destroy(&vnode->fv_lock);
+#endif
+}
 
 struct fmaster_data *
 fmaster_create_data(struct thread *td)
 {
 	struct fmaster_data *data;
-	int flags = M_NOWAIT;
+	int flags, i;
 
+	flags = M_WAITOK;
 	data = (struct fmaster_data *)malloc(sizeof(*data), M_FMASTER, flags);
+	for (i = 0; i < FILES_NUM; i++)
+		data->fdata_files[i].ff_vnode = NULL;
+	mtx_init(&data->fdata_files_lock, "ffiles", NULL, MTX_DEF);
+	data->fdata_vnodes = uma_zcreate("fvnodes",
+					 sizeof(struct fmaster_vnode),
+					 vnode_ctor, vnode_dtor, vnode_init,
+					 vnode_fini, 0, flags);
 
 	return (data);
 }
@@ -46,8 +119,113 @@ fmaster_create_data(struct thread *td)
 void
 fmaster_delete_data(struct fmaster_data *data)
 {
+	uma_zone_t zone;
+	int i;
 
+	zone = data->fdata_vnodes;
+	for (i = 0; i < FILES_NUM; i++)
+		uma_zfree(zone, data->fdata_files[i].ff_vnode);
+	uma_zdestroy(data->fdata_vnodes);
+	mtx_destroy(&data->fdata_files_lock);
 	free(data, M_FMASTER);
+}
+
+void
+fmaster_lock_file_table(struct thread *td)
+{
+	struct fmaster_data *data;
+
+	data = fmaster_data_of_thread(td);
+	mtx_lock(&data->fdata_files_lock);
+}
+
+void
+fmaster_unlock_file_table(struct thread *td)
+{
+	struct fmaster_data *data;
+
+	data = fmaster_data_of_thread(td);
+	mtx_unlock(&data->fdata_files_lock);
+}
+
+struct fmaster_vnode *
+fmaster_alloc_vnode(struct thread *td)
+{
+	uma_zone_t zone;
+	struct fmaster_vnode *vnode;
+
+	zone = fmaster_data_of_thread(td)->fdata_vnodes;
+	vnode = (struct fmaster_vnode *)uma_zalloc(zone, M_WAITOK);
+
+	return (vnode);
+}
+
+int
+fmaster_unref_fd(struct thread *td, int fd, enum fmaster_file_place *place,
+		 int *lfd, int *refcount)
+{
+	struct fmaster_data *data;
+	struct fmaster_vnode *vnode;
+	int error;
+
+	if ((fd < 0) || (FILES_NUM <= fd))
+		return (EBADF);
+
+	fmaster_lock_file_table(td);
+
+	data = fmaster_data_of_thread(td);
+	vnode = data->fdata_files[fd].ff_vnode;
+	if (vnode == NULL) {
+		error = EBADF;
+		goto exit;
+	}
+	mtx_lock(&vnode->fv_lock);
+
+	vnode->fv_refcount--;
+	*place = vnode->fv_place;
+	*lfd = vnode->fv_local;
+	*refcount = vnode->fv_refcount;
+
+	mtx_unlock(&vnode->fv_lock);
+
+	if (*refcount == 0) {
+		data->fdata_files[fd].ff_vnode = NULL;
+		uma_zfree(data->fdata_vnodes, vnode);
+	}
+
+	error = 0;
+exit:
+	fmaster_unlock_file_table(td);
+
+	return (error);
+}
+
+static struct fmaster_vnode *
+fmaster_get_locked_vnode_of_fd(struct thread *td, int fd)
+{
+	struct fmaster_data *data;
+	struct fmaster_vnode *vnode;
+
+	if ((fd < 0) || (FILES_NUM <= fd))
+		return (NULL);
+
+	fmaster_lock_file_table(td);
+
+	data = fmaster_data_of_thread(td);
+	vnode = data->fdata_files[fd].ff_vnode;
+	if (vnode != NULL)
+		mtx_lock(&vnode->fv_lock);
+
+	fmaster_unlock_file_table(td);
+
+	return (vnode);
+}
+
+void
+fmaster_unlock_vnode(struct thread *td, struct fmaster_vnode *vnode)
+{
+
+	mtx_unlock(&vnode->fv_lock);
 }
 
 long
@@ -419,12 +597,6 @@ fmaster_wfd_of_thread(struct thread *td)
 	return (fmaster_data_of_thread(td)->wfd);
 }
 
-struct fmaster_fd *
-fmaster_fds_of_thread(struct thread *td)
-{
-	return (fmaster_data_of_thread(td)->fds);
-}
-
 #define	IMPLEMENT_WRITE_X(type, name, bufsize, encode)	\
 int							\
 name(struct thread *td, type n)				\
@@ -548,35 +720,45 @@ fmaster_execute_return_generic32(struct thread *td, command_t expected_cmd)
 }
 
 static int
-get_vfd_of_lfd(struct thread *td, enum fmaster_fd_type type, int lfd, int *vfd)
+get_vfd_of_lfd(struct thread *td, enum fmaster_file_place place, int lfd,
+	       int *vfd)
 {
-	struct fmaster_fd *fd, *fds;
-	int i;
+	struct fmaster_vnode *vnode;
+	struct fmaster_file *file, *files;
+	int error, i;
 
-	fds = fmaster_fds_of_thread(td);
-	for (i = 0; i < FD_NUM; i++) {
-		fd = &fds[i];
-		if ((fd->fd_type == type) || (fd->fd_local == lfd)) {
-			*vfd = i;
-			return (0);
-		}
+	fmaster_lock_file_table(td);
+
+	files = fmaster_data_of_thread(td)->fdata_files;
+	for (i = 0; i < FILES_NUM; i++) {
+		file = &files[i];
+		if (file == NULL)
+			continue;
+		vnode = file->ff_vnode;
+		if ((vnode->fv_place != place) || (vnode->fv_local != lfd))
+			continue;
+		*vfd = i;
+		break;
 	}
+	error = i < FILES_NUM ? 0 : EBADF;
 
-	return (EPROTO);
+	fmaster_unlock_file_table(td);
+
+	return (error);
 }
 
 int
 fmaster_fd_of_master_fd(struct thread *td, int master_fd, int *vfd)
 {
 
-	return (get_vfd_of_lfd(td, FD_MASTER, master_fd, vfd));
+	return (get_vfd_of_lfd(td, FFP_MASTER, master_fd, vfd));
 }
 
 int
 fmaster_fd_of_slave_fd(struct thread *td, int slave_fd, int *vfd)
 {
 
-	return (get_vfd_of_lfd(td, FD_SLAVE, slave_fd, vfd));
+	return (get_vfd_of_lfd(td, FFP_SLAVE, slave_fd, vfd));
 }
 
 int
@@ -623,77 +805,94 @@ fmaster_read_to_userspace(struct thread *td, int d, void *buf, size_t nbytes)
 	return do_readv(td, d, buf, nbytes, UIO_USERSPACE);
 }
 
+#define	ENSURE_FILES_LOCK_OWNED(td)	do {\
+	if (mtx_owned(&fmaster_data_of_thread((td))->fdata_files_lock) == 0)\
+		return (EDOOFUS);\
+} while (0)
+
 static int
-find_unused_fd(struct thread *td)
+find_unused_fd(struct thread *td, int *fd)
 {
-	struct fmaster_fd *fds;
+	struct fmaster_file *files;
 	int i;
 
-	fds = fmaster_fds_of_thread(td);
-	for (i = 0; (i < FD_NUM) && (fds[i].fd_type != FD_CLOSED); i++);
+	ENSURE_FILES_LOCK_OWNED(td);
 
-	return (i);
+	files = fmaster_data_of_thread(td)->fdata_files;
+	for (i = 0; i < FILES_NUM; i++)
+		if (files[i].ff_vnode == NULL) {
+			*fd = i;
+			return (0);
+		}
+
+	return (EMFILE);
 }
 
-int
-fmaster_type_of_fd(struct thread *td, int d, enum fmaster_fd_type *t)
+static int
+fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
+		       int lfd, int vfd)
 {
-
-	if ((d < 0) || (FD_NUM <= d))
-		return (EBADF);
-
-	*t = fmaster_fds_of_thread(td)[d].fd_type;
-
-	return (0);
-}
-
-int
-fmaster_register_fd_at(struct thread *td, enum fmaster_fd_type type, int d, int at)
-{
-	struct fmaster_fd *fd;
+	struct fmaster_vnode *vnode;
+	struct fmaster_file *file;
 	const char *fmt = "fmaster[%d]: fd %d on %s has been registered as fd %"
 			  "d\n";
-	const char *side;
+	const char *placestr;
 
-	fd = &fmaster_fds_of_thread(td)[at];
-	fd->fd_type = type;
-	fd->fd_local = d;
+	if ((vfd < 0) || (FILES_NUM <= vfd))
+		return (EBADF);
 
-	side = type == FD_SLAVE ? "slave" : "master";
-	log(LOG_DEBUG, fmt, td->td_proc->p_pid, d, side, at);
+	ENSURE_FILES_LOCK_OWNED(td);
+
+	file = &fmaster_data_of_thread(td)->fdata_files[vfd];
+	if (file->ff_vnode != NULL)
+		return (EBADF);
+
+	vnode = fmaster_alloc_vnode(td);
+	if (vnode == NULL)
+		return (ENOMEM);
+	vnode->fv_place = place;
+	vnode->fv_local = lfd;
+	file->ff_vnode = vnode;
+
+	placestr = place == FFP_MASTER ? "master" : "slave";
+	log(LOG_DEBUG, fmt, td->td_proc->p_pid, lfd, placestr, vfd);
 
 	return (0);
 }
 
 int
-fmaster_register_fd(struct thread *td, enum fmaster_fd_type type, int d, int *virtual_fd)
+fmaster_register_file(struct thread *td, enum fmaster_file_place place,
+		      int lfd, int *vfd)
 {
+	int error;
 
-	*virtual_fd = find_unused_fd(td);
-	if (*virtual_fd == FD_NUM)
-		return (EMFILE);
+	fmaster_lock_file_table(td);
 
-	return (fmaster_register_fd_at(td, type, d, *virtual_fd));
+	error = find_unused_fd(td, vfd);
+	if (error != 0)
+		goto exit;
+	error = fmaster_register_fd_at(td, place, lfd, *vfd);
+	if (error != 0)
+		goto exit;
+
+exit:
+	fmaster_unlock_file_table(td);
+
+	return (error);
 }
 
 int
-fmaster_return_fd(struct thread *td, enum fmaster_fd_type type, int d)
+fmaster_return_fd(struct thread *td, enum fmaster_file_place place, int lfd)
 {
 	int error, virtual_fd;
 
-	error = fmaster_register_fd(td, type, d, &virtual_fd);
+	error = fmaster_register_file(td, place, lfd, &virtual_fd);
 	if (error != 0)
 		return (error);
 
 	td->td_retval[0] = virtual_fd;
 
 	return (0);
-}
-
-void
-fmaster_close_fd(struct thread *td, int d)
-{
-	fmaster_fds_of_thread(td)[d].fd_type = FD_CLOSED;
 }
 
 static int
@@ -783,18 +982,43 @@ execute_accept_return(struct thread *td, command_t return_command,
 	return (0);
 }
 
+int
+fmaster_get_vnode_info(struct thread *td, int fd,
+		       enum fmaster_file_place *place, int *lfd)
+{
+	struct fmaster_vnode *vnode;
+
+	vnode = fmaster_get_locked_vnode_of_fd(td, fd);
+	if (vnode == NULL)
+		return (EBADF);
+
+	if (place != NULL)
+		*place = vnode->fv_place;
+	if (lfd != NULL)
+		*lfd = vnode->fv_local;
+
+	fmaster_unlock_vnode(td, vnode);
+
+	return (0);
+}
+
 static int
 accept_main(struct thread *td, command_t call_command, command_t return_command,
 	    int s, struct sockaddr *name, socklen_t *namelen)
 {
 	struct sockaddr_storage addr;
 	socklen_t actual_namelen, knamelen, len;
+	enum fmaster_file_place place;
 	int error, fd;
 
+	error = fmaster_get_vnode_info(td, s, &place, &fd);
+	if (error != 0)
+		return (error);
+	if (place != FFP_SLAVE)
+		return (EPERM);
 	error = copyin(namelen, &knamelen, sizeof(knamelen));
 	if (error != 0)
 		return (error);
-	fd = fmaster_fds_of_thread(td)[s].fd_local;
 	error = execute_accept_call(td, call_command, fd, knamelen);
 	if (error != 0)
 		return (error);
@@ -841,8 +1065,15 @@ execute_connect_call(struct thread *td, command_t call_command, int s,
 	struct sockaddr_storage addr;
 	struct payload *payload;
 	payload_size_t payload_size;
+	enum fmaster_file_place place;
 	int error, slave_fd, wfd;
 	const char *buf;
+
+	error = fmaster_get_vnode_info(td, s, &place, &slave_fd);
+	if (error != 0)
+		return (error);
+	if (place != FFP_SLAVE)
+		return (EPERM);
 
 	if (sizeof(addr) < namelen)
 		return (EINVAL);
@@ -857,7 +1088,6 @@ execute_connect_call(struct thread *td, command_t call_command, int s,
 	if (payload == NULL)
 		return (ENOMEM);
 
-	slave_fd = fmaster_fds_of_thread(td)[s].fd_local;
 	error = fsyscall_payload_add_int32(payload, slave_fd);
 	if (error != 0)
 		goto exit;
@@ -1234,6 +1464,124 @@ fmaster_execute_close(struct thread *td, int lfd)
 	error = fmaster_execute_return_generic32(td, CLOSE_RETURN);
 	if (error != 0)
 		return (error);
+
+	return (0);
+}
+
+int
+fmaster_dup2(struct thread *td, int from, int to)
+{
+	struct fmaster_data *data;
+	struct fmaster_vnode *vnode;
+	int error;
+
+	if ((from < 0) || (FILES_NUM <= from))
+		return (EBADF);
+	if ((to < 0) || (FILES_NUM <= to))
+		return (EBADF);
+
+	fmaster_lock_file_table(td);
+
+	data = fmaster_data_of_thread(td);
+	vnode = data->fdata_files[from].ff_vnode;
+	if (vnode == NULL) {
+		error = EBADF;
+		goto exit;
+	}
+
+	mtx_lock(&vnode->fv_lock);
+	data->fdata_files[to].ff_vnode = vnode;
+	vnode->fv_refcount++;	/* FIXME: overflow */
+	mtx_unlock(&vnode->fv_lock);
+
+	error = 0;
+exit:
+	fmaster_unlock_file_table(td);
+
+	return (error);
+}
+
+int
+fmaster_dup(struct thread *td, int fd, int *newfd)
+{
+	struct fmaster_data *data;
+	struct fmaster_vnode *vnode;
+	int error;
+
+	fmaster_lock_file_table(td);
+
+	data = fmaster_data_of_thread(td);
+	vnode = data->fdata_files[fd].ff_vnode;
+	if (vnode == NULL) {
+		error = EBADF;
+		goto exit;
+	}
+	mtx_lock(&vnode->fv_lock);
+
+	error = find_unused_fd(td, newfd);
+	if (error != 0)
+		goto exit2;
+
+	data->fdata_files[*newfd].ff_vnode = vnode;
+	vnode->fv_refcount++;	/* FIXME: overflow */
+
+	error = 0;
+exit2:
+	mtx_unlock(&vnode->fv_lock);
+exit:
+	fmaster_unlock_file_table(td);
+
+	return (error);
+}
+
+int
+fmaster_copy_data(struct thread *td, struct fmaster_data *dest)
+{
+	uma_zone_t zone;
+	const struct fmaster_data *data;
+	const struct fmaster_vnode *vnode;
+	struct fmaster_vnode *newvnode;
+	int error, i;
+
+	data = fmaster_data_of_thread(td);
+	memcpy(dest->fork_sock, data->fork_sock, sizeof(data->fork_sock));
+
+	fmaster_lock_file_table(td);
+
+	zone = dest->fdata_vnodes;
+	for (i = 0; i < FILES_NUM; i++) {
+		vnode =	data->fdata_files[i].ff_vnode;
+		if (vnode == NULL) {
+			dest->fdata_files[i].ff_vnode = NULL;
+			continue;
+		}
+		newvnode = (struct fmaster_vnode *)uma_zalloc(zone, M_WAITOK);
+		if (newvnode == NULL) {
+			error = ENOMEM;
+			goto exit;
+		}
+		newvnode->fv_place = vnode->fv_place;
+		newvnode->fv_local = vnode->fv_local;
+		newvnode->fv_refcount = vnode->fv_refcount;
+		dest->fdata_files[i].ff_vnode = newvnode;
+	}
+
+	error = 0;
+exit:
+	fmaster_unlock_file_table(td);
+
+	return (error);
+}
+
+int
+fmaster_set_token(struct fmaster_data *data, const char *token,
+		  size_t token_size)
+{
+
+	if (sizeof(data->token) < token_size)
+		return (ENOMEM);
+	memcpy(data->token, token, token_size);
+	data->token_size = token_size;
 
 	return (0);
 }

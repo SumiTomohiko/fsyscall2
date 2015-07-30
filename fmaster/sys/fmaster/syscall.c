@@ -66,15 +66,13 @@ create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
 {
 	struct fmaster_data *data;
 	size_t len;
-	int error, i;
+	int error;
 
 	data = fmaster_create_data(td);
 	if (data == NULL)
 		return (ENOMEM);
 	data->rfd = rfd;
 	data->wfd = wfd;
-	for (i = 0; i < FD_NUM; i++)
-		data->fds[i].fd_type = FD_CLOSED;
 	len = sizeof(data->fork_sock);
 	error = copystr(fork_sock, data->fork_sock, len, NULL);
 	if (error != 0)
@@ -96,25 +94,36 @@ fail:
 static int
 read_fds(struct thread *td, struct fmaster_data *data)
 {
-	struct fmaster_fd *fd;
+	struct fmaster_vnode *vnode;
 	int _, d, error, m, nbytes, pos;
 
 	error = fmaster_read_int32(td, &nbytes, &_);
 	if (error != 0)
 		return (error);
 
+	fmaster_lock_file_table(td);
+
 	pos = 0;
 	while (pos < nbytes) {
 		error = fmaster_read_int32(td, &d, &m);
 		if (error != 0)
-			return (error);
-		fd = &data->fds[d];
-		fd->fd_type = FD_SLAVE;
-		fd->fd_local = d;
+			goto exit;
+		vnode = fmaster_alloc_vnode(td);
+		if (vnode == NULL) {
+			error = ENOMEM;
+			goto exit;
+		}
+		vnode->fv_place = FFP_SLAVE;
+		vnode->fv_local = d;
+		data->fdata_files[d].ff_vnode = vnode;
 		pos += m;
 	}
 
-	return (0);
+	error = 0;
+exit:
+	fmaster_unlock_file_table(td);
+
+	return (error);
 }
 
 /*

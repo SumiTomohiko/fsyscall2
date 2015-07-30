@@ -43,7 +43,7 @@ do_fork(struct thread *td, const char *token, uint64_t token_size)
 {
 	struct thread *td2;
 	struct proc *p2;
-	struct fmaster_data *data, *data2;
+	struct fmaster_data *data2;
 	int error;
 	const char *fmt = "fmaster[%d]: forked: the child is pid %d\n";
 	char __buf__[8192];
@@ -51,12 +51,12 @@ do_fork(struct thread *td, const char *token, uint64_t token_size)
 	data2 = fmaster_create_data(td);
 	if (data2 == NULL)
 		return (ENOMEM);
-	data = fmaster_data_of_thread(td);
-	memcpy(data2, data, sizeof(*data));
-	if (sizeof(data2->token) < token_size)
-		return (ENOMEM);
-	memcpy(data2->token, token, token_size);
-	data2->token_size = token_size;
+	error = fmaster_copy_data(td, data2);
+	if (error != 0)
+		return (error);
+	error = fmaster_set_token(data2, token, token_size);
+	if (error != 0)
+		return (error);
 	memcpy(__buf__, token, token_size);
 	__buf__[token_size] = '\0';
 
