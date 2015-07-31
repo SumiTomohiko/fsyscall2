@@ -46,7 +46,6 @@ do_fork(struct thread *td, const char *token, uint64_t token_size)
 	struct fmaster_data *data2;
 	int error;
 	const char *fmt = "fmaster[%d]: forked: the child is pid %d\n";
-	char __buf__[8192];
 
 	data2 = fmaster_create_data(td);
 	if (data2 == NULL)
@@ -57,8 +56,6 @@ do_fork(struct thread *td, const char *token, uint64_t token_size)
 	error = fmaster_set_token(data2, token, token_size);
 	if (error != 0)
 		return (error);
-	memcpy(__buf__, token, token_size);
-	__buf__[token_size] = '\0';
 
 	error = fork1(td, RFFDG | RFPROC | RFSTOPPED, 0, &p2, NULL, 0);
 	if (error != 0)
