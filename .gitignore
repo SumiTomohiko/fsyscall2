@@ -64,7 +64,6 @@ fmaster/sys/fmaster/fmaster_getdents.c
 fmaster/sys/fmaster/fmaster_getegid.c
 fmaster/sys/fmaster/fmaster_geteuid.c
 fmaster/sys/fmaster/fmaster_getfh.c
-fmaster/sys/fmaster/fmaster_getfsstat.c
 fmaster/sys/fmaster/fmaster_getgid.c
 fmaster/sys/fmaster/fmaster_getgroups.c
 fmaster/sys/fmaster/fmaster_getitimer.c
@@ -165,7 +164,6 @@ fmaster/sys/fmaster/fmaster_setresgid.c
 fmaster/sys/fmaster/fmaster_setresuid.c
 fmaster/sys/fmaster/fmaster_setreuid.c
 fmaster/sys/fmaster/fmaster_setrlimit.c
-fmaster/sys/fmaster/fmaster_setsid.c
 fmaster/sys/fmaster/fmaster_settimeofday.c
 fmaster/sys/fmaster/fmaster_setuid.c
 fmaster/sys/fmaster/fmaster_shmsys.c
