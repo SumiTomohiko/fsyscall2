@@ -22,6 +22,7 @@
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/un.h>
+#include <machine/stdarg.h>
 
 #include <fsyscall/private.h>
 #include <fsyscall/private/command.h>
@@ -29,6 +30,9 @@
 #include <fsyscall/private/fmaster.h>
 #include <fsyscall/private/payload.h>
 #include <fsyscall/private/read_sockaddr.h>
+
+/* Set 1 if you want to write log /tmp/fmaster.log.<pid> */
+#define	LOG_TO_FILE	1
 
 MALLOC_DEFINE(M_FMASTER, "fdata", "emuldata of fmaster");
 
@@ -97,6 +101,27 @@ vnode_fini(void *mem, int size)
 #endif
 }
 
+int
+fmaster_openlog(struct thread *td)
+{
+#if LOG_TO_FILE
+	pid_t pid;
+	int error;
+	char logpath[256];
+
+	pid = td->td_proc->p_pid;
+	snprintf(logpath, sizeof(logpath), "/tmp/fmaster.log.%d", pid);
+	error = kern_open(td, logpath, UIO_SYSSPACE, O_CREAT | O_WRONLY, 0644);
+	if (error != 0) {
+		log(LOG_ERR, "cannot open log: %s\n", logpath);
+		return (error);
+	}
+	fmaster_data_of_thread(td)->fdata_logfd = td->td_retval[0];
+#endif
+
+	return (0);
+}
+
 struct fmaster_data *
 fmaster_create_data(struct thread *td)
 {
@@ -112,8 +137,45 @@ fmaster_create_data(struct thread *td)
 					 sizeof(struct fmaster_vnode),
 					 vnode_ctor, vnode_dtor, vnode_init,
 					 vnode_fini, 0, flags);
+	data->fdata_logfd = -1;
 
 	return (data);
+}
+
+#define	SAVE_RETVAL(td, retval)		do {	\
+	(retval)[0] = (td)->td_retval[0];	\
+	(retval)[1] = (td)->td_retval[1];	\
+} while (0)
+#define	RESTORE_RETVAL(td, retval)	do {	\
+	(td)->td_retval[0] = (retval)[0];	\
+	(td)->td_retval[1] = (retval)[1];	\
+} while (0)
+
+void
+fmaster_log(struct thread *td, int pri, const char *fmt, ...)
+{
+	struct fmaster_data *data;
+	va_list ap;
+	register_t retval[2];
+	pid_t pid;
+	int logfd, size;
+	char buf[1024], msg[1024];
+
+	va_start(ap, fmt);
+	vsnprintf(msg, sizeof(msg), fmt, ap);
+	va_end(ap);
+	pid = td->td_proc->p_pid;
+	size = snprintf(buf, sizeof(buf), "fmaster[%d]: %s\n", pid, msg);
+
+	data = fmaster_data_of_thread(td);
+	logfd = data->fdata_logfd;
+	if (logfd != -1) {
+		SAVE_RETVAL(td, retval);
+		fmaster_write(td, logfd, buf, size);
+		RESTORE_RETVAL(td, retval);
+	}
+
+	log(pri, "%s", buf);
 }
 
 void
@@ -247,12 +309,12 @@ fmaster_log_syscall_end(struct thread *td, const char *name,
 	int retval;
 	const char *fmt;
 
-	fmt = "fmaster[%d]: %s: ended: retval=%d, error=%d: %ld[usec]\n";
+	fmt = "%s: ended: retval=%d, error=%d: %ld[usec]";
 
 	microtime(&t2);
 	delta = fmaster_subtract_timeval(t1, &t2);
 	retval = td->td_retval[0];
-	log(LOG_DEBUG, fmt, td->td_proc->p_pid, name, retval, error, delta);
+	fmaster_log(td, LOG_DEBUG, fmt, name, retval, error, delta);
 }
 
 int
@@ -298,9 +360,8 @@ fmaster_is_master_file(struct thread *td, const char *path)
 static void
 die(struct thread *td, const char *cause)
 {
-	pid_t pid = td->td_proc->p_pid;
 
-	log(LOG_INFO, "fmaster[%d]: die: %s\n", pid, cause);
+	fmaster_log(td, LOG_INFO, "die: %s", cause);
 	exit1(td, 1);
 }
 
@@ -633,9 +694,9 @@ fmaster_execute_return_optional32(struct thread *td, command_t expected_cmd, int
 	if (error != 0)
 		return (error);
 	if (expected_cmd != cmd) {
-		log(LOG_ERR,
-		    "fmaster[%d]: command mismatched: expected=%d, actual=%d\n",
-		    td->td_proc->p_pid, expected_cmd, cmd);
+		fmaster_log(td, LOG_ERR,
+			    "command mismatched: expected=%d, actual=%d",
+			    expected_cmd, cmd);
 		return (EPROTO);
 	}
 	error = fmaster_read_payload_size(td, &payload_size);
@@ -651,11 +712,10 @@ fmaster_execute_return_optional32(struct thread *td, command_t expected_cmd, int
 			return (error);
 		actual_payload_size = retval_len + errnum_len;
 		if (payload_size != actual_payload_size) {
-			log(LOG_ERR,
-			    "fmaster[%d]: payload size mismatched: expected=%d,"
-			    " actual=%d\n",
-			    td->td_proc->p_pid, payload_size,
-			    actual_payload_size);
+			fmaster_log(td, LOG_ERR,
+				    "payload size mismatched: expected=%d, actu"
+				    "al=%d",
+				    payload_size, actual_payload_size);
 			return (EPROTO);
 		}
 		return (errnum);
@@ -667,10 +727,9 @@ fmaster_execute_return_optional32(struct thread *td, command_t expected_cmd, int
 
 	actual_payload_size = retval_len + optional_payload_size;
 	if (payload_size != actual_payload_size) {
-		log(LOG_ERR,
-		    "fmaster[%d]: payload size mismatched: expected=%d, actual="
-		    "%d\n",
-		    td->td_proc->p_pid, payload_size, actual_payload_size);
+		fmaster_log(td, LOG_ERR,
+			    "payload size mismatched: expected=%d, actual=%d",
+			    payload_size, actual_payload_size);
 		return (EPROTO);
 	}
 
@@ -834,9 +893,7 @@ fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
 {
 	struct fmaster_vnode *vnode;
 	struct fmaster_file *file;
-	const char *fmt = "fmaster[%d]: fd %d on %s has been registered as fd %"
-			  "d\n";
-	const char *placestr;
+	const char *fmt = "fd %d on %s has been registered as fd %d";
 
 	if ((vfd < 0) || (FILES_NUM <= vfd))
 		return (EBADF);
@@ -854,8 +911,7 @@ fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
 	vnode->fv_local = lfd;
 	file->ff_vnode = vnode;
 
-	placestr = place == FFP_MASTER ? "master" : "slave";
-	log(LOG_DEBUG, fmt, td->td_proc->p_pid, lfd, placestr, vfd);
+	fmaster_log(td, LOG_DEBUG, fmt, lfd, str_of_place(place), vfd);
 
 	return (0);
 }
@@ -1045,10 +1101,9 @@ fmaster_execute_accept_protocol(struct thread *td, const char *command,
 {
 	struct timeval time_start;
 	int error;
-	const char *fmt = "fmaster[%d]: %s: started: s=%d, name=%p, namelen=%p"
-			  "\n";
+	const char *fmt = "%s: started: s=%d, name=%p, namelen=%p";
 
-	log(LOG_DEBUG, fmt, td->td_proc->p_pid, command, s, name, namelen);
+	fmaster_log(td, LOG_DEBUG, fmt, command, s, name, namelen);
 	microtime(&time_start);
 
 	error = accept_main(td, call_command, return_command, s, name, namelen);
@@ -1143,10 +1198,9 @@ fmaster_execute_connect_protocol(struct thread *td, const char *command,
 {
 	struct timeval time_start;
 	int error;
-	const char *fmt = "fmaster[%d]: %s: started: s=%d, name=%p, namelen=%d"
-			  "\n";
+	const char *fmt = "%s: started: s=%d, name=%p, namelen=%d";
 
-	log(LOG_DEBUG, fmt, td->td_proc->p_pid, command, s, name, namelen);
+	fmaster_log(td, LOG_DEBUG, fmt, command, s, name, namelen);
 	microtime(&time_start);
 
 	error = connect_main(td, call_command, return_command, s, name,
@@ -1179,12 +1233,13 @@ fmaster_initialize_kqueue(struct thread *td, struct fmaster_data *data)
 	pid_t pid;
 	int error, kq;
 	u_short flags;
+	const char *fmt;
 
 	pid = td->td_proc->p_pid;
 	error = sys_kqueue(td, NULL);
 	if (error != 0) {
-		log(LOG_DEBUG, "fmaster[%d]: sys_kqueue failed: error=%d\n",
-		    pid, error);
+		fmt = "sys_kqueue failed: error=%d";
+		fmaster_log(td, LOG_DEBUG, fmt, error);
 		return (error);
 	}
 	kq = td->td_retval[0];
@@ -1196,8 +1251,8 @@ fmaster_initialize_kqueue(struct thread *td, struct fmaster_data *data)
 	k_ops.k_copyin = kevent_copyin;
 	error = kern_kevent(td, kq, 1, 0, &k_ops, NULL);
 	if (error != 0) {
-		log(LOG_DEBUG, "fmaster[%d]: kern_kevent failed: error=%d\n",
-		    pid, error);
+		fmt = "kern_kevent failed: error=%d";
+		fmaster_log(td, LOG_DEBUG, fmt, error);
 		return (error);
 	}
 
@@ -1288,11 +1343,14 @@ void
 fmaster_schedtail(struct thread *td)
 {
 	int error;
-	const char *fmt = "fmaster[%d]: cannot connect to mhub: error=%d\n";
+	const char *fmt = "cannot connect to mhub: error=%d";
 
+	error = fmaster_openlog(td);
+	if (error != 0)
+		return;
 	error = connect_to_mhub(td);
 	if (error != 0)
-		log(LOG_ERR, fmt, td->td_proc->p_pid, error);
+		fmaster_log(td, LOG_ERR, fmt, error);
 }
 
 const char *

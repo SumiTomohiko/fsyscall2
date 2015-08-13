@@ -12,7 +12,7 @@ sys_fmaster_exit(struct thread *td, struct fmaster_exit_args *uap)
 	int error, rval;
 
 	rval = uap->rval;
-	LOG(td, LOG_DEBUG, "exit: rval=%d", rval);
+	fmaster_log(td, LOG_DEBUG, "exit: rval=%d", rval);
 
 	error = fmaster_write_command(td, EXIT_CALL);
 	if (error != 0)

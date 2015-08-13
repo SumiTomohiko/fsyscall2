@@ -144,11 +144,11 @@ sys_fmaster_getsockopt(struct thread *td, struct fmaster_getsockopt_args *uap)
 	if (error != 0)
 		return (error);
 
-	log(LOG_DEBUG,
-	    "fmaster[%d]: %s: started: s=%d, level=0x%x, name=%d (%s), val=%p, "
-	    "avalsize=%p (%d)\n",
-	    td->td_proc->p_pid, sysname, s, level, name,
-	    fmaster_get_sockopt_name(name), val, avalsize, optlen);
+	fmaster_log(td, LOG_DEBUG,
+		    "%s: started: s=%d, level=0x%x, name=%d (%s), val=%p, avals"
+		    "ize=%p (%d)",
+		    sysname, s, level, name, fmaster_get_sockopt_name(name),
+		    val, avalsize, optlen);
 
 	error = fmaster_getsockopt_main(td, s, level, name, val, &optlen);
 	if (error != 0)

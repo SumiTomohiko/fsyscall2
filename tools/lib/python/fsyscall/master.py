@@ -300,11 +300,9 @@ int
 sys_{name}(struct thread *td, struct {name}_args *uap)
 {{
 \tstruct timeval time_start;
-\tpid_t pid;
 \tint error;
 
-\tpid = td->td_proc->p_pid;
-\tlog(LOG_DEBUG, \"fmaster[%d]: {syscall_name}: started{fmt_args}\\n\", pid{args});
+\tfmaster_log(td, LOG_DEBUG, \"{syscall_name}: started{fmt_args}\"{args});
 \tmicrotime(&time_start);
 
 \terror = {name}_main(td, uap);
@@ -417,7 +415,7 @@ execute_return(struct thread *td, struct {name}_args *uap)
 \tif (error != 0)
 \t\treturn (error);
 \tif (cmd != {cmd_name}_RETURN) {{
-\t\tlog(LOG_ERR, \"fmaster[%d]: command mismatched: expected=%d, actual=%d\\n\", td->td_proc->p_pid, {cmd_name}_RETURN, cmd);
+\t\tfmaster_log(td, LOG_ERR, \"command mismatched: expected=%d, actual=%d\", {cmd_name}_RETURN, cmd);
 \t\treturn (EPROTO);
 \t}}
 \terror = fmaster_read_payload_size(td, &payload_size);
@@ -431,7 +429,7 @@ execute_return(struct thread *td, struct {name}_args *uap)
 \t\tif (error != 0)
 \t\t\treturn (error);
 \t\tif (retval_len + errnum_len != payload_size) {{
-\t\tlog(LOG_ERR, \"fmaster[%d]: payload size mismatched: expected=%d, actual=%d\\n\", td->td_proc->p_pid, payload_size, retval_len + errnum_len);
+\t\tfmaster_log(td, LOG_ERR, \"payload size mismatched: expected=%d, actual=%d\", payload_size, retval_len + errnum_len);
 \t\t\treturn (EPROTO);
 \t\t}}
 \t\treturn (errnum);
@@ -475,7 +473,7 @@ execute_return(struct thread *td, struct {name}_args *uap)
     p("""\
 \texpected_payload_size = retval_len + {expected_payload_size};
 \tif (expected_payload_size != payload_size) {{
-\t\tlog(LOG_ERR, \"fmaster[%d]: payload size mismatched: expected=%d, actual=%d\\n\", td->td_proc->p_pid, expected_payload_size, payload_size);
+\t\tfmaster_log(td, LOG_ERR, \"payload size mismatched: expected=%d, actual=%d\", expected_payload_size, payload_size);
 \t\treturn (EPROTO);
 \t}}
 """.format(**locals()))
@@ -633,13 +631,14 @@ def write_dummy(dirpath, name):
 #include <sys/syslog.h>
 #include <sys/systm.h>
 
+#include <fsyscall/private/fmaster.h>
 #include <sys/fmaster/fmaster_proto.h>
 
 int
 sys_{name}(struct thread *td, struct {name}_args *uap)
 {{
 
-\tlog(LOG_DEBUG, \"fmaster[%d]: {syscall}: this is a dummy, unimplemented.\\n\", td->td_proc->p_pid);
+\tfmaster_log(td, LOG_DEBUG, \"{syscall}: this is a dummy, unimplemented.\");
 
 \treturn (ENOSYS);
 }}""".format(**locals()), file=fp)

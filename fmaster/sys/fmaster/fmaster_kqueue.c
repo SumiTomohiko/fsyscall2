@@ -25,11 +25,9 @@ int
 sys_fmaster_kqueue(struct thread *td, struct fmaster_kqueue_args *uap)
 {
 	struct timeval time_start;
-	pid_t pid;
 	int error;
 
-	pid = td->td_proc->p_pid;
-	log(LOG_DEBUG, "fmaster[%d]: kqueue: started\n", pid);
+	fmaster_log(td, LOG_DEBUG, "kqueue: started");
 	microtime(&time_start);
 
 	error = fmaster_kqueue_main(td, uap);

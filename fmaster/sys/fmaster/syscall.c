@@ -55,7 +55,7 @@ negotiate_version(struct thread *td, int rfd, int wfd)
 	if (ver != 0)
 		return (EPROTO);
 
-	log(LOG_DEBUG, "protocol version for fmhub is %d.\n", ver);
+	fmaster_log(td, LOG_DEBUG, "protocol version for fmhub is %d.", ver);
 
 	return (0);
 }
@@ -155,6 +155,9 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 	if (error != 0)
 		return (error);
 	td->td_proc->p_emuldata = data;
+	error = fmaster_openlog(td);
+	if (error != 0)
+		return (error);
 
 	if ((error = negotiate_version(td, rfd, wfd)) != 0)
 		goto fail;

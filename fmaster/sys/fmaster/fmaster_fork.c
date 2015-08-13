@@ -45,7 +45,6 @@ do_fork(struct thread *td, const char *token, uint64_t token_size)
 	struct proc *p2;
 	struct fmaster_data *data2;
 	int error;
-	const char *fmt = "fmaster[%d]: forked: the child is pid %d\n";
 
 	data2 = fmaster_create_data(td);
 	if (data2 == NULL)
@@ -60,7 +59,7 @@ do_fork(struct thread *td, const char *token, uint64_t token_size)
 	error = fork1(td, RFFDG | RFPROC | RFSTOPPED, 0, &p2, NULL, 0);
 	if (error != 0)
 		return (error);
-	log(LOG_DEBUG, fmt, td->td_proc->p_pid, p2->p_pid);
+	fmaster_log(td, LOG_DEBUG, "forked: the child is pid %d", p2->p_pid);
 	p2->p_emuldata = data2;
 	td2 = FIRST_THREAD_IN_PROC(p2);
 	thread_lock(td2);
@@ -136,11 +135,9 @@ sys_fmaster_fork(struct thread *td, struct fmaster_fork_args *uap)
 {
 #define	SYSCALL_NAME	"fork"
 	struct timeval time_start;
-	pid_t pid;
 	int error;
 
-	pid = td->td_proc->p_pid;
-	log(LOG_DEBUG, "fmaster[%d]: " SYSCALL_NAME ": started\n", pid);
+	fmaster_log(td, LOG_DEBUG, SYSCALL_NAME ": started");
 	microtime(&time_start);
 
 	error = fmaster_fork_main(td, uap);

@@ -139,9 +139,9 @@ sys_fmaster_sigprocmask(struct thread *td, struct fmaster_sigprocmask_args *uap)
 	else
 		snprintf(buf, sizeof(buf), "null");
 
-	log(LOG_DEBUG,
-	    "fmaster[%d]: %s: started: how=%d (%s), set=%p (%s), oset=%p\n",
-	    td->td_proc->p_pid, name, how, get_how_string(how), set, buf, oset);
+	fmaster_log(td, LOG_DEBUG,
+		    "%s: started: how=%d (%s), set=%p (%s), oset=%p",
+		    name, how, get_how_string(how), set, buf, oset);
 	microtime(&time_start);
 
 	error = fmaster_sigprocmask_main(td, how, &kset, uap);

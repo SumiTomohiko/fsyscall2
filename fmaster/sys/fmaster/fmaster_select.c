@@ -940,12 +940,9 @@ fmaster_select_main(struct thread *td, struct fmaster_select_args *uap)
 static int
 log_fdset(struct thread *td, const char *name, int nd, fd_set *fdset)
 {
-	pid_t pid;
 	enum fmaster_file_place place;
 	int error, fd, lfd;
-	const char *fmt = "fmaster[%d]: select: %s: %d (%s: %d)\n", *side;
-
-	pid = td->td_proc->p_pid;
+	const char *fmt = "select: %s: %d (%s: %d)", *side;
 
 	for (fd = 0; fd < nd; fd++)
 		if (FD_ISSET(fd, fdset)) {
@@ -953,7 +950,7 @@ log_fdset(struct thread *td, const char *name, int nd, fd_set *fdset)
 			if (error != 0)
 				return (error);
 			side = place == FFP_MASTER ? "master" : "slave";
-			log(LOG_DEBUG, fmt, pid, name, fd, side, lfd);
+			fmaster_log(td, LOG_DEBUG, fmt, name, fd, side, lfd);
 		}
 
 	return (0);
@@ -989,11 +986,11 @@ int
 sys_fmaster_select(struct thread *td, struct fmaster_select_args *uap)
 {
 	struct timeval time_start;
-	pid_t pid;
 	int error;
 
-	pid = td->td_proc->p_pid;
-	log(LOG_DEBUG, "fmaster[%d]: select: started: nd=%d, in=%p, ou=%p, ex=%p, tv=%p\n", pid, uap->nd, uap->in, uap->ou, uap->ex, uap->tv);
+	fmaster_log(td, LOG_DEBUG,
+		    "select: started: nd=%d, in=%p, ou=%p, ex=%p, tv=%p",
+		    uap->nd, uap->in, uap->ou, uap->ex, uap->tv);
 	microtime(&time_start);
 
 	error = log_args(td, uap);

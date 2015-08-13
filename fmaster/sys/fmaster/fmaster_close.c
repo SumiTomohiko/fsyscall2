@@ -31,14 +31,10 @@ int
 sys_fmaster_close(struct thread *td, struct fmaster_close_args *uap)
 {
 	struct timeval time_start;
-	pid_t pid;
 	int error;
 	const char *name = "close";
 
-	pid = td->td_proc->p_pid;
-	log(LOG_DEBUG,
-	    "fmaster[%d]: %s: started: fd=%d\n",
-	    pid, name, uap->fd);
+	fmaster_log(td, LOG_DEBUG, "%s: started: fd=%d", name, uap->fd);
 	microtime(&time_start);
 
 	error = fmaster_close_main(td, uap);

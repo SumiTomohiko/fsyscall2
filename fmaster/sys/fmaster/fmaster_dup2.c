@@ -51,16 +51,14 @@ int
 sys_fmaster_dup2(struct thread *td, struct fmaster_dup2_args *uap)
 {
 	struct timeval time_start;
-	pid_t pid;
 	int error, from, to;
 	const char *name = "dup2";
 
-	pid = td->td_proc->p_pid;
 	from = uap->from;
 	to = uap->to;
-	log(LOG_DEBUG,
-	    "fmaster[%d]: %s: started: from=%u, to=%u\n",
-	    pid, name, from, to);
+	fmaster_log(td, LOG_DEBUG,
+		    "%s: started: from=%u, to=%u",
+		    name, from, to);
 	microtime(&time_start);
 
 	error = fmaster_dup2_main(td, from, to);

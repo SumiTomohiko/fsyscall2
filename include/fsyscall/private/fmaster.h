@@ -58,6 +58,8 @@ struct fmaster_data {
 	char fork_sock[MAXPATHLEN];
 	uint64_t token_size;
 	char token[DATA_TOKEN_SIZE];
+
+	int fdata_logfd;
 };
 
 /* I/O */
@@ -175,6 +177,8 @@ void	fmaster_chain_flags(char *, size_t, flag_t, struct flag_definition[],
 			    size_t);
 long	fmaster_subtract_timeval(const struct timeval *,
 				 const struct timeval *);
+int	fmaster_openlog(struct thread *);
+void	fmaster_log(struct thread *, int, const char *, ...);
 void	fmaster_log_syscall_end(struct thread *, const char *,
 				const struct timeval *, int);
 const char *

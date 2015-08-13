@@ -31,12 +31,10 @@ int
 sys_fmaster_socketpair(struct thread *td, struct fmaster_socketpair_args *uap)
 {
 	struct timeval time_start;
-	pid_t pid;
 	int error;
 	const char *name = "socketpair";
 
-	pid = td->td_proc->p_pid;
-	log(LOG_DEBUG, "fmaster[%d]: %s: started\n", pid, name);
+	fmaster_log(td, LOG_DEBUG, "%s: started", name);
 	microtime(&time_start);
 
 	error = fmaster_socketpair_main(td, uap);

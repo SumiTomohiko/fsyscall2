@@ -21,12 +21,10 @@ int
 sys_fmaster_dup(struct thread *td, struct fmaster_dup_args *uap)
 {
 	struct timeval time_start;
-	pid_t pid;
 	int error, fd;
 
-	pid = td->td_proc->p_pid;
 	fd = uap->fd;
-	log(LOG_DEBUG, "fmaster[%d]: dup: started: fd=%u\n", pid, fd);
+	fmaster_log(td, LOG_DEBUG, "dup: started: fd=%u", fd);
 	microtime(&time_start);
 
 	error = fmaster_dup_main(td, fd);

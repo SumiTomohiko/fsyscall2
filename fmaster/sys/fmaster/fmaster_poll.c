@@ -487,16 +487,13 @@ static void
 dump_fds(struct thread *td, const char *name, struct pollfd *fds, nfds_t nfds)
 {
 	struct pollfd *pfd;
-	pid_t pid;
 	nfds_t i;
 
-	pid = td->td_proc->p_pid;
 	for (i = 0; i < nfds; i++) {
 		pfd = &fds[i];
-		log(LOG_DEBUG,
-		    "fmaster[%d]: poll: %s: fds[%d]: fd=%d, events=%d, revents="
-		    "%d\n",
-		    pid, name, i, pfd->fd, pfd->events, pfd->revents);
+		fmaster_log(td, LOG_DEBUG,
+			    "poll: %s: fds[%d]: fd=%d, events=%d, revents=%d",
+			    name, i, pfd->fd, pfd->events, pfd->revents);
 	}
 }
 #endif
@@ -569,12 +566,8 @@ master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
 	if (error != 0)
 		goto exit2;
 #if ENABLE_DEBUG
-	log(LOG_DEBUG,
-	    "fmaster[%d]: poll: master_retval=%d\n",
-	    td->td_proc->p_pid, master_retval);
-	log(LOG_DEBUG,
-	    "fslave[%d]: poll: slave_retval=%d\n",
-	    td->td_proc->p_pid, slave_retval);
+	fmaster_log(td, LOG_DEBUG, "poll: master_retval=%d", master_retval);
+	fmaster_log(td, LOG_DEBUG, "poll: slave_retval=%d", slave_retval);
 #endif
 	td->td_retval[0] = master_retval + slave_retval;
 
@@ -634,10 +627,10 @@ log_args(struct thread *td, struct pollfd *fds, nfds_t nfds)
 								  : "invalid";
 		events = pfd->events;
 		events_to_string(sevents, sizeof(sevents), events);
-		log(LOG_DEBUG,
-		    "fmaster[%d]: poll: fds[%d]: fd=%d (%s: %d), events=%d (%s)"
-		    ", revents=%d\n",
-		    pid, i, fd, splace, lfd, events, sevents, pfd->revents);
+		fmaster_log(td, LOG_DEBUG,
+			    "poll: fds[%d]: fd=%d (%s: %d), events=%d (%s), rev"
+			    "ents=%d",
+			    i, fd, splace, lfd, events, sevents, pfd->revents);
 	}
 
 	return (0);
@@ -740,9 +733,9 @@ sys_fmaster_poll(struct thread *td, struct fmaster_poll_args *uap)
 	int error;
 	const char *name = "poll";
 
-	log(LOG_DEBUG,
-	    "fmaster[%d]: %s: started: fds=%p, nfds=%d, timeout=%d\n",
-	    td->td_proc->p_pid, name, uap->fds, uap->nfds, uap->timeout);
+	fmaster_log(td, LOG_DEBUG,
+		    "%s: started: fds=%p, nfds=%d, timeout=%d",
+		    name, uap->fds, uap->nfds, uap->timeout);
 	microtime(&time_start);
 
 	error = fmaster_poll_main(td, uap);

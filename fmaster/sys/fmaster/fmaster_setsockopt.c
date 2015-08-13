@@ -96,11 +96,11 @@ sys_fmaster_setsockopt(struct thread *td, struct fmaster_setsockopt_args *uap)
 	name = uap->name;
 	val = uap->val;
 	valsize = uap->valsize;
-	log(LOG_DEBUG,
-	    "fmaster[%d]: %s: started: s=%d, level=0x%x, name=%d (%s), val=%p, "
-	    "valsize=%d\n",
-	    td->td_proc->p_pid, sysname, s, level, name,
-	    fmaster_get_sockopt_name(name), val, valsize);
+	fmaster_log(td, LOG_DEBUG,
+		    "%s: started: s=%d, level=0x%x, name=%d (%s), val=%p, valsi"
+		    "ze=%d",
+		    sysname, s, level, name, fmaster_get_sockopt_name(name),
+		    val, valsize);
 
 	error = fmaster_setsockopt_main(td, s, level, name, val, valsize);
 

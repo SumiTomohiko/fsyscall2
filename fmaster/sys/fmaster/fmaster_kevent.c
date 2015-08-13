@@ -135,21 +135,18 @@ log_args(struct thread *td, struct fmaster_kevent_args *uap,
 	 struct kevent *kchangelist, struct timespec *ktimeout)
 {
 	struct kevent *ke;
-	pid_t pid;
 	int flt, i, nchanges;
 	const char *filter_name;
-	char fflags_str[256], flags_str[256], header[64], timeout_str[256];
-
-	pid = td->td_proc->p_pid;
-	snprintf(header, sizeof(header), "fmaster[%d]: kevent", pid);
+	const char *header = "kevent";
+	char fflags_str[256], flags_str[256], timeout_str[256];
 
 	nchanges = uap->nchanges;
 	timeout_to_str(timeout_str, sizeof(timeout_str), ktimeout);
-	log(LOG_DEBUG,
-	    "%s: fd=%d, changelist=%p, nchanges=%d, eventlist=%p, nevents=%d, t"
-	    "imeout=%p (%s)\n",
-	    header, uap->fd, uap->changelist, nchanges, uap->eventlist,
-	    uap->nevents, uap->timeout, timeout_str);
+	fmaster_log(td, LOG_DEBUG,
+		    "%s: fd=%d, changelist=%p, nchanges=%d, eventlist=%p, neven"
+		    "ts=%d, timeout=%p (%s)",
+		    uap->fd, uap->changelist, nchanges, uap->eventlist,
+		    uap->nevents, uap->timeout, timeout_str);
 
 	if ((kchangelist == NULL) || (nchanges == 0))
 		return (0);
@@ -161,12 +158,13 @@ log_args(struct thread *td, struct fmaster_kevent_args *uap,
 		flags_to_str(flags_str, sizeof(flags_str), ke->flags);
 		fflags_to_str(fflags_str, sizeof(fflags_str), flt, ke->fflags);
 
-		log(LOG_DEBUG,
-		    "%s: changelist[%d]: ident=%lu, filter=%d (%s), flags=0x%x "
-		    "(%s), fflags=0x%x (%s), data=%ld, udata=%p\n",
-		    header, i, ke->ident, flt, filter_name, 0xff & ke->flags,
-		    flags_str, 0xffff & ke->fflags, fflags_str, ke->data,
-		    ke->udata);
+		fmaster_log(td, LOG_DEBUG,
+			    "%s: changelist[%d]: ident=%lu, filter=%d (%s), fla"
+			    "gs=0x%x (%s), fflags=0x%x (%s), data=%ld, udata=%p"
+			    "",
+			    header, i, ke->ident, flt, filter_name,
+			    0xff & ke->flags, flags_str, 0xffff & ke->fflags,
+			    fflags_str, ke->data, ke->udata);
 	}
 
 	return (0);
@@ -632,22 +630,20 @@ int
 sys_fmaster_kevent(struct thread *td, struct fmaster_kevent_args *uap)
 {
 	struct timeval time_end, time_start;
-	pid_t pid;
 	long t;
 	int error;
 	const char *name = "kevent";
 
-	pid = td->td_proc->p_pid;
-	log(LOG_DEBUG, "fmaster[%d]: %s: started\n", pid, name);
+	fmaster_log(td, LOG_DEBUG, "%s: started", name);
 	microtime(&time_start);
 
 	error = fmaster_kevent_main(td, uap);
 
 	microtime(&time_end);
 	t = fmaster_subtract_timeval(&time_start, &time_end);
-	log(LOG_DEBUG,
-	    "fmaster[%d]: %s: ended: error=%d, retval=%ld: %ld[usec]\n",
-	    pid, name, error, td->td_retval[0], t);
+	fmaster_log(td, LOG_DEBUG,
+		    "%s: ended: error=%d, retval=%ld: %ld[usec]",
+		    name, error, td->td_retval[0], t);
 
 	return (error);
 }
