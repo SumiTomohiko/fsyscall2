@@ -247,13 +247,12 @@ fmaster_unref_fd(struct thread *td, int fd, enum fmaster_file_place *place,
 	*place = vnode->fv_place;
 	*lfd = vnode->fv_local;
 	*refcount = vnode->fv_refcount;
+	data->fdata_files[fd].ff_vnode = NULL;
 
 	mtx_unlock(&vnode->fv_lock);
 
-	if (*refcount == 0) {
-		data->fdata_files[fd].ff_vnode = NULL;
+	if (*refcount == 0)
 		uma_zfree(data->fdata_vnodes, vnode);
-	}
 
 	error = 0;
 exit:
