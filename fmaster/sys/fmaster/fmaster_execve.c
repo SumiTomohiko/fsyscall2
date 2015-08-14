@@ -46,6 +46,9 @@ sys_fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 	if (error != 0)
 		return (error);
 
+	error = fmaster_close_on_exec(td);
+	if (error != 0)
+		return (error);
 	error = sys_execve(td, (struct execve_args *)uap);
 
 	return (error);

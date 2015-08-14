@@ -127,6 +127,8 @@ int	fmaster_unref_fd(struct thread *, int, enum fmaster_file_place *, int *,
 			 int *);
 int	fmaster_dup(struct thread *, int, int *);
 int	fmaster_dup2(struct thread *, int, int);
+int	fmaster_close_on_exec(struct thread *);
+int	fmaster_set_close_on_exec(struct thread *, int, bool);
 
 int	fmaster_fd_of_master_fd(struct thread *, int, int *);
 int	fmaster_fd_of_slave_fd(struct thread *, int, int *);

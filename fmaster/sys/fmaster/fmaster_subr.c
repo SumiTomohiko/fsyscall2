@@ -126,12 +126,16 @@ struct fmaster_data *
 fmaster_create_data(struct thread *td)
 {
 	struct fmaster_data *data;
+	struct fmaster_file *file;
 	int flags, i;
 
 	flags = M_WAITOK;
 	data = (struct fmaster_data *)malloc(sizeof(*data), M_FMASTER, flags);
-	for (i = 0; i < FILES_NUM; i++)
-		data->fdata_files[i].ff_vnode = NULL;
+	for (i = 0; i < FILES_NUM; i++) {
+		file = &data->fdata_files[i];
+		file->ff_vnode = NULL;
+		file->ff_close_on_exec = false;
+	}
 	mtx_init(&data->fdata_files_lock, "ffiles", NULL, MTX_DEF);
 	data->fdata_vnodes = uma_zcreate("fvnodes",
 					 sizeof(struct fmaster_vnode),
@@ -222,25 +226,27 @@ fmaster_alloc_vnode(struct thread *td)
 	return (vnode);
 }
 
-int
-fmaster_unref_fd(struct thread *td, int fd, enum fmaster_file_place *place,
-		 int *lfd, int *refcount)
+#define	ENSURE_FILES_LOCK_OWNED(td)	do {\
+	if (mtx_owned(&fmaster_data_of_thread((td))->fdata_files_lock) == 0)\
+		return (EDOOFUS);\
+} while (0)
+
+static int
+unref_fd(struct thread *td, int fd, enum fmaster_file_place *place, int *lfd,
+	 int *refcount)
 {
 	struct fmaster_data *data;
 	struct fmaster_vnode *vnode;
-	int error;
+
+	ENSURE_FILES_LOCK_OWNED(td);
 
 	if ((fd < 0) || (FILES_NUM <= fd))
 		return (EBADF);
-
-	fmaster_lock_file_table(td);
-
 	data = fmaster_data_of_thread(td);
 	vnode = data->fdata_files[fd].ff_vnode;
-	if (vnode == NULL) {
-		error = EBADF;
-		goto exit;
-	}
+	if (vnode == NULL)
+		return (EBADF);
+
 	mtx_lock(&vnode->fv_lock);
 
 	vnode->fv_refcount--;
@@ -254,8 +260,17 @@ fmaster_unref_fd(struct thread *td, int fd, enum fmaster_file_place *place,
 	if (*refcount == 0)
 		uma_zfree(data->fdata_vnodes, vnode);
 
-	error = 0;
-exit:
+	return (0);
+}
+
+int
+fmaster_unref_fd(struct thread *td, int fd, enum fmaster_file_place *place,
+		 int *lfd, int *refcount)
+{
+	int error;
+
+	fmaster_lock_file_table(td);
+	error = unref_fd(td, fd, place, lfd, refcount);
 	fmaster_unlock_file_table(td);
 
 	return (error);
@@ -863,11 +878,6 @@ fmaster_read_to_userspace(struct thread *td, int d, void *buf, size_t nbytes)
 	return do_readv(td, d, buf, nbytes, UIO_USERSPACE);
 }
 
-#define	ENSURE_FILES_LOCK_OWNED(td)	do {\
-	if (mtx_owned(&fmaster_data_of_thread((td))->fdata_files_lock) == 0)\
-		return (EDOOFUS);\
-} while (0)
-
 static int
 find_unused_fd(struct thread *td, int *fd)
 {
@@ -909,6 +919,7 @@ fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
 	vnode->fv_place = place;
 	vnode->fv_local = lfd;
 	file->ff_vnode = vnode;
+	file->ff_close_on_exec = false;
 
 	fmaster_log(td, LOG_DEBUG, fmt, lfd, str_of_place(place), vfd);
 
@@ -1641,4 +1652,76 @@ fmaster_set_token(struct fmaster_data *data, const char *token,
 	data->token_size = token_size;
 
 	return (0);
+}
+
+int
+fmaster_close_on_exec(struct thread *td)
+{
+	struct fmaster_data *data;
+	struct fmaster_file *file;
+	enum fmaster_file_place place;
+	int error, i, lfd, newrefcount;
+
+	fmaster_lock_file_table(td);
+
+	data = fmaster_data_of_thread(td);
+	for (i = 0; i < FILES_NUM; i++) {
+		file = &data->fdata_files[i];
+		if (file->ff_vnode == NULL)
+			continue;
+		if (file->ff_close_on_exec) {
+			error = unref_fd(td, i, &place, &lfd, &newrefcount);
+			if (error != 0)
+				goto exit;
+			/* FIXME: A similar routine is in fmaster_close.c */
+			if (0 < newrefcount)
+				continue;
+			switch (place) {
+			case FFP_MASTER:
+				error = kern_close(td, lfd);
+				if (error != 0)
+					goto exit;
+				break;
+			case FFP_SLAVE:
+				error = fmaster_execute_close(td, lfd);
+				if (error != 0)
+					goto exit;
+				break;
+			default:
+				error = EINVAL;
+				goto exit;
+			}
+		}
+	}
+
+	error = 0;
+exit:
+	fmaster_unlock_file_table(td);
+
+	return (error);
+}
+
+int
+fmaster_set_close_on_exec(struct thread *td, int fd, bool close_on_exec)
+{
+	struct fmaster_file *file;
+	int error;
+
+	if ((fd < 0) || (FILES_NUM <= fd))
+		return (EBADF);
+
+	fmaster_lock_file_table(td);
+
+	file = &fmaster_data_of_thread(td)->fdata_files[fd];
+	if (file->ff_vnode == NULL) {
+		error = EBADF;
+		goto exit;
+	}
+	file->ff_close_on_exec = close_on_exec;
+
+	error = 0;
+exit:
+	fmaster_unlock_file_table(td);
+
+	return (error);
 }
