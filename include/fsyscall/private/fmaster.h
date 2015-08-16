@@ -30,6 +30,7 @@ struct fmaster_vnode {
 
 struct fmaster_file {
 	struct fmaster_vnode	*ff_vnode;
+	bool			ff_close_on_exec;
 };
 
 #define	FILES_NUM	256
