@@ -190,10 +190,9 @@ void	fmaster_log_syscall_end(struct thread *, const char *,
 				const struct timeval *, int);
 const char *
 	fmaster_get_sockopt_name(int);
-
-#define	LOG(td, pri, fmt, ...)	do {				\
-	const char *__fmt__ = "fmaster[%d]: " fmt "\n";		\
-	log((pri), __fmt__, (td)->td_proc->p_pid, __VA_ARGS__);	\
+void	_fmaster_dump_file_table(struct thread *, const char *, unsigned int);
+#define	fmaster_dump_file_table(td)	do {			\
+	_fmaster_dump_file_table((td), __FILE__, __LINE__);	\
 } while (0)
 
 #define	array_sizeof(a)		(sizeof(a) / sizeof(a[0]))

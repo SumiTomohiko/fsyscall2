@@ -2,9 +2,11 @@
 #include <sys/cdefs.h>
 #include <sys/errno.h>
 #include <sys/event.h>
+#include <sys/fcntl.h>
 #include <sys/file.h>
 #include <sys/filedesc.h>
 #include <sys/kernel.h>
+#include <sys/libkern.h>
 #include <sys/limits.h>
 #include <sys/lock.h>
 #include <sys/module.h>
@@ -14,6 +16,7 @@
 #include <sys/select.h>
 #include <sys/selinfo.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/syscallsubr.h>
 #include <sys/sysent.h>
 #include <sys/syslog.h>
@@ -1669,6 +1672,75 @@ fmaster_set_token(struct fmaster_data *data, const char *token,
 	data->token_size = token_size;
 
 	return (0);
+}
+
+static const char *
+basename(const char *path)
+{
+	const char *p, *q;
+
+	p = path;
+	for (q = path; *q != '\0'; q++)
+		if (*q == '/')
+			p = q + 1;
+
+	return (p);
+}
+
+void
+_fmaster_dump_file_table(struct thread *td, const char *filename,
+			 unsigned int lineno)
+{
+	struct fmaster_data *data;
+	struct fmaster_vnode *vnode;
+	register_t retval[2];
+	pid_t pid;
+	enum fmaster_file_place place;
+	int error, i, lfd;
+	const char *bname, *close_on_exec, *placestr;
+	char dead_or_alive[64];
+
+	fmaster_lock_file_table(td);
+
+	pid = td->td_proc->p_pid;
+	data = fmaster_data_of_thread(td);
+	for (i = 0; i < FILES_NUM; i++) {
+		vnode = data->fdata_files[i].ff_vnode;
+		if (vnode == NULL)
+			continue;
+		bname = basename(filename);
+		place = vnode->fv_place;
+		placestr = str_of_place(place);
+		lfd = vnode->fv_local;
+		switch (place) {
+		case FFP_MASTER:
+			SAVE_RETVAL(td, retval);
+			error = kern_fcntl(td, lfd, F_GETFD, 0);
+			if (error == 0) {
+				close_on_exec = td->td_retval[0] & FD_CLOEXEC
+					? ", close_on_exec"
+					: "";
+				snprintf(dead_or_alive, sizeof(dead_or_alive),
+					 " (alive%s)", close_on_exec);
+			}
+			else
+				strlcpy(dead_or_alive, " (dead)",
+					sizeof(dead_or_alive));
+			RESTORE_RETVAL(td, retval);
+			break;
+		case FFP_SLAVE:
+		default:
+			dead_or_alive[0] = '\0';
+			break;
+		}
+		fmaster_log(td, LOG_DEBUG,
+			    "%s:%u: file[%d]: place=%s, local=%d%s, refcount=%d"
+			    ", desc=%s",
+			    bname, lineno, i, placestr, lfd, dead_or_alive,
+			    vnode->fv_refcount, vnode->fv_desc);
+	}
+
+	fmaster_unlock_file_table(td);
 }
 
 int
