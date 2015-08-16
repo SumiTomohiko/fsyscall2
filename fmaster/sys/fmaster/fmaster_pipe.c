@@ -7,6 +7,7 @@
 #include <sys/syscallsubr.h>
 #include <sys/syslog.h>
 #include <sys/sysproto.h>
+#include <sys/systm.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -18,12 +19,17 @@
 #include <sys/fmaster/fmaster_pre_post.h>
 #include <sys/fmaster/fmaster_proto.h>
 
+#define	R	0
+#define	W	1
+
 int
 sys_fmaster_pipe(struct thread *td, struct fmaster_pipe_args *uap)
 {
 #define	SYSCALL_NAME	"pipe"
 	struct timeval time_start;
-	int error, fds[2], fildes[2];
+	int error, fds[2], fildes[2], rfd, wfd;
+	const char *fmt = "pipe to %s (local %d to local %d)";
+	char desc[VNODE_DESC_LEN], desc2[VNODE_DESC_LEN];
 
 	fmaster_log(td, LOG_DEBUG, SYSCALL_NAME ": started");
 	microtime(&time_start);
@@ -32,10 +38,14 @@ sys_fmaster_pipe(struct thread *td, struct fmaster_pipe_args *uap)
 	if (error != 0)
 		return (error);
 
-	error = fmaster_register_file(td, FFP_MASTER, fildes[0], &fds[0]);
+	rfd = fildes[R];
+	wfd = fildes[W];
+	snprintf(desc, sizeof(desc), fmt, "read", wfd, rfd);
+	error = fmaster_register_file(td, FFP_MASTER, rfd, &fds[0], desc);
 	if (error != 0)
 		return (error);
-	error = fmaster_register_file(td, FFP_MASTER, fildes[1], &fds[1]);
+	snprintf(desc2, sizeof(desc2), fmt, "write", wfd, rfd);
+	error = fmaster_register_file(td, FFP_MASTER, wfd, &fds[1], desc2);
 	if (error != 0)
 		return (error);
 	td->td_retval[0] = fds[0];

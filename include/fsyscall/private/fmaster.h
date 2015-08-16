@@ -21,11 +21,14 @@ enum fmaster_file_place {
 	FFP_SLAVE
 };
 
+#define	VNODE_DESC_LEN	256
+
 struct fmaster_vnode {
 	struct mtx		fv_lock;
 	enum fmaster_file_place	fv_place;
 	int			fv_local;
 	int			fv_refcount;
+	char			fv_desc[VNODE_DESC_LEN];
 };
 
 struct fmaster_file {
@@ -123,7 +126,7 @@ int			fmaster_get_vnode_info(struct thread *, int,
 
 /* file operations */
 int	fmaster_register_file(struct thread *, enum fmaster_file_place, int,
-			      int *);
+			      int *, const char *);
 int	fmaster_unref_fd(struct thread *, int, enum fmaster_file_place *, int *,
 			 int *);
 int	fmaster_dup(struct thread *, int, int *);
@@ -150,7 +153,8 @@ int	fmaster_execute_connect_protocol(struct thread *td, const char *command,
 int	fmaster_execute_accept_protocol(struct thread *, const char *,
 					command_t, command_t, int,
 					struct sockaddr *, socklen_t *);
-int	fmaster_return_fd(struct thread *, enum fmaster_file_place, int);
+int	fmaster_return_fd(struct thread *, enum fmaster_file_place, int,
+			  const char *);
 
 /* anything else */
 int	fmaster_copy_data(struct thread *, struct fmaster_data *);

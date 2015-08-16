@@ -115,6 +115,7 @@ read_fds(struct thread *td, struct fmaster_data *data)
 		}
 		vnode->fv_place = FFP_SLAVE;
 		vnode->fv_local = d;
+		strcpy(vnode->fv_desc, "default");
 		data->fdata_files[d].ff_vnode = vnode;
 		pos += m;
 	}

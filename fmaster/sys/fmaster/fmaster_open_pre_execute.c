@@ -12,12 +12,18 @@ static int
 open_master(struct thread *td, struct fmaster_open_args *uap)
 {
 	int error;
+	char desc[VNODE_DESC_LEN], path[VNODE_DESC_LEN];
 
 	error = sys_open(td, (struct open_args *)uap);
 	if (error != 0)
 		return (error);
 
-	return fmaster_return_fd(td, FFP_MASTER, td->td_retval[0]);
+	error = copyinstr(uap->path, path, sizeof(path), NULL);
+	if (error != 0)
+		return (error);
+	snprintf(desc, sizeof(desc), "open in master (\"%s\")", path);
+
+	return (fmaster_return_fd(td, FFP_MASTER, td->td_retval[0], desc));
 }
 
 int

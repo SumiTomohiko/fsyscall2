@@ -896,9 +896,23 @@ find_unused_fd(struct thread *td, int *fd)
 	return (EMFILE);
 }
 
+static const char *
+str_of_place(enum fmaster_file_place place)
+{
+
+	switch (place) {
+	case FFP_MASTER:
+		return "master";
+	case FFP_SLAVE:
+		return "slave";
+	default:
+		return "invalid";
+	}
+}
+
 static int
 fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
-		       int lfd, int vfd)
+		       int lfd, int vfd, const char *desc)
 {
 	struct fmaster_vnode *vnode;
 	struct fmaster_file *file;
@@ -918,6 +932,7 @@ fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
 		return (ENOMEM);
 	vnode->fv_place = place;
 	vnode->fv_local = lfd;
+	strlcpy(vnode->fv_desc, desc, sizeof(vnode->fv_desc));
 	file->ff_vnode = vnode;
 	file->ff_close_on_exec = false;
 
@@ -928,7 +943,7 @@ fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
 
 int
 fmaster_register_file(struct thread *td, enum fmaster_file_place place,
-		      int lfd, int *vfd)
+		      int lfd, int *vfd, const char *desc)
 {
 	int error;
 
@@ -937,7 +952,7 @@ fmaster_register_file(struct thread *td, enum fmaster_file_place place,
 	error = find_unused_fd(td, vfd);
 	if (error != 0)
 		goto exit;
-	error = fmaster_register_fd_at(td, place, lfd, *vfd);
+	error = fmaster_register_fd_at(td, place, lfd, *vfd, desc);
 	if (error != 0)
 		goto exit;
 
@@ -948,11 +963,12 @@ exit:
 }
 
 int
-fmaster_return_fd(struct thread *td, enum fmaster_file_place place, int lfd)
+fmaster_return_fd(struct thread *td, enum fmaster_file_place place, int lfd,
+		  const char *desc)
 {
 	int error, virtual_fd;
 
-	error = fmaster_register_file(td, place, lfd, &virtual_fd);
+	error = fmaster_register_file(td, place, lfd, &virtual_fd, desc);
 	if (error != 0)
 		return (error);
 
@@ -1631,6 +1647,7 @@ fmaster_copy_data(struct thread *td, struct fmaster_data *dest)
 		newvnode->fv_place = vnode->fv_place;
 		newvnode->fv_local = vnode->fv_local;
 		newvnode->fv_refcount = vnode->fv_refcount;
+		strcpy(newvnode->fv_desc, vnode->fv_desc);
 		dest->fdata_files[i].ff_vnode = newvnode;
 	}
 
