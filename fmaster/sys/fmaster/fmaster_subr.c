@@ -35,7 +35,7 @@
 #include <fsyscall/private/read_sockaddr.h>
 
 /* Set 1 if you want to write log /tmp/fmaster.log.<pid> */
-#define	LOG_TO_FILE	1
+#define	LOG_TO_FILE	0
 
 MALLOC_DEFINE(M_FMASTER, "fdata", "emuldata of fmaster");
 
