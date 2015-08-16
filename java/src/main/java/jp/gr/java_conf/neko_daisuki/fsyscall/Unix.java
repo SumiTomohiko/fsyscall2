@@ -129,7 +129,7 @@ public class Unix {
                 }
                 int size = sa.size();
                 if (size == 0) {
-                    return "";
+                    return "nothing";
                 }
                 StringBuilder builder = new StringBuilder(sa.get(0));
                 for (int i = 1; i < size; i++) {
