@@ -145,7 +145,7 @@ log_args(struct thread *td, struct fmaster_kevent_args *uap,
 	fmaster_log(td, LOG_DEBUG,
 		    "%s: fd=%d, changelist=%p, nchanges=%d, eventlist=%p, neven"
 		    "ts=%d, timeout=%p (%s)",
-		    uap->fd, uap->changelist, nchanges, uap->eventlist,
+		    header, uap->fd, uap->changelist, nchanges, uap->eventlist,
 		    uap->nevents, uap->timeout, timeout_str);
 
 	if ((kchangelist == NULL) || (nchanges == 0))
