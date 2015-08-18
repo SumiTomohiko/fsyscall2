@@ -178,6 +178,11 @@ enum fmaster_side {
 	SIDE_BOTH = SIDE_MASTER | SIDE_SLAVE
 };
 
+enum fmaster_pre_execute_result {
+	PRE_EXEC_END,
+	PRE_EXEC_CONT
+};
+
 #define	DEFINE_FLAG(name)	{ name, #name }
 
 void	fmaster_chain_flags(char *, size_t, flag_t, struct flag_definition[],

@@ -66,11 +66,11 @@ log_error(struct thread *td, int fd, const char *buf, size_t nbytes)
  * Sometimes a message to fd 2 is an important dying message. So the write(2)
  * logs it.
  */
-int
+enum fmaster_pre_execute_result
 fmaster_write_pre_execute(struct thread *td, struct fmaster_write_args *uap, int *error)
 {
 
 	log_error(td, uap->fd, uap->buf, uap->nbytes);
 
-	return (1);
+	return (PRE_EXEC_CONT);
 }

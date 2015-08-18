@@ -317,7 +317,7 @@ def print_pre_execute(p, print_newline, syscall):
     if not syscall.pre_execute:
         return
     p("""\
-\tif ({name}_pre_execute(td, uap, &error) == 0)
+\tif ({name}_pre_execute(td, uap, &error) == PRE_EXEC_END)
 \t\treturn (error);
 """.format(**vars(syscall)))
     print_newline()
@@ -592,7 +592,7 @@ def write_pre_post_h(dirpath, syscalls):
 
         protos = []
         for syscall in [syscall for syscall in syscalls if syscall.pre_execute]:
-            fmt = "int {name}_pre_execute(struct thread *, struct {name}_args *, int *);\n"
+            fmt = "enum fmaster_pre_execute_result {name}_pre_execute(struct thread *, struct {name}_args *, int *);\n"
             protos.append(fmt.format(name=syscall.name))
         for syscall in [syscall for syscall in syscalls if syscall.post_execute]:
             fmt = "int {name}_post_execute(struct thread *, struct {name}_args *);\n"

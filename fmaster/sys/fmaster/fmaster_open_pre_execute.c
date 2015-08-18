@@ -26,14 +26,14 @@ open_master(struct thread *td, struct fmaster_open_args *uap)
 	return (fmaster_return_fd(td, FFP_MASTER, td->td_retval[0], desc));
 }
 
-int
+enum fmaster_pre_execute_result
 fmaster_open_pre_execute(struct thread *td, struct fmaster_open_args *uap, int *error)
 {
 
 	if (fmaster_is_master_file(td, uap->path)) {
 		*error = open_master(td, uap);
-		return (0);
+		return (PRE_EXEC_END);
 	}
 
-	return (1);
+	return (PRE_EXEC_CONT);
 }
