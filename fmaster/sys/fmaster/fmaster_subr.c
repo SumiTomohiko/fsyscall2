@@ -899,8 +899,8 @@ find_unused_fd(struct thread *td, int *fd)
 	return (EMFILE);
 }
 
-static const char *
-str_of_place(enum fmaster_file_place place)
+const char *
+fmaster_str_of_place(enum fmaster_file_place place)
 {
 
 	switch (place) {
@@ -939,7 +939,7 @@ fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
 	file->ff_vnode = vnode;
 	file->ff_close_on_exec = false;
 
-	fmaster_log(td, LOG_DEBUG, fmt, lfd, str_of_place(place), vfd);
+	fmaster_log(td, LOG_DEBUG, fmt, lfd, fmaster_str_of_place(place), vfd);
 
 	return (0);
 }
@@ -1710,7 +1710,7 @@ _fmaster_dump_file_table(struct thread *td, const char *filename,
 			continue;
 		bname = basename(filename);
 		place = vnode->fv_place;
-		placestr = str_of_place(place);
+		placestr = fmaster_str_of_place(place);
 		lfd = vnode->fv_local;
 		switch (place) {
 		case FFP_MASTER:

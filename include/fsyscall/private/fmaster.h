@@ -195,6 +195,8 @@ void	fmaster_log_syscall_end(struct thread *, const char *,
 				const struct timeval *, int);
 const char *
 	fmaster_get_sockopt_name(int);
+const char *
+	fmaster_str_of_place(enum fmaster_file_place);
 void	_fmaster_dump_file_table(struct thread *, const char *, unsigned int);
 #define	fmaster_dump_file_table(td)	do {			\
 	_fmaster_dump_file_table((td), __FILE__, __LINE__);	\
