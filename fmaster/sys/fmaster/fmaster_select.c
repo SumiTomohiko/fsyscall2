@@ -949,7 +949,7 @@ log_fdset(struct thread *td, const char *name, int nd, fd_set *fdset)
 			error = fmaster_get_vnode_info(td, fd, &place, &lfd);
 			if (error != 0)
 				return (error);
-			side = place == FFP_MASTER ? "master" : "slave";
+			side = fmaster_str_of_place(place);
 			fmaster_log(td, LOG_DEBUG, fmt, name, fd, side, lfd);
 		}
 
