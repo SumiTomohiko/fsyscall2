@@ -15,7 +15,8 @@ SUBDIR=	${LIBDIR} accept access bind chdir chdir_access chdir_error \
 	lseek lstat mkdir open open_pwddb pipe poll_bind poll_in poll_master \
 	poll_master_slave_blocking poll_master_slave_blocking2 \
 	poll_master_slave_nonblocking poll_out poll_timeout pread read \
-	readlink rmdir select select2 setsockopt sigprocmask socket socketpair \
-	stat unlink wait4_rusage wait4_status wait4_successful write writev
+	readlink rmdir select select2 select_master setsockopt sigprocmask \
+	socket socketpair stat unlink wait4_rusage wait4_status \
+	wait4_successful write writev
 
 .include <bsd.subdir.mk>

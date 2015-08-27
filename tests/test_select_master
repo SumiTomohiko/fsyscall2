@@ -1,0 +1,5 @@
+
+cmd="select_master/select_master"
+expected_status="0"
+
+# vim: filetype=sh
