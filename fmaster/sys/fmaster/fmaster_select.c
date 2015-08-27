@@ -500,9 +500,12 @@ map_to_virtual_fd(struct thread *td, int nfds, const fd_set *local_fds,
 		return (ENOMEM);
 	for (vfd = 0; vfd < FILES_NUM; vfd++) {
 		error = fmaster_get_vnode_info(td, vfd, &place, &lfd);
-		if (error != 0) {
-			if (error == EBADF)
-				continue;
+		switch (error) {
+		case 0:
+			break;
+		case EBADF:
+			continue;
+		default:
 			goto exit;
 		}
 		if (place == FFP_MASTER)
