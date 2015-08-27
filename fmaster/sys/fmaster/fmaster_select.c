@@ -488,7 +488,8 @@ done:
 }
 
 static int
-map_to_virtual_fd(struct thread *td, int nfds, fd_set *local_fds, fd_set *fds)
+map_to_virtual_fd(struct thread *td, int nfds, const fd_set *local_fds,
+		  fd_set *fds)
 {
 	struct malloc_type *mt = M_TEMP;
 	enum fmaster_file_place place;
@@ -499,8 +500,11 @@ map_to_virtual_fd(struct thread *td, int nfds, fd_set *local_fds, fd_set *fds)
 		return (ENOMEM);
 	for (vfd = 0; vfd < FILES_NUM; vfd++) {
 		error = fmaster_get_vnode_info(td, vfd, &place, &lfd);
-		if (error != 0)
+		if (error != 0) {
+			if (error == EBADF)
+				continue;
 			goto exit;
+		}
 		if (place == FFP_MASTER)
 			l2v[lfd] = vfd;
 	}
@@ -518,7 +522,7 @@ exit:
 }
 
 static int
-map_to_local_fd(struct thread *td, int nfds, fd_set *fds, int *nd, fd_set *local_fds)
+map_to_local_fd(struct thread *td, int nfds, const fd_set *fds, int *nd, fd_set *local_fds)
 {
 	int error, fd, local_fd, max_fd;
 
@@ -531,7 +535,7 @@ map_to_local_fd(struct thread *td, int nfds, fd_set *fds, int *nd, fd_set *local
 			if (error != 0)
 				return (error);
 			max_fd = MAX(max_fd, local_fd);
-			FD_SET(local_fd, fds);
+			FD_SET(local_fd, local_fds);
 		}
 
 	*nd = MAX(*nd, max_fd + 1);
@@ -922,16 +926,16 @@ fmaster_select_main(struct thread *td, struct fmaster_select_args *uap)
 	if (error != 0)
 		return (error);
 
-#define	COPYOUT(u, k)	do {					\
+#define	COPYOUT(k, u)	do {					\
 	if ((u) != NULL) {					\
-		error = copyout((u), (k), sizeof(*(k)));	\
-		if (error == 0)					\
+		error = copyout((k), (u), sizeof(*(k)));	\
+		if (error != 0)					\
 			return (error);				\
 	}							\
 } while (0)
-	COPYOUT(uap->in, &readfds);
-	COPYOUT(uap->ou, &writefds);
-	COPYOUT(uap->ex, &exceptfds);
+	COPYOUT(&readfds, uap->in);
+	COPYOUT(&writefds, uap->ou);
+	COPYOUT(&exceptfds, uap->ex);
 #undef	COPYOUT
 
 	return (0);
