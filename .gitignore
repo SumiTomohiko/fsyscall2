@@ -146,7 +146,6 @@ fmaster/sys/fmaster/fmaster_rmdir.c
 fmaster/sys/fmaster/fmaster_rtprio.c
 fmaster/sys/fmaster/fmaster_semsys.c
 fmaster/sys/fmaster/fmaster_sendfile.c
-fmaster/sys/fmaster/fmaster_sendto.c
 fmaster/sys/fmaster/fmaster_setcontext.c
 fmaster/sys/fmaster/fmaster_setegid.c
 fmaster/sys/fmaster/fmaster_seteuid.c
