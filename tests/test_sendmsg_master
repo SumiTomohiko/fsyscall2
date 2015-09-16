@@ -1,0 +1,5 @@
+
+cmd="sendmsg_master/sendmsg_master"
+expected_status="0"
+
+# vim: filetype=sh

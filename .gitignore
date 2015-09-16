@@ -332,11 +332,13 @@ tests/amd64/print_stat_member/name.inc
 tests/amd64/print_stat_member/print.inc
 tests/amd64/print_stat_member/print_stat_layout
 tests/amd64/readlink/readlink
+tests/amd64/recvmsg_master/recvmsg_master
 tests/amd64/recvmsg_slave/recvmsg_slave
 tests/amd64/rmdir/rmdir
 tests/amd64/select/select
 tests/amd64/select2/select2
 tests/amd64/select_master/select_master
+tests/amd64/sendmsg_master/sendmsg_master
 tests/amd64/sendmsg_slave/sendmsg_slave
 tests/amd64/setsockopt/setsockopt
 tests/amd64/sigaction/sigaction

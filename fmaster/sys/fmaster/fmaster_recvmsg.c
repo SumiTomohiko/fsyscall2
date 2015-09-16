@@ -1,6 +1,7 @@
 #include <sys/param.h>
 #include <sys/proc.h>
 #include <sys/syslog.h>
+#include <sys/sysproto.h>
 #include <sys/systm.h>
 
 #include <fsyscall/private/fmaster.h>
@@ -10,7 +11,17 @@
  * code for master
  */
 
-/* nothing */
+static int
+recvmsg_master(struct thread *td, int lfd, struct msghdr *msg, int flags)
+{
+	struct recvmsg_args args;
+
+	args.s = lfd;
+	args.msg = msg;
+	args.flags = flags;
+
+	return (sys_recvmsg(td, &args));
+}
 
 /*******************************************************************************
  * code for slave
@@ -274,7 +285,7 @@ fmaster_recvmsg_main(struct thread *td, struct fmaster_recvmsg_args *uap)
 		goto exit;
 	switch (place) {
 	case FFP_MASTER:
-		error = ENOSYS;
+		error = recvmsg_master(td, lfd, umsg, uap->flags);
 		break;
 	case FFP_SLAVE:
 		error = recvmsg_slave(td, umsg, lfd, &kmsg, uap->flags);

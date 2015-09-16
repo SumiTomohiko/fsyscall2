@@ -1,6 +1,7 @@
 #include <sys/param.h>
 #include <sys/proc.h>
 #include <sys/syslog.h>
+#include <sys/sysproto.h>
 #include <sys/systm.h>
 #include <sys/uio.h>
 
@@ -11,7 +12,17 @@
  * code for master
  */
 
-/* nothing */
+static int
+sendmsg_master(struct thread *td, int lfd, struct msghdr *msg, int flags)
+{
+	struct sendmsg_args args;
+
+	args.s = lfd;
+	args.msg = msg;
+	args.flags = flags;
+
+	return (sys_sendmsg(td, &args));
+}
 
 /*******************************************************************************
  * code for slave
@@ -292,7 +303,7 @@ fmaster_sendmsg_main(struct thread *td, struct fmaster_sendmsg_args *uap)
 		goto exit2;
 	switch (place) {
 	case FFP_MASTER:
-		error = ENOSYS;
+		error = sendmsg_master(td, lfd, umsg, uap->flags);
 		break;
 	case FFP_SLAVE:
 		error = sendmsg_slave(td, umsg, lfd, &kmsg, uap->flags);
