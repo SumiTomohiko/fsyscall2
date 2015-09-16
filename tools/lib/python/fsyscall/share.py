@@ -221,8 +221,8 @@ FSLAVE_SYSCALLS = SYSCALLS
 DUMMY_SYSCALLS = [
         "fmaster_fchdir", "fmaster_mknod", "fmaster_chown", "fmaster_mount",
         "fmaster_unmount", "fmaster_setuid", "fmaster_ptrace",
-        "fmaster_recvmsg", "fmaster_chflags", "fmaster_fchflags",
-        "fmaster_sync", "fmaster_getppid", "fmaster_profil", "fmaster_ktrace",
+        "fmaster_chflags", "fmaster_fchflags", "fmaster_sync",
+        "fmaster_getppid", "fmaster_profil", "fmaster_ktrace",
         "fmaster_getlogin", "fmaster_setlogin", "fmaster_acct",
         "fmaster_reboot", "fmaster_revoke", "fmaster_symlink", "fmaster_umask",
         "fmaster_chroot", "fmaster_msync", "fmaster_vfork", "fmaster_ovadvise",

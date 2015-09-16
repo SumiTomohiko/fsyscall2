@@ -7,16 +7,134 @@
 #include <fsyscall/private/fmaster.h>
 #include <sys/fmaster/fmaster_proto.h>
 
-#if 0
+/*******************************************************************************
+ * code for master
+ */
+
+/* nothing */
+
 /*******************************************************************************
  * code for slave
  */
 
 static int
-sendmsg_slave(struct thread *td, int lfd, const struct msghdr *msg, int flags)
+execute_call(struct thread *td, int lfd, const struct msghdr *msg, int flags)
 {
+	struct payload *payload;
+	struct cmsghdr *cmsghdr;
+	struct iovec *iov;
+	size_t len;
+	socklen_t controllen;
+	int error, i, iovlen, level, type;
+	void  *control;
 
-	return (ENOSYS);
+	payload = fsyscall_payload_create();
+	if (payload == NULL)
+		return (ENOMEM);
+
+	error = fsyscall_payload_add_int(payload, lfd);
+	if (error != 0)
+		goto exit;
+
+	/*
+	 * I do not send namelen. Because it depends on architecture. All I do
+	 * here is sending logical structure. The slave can compute length from
+	 * the given data.
+	 */
+	if (msg->msg_name != NULL) {
+		fmaster_log(td, LOG_DEBUG, "msg->msg_name != NULL");
+		error = ENOTSUP;
+		goto exit;
+	}
+	error = fsyscall_payload_add_int(payload, MSGHDR_MSG_NAME_NULL);
+	if (error != 0)
+		goto exit;
+
+	iovlen = msg->msg_iovlen;
+	error = fsyscall_payload_add_int(payload, iovlen);
+	if (error != 0)
+		goto exit;
+	for (i = 0; i < iovlen; i++) {
+		iov = &msg->msg_iov[i];
+		len = iov->iov_len;
+		error = fsyscall_payload_add_int(payload, len);
+		if (error != 0)
+			goto exit;
+		error = fsyscall_payload_add(payload, iov->iov_base, len);
+		if (error != 0)
+			goto exit;
+	}
+
+	/*
+	 * I also do not send controllen. It depends on machine architecture.
+	 * The slave can compute it.
+	 */
+	control = msg->msg_control;
+	if (control == NULL) {
+		error = fsyscall_payload_add_int(payload,
+						 MSGHDR_MSG_CONTROL_NULL);
+		if (error != 0)
+			goto exit;
+	}
+	else {
+		error = fsyscall_payload_add_int(payload,
+						 MSGHDR_MSG_CONTROL_NOT_NULL);
+		if (error != 0)
+			goto exit;
+		controllen = msg->msg_controllen;
+		if (controllen < sizeof(struct cmsghdr)) {
+			error = EINVAL;
+			goto exit;
+		}
+		cmsghdr = (struct cmsghdr *)control;
+		level = cmsghdr->cmsg_level;
+		type = cmsghdr->cmsg_type;
+		if ((level != SOL_SOCKET) || (type != SCM_CREDS)) {
+			fmaster_log(td, LOG_DEBUG, "level=%d, type=%d", level, type);
+			error = ENOTSUP;
+			goto exit;
+		}
+		error = fsyscall_payload_add_int(payload, level);
+		if (error != 0)
+			goto exit;
+		error = fsyscall_payload_add_int(payload, type);
+		if (error != 0)
+			goto exit;
+	}
+
+	error = fsyscall_payload_add_int(payload, msg->msg_flags);
+	if (error != 0)
+		goto exit;
+
+	error = fsyscall_payload_add_int(payload, flags);
+	if (error != 0)
+		goto exit;
+
+	error = fmaster_write_payloaded_command(td, SENDMSG_CALL, payload);
+	if (error != 0)
+		goto exit;
+
+	error = 0;
+exit:
+	fsyscall_payload_dispose(payload);
+
+	return (error);
+}
+
+static int
+sendmsg_slave(struct thread *td, struct msghdr *umsg, int lfd,
+	      const struct msghdr *kmsg, int flags)
+{
+	int error;
+
+	error = execute_call(td, lfd, kmsg, flags);
+	if (error != 0)
+		return (error);
+	error = fmaster_execute_return_generic64(td, SENDMSG_RETURN);
+	if (error != 0)
+		return (error);
+
+	return (0);
 }
 
 /*******************************************************************************
@@ -153,70 +271,45 @@ fail:
 static int
 fmaster_sendmsg_main(struct thread *td, struct fmaster_sendmsg_args *uap)
 {
-	struct msghdr msg;
-	struct iovec *iov;
-	unsigned long namelen;
+	struct msghdr kmsg, *umsg;
 	enum fmaster_file_place place;
-	int controllen, error, i, iovlen, lfd;
-	void *control, *name;
+	int error, i, iovlen, lfd;
 
-	error = copyin(uap->msg, &msg, sizeof(msg));
+	umsg = uap->msg;
+	error = fmaster_copyin_msghdr(td, umsg, &kmsg);
 	if (error != 0)
 		return (error);
-	namelen = msg.msg_namelen;
-	name = malloc(namelen, M_TEMP, M_WAITOK);
-	if (name == NULL)
-		return (ENOMEM);
-	error = copyin(msg.msg_name, name, namelen);
-	if (error != 0)
-		goto exit1;
-	msg.msg_name = name;
-	iovlen = msg.msg_iovlen;
-	error = copyiniov(msg.msg_iov, iovlen, &iov, EMSGSIZE);
-	if (error != 0)
-		goto exit1;
-	error = copyin_iov_contents(td, iov, iovlen);
+	iovlen = kmsg.msg_iovlen;
+	error = copyin_iov_contents(td, kmsg.msg_iov, iovlen);
 	if (error)
+		goto exit1;
+
+	error = log_msg(td, &kmsg);
+	if (error != 0)
 		goto exit2;
-	msg.msg_iov = iov;
-	controllen = msg.msg_controllen;
-	control = malloc(controllen, M_TEMP, M_WAITOK);
-	if (control == NULL) {
-		error = ENOMEM;
-		goto exit3;
-	}
-	error = copyin(msg.msg_control, control, controllen);
-	if (error != 0)
-		goto exit4;
-	msg.msg_control = control;
-	error = log_msg(td, &msg);
-	if (error != 0)
-		goto exit4;
 
 	error = fmaster_get_vnode_info(td, uap->s, &place, &lfd);
 	if (error != 0)
-		goto exit4;
+		goto exit2;
 	switch (place) {
 	case FFP_MASTER:
 		error = ENOSYS;
-		goto exit4;
+		break;
 	case FFP_SLAVE:
-		error = sendmsg_slave(td, lfd, &msg, uap->flags);
+		error = sendmsg_slave(td, umsg, lfd, &kmsg, uap->flags);
 		break;
 	default:
 		error = EBADF;
-		goto exit4;
+		break;
 	}
 
-exit4:
-	free(control, M_TEMP);
-exit3:
-	for (i = 0; i < iovlen; i++)
-		free(iov[i].iov_base, M_TEMP);
 exit2:
-	free(iov, M_IOV);
+	for (i = 0; i < iovlen; i++)
+		free(kmsg.msg_iov[i].iov_base, M_TEMP);
 exit1:
-	free(name, M_TEMP);
+	free(kmsg.msg_control, M_TEMP);
+	free(kmsg.msg_iov, M_IOV);
+	free(kmsg.msg_name, M_TEMP);
 
 	return (error);
 }
@@ -246,26 +339,6 @@ sys_fmaster_sendmsg(struct thread *td, struct fmaster_sendmsg_args *uap)
 	error = fmaster_sendmsg_main(td, uap);
 
 	fmaster_log_syscall_end(td, sysname, &time_start, error);
-
-	return (error);
-}
-#endif
-
-int
-sys_fmaster_sendmsg(struct thread *td, struct fmaster_sendmsg_args *uap)
-{
-	struct fmaster_writev_args args;
-	struct msghdr msg;
-	int error;
-
-	error = copyin(uap->msg, &msg, sizeof(msg));
-	if (error != 0)
-		return (error);
-
-	args.fd = uap->s;
-	args.iovp = msg.msg_iov;
-	args.iovcnt = msg.msg_iovlen;
-	error = sys_fmaster_writev(td, &args);
 
 	return (error);
 }

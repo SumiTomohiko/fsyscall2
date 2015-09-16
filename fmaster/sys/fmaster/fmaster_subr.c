@@ -1815,3 +1815,58 @@ exit:
 
 	return (error);
 }
+
+int
+fmaster_copyin_msghdr(struct thread *td, const struct msghdr *umsg,
+		      struct msghdr *kmsg)
+{
+	struct iovec *iov;
+	socklen_t controllen, namelen;
+	int error, iovlen;
+	void *control, *name;
+
+	error = copyin(umsg, kmsg, sizeof(*umsg));
+	if (error != 0)
+		return (error);
+
+	namelen = kmsg->msg_namelen;
+	if (kmsg->msg_name != NULL) {
+		name = malloc(namelen, M_TEMP, M_WAITOK);
+		if (name == NULL)
+			return (ENOMEM);
+		error = copyin(kmsg->msg_name, name, namelen);
+		if (error != 0)
+			goto fail1;
+		kmsg->msg_name = name;
+	}
+
+	iovlen = kmsg->msg_iovlen;
+	error = copyiniov(kmsg->msg_iov, iovlen, &iov, EMSGSIZE);
+	if (error != 0)
+		goto fail1;
+	kmsg->msg_iov = iov;
+
+	controllen = kmsg->msg_controllen;
+	if (kmsg->msg_control != NULL) {
+		control = malloc(controllen, M_TEMP, M_WAITOK);
+		if (control == NULL) {
+			error = ENOMEM;
+			goto fail2;
+		}
+		error = copyin(kmsg->msg_control, control, controllen);
+		if (error != 0)
+			goto fail3;
+		kmsg->msg_control = control;
+	}
+
+	return (0);
+
+fail3:
+	free(control, M_TEMP);
+fail2:
+	free(iov, M_IOV);
+fail1:
+	free(name, M_TEMP);
+
+	return (error);
+}

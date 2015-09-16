@@ -303,6 +303,8 @@ process_mhub(struct shub *shub)
 	case KEVENT_CALL:
 	case POLL_START:
 	case SIGPROCMASK_CALL:
+	case SENDMSG_CALL:
+	case RECVMSG_CALL:
 #include "dispatch_call.inc"
 		transfer_payload_to_slave(shub, cmd);
 		break;
@@ -386,6 +388,8 @@ process_slave(struct shub *shub, struct slave *slave)
 	case KEVENT_RETURN:
 	case POLL_ENDED:
 	case SIGPROCMASK_RETURN:
+	case SENDMSG_RETURN:
+	case RECVMSG_RETURN:
 #include "dispatch_ret.inc"
 		transfer_payload_from_slave(shub, slave, cmd);
 		break;
