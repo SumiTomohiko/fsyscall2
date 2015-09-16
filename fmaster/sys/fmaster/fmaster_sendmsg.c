@@ -90,7 +90,6 @@ execute_call(struct thread *td, int lfd, const struct msghdr *msg, int flags)
 		level = cmsghdr->cmsg_level;
 		type = cmsghdr->cmsg_type;
 		if ((level != SOL_SOCKET) || (type != SCM_CREDS)) {
-			fmaster_log(td, LOG_DEBUG, "level=%d, type=%d", level, type);
 			error = ENOTSUP;
 			goto exit;
 		}
