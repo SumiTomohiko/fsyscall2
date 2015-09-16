@@ -346,11 +346,17 @@ fmaster_is_master_file(struct thread *td, const char *path)
 		"/usr/local/etc/pango/",
 		"/usr/local/lib/",
 		"/usr/local/share/fonts/",
+#if 0
+		"/usr/local/share/dbus-1/services/",
+#endif
 		"/var/db/fontconfig/",
 	};
 	const char *files[] = {
 		"/usr/local/etc/dbus-1/session.conf",
 		"/usr/local/etc/dbus-1/session.d",
+#if 0
+		"/usr/local/share/dbus-1/services",
+#endif
 		"/dev/null",
 		"/dev/urandom",
 		"/etc/nsswitch.conf",
