@@ -18,6 +18,8 @@
 %define	sys.getpid		20
 %define	sys.getuid		24
 %define	sys.geteuid		25
+%define	sys.recvmsg		27
+%define	sys.sendmsg		28
 %define	sys.accept		30
 %define	sys.getpeername		31
 %define	sys.getsockname		32

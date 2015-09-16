@@ -89,9 +89,13 @@ int	fmaster_read_to_userspace(struct thread *, int, void *, size_t);
 #define	fmaster_read_short	fmaster_read_int16
 #define	fmaster_read_int	fmaster_read_int32
 #define	fmaster_read_long	fmaster_read_int64
+#define	fmaster_read_ssize	fmaster_read_int64
 #define	fmaster_read_ushort	fmaster_read_uint16
 #define	fmaster_read_uint	fmaster_read_uint32
 #define	fmaster_read_ulong	fmaster_read_uint64
+#define	fmaster_read_pid	fmaster_read_int32
+#define	fmaster_read_uid	fmaster_read_uint32
+#define	fmaster_read_gid	fmaster_read_uint32
 #define	fmaster_read_socklen	fmaster_read_uint32
 
 int	fmaster_write(struct thread *, int, const void *, size_t);
@@ -163,6 +167,8 @@ int	fmaster_is_master_file(struct thread *, const char *);
 
 int	fmaster_initialize_kqueue(struct thread *, struct fmaster_data *);
 void	fmaster_schedtail(struct thread *);
+int	fmaster_copyin_msghdr(struct thread *, const struct msghdr *,
+			      struct msghdr *);
 
 /* misc */
 typedef unsigned int flag_t;

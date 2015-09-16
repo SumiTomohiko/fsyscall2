@@ -99,6 +99,8 @@ defsyscall	kevent
 defsyscall	socketpair
 defsyscall	nanosleep
 defsyscall	fstat
+defsyscall	sendmsg
+defsyscall	recvmsg
 
 global _start
 _start:

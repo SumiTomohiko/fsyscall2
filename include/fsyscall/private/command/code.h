@@ -392,11 +392,20 @@
 
 /* end command (do not remove this comment) */
 
+/* codes for kevent(2) */
 #define	KEVENT_CHANGELIST_NULL		0
 #define	KEVENT_CHANGELIST_NOT_NULL	1
 #define	KEVENT_TIMEOUT_NULL		0
 #define	KEVENT_TIMEOUT_NOT_NULL		1
+
+/* codes for struct kevent */
 #define	KEVENT_UDATA_NULL		0
 #define	KEVENT_UDATA_NOT_NULL		1
+
+/* codes for struct msghdr */
+#define	MSGHDR_MSG_NAME_NULL		0
+#define	MSGHDR_MSG_NAME_NOT_NULL	1
+#define	MSGHDR_MSG_CONTROL_NULL		0
+#define	MSGHDR_MSG_CONTROL_NOT_NULL	1
 
 #endif

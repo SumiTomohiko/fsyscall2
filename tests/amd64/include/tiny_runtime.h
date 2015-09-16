@@ -40,6 +40,8 @@ int	tr_run_dup2_closed2x_test(int);
 int	tr_run_dup2_master2x_test(int);
 int	tr_run_dup2_slave2x_test(int, const char *);
 
+int	tr_wait_data(int);
+
 #define	array_sizeof(a)	(sizeof(a) / sizeof(a[0]))
 
 #endif

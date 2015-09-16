@@ -94,7 +94,7 @@ fsyscall_payload_get(struct payload *payload)
 	return (payload->buf);
 }
 
-static int
+int
 fsyscall_payload_add(struct payload *payload, const char *buf,
 		     payload_size_t size)
 {
@@ -295,7 +295,9 @@ payload_create()
 		if (error != 0)						\
 			die(1, "failed to add a datum to the payload");	\
 	}
+IMPLEMENT_ADD_X(payload_add_int16, int16_t)
 IMPLEMENT_ADD_X(payload_add_int32, int32_t)
+IMPLEMENT_ADD_X(payload_add_int64, int64_t)
 IMPLEMENT_ADD_X(payload_add_uint8, uint8_t)
 IMPLEMENT_ADD_X(payload_add_uint32, uint32_t)
 IMPLEMENT_ADD_X(payload_add_uint64, uint64_t)

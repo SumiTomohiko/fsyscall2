@@ -137,7 +137,6 @@ fmaster/sys/fmaster/fmaster_readlink.c
 fmaster/sys/fmaster/fmaster_readlinkat.c
 fmaster/sys/fmaster/fmaster_readv.c
 fmaster/sys/fmaster/fmaster_reboot.c
-fmaster/sys/fmaster/fmaster_recvmsg.c
 fmaster/sys/fmaster/fmaster_rename.c
 fmaster/sys/fmaster/fmaster_renameat.c
 fmaster/sys/fmaster/fmaster_revoke.c
@@ -146,8 +145,6 @@ fmaster/sys/fmaster/fmaster_rmdir.c
 fmaster/sys/fmaster/fmaster_rtprio.c
 fmaster/sys/fmaster/fmaster_semsys.c
 fmaster/sys/fmaster/fmaster_sendfile.c
-fmaster/sys/fmaster/fmaster_sendmsg.c
-fmaster/sys/fmaster/fmaster_sendto.c
 fmaster/sys/fmaster/fmaster_setcontext.c
 fmaster/sys/fmaster/fmaster_setegid.c
 fmaster/sys/fmaster/fmaster_seteuid.c
@@ -335,16 +332,19 @@ tests/amd64/print_stat_member/name.inc
 tests/amd64/print_stat_member/print.inc
 tests/amd64/print_stat_member/print_stat_layout
 tests/amd64/readlink/readlink
+tests/amd64/recvmsg_slave/recvmsg_slave
 tests/amd64/rmdir/rmdir
 tests/amd64/select/select
 tests/amd64/select2/select2
 tests/amd64/select_master/select_master
+tests/amd64/sendmsg_slave/sendmsg_slave
 tests/amd64/setsockopt/setsockopt
 tests/amd64/sigaction/sigaction
 tests/amd64/sigprocmask/sigprocmask
 tests/amd64/socket/socket
 tests/amd64/socketpair/socketpair
 tests/amd64/stat/stat
+tests/amd64/unixsock_creds/unixsock_creds
 tests/amd64/unlink/unlink
 tests/amd64/wait4_rusage/wait4_rusage
 tests/amd64/wait4_status/wait4_status

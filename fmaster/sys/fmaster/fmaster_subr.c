@@ -326,12 +326,13 @@ fmaster_log_syscall_end(struct thread *td, const char *name,
 	int retval;
 	const char *fmt;
 
-	fmt = "%s: ended: retval=%d, error=%d: %ld[usec]";
+	fmt = "%s: ended: retval[0]=%d, retval[1]=%d, error=%d: %ld[usec]",
 
 	microtime(&t2);
 	delta = fmaster_subtract_timeval(t1, &t2);
 	retval = td->td_retval[0];
-	fmaster_log(td, LOG_DEBUG, fmt, name, retval, error, delta);
+	fmaster_log(td, LOG_DEBUG, fmt,
+		    name, td->td_retval[0], td->td_retval[1], error, delta);
 }
 
 int
@@ -345,11 +346,17 @@ fmaster_is_master_file(struct thread *td, const char *path)
 		"/usr/local/etc/pango/",
 		"/usr/local/lib/",
 		"/usr/local/share/fonts/",
+#if 0
+		"/usr/local/share/dbus-1/services/",
+#endif
 		"/var/db/fontconfig/",
 	};
 	const char *files[] = {
 		"/usr/local/etc/dbus-1/session.conf",
 		"/usr/local/etc/dbus-1/session.d",
+#if 0
+		"/usr/local/share/dbus-1/services",
+#endif
 		"/dev/null",
 		"/dev/urandom",
 		"/etc/nsswitch.conf",
@@ -1811,6 +1818,61 @@ fmaster_set_close_on_exec(struct thread *td, int fd, bool close_on_exec)
 	error = 0;
 exit:
 	fmaster_unlock_file_table(td);
+
+	return (error);
+}
+
+int
+fmaster_copyin_msghdr(struct thread *td, const struct msghdr *umsg,
+		      struct msghdr *kmsg)
+{
+	struct iovec *iov;
+	socklen_t controllen, namelen;
+	int error, iovlen;
+	void *control, *name;
+
+	error = copyin(umsg, kmsg, sizeof(*umsg));
+	if (error != 0)
+		return (error);
+
+	namelen = kmsg->msg_namelen;
+	if (kmsg->msg_name != NULL) {
+		name = malloc(namelen, M_TEMP, M_WAITOK);
+		if (name == NULL)
+			return (ENOMEM);
+		error = copyin(kmsg->msg_name, name, namelen);
+		if (error != 0)
+			goto fail1;
+		kmsg->msg_name = name;
+	}
+
+	iovlen = kmsg->msg_iovlen;
+	error = copyiniov(kmsg->msg_iov, iovlen, &iov, EMSGSIZE);
+	if (error != 0)
+		goto fail1;
+	kmsg->msg_iov = iov;
+
+	controllen = kmsg->msg_controllen;
+	if (kmsg->msg_control != NULL) {
+		control = malloc(controllen, M_TEMP, M_WAITOK);
+		if (control == NULL) {
+			error = ENOMEM;
+			goto fail2;
+		}
+		error = copyin(kmsg->msg_control, control, controllen);
+		if (error != 0)
+			goto fail3;
+		kmsg->msg_control = control;
+	}
+
+	return (0);
+
+fail3:
+	free(control, M_TEMP);
+fail2:
+	free(iov, M_IOV);
+fail1:
+	free(name, M_TEMP);
 
 	return (error);
 }

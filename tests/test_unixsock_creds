@@ -1,0 +1,6 @@
+
+cmd="unixsock_creds/unixsock_creds"
+args="${tmp_dir}/$$.sock"
+expected_status="0"
+
+# vim: filetype=sh
