@@ -1,0 +1,17 @@
+
+# This test is needed to know if the Java version works as same as Unix.
+
+cmd="recvmsg_not_socket_slave/recvmsg_not_socket_slave"
+file="${tmp_dir}/$$"
+args="${file}"
+expected_status="0"
+
+precmd() {
+	touch "${file}"
+}
+
+postcmd() {
+	rm -f "${file}"
+}
+
+# vim: filetype=sh
