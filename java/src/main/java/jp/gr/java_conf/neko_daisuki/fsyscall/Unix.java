@@ -9,6 +9,14 @@ public class Unix {
 
         public byte[] iov_base;
         public long iov_len;
+
+        public IoVec(byte[] base, long len) {
+            iov_base = base;
+            iov_len = len;
+        }
+
+        public IoVec() {
+        }
     }
 
     public static class Stat {
@@ -335,6 +343,88 @@ public class Unix {
         public static final int SIG_BLOCK = 1;
         public static final int SIG_UNBLOCK = 2;
         public static final int SIG_SETMASK = 3;
+
+        public static final int SOL_SOCKET = 0xffff;
+
+        public static final int SCM_RIGHTS = 0x01;
+        public static final int SCM_TIMESTAMP = 0x02;
+        public static final int SCM_CREDS = 0x03;
+        public static final int SCM_BINTIME = 0x04;
+    }
+
+    public static class Cmsgdata {
+    }
+
+    public static class Cmsgcred extends Cmsgdata {
+
+        public Pid cmcred_pid;
+        public int cmcred_uid;
+        public int cmcred_euid;
+        public int cmcred_gid;
+        /*
+         * cmcred_ngroups is unused.
+         */
+        //public int cmcred_ngroups;
+        public int[] cmcred_groups;
+
+        public Cmsgcred(Pid pid, int uid, int euid, int gid, int[] groups) {
+            cmcred_pid = pid;
+            cmcred_uid = uid;
+            cmcred_euid = euid;
+            cmcred_gid = gid;
+            cmcred_groups = groups;
+        }
+    }
+
+    public static class Cmsghdr {
+
+        /*
+         * architecture dependent. unused.
+         */
+        //public int cmsg_len;
+        public int cmsg_level;
+        public int cmsg_type;
+        public Cmsgdata cmsg_data;
+
+        public Cmsghdr(int level, int type) {
+            cmsg_level = level;
+            cmsg_type = type;
+        }
+    }
+
+    public static class Msghdr {
+
+        /*
+         * not supported.
+         */
+        //public SocketAddress msg_name;
+
+        /*
+         * architecture dependent. unused.
+         */
+        //public int msg_namelen;
+
+        public IoVec[] msg_iov;
+
+        /*
+         * unused.
+         */
+        //public int msg_iovlen;
+
+        public Cmsghdr msg_control;
+
+        /*
+         * architecture dependent. unused.
+         */
+        //public int msg_controllen;
+
+        public int msg_flags;
+
+        public Msghdr(IoVec[] iov, Cmsghdr control, int flags) {
+            msg_iov = iov;
+            msg_control = control;
+            msg_flags = flags;
+        }
     }
 
     public static final int _WSTOPPED = 0177;

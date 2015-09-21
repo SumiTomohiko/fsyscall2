@@ -9,6 +9,7 @@ import java.io.RandomAccessFile;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -777,12 +778,37 @@ public class Slave implements Runnable {
             }
         }
 
+        private class Controls {
+
+            private Map<Integer, Unix.Cmsgdata> mMap;
+
+            public Controls() {
+                Map<Integer, Unix.Cmsgdata> map;
+
+                map = new HashMap<Integer, Unix.Cmsgdata>();
+                mMap = Collections.synchronizedMap(map);
+            }
+
+            public void put(int level, int type, Unix.Cmsgdata data) {
+                mMap.put(computeKey(level, type), data);
+            }
+
+            public Unix.Cmsgdata get(int level, int type) {
+                return mMap.get(computeKey(level, type));
+            }
+
+            private Integer computeKey(int level, int type) {
+                return Integer.valueOf((level << 16) + type);
+            }
+        }
+
         private int mDomain;
         private int mType;
         private int mProtocol;
         private SocketAddress mName;
         private Socket mPeer;
         private SocketOptions mOptions = new SocketOptions();
+        private Controls mControls;
 
         private SocketCore mCore;
         private Queue<ConnectingRequest> mConnectingRequests;
@@ -1047,6 +1073,39 @@ public class Slave implements Runnable {
             return 0L;
         }
 
+        public long sendmsg(Unix.Msghdr msg) throws UnixException {
+            int nbytes = 0;
+            int iovlen = msg.msg_iov.length;
+            for (int i = 0; i < iovlen; i++) {
+                Unix.IoVec iov = msg.msg_iov[i];
+                nbytes += write(iov.iov_base);
+            }
+
+            Unix.Cmsghdr control = msg.msg_control;
+            if (control != null) {
+                int level = control.cmsg_level;
+                int type = control.cmsg_type;
+                switch (level) {
+                case Unix.Constants.SOL_SOCKET:
+                    switch (type) {
+                    case Unix.Constants.SCM_CREDS:
+                        int[] groups = new int[] { GID };
+                        Unix.Cmsgdata data = new Unix.Cmsgcred(mPid, UID, UID,
+                                                               GID, groups);
+                        setControl(level, type, data);
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                default:
+                    break;
+                }
+            }
+
+            return nbytes;
+        }
+
         protected void doClose() throws UnixException {
             try {
                 mCore.close();
@@ -1054,6 +1113,15 @@ public class Slave implements Runnable {
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
             }
+        }
+
+        private void setControl(int level, int type, Unix.Cmsgdata data) {
+            synchronized (this) {
+                if (mControls == null) {
+                    mControls = new Controls();
+                }
+            }
+            mControls.put(level, type, data);
         }
     }
 
@@ -2204,6 +2272,35 @@ public class Slave implements Runnable {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
         result.retval = -1;
         result.errno = Errno.ENOSYS;
+        return result;
+    }
+
+    public SyscallResult.Generic64 doSendmsg(int fd, Unix.Msghdr msg,
+                                             int flags) throws IOException {
+        String fmt = "sendmsg(fd=%d, msg=%s, flags=%d)";
+        mLogger.info(String.format(fmt, fd, msg, flags));
+
+        SyscallResult.Generic64 result = new SyscallResult.Generic64();
+
+        Socket socket;
+        try {
+            socket = getLockedSocket(fd);
+        }
+        catch (GetSocketException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+        try {
+            result.retval = socket.sendmsg(msg);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+        finally {
+            socket.unlock();
+        }
+
         return result;
     }
 

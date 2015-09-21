@@ -558,6 +558,69 @@ class SlaveHelper {
         }
     }
 
+    private class SendmsgProc extends CommandDispatcher.Proc {
+
+        private static final int MSGHDR_MSG_NAME_NULL = 0;
+        private static final int MSGHDR_MSG_NAME_NOT_NULL = 1;
+        private static final int MSGHDR_MSG_CONTROL_NULL = 0;
+        private static final int MSGHDR_MSG_CONTROL_NOT_NULL = 1;
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+
+            int fd = mIn.readInteger();
+
+            int namecode = mIn.readInteger();
+            switch (namecode) {
+            case MSGHDR_MSG_NAME_NOT_NULL:
+                // TODO: return EOPNOTSUPP.
+                throw new IOException();
+            case MSGHDR_MSG_NAME_NULL:
+                break;
+            default:
+                // TODO: return EINVAL.
+                throw new IOException();
+            }
+
+            int iovlen = mIn.readInteger();
+            Unix.IoVec[] iov = new Unix.IoVec[iovlen];
+            for (int i = 0; i < iovlen; i++) {
+                int len = mIn.readInteger();
+                byte[] buf = mIn.read(len);
+                iov[i] = new Unix.IoVec(buf, len);
+            }
+
+            Unix.Cmsghdr cmsghdr;
+            int controlcode = mIn.readInteger();
+            switch (controlcode) {
+            case MSGHDR_MSG_CONTROL_NOT_NULL:
+                int level = mIn.readInteger();
+                int type = mIn.readInteger();
+                if ((level != Unix.Constants.SOL_SOCKET)
+                        || (type != Unix.Constants.SCM_CREDS)) {
+                    // TODO: return EOPNOTSUPP.
+                    throw new IOException();
+                }
+                cmsghdr = new Unix.Cmsghdr(level, type);
+                break;
+            case MSGHDR_MSG_CONTROL_NULL:
+                cmsghdr = null;
+                break;
+            default:
+                // TODO: return EINVAL.
+                throw new IOException();
+            }
+
+            Unix.Msghdr msg = new Unix.Msghdr(iov, cmsghdr, mIn.readInteger());
+
+            int flags = mIn.readInteger();
+
+            SyscallResult.Generic64 result = mSlave.doSendmsg(fd, msg, flags);
+
+            writeResult(Command.SENDMSG_RETURN, result);
+        }
+    }
+
     private class ExitProc extends CommandDispatcher.Proc {
 
         public void call(Command command) throws IOException {
@@ -611,6 +674,7 @@ class SlaveHelper {
         dispatcher.addEntry(Command.KEVENT_CALL, new KeventProc());
         dispatcher.addEntry(Command.SIGPROCMASK_CALL, new SigprocmaskProc());
         dispatcher.addEntry(Command.POLL_START, new PollStartProc());
+        dispatcher.addEntry(Command.SENDMSG_CALL, new SendmsgProc());
         @DISPATCHES@;
         return dispatcher;
     }
