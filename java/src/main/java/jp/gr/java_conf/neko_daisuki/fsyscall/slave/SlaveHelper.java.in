@@ -129,6 +129,18 @@ class SlaveHelper {
             mData.add(buffer);
         }
 
+        public void add(byte[] buffer, long len) {
+            byte[] a = new byte[(int)len];
+            for (int i = 0; i < len; i++) {
+                a[i] = buffer[i];
+            }
+            mData.add(a);
+        }
+
+        public void add(Pid pid) {
+            add(pid.toInteger());
+        }
+
         public byte[] toArray() {
             byte[] data = new byte[computeSize()];
             int pos = 0;
@@ -558,12 +570,70 @@ class SlaveHelper {
         }
     }
 
-    private class SendmsgProc extends CommandDispatcher.Proc {
+    private abstract class MsgProc extends CommandDispatcher.Proc {
 
-        private static final int MSGHDR_MSG_NAME_NULL = 0;
-        private static final int MSGHDR_MSG_NAME_NOT_NULL = 1;
-        private static final int MSGHDR_MSG_CONTROL_NULL = 0;
-        private static final int MSGHDR_MSG_CONTROL_NOT_NULL = 1;
+        protected static final int MSGHDR_MSG_NAME_NULL = 0;
+        protected static final int MSGHDR_MSG_NAME_NOT_NULL = 1;
+        protected static final int MSGHDR_MSG_CONTROL_NULL = 0;
+        protected static final int MSGHDR_MSG_CONTROL_NOT_NULL = 1;
+
+        public abstract void call(Command command) throws IOException;
+
+        protected Unix.Cmsghdr readControlHeader() throws IOException {
+            int controlcode = mIn.readInteger();
+            switch (controlcode) {
+            case MSGHDR_MSG_CONTROL_NOT_NULL:
+                int level = mIn.readInteger();
+                int type = mIn.readInteger();
+                return new Unix.Cmsghdr(level, type);
+            case MSGHDR_MSG_CONTROL_NULL:
+                return null;
+            default:
+                // TODO: return EINVAL.
+                throw new IOException();
+            }
+        }
+    }
+
+    private class RecvmsgProc extends MsgProc {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+
+            int fd = mIn.readInteger();
+
+            int namecode = mIn.readInteger();
+            switch (namecode) {
+            case MSGHDR_MSG_NAME_NOT_NULL:
+                // TODO: return EOPNOTSUPP.
+                throw new IOException();
+            case MSGHDR_MSG_NAME_NULL:
+                break;
+            default:
+                // TODO: return EINVAL.
+                throw new IOException();
+            }
+
+            int iovlen = mIn.readInteger();
+            Unix.IoVec[] iov = new Unix.IoVec[iovlen];
+            for (int i = 0; i < iovlen; i++) {
+                int len = mIn.readInteger();
+                // the buffer in iovec is unused.
+                iov[i] = new Unix.IoVec(null, len);
+            }
+
+            Unix.Cmsghdr cmsghdr = readControlHeader();
+            Unix.Msghdr msg = new Unix.Msghdr(iov, cmsghdr, mIn.readInteger());
+
+            int flags = mIn.readInteger();
+
+            SyscallResult.Recvmsg result = mSlave.doRecvmsg(fd, msg, flags);
+
+            writeResult(Command.RECVMSG_RETURN, result);
+        }
+    }
+
+    private class SendmsgProc extends MsgProc {
 
         public void call(Command command) throws IOException {
             PayloadSize payloadSize = mIn.readPayloadSize();
@@ -590,27 +660,7 @@ class SlaveHelper {
                 iov[i] = new Unix.IoVec(buf, len);
             }
 
-            Unix.Cmsghdr cmsghdr;
-            int controlcode = mIn.readInteger();
-            switch (controlcode) {
-            case MSGHDR_MSG_CONTROL_NOT_NULL:
-                int level = mIn.readInteger();
-                int type = mIn.readInteger();
-                if ((level != Unix.Constants.SOL_SOCKET)
-                        || (type != Unix.Constants.SCM_CREDS)) {
-                    // TODO: return EOPNOTSUPP.
-                    throw new IOException();
-                }
-                cmsghdr = new Unix.Cmsghdr(level, type);
-                break;
-            case MSGHDR_MSG_CONTROL_NULL:
-                cmsghdr = null;
-                break;
-            default:
-                // TODO: return EINVAL.
-                throw new IOException();
-            }
-
+            Unix.Cmsghdr cmsghdr = readControlHeader();
             Unix.Msghdr msg = new Unix.Msghdr(iov, cmsghdr, mIn.readInteger());
 
             int flags = mIn.readInteger();
@@ -675,6 +725,7 @@ class SlaveHelper {
         dispatcher.addEntry(Command.SIGPROCMASK_CALL, new SigprocmaskProc());
         dispatcher.addEntry(Command.POLL_START, new PollStartProc());
         dispatcher.addEntry(Command.SENDMSG_CALL, new SendmsgProc());
+        dispatcher.addEntry(Command.RECVMSG_CALL, new RecvmsgProc());
         @DISPATCHES@;
         return dispatcher;
     }
@@ -701,6 +752,52 @@ class SlaveHelper {
         Payload payload = new Payload();
         payload.add(result.retval);
         payload.add(result.errno);
+
+        writePayload(command, payload);
+    }
+
+    private void writeResult(Command command,
+                             SyscallResult.Recvmsg result) throws IOException {
+        String logHead = "result (recvmsg)";
+
+        long retval = result.retval;
+        if (retval == -1) {
+            String fmt = "%s: retval=%d, errno=%s";
+            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            writeError(command, result);
+            return;
+        }
+
+        Payload payload = new Payload();
+        payload.add(result.retval);
+        payload.add(result.buf, result.retval);
+
+        Unix.Cmsghdr control = result.control;
+        if (control != null) {
+            switch (control.cmsg_level) {
+            case Unix.Constants.SOL_SOCKET:
+                switch (control.cmsg_type) {
+                case Unix.Constants.SCM_CREDS:
+                    Unix.Cmsgcred cred = (Unix.Cmsgcred)control.cmsg_data;
+                    payload.add(cred.cmcred_pid);
+                    payload.add(cred.cmcred_uid);
+                    payload.add(cred.cmcred_euid);
+                    payload.add(cred.cmcred_gid);
+                    int[] groups = cred.cmcred_groups;
+                    int ngroups = groups.length;
+                    payload.add(ngroups);
+                    for (int i = 0; i < ngroups; i++) {
+                        payload.add(groups[i]);
+                    }
+                    break;
+                default:
+                    break;
+                }
+                break;
+            default:
+                break;
+            }
+        }
 
         writePayload(command, payload);
     }

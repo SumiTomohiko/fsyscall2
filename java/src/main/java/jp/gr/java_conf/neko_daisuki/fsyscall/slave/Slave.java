@@ -1073,14 +1073,32 @@ public class Slave implements Runnable {
             return 0L;
         }
 
-        public long sendmsg(Unix.Msghdr msg) throws UnixException {
-            int nbytes = 0;
-            int iovlen = msg.msg_iov.length;
-            for (int i = 0; i < iovlen; i++) {
-                Unix.IoVec iov = msg.msg_iov[i];
-                nbytes += write(iov.iov_base);
+        public long recvmsg(byte[] buf,
+                            Unix.Cmsghdr control) throws UnixException {
+            long nbytes = read(buf);
+
+            if (control != null) {
+                int level = control.cmsg_level;
+                int type = control.cmsg_type;
+                switch (level) {
+                case Unix.Constants.SOL_SOCKET:
+                    switch (type) {
+                    case Unix.Constants.SCM_CREDS:
+                        control.cmsg_data = getPeer().getControl(level, type);
+                        break;
+                    default:
+                        throw new UnixException(Errno.EOPNOTSUPP);
+                    }
+                    break;
+                default:
+                    throw new UnixException(Errno.EOPNOTSUPP);
+                }
             }
 
+            return nbytes;
+        }
+
+        public long sendmsg(Unix.Msghdr msg) throws UnixException {
             Unix.Cmsghdr control = msg.msg_control;
             if (control != null) {
                 int level = control.cmsg_level;
@@ -1095,12 +1113,19 @@ public class Slave implements Runnable {
                         setControl(level, type, data);
                         break;
                     default:
-                        break;
+                        throw new UnixException(Errno.EOPNOTSUPP);
                     }
                     break;
                 default:
-                    break;
+                    throw new UnixException(Errno.EOPNOTSUPP);
                 }
+            }
+
+            int nbytes = 0;
+            int iovlen = msg.msg_iov.length;
+            for (int i = 0; i < iovlen; i++) {
+                Unix.IoVec iov = msg.msg_iov[i];
+                nbytes += write(iov.iov_base);
             }
 
             return nbytes;
@@ -1122,6 +1147,13 @@ public class Slave implements Runnable {
                 }
             }
             mControls.put(level, type, data);
+        }
+
+        private Unix.Cmsgdata getControl(int level, int type) {
+            if (mControls == null) {
+                return null;
+            }
+            return mControls.get(level, type);
         }
     }
 
@@ -2272,6 +2304,61 @@ public class Slave implements Runnable {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
         result.retval = -1;
         result.errno = Errno.ENOSYS;
+        return result;
+    }
+
+    public SyscallResult.Recvmsg doRecvmsg(int fd, Unix.Msghdr msg,
+                                           int flags) throws IOException {
+        String fmt = "recvmsg(fd=%d, msg=%s, flags=%d)";
+        mLogger.info(String.format(fmt, fd, msg, flags));
+
+        SyscallResult.Recvmsg result = new SyscallResult.Recvmsg();
+
+        Socket socket;
+        try {
+            socket = getLockedSocket(fd);
+        }
+        catch (GetSocketException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+        try {
+            int len = 0;
+            Unix.IoVec[] iov = msg.msg_iov;
+            int iovlen = iov.length;
+            for (int i = 0; i < iovlen; i++) {
+                len += iov[i].iov_len;
+            }
+            byte[] buf = new byte[len];
+            Unix.Cmsghdr control = msg.msg_control;
+            result.retval = socket.recvmsg(buf, control);
+            if ((control != null) && (control.cmsg_data == null)) {
+                switch (control.cmsg_level) {
+                case Unix.Constants.SOL_SOCKET:
+                    switch (control.cmsg_type) {
+                    case Unix.Constants.SCM_CREDS:
+                        control.cmsg_data = new Unix.Cmsgcred(new Pid(0), 0, 0,
+                                                              0, new int [0]);
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                default:
+                    break;
+                }
+            }
+            result.buf = buf;
+            result.control = control;
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+        finally {
+            socket.unlock();
+        }
+
         return result;
     }
 

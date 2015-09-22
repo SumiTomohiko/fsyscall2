@@ -68,6 +68,12 @@ public interface SyscallResult {
         public KEvent[] eventlist;
     }
 
+    public static class Recvmsg extends Generic64 {
+
+        public byte[] buf;
+        public Unix.Cmsghdr control;
+    }
+
     @RESULTS@
 }
 

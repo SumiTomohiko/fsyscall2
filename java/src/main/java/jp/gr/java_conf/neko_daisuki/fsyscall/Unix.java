@@ -374,6 +374,19 @@ public class Unix {
             cmcred_gid = gid;
             cmcred_groups = groups;
         }
+
+        public String toString() {
+            String fmt = "Cmsgcred(pid=%s, uid=%d, euid=%d, gid=%d, groups=%s)";
+            int ngroups = cmcred_groups.length;
+            String s = 0 < ngroups ? Integer.toString(cmcred_groups[0]) : "";
+            StringBuilder buffer = new StringBuilder(s);
+            for (int i = 1; i < ngroups; i++) {
+                buffer.append(",");
+                buffer.append(Integer.toString(cmcred_groups[i]));
+            }
+            return String.format(fmt, cmcred_pid, cmcred_uid, cmcred_euid,
+                                 cmcred_gid, buffer);
+        }
     }
 
     public static class Cmsghdr {
@@ -389,6 +402,30 @@ public class Unix {
         public Cmsghdr(int level, int type) {
             cmsg_level = level;
             cmsg_type = type;
+        }
+
+        public String toString() {
+            String fmt = "Cmsghdr(cmsg_level=%d (%s), cmsg_type=%d (%s), cmsg_data=%s)";
+            String level;
+            String type;
+            switch (cmsg_level) {
+            case Constants.SOL_SOCKET:
+                level = "SOL_SOCKET";
+                switch (cmsg_type) {
+                case Constants.SCM_CREDS:
+                    type = "SCM_CREDS";
+                    break;
+                default:
+                    type = "unknown";
+                    break;
+                }
+                break;
+            default:
+                level = type = "unknown";
+                break;
+            }
+            return String.format(fmt, cmsg_level, level, cmsg_type, type,
+                                 cmsg_data);
         }
     }
 
@@ -424,6 +461,11 @@ public class Unix {
             msg_iov = iov;
             msg_control = control;
             msg_flags = flags;
+        }
+
+        public String toString() {
+            String fmt = "Msghdr(msg_iovlen=%d, msg_control=%s, msg_flags=%d)";
+            return String.format(fmt, msg_iov.length, msg_control, msg_flags);
         }
     }
 
