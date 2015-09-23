@@ -103,7 +103,7 @@ class SlaveHub {
                 try {
                     Thread.sleep(10 /* msec */);
                 }
-                catch (InterruptedException _) {
+                catch (InterruptedException unused) {
                     break;
                 }
 

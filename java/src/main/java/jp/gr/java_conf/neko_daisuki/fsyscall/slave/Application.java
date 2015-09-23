@@ -366,12 +366,12 @@ public class Application {
             rfd = Integer.parseInt(args[0]);
             wfd = Integer.parseInt(args[1]);
         }
-        catch (ArrayIndexOutOfBoundsException _) {
+        catch (ArrayIndexOutOfBoundsException unused) {
             Application.usage(System.out);
             System.exit(1);
             return;
         }
-        catch (NumberFormatException _) {
+        catch (NumberFormatException unused) {
             Application.usage(System.out);
             System.exit(1);
             return;

@@ -93,7 +93,7 @@ public class Signal {
         try {
             signal = (Signal)o;
         }
-        catch (ClassCastException _) {
+        catch (ClassCastException unused) {
             return false;
         }
         return mNumber == signal.mNumber;

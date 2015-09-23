@@ -1664,7 +1664,7 @@ public class Slave implements Runnable {
                         try {
                             Thread.sleep(10 /* msec */);
                         }
-                        catch (InterruptedException _) {
+                        catch (InterruptedException unused) {
                             mCancelled = true;
                         }
                     }
@@ -2691,7 +2691,7 @@ public class Slave implements Runnable {
         try {
             slave = mApplication.waitChildTerminating(new Pid(pid));
         }
-        catch (InterruptedException _) {
+        catch (InterruptedException unused) {
             result.setError(Errno.EINTR);
             return result;
         }
@@ -3008,7 +3008,7 @@ public class Slave implements Runnable {
         try {
             sock = (Socket)file;
         }
-        catch (ClassCastException _) {
+        catch (ClassCastException unused) {
             file.unlock();
             throw new GetSocketException(Errno.ENOTSOCK);
         }
