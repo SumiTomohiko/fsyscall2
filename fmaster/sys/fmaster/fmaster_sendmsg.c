@@ -151,93 +151,6 @@ sendmsg_slave(struct thread *td, struct msghdr *umsg, int lfd,
  * shared code
  */
 
-static const char *sysname = "sendmsg";
-
-static const char *
-dump(char *buf, size_t bufsize, const char *data, size_t datasize)
-{
-	static char chars[] = {
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		' ', '!', '"', '#', '$', '%', '&', '\'',
-		'(', ')', '*', '+', ',', '-', '.', '/',
-		'0', '1', '2', '3', '4', '5', '6', '7',
-		'8', '9', ':', ';', '<', '=', '>', '?',
-		'@', 'A', 'B', 'C', 'D', 'E', 'F', 'G',
-		'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',
-		'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W',
-		'X', 'Y', 'Z', '[', '\\', ']', '^', '_',
-		'`', 'a', 'b', 'c', 'd', 'e', 'f', 'g',
-		'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
-		'p', 'q', 'r', 's', 't', 'u', 'v', 'w',
-		'x', 'y', 'z', '{', '|', '}', '~', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?',
-		'?', '?', '?', '?', '?', '?', '?', '?'
-	};
-	size_t i, len;
-	const unsigned char *q;
-	char *p;
-
-	if (data == NULL)
-		return ("null");
-
-	len = MIN(bufsize - 1, datasize);
-	for (i = 0, p = buf, q = data; i < len; i++, p++, q++)
-		*p = chars[(unsigned int)*q];
-	*p = '\0';
-
-	return (buf);
-}
-
-static int
-log_msg(struct thread *td, const struct msghdr *msg)
-{
-	struct iovec *iov, *p;
-	int controllen, i, iovlen, namelen;
-	char buf[256];
-
-#define	LOG(fmt, ...)	do {						\
-	fmaster_log(td, LOG_DEBUG, "%s: " fmt, sysname, __VA_ARGS__);	\
-} while (0)
-#define	DUMP(p, len)	dump(buf, sizeof(buf), (p), (len))
-	namelen = msg->msg_namelen;
-	LOG("msg->msg_name=%s", DUMP(msg->msg_name, namelen));
-	LOG("msg->msg_namelen=%d", namelen);
-	iovlen = msg->msg_iovlen;
-	iov = msg->msg_iov;
-	for (i = 0; i < iovlen; i++) {
-		p = &iov[i];
-		LOG("msg->msg_iov[%d].iov_base=%s",
-		    i, DUMP(p->iov_base, p->iov_len));
-		LOG("msg->msg_iov[%d].iov_len=%d", i, p->iov_len);
-	}
-	LOG("msg->msg_iovlen=%d", iovlen);
-	controllen = msg->msg_controllen;
-	LOG("msg->msg_control=%s", DUMP(msg->msg_control, controllen));
-	LOG("msg->msg_controllen=%d", controllen);
-	LOG("msg->msg_flags=%d", msg->msg_flags);
-#undef	DUMP
-#undef	LOG
-
-	return (0);
-}
-
 static int
 copyin_iov_contents(struct thread *td, struct iovec *iov, int iovlen)
 {
@@ -294,7 +207,7 @@ fmaster_sendmsg_main(struct thread *td, struct fmaster_sendmsg_args *uap)
 	if (error)
 		goto exit1;
 
-	error = log_msg(td, &kmsg);
+	error = fmaster_log_msghdr(td, "sendmsg", &kmsg);
 	if (error != 0)
 		goto exit2;
 
@@ -336,6 +249,7 @@ sys_fmaster_sendmsg(struct thread *td, struct fmaster_sendmsg_args *uap)
 	};
 	struct timeval time_start;
 	int error, flags;
+	const char *sysname = "sendmsg";
 	char flagsstr[64];
 
 	flags = uap->flags;

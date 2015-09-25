@@ -286,14 +286,22 @@ fmaster_recvmsg_main(struct thread *td, struct fmaster_recvmsg_args *uap)
 	switch (place) {
 	case FFP_MASTER:
 		error = recvmsg_master(td, lfd, umsg, uap->flags);
+		if (error != 0)
+			goto exit;
 		break;
 	case FFP_SLAVE:
 		error = recvmsg_slave(td, umsg, lfd, &kmsg, uap->flags);
+		if (error != 0)
+			goto exit;
 		break;
 	default:
 		error = EINVAL;
-		break;
+		goto exit;
 	}
+
+	error = fmaster_log_msghdr(td, "recvmsg", &kmsg);
+	if (error != 0)
+		goto exit;
 
 exit:
 	free(kmsg.msg_control, M_TEMP);

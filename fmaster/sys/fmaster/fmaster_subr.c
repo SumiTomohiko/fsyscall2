@@ -1970,3 +1970,165 @@ fail1:
 
 	return (error);
 }
+
+static const char *
+dump(char *buf, size_t bufsize, const char *data, size_t datasize)
+{
+	static char chars[] = {
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		' ', '!', '"', '#', '$', '%', '&', '\'',
+		'(', ')', '*', '+', ',', '-', '.', '/',
+		'0', '1', '2', '3', '4', '5', '6', '7',
+		'8', '9', ':', ';', '<', '=', '>', '?',
+		'@', 'A', 'B', 'C', 'D', 'E', 'F', 'G',
+		'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',
+		'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W',
+		'X', 'Y', 'Z', '[', '\\', ']', '^', '_',
+		'`', 'a', 'b', 'c', 'd', 'e', 'f', 'g',
+		'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
+		'p', 'q', 'r', 's', 't', 'u', 'v', 'w',
+		'x', 'y', 'z', '{', '|', '}', '~', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?',
+		'?', '?', '?', '?', '?', '?', '?', '?'
+	};
+	size_t i, len;
+	const unsigned char *q;
+	char *p;
+
+	if (data == NULL)
+		return ("null");
+
+	len = MIN(bufsize - 1, datasize);
+	for (i = 0, p = buf, q = data; i < len; i++, p++, q++)
+		*p = chars[(unsigned int)*q];
+	*p = '\0';
+
+	return (buf);
+}
+
+static void
+log_cmsgdata_creds(struct thread *td, const char *tag, struct cmsghdr *cmsghdr)
+{
+	struct cmsgcred *cred;
+	int i, n;
+	short ngroups;
+
+	if (cmsghdr->cmsg_len < CMSG_LEN(sizeof(struct cmsgcred)))
+		return;
+	cred = (struct cmsgcred *)CMSG_DATA(cmsghdr);
+#define	LOG(fmt, ...)	do {						\
+	fmaster_log(td, LOG_DEBUG, "%s: " fmt, tag, __VA_ARGS__);	\
+} while (0)
+	LOG("cmcred_pid=%d", cred->cmcred_pid);
+	LOG("cmcred_uid=%d", cred->cmcred_uid);
+	LOG("cmcred_euid=%d", cred->cmcred_euid);
+	LOG("cmcred_gid=%d", cred->cmcred_gid);
+	ngroups = cred->cmcred_ngroups;
+	LOG("cmcred_ngroups=%d", ngroups);
+	n = MIN(ngroups, CMGROUP_MAX);
+	for (i = 0; i < n; i++)
+		LOG("cmcred_groups[%d]=%d", i, cred->cmcred_groups[i]);
+#undef	LOG
+}
+
+int
+fmaster_log_msghdr(struct thread *td, const char *tag, const struct msghdr *msg)
+{
+	struct cmsghdr *cmsghdr, *control;
+	struct iovec *iov, *p;
+	socklen_t len;
+	int controllen, i, iovlen, level, namelen, *pend, *pfd, *pfds, type;
+	const char *levelstr, *typestr;
+	char buf[256];
+
+#define	LOG(fmt, ...)	do {						\
+	fmaster_log(td, LOG_DEBUG, "%s: " fmt, tag, __VA_ARGS__);	\
+} while (0)
+#define	DUMP(p, len)	dump(buf, sizeof(buf), (p), (len))
+	namelen = msg->msg_namelen;
+	LOG("msg->msg_name=%p", msg->msg_name);
+	LOG("msg->msg_namelen=%d", namelen);
+	iovlen = msg->msg_iovlen;
+	iov = msg->msg_iov;
+	for (i = 0; i < iovlen; i++) {
+		p = &iov[i];
+		LOG("msg->msg_iov[%d].iov_base=%s",
+		    i, DUMP(p->iov_base, p->iov_len));
+		LOG("msg->msg_iov[%d].iov_len=%d", i, p->iov_len);
+	}
+	LOG("msg->msg_iovlen=%d", iovlen);
+	control = msg->msg_control;
+	controllen = msg->msg_controllen;
+	LOG("msg->msg_control=%s", DUMP(msg->msg_control, controllen));
+	LOG("msg->msg_controllen=%d", controllen);
+	for (cmsghdr = CMSG_FIRSTHDR(msg);
+	     cmsghdr != NULL;
+	     cmsghdr = CMSG_NXTHDR(msg, cmsghdr)) {
+		level = cmsghdr->cmsg_level;
+		type = cmsghdr->cmsg_type;
+		switch (level) {
+		case SOL_SOCKET:
+			levelstr = "SOL_SOCKET";
+			switch (type) {
+			case SCM_CREDS:
+				typestr = "SCM_CREDS";
+				break;
+			case SCM_RIGHTS:
+				typestr = "SCM_RIGHTS";
+				break;
+			default:
+				typestr = "invalid";
+				break;
+			}
+			break;
+		default:
+			levelstr = typestr = "invalid";
+			break;
+		}
+		LOG("cmsg_level=%d (%s)", level, levelstr);
+		LOG("cmsg_type=%d (%s)", type, typestr);
+
+		switch (level) {
+		case SOL_SOCKET:
+			switch (type) {
+			case SCM_CREDS:
+				log_cmsgdata_creds(td, tag, cmsghdr);
+				break;
+			case SCM_RIGHTS:
+				pfds = (int *)CMSG_DATA(cmsghdr);
+				len = cmsghdr->cmsg_len;
+				pend = (int *)((char *)cmsghdr + len);
+				for (pfd = pfds, i = 0; pfd < pend; pfd++, i++)
+					LOG("fd[%d]=%d", i, pfds[i]);
+				break;
+			default:
+				break;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+	LOG("msg->msg_flags=%d", msg->msg_flags);
+#undef	DUMP
+#undef	LOG
+
+	return (0);
+}

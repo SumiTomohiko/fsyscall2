@@ -199,6 +199,8 @@ int	fmaster_openlog(struct thread *);
 void	fmaster_log(struct thread *, int, const char *, ...);
 void	fmaster_log_syscall_end(struct thread *, const char *,
 				const struct timeval *, int);
+int	fmaster_log_msghdr(struct thread *, const char *,
+			   const struct msghdr *);
 const char *
 	fmaster_get_sockopt_name(int);
 const char *
