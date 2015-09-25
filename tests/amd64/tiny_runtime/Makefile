@@ -1,7 +1,7 @@
 
 LIB=	libtiny_runtime.a
-SRCS=	tiny_runtime.S isspace.c sigsetops.c stack_protector.c strtol.c \
-	tr_run_chdir_x_test.c tr_run_client_server.c \
+SRCS=	tiny_runtime.S memset.c isspace.c sigsetops.c stack_protector.c \
+	strtol.c tr_run_chdir_x_test.c tr_run_client_server.c \
 	tr_run_dup2_closed2x_test.c tr_run_dup2_master2x_test.c \
 	tr_run_dup2_slave2x_test.c tr_print_str.c tr_print_num.c tr_wait_data.c
 LST=	${.ALLSRC:M*.S:.S=.lst}

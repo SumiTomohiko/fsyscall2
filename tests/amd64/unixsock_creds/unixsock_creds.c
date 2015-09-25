@@ -1,13 +1,3 @@
-#include <sys/param.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/wait.h>
-#include <errno.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 
 #define	SIG	SIGUSR1
 
@@ -16,20 +6,19 @@ static char datum = '*';
 static int
 do_sendmsg(int fd, const char *sockpath)
 {
-	struct sockaddr_un *addr;
 	struct msghdr msg;
 	struct cmsghdr *cmsghdr;
 	struct cmsgcred *cmsgcred;
 	struct iovec iov[1];
 	ssize_t nbytes;
 	int i;
-	char buf[CMSG_SPACE(sizeof(struct cmsgcred))], c;
+	char buf[CMSG_SPACE(0)], c;
 
 	c = datum;
 	iov[0].iov_base = &c;
 	iov[0].iov_len = sizeof(c);
 	cmsghdr = (struct cmsghdr *)buf;
-	cmsghdr->cmsg_len = CMSG_LEN(sizeof(struct cmsgcred));
+	cmsghdr->cmsg_len = CMSG_LEN(0);
 	cmsghdr->cmsg_level = SOL_SOCKET;
 	cmsghdr->cmsg_type = SCM_CREDS;
 	msg.msg_name = NULL;
@@ -103,16 +92,13 @@ do_recvmsg(int fd)
 
 	iov[0].iov_base = &c;
 	iov[0].iov_len = sizeof(c);
-	cmsghdr = (struct cmsghdr *)buf;
-	cmsghdr->cmsg_len = CMSG_LEN(sizeof(struct cmsgcred));
-	cmsghdr->cmsg_level = SOL_SOCKET;
-	cmsghdr->cmsg_type = SCM_CREDS;
+	bzero(buf, sizeof(buf));
 	msg.msg_name = NULL;
 	msg.msg_namelen = 0;
 	msg.msg_iov = iov;
 	msg.msg_iovlen = sizeof(iov) / sizeof(iov[0]);
-	msg.msg_control = cmsghdr;
-	msg.msg_controllen = CMSG_SPACE(sizeof(struct cmsgcred));
+	msg.msg_control = (struct cmsghdr *)buf;
+	msg.msg_controllen = sizeof(buf);
 	msg.msg_flags = 0;
 
 	nbytes = recvmsg(fd, &msg, 0);
