@@ -77,8 +77,8 @@ execute_call(struct thread *td, int lfd, const struct msghdr *msg, int flags)
 	}
 
 	/*
-	 * I also do not send controllen. It depends on machine architecture.
-	 * The slave can compute it.
+	 * I also do not send msg_controllen. It depends on machine
+	 * architecture. The slave can compute it.
 	 */
 	control = msg->msg_control;
 	if (control == NULL) {
