@@ -1921,9 +1921,9 @@ fmaster_copyin_msghdr(struct thread *td, const struct msghdr *umsg,
 		      struct msghdr *kmsg)
 {
 	struct iovec *iov;
-	socklen_t controllen, namelen;
+	socklen_t namelen;
 	int error, iovlen;
-	void *control, *name;
+	void *name;
 
 	error = copyin(umsg, kmsg, sizeof(*umsg));
 	if (error != 0)
@@ -1936,36 +1936,19 @@ fmaster_copyin_msghdr(struct thread *td, const struct msghdr *umsg,
 			return (ENOMEM);
 		error = copyin(kmsg->msg_name, name, namelen);
 		if (error != 0)
-			goto fail1;
+			goto fail;
 		kmsg->msg_name = name;
 	}
 
 	iovlen = kmsg->msg_iovlen;
 	error = copyiniov(kmsg->msg_iov, iovlen, &iov, EMSGSIZE);
 	if (error != 0)
-		goto fail1;
+		goto fail;
 	kmsg->msg_iov = iov;
-
-	controllen = kmsg->msg_controllen;
-	if (kmsg->msg_control != NULL) {
-		control = malloc(controllen, M_TEMP, M_WAITOK);
-		if (control == NULL) {
-			error = ENOMEM;
-			goto fail2;
-		}
-		error = copyin(kmsg->msg_control, control, controllen);
-		if (error != 0)
-			goto fail3;
-		kmsg->msg_control = control;
-	}
 
 	return (0);
 
-fail3:
-	free(control, M_TEMP);
-fail2:
-	free(iov, M_IOV);
-fail1:
+fail:
 	free(name, M_TEMP);
 
 	return (error);
@@ -2131,4 +2114,47 @@ fmaster_log_msghdr(struct thread *td, const char *tag, const struct msghdr *msg)
 #undef	LOG
 
 	return (0);
+}
+
+struct fmaster_memory {
+	struct fmaster_memory	*mem_next;
+	char			mem_data[0];
+};
+
+static struct malloc_type *memory_type = M_TEMP;
+
+void *
+fmaster_malloc(struct thread *td, size_t size)
+{
+	struct fmaster_data *data;
+	struct fmaster_memory *memory;
+	size_t totalsize;
+
+	totalsize = sizeof(struct fmaster_memory) + size;
+	memory = malloc(totalsize, memory_type, M_WAITOK);
+	if (memory == NULL)
+		return (NULL);
+
+	data = fmaster_data_of_thread(td);
+	memory->mem_next = data->fdata_memory;
+	data->fdata_memory = memory;
+
+	return (&memory->mem_data[0]);
+}
+
+void
+fmaster_freeall(struct thread *td)
+{
+	struct fmaster_data *data;
+	struct fmaster_memory *memory, *next;
+
+	data = fmaster_data_of_thread(td);
+	memory = data->fdata_memory;
+	while (memory != NULL) {
+		next = memory->mem_next;
+		free(memory, memory_type);
+		memory = next;
+	}
+
+	data->fdata_memory = NULL;
 }

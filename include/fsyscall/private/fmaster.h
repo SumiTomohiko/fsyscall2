@@ -36,6 +36,8 @@ struct fmaster_file {
 	bool			ff_close_on_exec;
 };
 
+struct fmaster_memory;
+
 #define	FILES_NUM	256
 #define	DATA_TOKEN_SIZE	64
 
@@ -62,6 +64,8 @@ struct fmaster_data {
 	char fork_sock[MAXPATHLEN];
 	uint64_t token_size;
 	char token[DATA_TOKEN_SIZE];
+
+	struct fmaster_memory	*fdata_memory;
 
 	int fdata_logfd;
 };
@@ -159,6 +163,10 @@ int	fmaster_execute_accept_protocol(struct thread *, const char *,
 					struct sockaddr *, socklen_t *);
 int	fmaster_return_fd(struct thread *, enum fmaster_file_place, int,
 			  const char *);
+
+/* memory management */
+void	*fmaster_malloc(struct thread *, size_t);
+void	fmaster_freeall(struct thread *);
 
 /* anything else */
 int	fmaster_copy_data(struct thread *, struct fmaster_data *);

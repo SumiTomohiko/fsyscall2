@@ -29,15 +29,28 @@ sendmsg_master(struct thread *td, int lfd, struct msghdr *msg, int flags)
  */
 
 static int
-execute_call(struct thread *td, int lfd, const struct msghdr *msg, int flags)
+count_cmsghdr(struct msghdr *msg)
+{
+	struct cmsghdr *cmsghdr;
+	int n;
+
+	n = 0;
+	for (cmsghdr = CMSG_FIRSTHDR(msg);
+	     cmsghdr != NULL;
+	     cmsghdr = CMSG_NXTHDR(msg, cmsghdr))
+		n++;
+
+	return (n);
+}
+
+static int
+execute_call(struct thread *td, int lfd, struct msghdr *msg, int flags)
 {
 	struct payload *payload;
 	struct cmsghdr *cmsghdr;
 	struct iovec *iov;
 	size_t len;
-	socklen_t controllen;
-	int error, i, iovlen, level, type;
-	void  *control;
+	int error, i, iovlen, level, ncmsghdr, type;
 
 	payload = fsyscall_payload_create();
 	if (payload == NULL)
@@ -80,8 +93,7 @@ execute_call(struct thread *td, int lfd, const struct msghdr *msg, int flags)
 	 * I also do not send msg_controllen. It depends on machine
 	 * architecture. The slave can compute it.
 	 */
-	control = msg->msg_control;
-	if (control == NULL) {
+	if (msg->msg_control == NULL) {
 		error = fsyscall_payload_add_int(payload,
 						 MSGHDR_MSG_CONTROL_NULL);
 		if (error != 0)
@@ -92,24 +104,43 @@ execute_call(struct thread *td, int lfd, const struct msghdr *msg, int flags)
 						 MSGHDR_MSG_CONTROL_NOT_NULL);
 		if (error != 0)
 			goto exit;
-		controllen = msg->msg_controllen;
-		if (controllen < sizeof(struct cmsghdr)) {
-			error = EINVAL;
-			goto exit;
-		}
-		cmsghdr = (struct cmsghdr *)control;
-		level = cmsghdr->cmsg_level;
-		type = cmsghdr->cmsg_type;
-		if ((level != SOL_SOCKET) || (type != SCM_CREDS)) {
-			error = ENOTSUP;
-			goto exit;
-		}
-		error = fsyscall_payload_add_int(payload, level);
+		ncmsghdr = count_cmsghdr(msg);
+		error = fsyscall_payload_add_int(payload, ncmsghdr);
 		if (error != 0)
 			goto exit;
-		error = fsyscall_payload_add_int(payload, type);
-		if (error != 0)
-			goto exit;
+
+		/* sends level and type for the peer to decide buffer size */
+		for (cmsghdr = CMSG_FIRSTHDR(msg);
+		     cmsghdr != NULL;
+		     cmsghdr = CMSG_NXTHDR(msg, cmsghdr)) {
+			level = cmsghdr->cmsg_level;
+			type = cmsghdr->cmsg_type;
+			error = fsyscall_payload_add_int(payload, level);
+			if (error != 0)
+				goto exit;
+			error = fsyscall_payload_add_int(payload, type);
+			if (error != 0)
+				goto exit;
+		}
+		for (cmsghdr = CMSG_FIRSTHDR(msg);
+		     cmsghdr != NULL;
+		     cmsghdr = CMSG_NXTHDR(msg, cmsghdr)) {
+			switch (cmsghdr->cmsg_level) {
+			case SOL_SOCKET:
+				switch (cmsghdr->cmsg_type) {
+				case SCM_CREDS:
+					/* nothing */
+					break;
+				default:
+					error = ENOTSUP;
+					goto exit;
+				}
+				break;
+			default:
+				error = ENOTSUP;
+				goto exit;
+			}
+		}
 	}
 
 	error = fsyscall_payload_add_int(payload, msg->msg_flags);
@@ -133,7 +164,7 @@ exit:
 
 static int
 sendmsg_slave(struct thread *td, struct msghdr *umsg, int lfd,
-	      const struct msghdr *kmsg, int flags)
+	      struct msghdr *kmsg, int flags)
 {
 	int error;
 
@@ -152,13 +183,15 @@ sendmsg_slave(struct thread *td, struct msghdr *umsg, int lfd,
  */
 
 static int
-copyin_iov_contents(struct thread *td, struct iovec *iov, int iovlen)
+copyin_iov_contents(struct thread *td, struct iovec *iov, int iovlen,
+		    struct malloc_type *mt)
 {
 	struct iovec *piov;
 	int error, i, len;
 	void **p, *q;
 
-	p = malloc(sizeof(*p) * iovlen, M_TEMP, M_WAITOK);
+	mt = M_TEMP;
+	p = malloc(sizeof(*p) * iovlen, mt, M_WAITOK);
 	if (p == NULL)
 		return (ENOMEM);
 	for (i = 0; i < iovlen; i++)
@@ -166,7 +199,7 @@ copyin_iov_contents(struct thread *td, struct iovec *iov, int iovlen)
 	for (i = 0; i < iovlen; i++) {
 		piov = &iov[i];
 		len = piov->iov_len;
-		q = malloc(len, M_TEMP, M_WAITOK);
+		q = malloc(len, mt, M_WAITOK);
 		if (q == NULL) {
 			error = ENOMEM;
 			goto fail;
@@ -179,32 +212,64 @@ copyin_iov_contents(struct thread *td, struct iovec *iov, int iovlen)
 	for (i = 0; i < iovlen; i++)
 		iov[i].iov_base = p[i];
 
-	free(p, M_TEMP);
+	free(p, mt);
 
 	return (0);
 
 fail:
 	for (i = 0; i < iovlen; i++)
-		free(p[i], M_TEMP);
-	free(p, M_TEMP);
+		free(p[i], mt);
+	free(p, mt);
 
+	return (error);
+}
+
+static int
+copyin_control(struct thread *td, struct msghdr *msg, struct malloc_type *mt)
+{
+	socklen_t controllen;
+	int error;
+	void *control;
+
+	if (msg->msg_control == NULL)
+		return (0);
+
+	controllen = msg->msg_controllen;
+	control = malloc(controllen, mt, M_WAITOK);
+	if (control == NULL)
+		return (ENOMEM);
+	error = copyin(msg->msg_control, control, controllen);
+	if (error != 0)
+		goto fail;
+	msg->msg_control = control;
+
+	return (0);
+
+fail:
+	free(control, mt);
 	return (error);
 }
 
 static int
 fmaster_sendmsg_main(struct thread *td, struct fmaster_sendmsg_args *uap)
 {
+	struct malloc_type *mt;
 	struct msghdr kmsg, *umsg;
 	enum fmaster_file_place place;
 	int error, i, iovlen, lfd;
+
+	mt = M_TEMP;
 
 	umsg = uap->msg;
 	error = fmaster_copyin_msghdr(td, umsg, &kmsg);
 	if (error != 0)
 		return (error);
 	iovlen = kmsg.msg_iovlen;
-	error = copyin_iov_contents(td, kmsg.msg_iov, iovlen);
-	if (error)
+	error = copyin_iov_contents(td, kmsg.msg_iov, iovlen, mt);
+	if (error != 0)
+		goto exit1;
+	error = copyin_control(td, &kmsg, mt);
+	if (error != 0)
 		goto exit1;
 
 	error = fmaster_log_msghdr(td, "sendmsg", &kmsg);
@@ -228,9 +293,9 @@ fmaster_sendmsg_main(struct thread *td, struct fmaster_sendmsg_args *uap)
 
 exit2:
 	for (i = 0; i < iovlen; i++)
-		free(kmsg.msg_iov[i].iov_base, M_TEMP);
+		free(kmsg.msg_iov[i].iov_base, mt);
 exit1:
-	free(kmsg.msg_control, M_TEMP);
+	free(kmsg.msg_control, mt);
 	free(kmsg.msg_iov, M_IOV);
 	free(kmsg.msg_name, M_TEMP);
 

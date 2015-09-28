@@ -30,12 +30,9 @@ recvmsg_master(struct thread *td, int lfd, struct msghdr *msg, int flags)
 static int
 execute_call(struct thread *td, int lfd, const struct msghdr *kmsg, int flags)
 {
-	struct cmsghdr *cmsghdr;
 	struct payload *payload;
 	struct iovec *iov;
-	socklen_t controllen;
-	int error, i, iovlen, level, type;
-	void *control;
+	int error, i, iovlen;
 
 	payload = fsyscall_payload_create();
 	if (payload == NULL)
@@ -60,38 +57,14 @@ execute_call(struct thread *td, int lfd, const struct msghdr *kmsg, int flags)
 		if (error != 0)
 			goto exit;
 	}
-	control = kmsg->msg_control;
-	if (control == NULL) {
-		error = fsyscall_payload_add_int(payload,
-						 MSGHDR_MSG_CONTROL_NULL);
-		if (error != 0)
-			goto exit;
-	}
-	else {
-		error = fsyscall_payload_add_int(payload,
-						 MSGHDR_MSG_CONTROL_NOT_NULL);
-		if (error != 0)
-			goto exit;
-		controllen = kmsg->msg_controllen;
-		if (controllen < sizeof(struct cmsghdr)) {
-			error = EINVAL;
-			goto exit;
-		}
-		cmsghdr = (struct cmsghdr *)control;
-		level = cmsghdr->cmsg_level;
-		type = cmsghdr->cmsg_type;
-		if ((level != SOL_SOCKET) || (type != SCM_CREDS)) {
-			error = ENOTSUP;
-			goto exit;
-		}
-		error = fsyscall_payload_add_int(payload, level);
-		if (error != 0)
-			goto exit;
-		error = fsyscall_payload_add_int(payload, type);
-		if (error != 0)
-			goto exit;
-	}
-
+	/*
+	 * msg_controllen depends on architecture. So I do not need to send it.
+	 * But if this does not exist, the slave can not know what the master
+	 * wants. I expect that this information works as a hint.
+	 */
+	error = fsyscall_payload_add_socklen(payload, kmsg->msg_controllen);
+	if (error != 0)
+		goto exit;
 	error = fsyscall_payload_add_int(payload, kmsg->msg_flags);
 	if (error != 0)
 		goto exit;
@@ -111,25 +84,158 @@ exit:
 	return (error);
 }
 
+struct cmsgspec {
+	int		cmsgspec_level;
+	int 		cmsgspec_type;
+	socklen_t	cmsgspec_len;
+	socklen_t	cmsgspec_space;
+};
+
 static int
-execute_return(struct thread *td, struct msghdr *umsg,
-	       const struct msghdr *kmsg)
+read_cmsgspecs(struct thread *td, int ncmsghdrs, struct cmsgspec **cmsgspecs,
+	       payload_size_t *payload_size)
 {
-	struct msghdr msg;
-	struct cmsghdr *control;
+	struct cmsgspec *spec, *specs;
+	payload_size_t actual_payload_size, level_len, type_len;
+	size_t datasize, size;
+	int error, i, level, type;
+
+	size = sizeof(specs[0]) * ncmsghdrs;
+	specs = (struct cmsgspec *)fmaster_malloc(td, size);
+	if (specs == NULL)
+		return (ENOMEM);
+
+	actual_payload_size = 0;
+	for (i = 0; i < ncmsghdrs; i++) {
+		error = fmaster_read_int(td, &level, &level_len);
+		if (error != 0)
+			return (error);
+		actual_payload_size += level_len;
+		error = fmaster_read_int(td, &type, &type_len);
+		if (error != 0)
+			return (error);
+		actual_payload_size += type_len;
+
+		switch (level) {
+		case SOL_SOCKET:
+			switch (type) {
+			case SCM_CREDS:
+				datasize = sizeof(struct cmsgcred);
+				break;
+			default:
+				datasize = 0;
+				break;
+			}
+			break;
+		default:
+			datasize = 0;
+			break;
+		}
+
+		spec = &specs[i];
+		spec->cmsgspec_level = level;
+		spec->cmsgspec_type = type;
+		spec->cmsgspec_len = CMSG_LEN(datasize);
+		spec->cmsgspec_space = CMSG_SPACE(datasize);
+	}
+
+	*cmsgspecs = specs;
+	*payload_size = actual_payload_size;
+
+	return (0);
+}
+
+static socklen_t
+compute_space(int ncmsghdrs, const struct cmsgspec *cmsgspecs)
+{
+	socklen_t n;
+	int i;
+
+	n = 0;
+	for (i = 0; i < ncmsghdrs; i++)
+		n += cmsgspecs[i].cmsgspec_space;
+
+	return (n);
+}
+
+static int
+read_cmsgcred(struct thread *td, char *cmsgdata, payload_size_t *payload_size)
+{
 	struct cmsgcred *cred;
-	struct malloc_type *mt;
+	payload_size_t actual_payload_size, euid_len, gid_len, group_len;
+	payload_size_t ngroups_len, pid_len, uid_len;
+	gid_t *group;
+	int error;
+	short i, ngroups;
+
+	cred = (struct cmsgcred *)cmsgdata;
+	actual_payload_size = 0;
+
+	error = fmaster_read_pid(td, &cred->cmcred_pid, &pid_len);
+	if (error != 0)
+		return (error);
+	actual_payload_size += pid_len;
+
+	error = fmaster_read_uid(td, &cred->cmcred_uid, &uid_len);
+	if (error != 0)
+		return (error);
+	actual_payload_size += uid_len;
+
+	error = fmaster_read_uid(td, &cred->cmcred_euid, &euid_len);
+	if (error != 0)
+		return (error);
+	actual_payload_size += euid_len;
+
+	error = fmaster_read_gid(td, &cred->cmcred_gid, &gid_len);
+	if (error != 0)
+		return (error);
+	actual_payload_size += gid_len;
+
+	error = fmaster_read_short(td, &ngroups, &ngroups_len);
+	if (error != 0)
+		return (error);
+	cred->cmcred_ngroups = ngroups;
+	actual_payload_size += ngroups_len;
+
+	for (i = 0; i < ngroups; i++) {
+		group = &cred->cmcred_groups[i];
+		error = fmaster_read_gid(td, group, &group_len);
+		if (error != 0)
+			return (error);
+		actual_payload_size += group_len;
+	}
+
+	*payload_size = actual_payload_size;
+
+	return (0);
+}
+
+static int
+copyout_controllen(struct msghdr *msg, socklen_t controllen)
+{
+	int error;
+
+	error = copyout(&controllen, &msg->msg_controllen, sizeof(controllen));
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+static int
+execute_return(struct thread *td, struct msghdr *umsg, struct msghdr *kmsg)
+{
+	struct cmsghdr *cmsghdr, *kcontrol, *ucontrol;
+	struct cmsgspec *cmsgspec, *cmsgspecs;
 	struct iovec *iov, *piov;
-	payload_size_t actual_payload_size, errnum_len, euid_len, gid_len;
-	payload_size_t group_len, ngroups_len, payload_size, pid_len;
-	payload_size_t retval_len, uid_len;
+	payload_size_t actual_payload_size, cmsgdata_len, cmsgspecs_len;
+	payload_size_t errnum_len, ncmsghdrs_len, payload_size, retval_len;
 	size_t len;
 	ssize_t rest, retval;
+	socklen_t controllen, space;
 	command_t cmd;
-	gid_t *group;
-	int errnum, error, i;
-	short ngroups;
-	char *buf;
+	int errnum, error, i, level, ncmsghdrs, type;
+	char *buf, *cmsgdata, *p;
 
 	error = fmaster_read_command(td, &cmd);
 	if (error != 0)
@@ -156,86 +262,88 @@ execute_return(struct thread *td, struct msghdr *umsg,
 		return (errnum);
 	}
 
-	mt = M_TEMP;
-	buf = (char *)malloc(retval, mt, M_WAITOK);
+	buf = (char *)fmaster_malloc(td, retval);
 	if (buf == NULL)
 		return (ENOMEM);
 	error = fmaster_read(td, fmaster_rfd_of_thread(td), buf, retval);
 	if (error != 0)
-		goto finally;
+		return (error);
+	actual_payload_size += retval;
 	iov = kmsg->msg_iov;
 	for (rest = retval, i = 0; 0 < rest; rest -= len, i++) {
 		piov = &iov[i];
 		len = MIN(rest, piov->iov_len);
 		error = copyout(buf + retval - rest, piov->iov_base, len);
 		if (error != 0)
-			goto finally;
+			return (error);
 	}
-finally:
-	free(buf, mt);
-	if (error != 0)
-		return (error);
-	actual_payload_size += retval;
 
-	control = kmsg->msg_control;
-	if (control != NULL) {
-		switch (control->cmsg_level) {
-		case SOL_SOCKET:
-			switch (control->cmsg_type) {
-			case SCM_CREDS:
-				cred = (struct cmsgcred *)CMSG_DATA(control);
+	ucontrol = kmsg->msg_control;
+	if (ucontrol != NULL) {
+		error = fmaster_read_int(td, &ncmsghdrs, &ncmsghdrs_len);
+		if (error != 0)
+			return (error);
+		actual_payload_size += ncmsghdrs_len;
 
-				error = fmaster_read_pid(td, &cred->cmcred_pid,
-							 &pid_len);
-				if (error != 0)
-					return (error);
-				actual_payload_size += pid_len;
+		error = read_cmsgspecs(td, ncmsghdrs, &cmsgspecs,
+				       &cmsgspecs_len);
+		if (error != 0)
+			return (error);
+		actual_payload_size += cmsgspecs_len;
 
-				error = fmaster_read_uid(td, &cred->cmcred_uid,
-							 &uid_len);
-				if (error != 0)
-					return (error);
-				actual_payload_size += uid_len;
+		space = compute_space(ncmsghdrs, cmsgspecs);
+		kcontrol = (struct cmsghdr *)fmaster_malloc(td, space);
+		if (kcontrol == NULL)
+			return (ENOMEM);
 
-				error = fmaster_read_uid(td, &cred->cmcred_euid,
-							 &euid_len);
-				if (error != 0)
-					return (error);
-				actual_payload_size += euid_len;
+		/*
+		 * The following assignment is not needed for executing. It is
+		 * only for logging.
+		 */
+		kmsg->msg_control = kcontrol;
 
-				error = fmaster_read_gid(td, &cred->cmcred_gid,
-							 &gid_len);
-				if (error != 0)
-					return (error);
-				actual_payload_size += gid_len;
-
-				error = fmaster_read_short(td, &ngroups,
-							   &ngroups_len);
-				if (error != 0)
-					return (error);
-				cred->cmcred_ngroups = ngroups;
-				actual_payload_size += ngroups_len;
-
-				for (i = 0; i < ngroups; i++) {
-					group = &cred->cmcred_groups[i];
-					error = fmaster_read_gid(td, group,
-								 &group_len);
-					if (error != 0)
-						return (error);
-					actual_payload_size += group_len;
+		p = (char *)kcontrol;
+		for (i = 0; i < ncmsghdrs; i++) {
+			cmsgspec = &cmsgspecs[i];
+			level = cmsgspec->cmsgspec_level;
+			type = cmsgspec->cmsgspec_type;
+			cmsgdata = CMSG_DATA(p);
+			switch (level) {
+			case SOL_SOCKET:
+				switch (type) {
+				case SCM_CREDS:
+					error = read_cmsgcred(td, cmsgdata,
+							      &cmsgdata_len);
+					break;
+				default:
+					return (EPROTO);
 				}
 				break;
 			default:
-				break;
+				return (EPROTO);
 			}
-			break;
-		default:
-			break;
+			if (error != 0)
+				return (error);
+			actual_payload_size += cmsgdata_len;
+
+			cmsghdr = (struct cmsghdr *)p;
+			cmsghdr->cmsg_len = cmsgspec->cmsgspec_len;
+			cmsghdr->cmsg_level = level;
+			cmsghdr->cmsg_type = type;
+
+			p += cmsgspec->cmsgspec_space;
 		}
-		error = copyin(umsg, &msg, sizeof(msg));
-		if (error != 0)
-			return (error);
-		error = copyout(control, msg.msg_control, kmsg->msg_controllen);
+
+		if (space <= kmsg->msg_controllen) {
+			error = copyout(kcontrol, ucontrol, space);
+			if (error != 0)
+				return (error);
+			controllen = space;
+		}
+		else
+			controllen = 0;
+
+		error = copyout_controllen(umsg, controllen);
 		if (error != 0)
 			return (error);
 	}
@@ -250,7 +358,7 @@ finally:
 
 static int
 recvmsg_slave(struct thread *td, struct msghdr *umsg, int lfd,
-	      const struct msghdr *kmsg, int flags)
+	      struct msghdr *kmsg, int flags)
 {
 	int error;
 
@@ -259,9 +367,13 @@ recvmsg_slave(struct thread *td, struct msghdr *umsg, int lfd,
 		return (error);
 	error = execute_return(td, umsg, kmsg);
 	if (error != 0)
-		return (error);
+		goto exit;
 
-	return (0);
+	error = 0;
+exit:
+	fmaster_freeall(td);
+
+	return (error);
 }
 
 /*******************************************************************************

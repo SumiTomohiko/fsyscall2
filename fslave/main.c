@@ -35,6 +35,11 @@
 #include <fsyscall/private/read_sockaddr.h>
 #include <fsyscall/private/select.h>
 
+struct memory {
+	struct memory	*mem_next;
+	char		mem_data[0];
+};
+
 static int sigs[] = { SIGHUP, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT,
 		      SIGFPE, SIGBUS, /*SIGSEGV,*/ SIGSYS, SIGPIPE, SIGALRM,
 		      SIGTERM, SIGURG, SIGTSTP, SIGCONT, SIGCHLD, SIGTTIN,
@@ -147,6 +152,35 @@ geterrorname(int e)
 	static int nerrname = array_sizeof(errname);
 
 	return ((0 <= e) && (e < nerrname) ? errname[e] : "invalid");
+}
+
+static void *
+mem_alloc(struct slave *slave, size_t size)
+{
+	struct memory *memory;
+	size_t totalsize;
+
+	totalsize = sizeof(struct memory) + size;
+	memory = (struct memory *)malloc_or_die(totalsize);
+	memory->mem_next = slave->fsla_memory;
+	slave->fsla_memory = memory;
+
+	return (&memory->mem_data[0]);
+}
+
+static void
+mem_freeall(struct slave *slave)
+{
+	struct memory *memory, *next;
+
+	memory = slave->fsla_memory;
+	while (memory != NULL) {
+		next = memory->mem_next;
+		free(memory);
+		memory = next;
+	}
+
+	slave->fsla_memory = NULL;
 }
 
 static void
@@ -822,15 +856,13 @@ drop_payload_to_error(struct slave *slave, command_t cmd, payload_size_t len,
 static int
 read_recvmsg_args(struct slave *slave, int *fd, struct msghdr *msg, int *flags)
 {
-	struct cmsghdr *cmsghdr;
 	struct iovec *iov, *piov;
 	payload_size_t actual_payload_size, payload_size, rest_size;
 	socklen_t controllen;
 	command_t return_command;
-	int controlcode, controlcode_len, fd_len, flags_len, i, iovlen;
-	int iovlen_len, len, len_len, level, level_len, msg_flags_len;
-	int namecode, namecode_len, rfd, type, type_len;
-	void *control;
+	int controllen_len, fd_len, flags_len, i, iovlen;
+	int iovlen_len, len, len_len, msg_flags_len;
+	int namecode, namecode_len, rfd;
 
 	return_command = RECVMSG_RETURN;
 
@@ -860,55 +892,21 @@ read_recvmsg_args(struct slave *slave, int *fd, struct msghdr *msg, int *flags)
 
 	iovlen = read_int(rfd, &iovlen_len);
 	actual_payload_size += iovlen_len;
-	iov = (struct iovec *)malloc_or_die(sizeof(*iov) * iovlen);
+	iov = (struct iovec *)mem_alloc(slave, sizeof(*iov) * iovlen);
 	for (i = 0; i < iovlen; i++) {
 		piov = &iov[i];
 		len = read_int(rfd, &len_len);
 		actual_payload_size += len_len;
 
-		piov->iov_base = (char *)malloc_or_die(len);
+		piov->iov_base = (char *)mem_alloc(slave, len);
 		piov->iov_len = len;
 	}
 	msg->msg_iov = iov;
 	msg->msg_iovlen = iovlen;
 
-	controlcode = read_int(rfd, &controlcode_len);
-	actual_payload_size += controlcode_len;
-	switch (controlcode) {
-	case MSGHDR_MSG_CONTROL_NOT_NULL:
-		level = read_int(rfd, &level_len);
-		actual_payload_size += level_len;
-		type = read_int(rfd, &type_len);
-		actual_payload_size += type_len;
-		if ((level != SOL_SOCKET) || (type != SCM_CREDS)) {
-			assert(actual_payload_size <= payload_size);
-			rest_size = payload_size - actual_payload_size;
-			drop_payload_to_error(slave, return_command, rest_size,
-					      EOPNOTSUPP);
-			return (-1);
-		}
-		controllen = CMSG_SPACE(sizeof(struct cmsgcred));
-		cmsghdr = (struct cmsghdr *)malloc_or_die(controllen);
-		/*
-		 * cmsghdr must be bzero(3)'ed. Because it will stay
-		 * uninitialized if the slave did not call sendmsg(2).
-		 */
-		bzero(cmsghdr, controllen);
-		cmsghdr->cmsg_len = controllen;
-		cmsghdr->cmsg_level = level;
-		cmsghdr->cmsg_type = type;
-		control = cmsghdr;
-		break;
-	case MSGHDR_MSG_CONTROL_NULL:
-		control = NULL;
-		controllen = 0;
-		break;
-	default:
-		rest_size = payload_size - actual_payload_size;
-		drop_payload_to_error(slave, return_command, rest_size, EINVAL);
-		return (-1);
-	}
-	msg->msg_control = control;
+	controllen = read_socklen(rfd, &controllen_len);
+	actual_payload_size += controllen_len;
+	msg->msg_control = 0 < controllen ? mem_alloc(slave, controllen) : NULL;
 	msg->msg_controllen = controllen;
 
 	msg->msg_flags = read_int(rfd, &msg_flags_len);
@@ -924,10 +922,27 @@ read_recvmsg_args(struct slave *slave, int *fd, struct msghdr *msg, int *flags)
 
 #define	MIN(a, b)	((a) < (b) ? (a) : (b))
 
+static int
+count_cmsghdrs(struct msghdr *msg)
+{
+	struct cmsghdr *cmsghdr;
+	int n;
+
+	n = 0;
+	for (cmsghdr = CMSG_FIRSTHDR(msg);
+	     cmsghdr != NULL;
+	     cmsghdr = CMSG_NXTHDR(msg, cmsghdr))
+		n++;
+
+	return (n);
+}
+
 static void
 write_recvmsg_result(struct slave *slave, ssize_t retval, int e,
 		     struct msghdr *msg)
 {
+	struct msghdr *control;
+	struct cmsghdr *cmsghdr;
 	struct cmsgcred *cred;
 	struct payload *payload;
 	struct iovec *iov, *piov;
@@ -935,9 +950,9 @@ write_recvmsg_result(struct slave *slave, ssize_t retval, int e,
 	ssize_t rest;
 	command_t return_command;
 	gid_t *groups;
-	int i;
+	int i, ncmsghdr;
 	short ngroups;
-	void *control;
+	void *data;
 
 	return_command = RECVMSG_RETURN;
 
@@ -956,18 +971,50 @@ write_recvmsg_result(struct slave *slave, ssize_t retval, int e,
 		payload_add(payload, piov->iov_base, len);
 	}
 
-	control = msg->msg_control;
+	control = (struct msghdr *)msg->msg_control;
 	if (control != NULL) {
-		cred = (struct cmsgcred *)CMSG_DATA(control);
-		payload_add_pid(payload, cred->cmcred_pid);
-		payload_add_uid(payload, cred->cmcred_uid);
-		payload_add_uid(payload, cred->cmcred_euid);
-		payload_add_gid(payload, cred->cmcred_gid);
-		ngroups = cred->cmcred_ngroups;
-		payload_add_short(payload, ngroups);
-		groups = cred->cmcred_groups;
-		for (i = 0; i < ngroups; i++)
-			payload_add_gid(payload, groups[i]);
+		ncmsghdr = count_cmsghdrs(msg);
+		payload_add_int(payload, ncmsghdr);
+
+		for (cmsghdr = CMSG_FIRSTHDR(msg);
+		     cmsghdr != NULL;
+		     cmsghdr = CMSG_NXTHDR(msg, cmsghdr)) {
+			payload_add_int(payload, cmsghdr->cmsg_level);
+			payload_add_int(payload, cmsghdr->cmsg_type);
+		}
+
+		for (cmsghdr = CMSG_FIRSTHDR(msg);
+		     cmsghdr != NULL;
+		     cmsghdr = CMSG_NXTHDR(msg, cmsghdr)) {
+			data = CMSG_DATA(cmsghdr);
+			switch (cmsghdr->cmsg_level) {
+			case SOL_SOCKET:
+				switch (cmsghdr->cmsg_type) {
+				case SCM_CREDS:
+					cred = (struct cmsgcred *)data;
+					payload_add_pid(payload,
+							cred->cmcred_pid);
+					payload_add_uid(payload,
+							cred->cmcred_uid);
+					payload_add_uid(payload,
+							cred->cmcred_euid);
+					payload_add_gid(payload,
+							cred->cmcred_gid);
+					ngroups = cred->cmcred_ngroups;
+					payload_add_short(payload, ngroups);
+					groups = cred->cmcred_groups;
+					for (i = 0; i < ngroups; i++)
+						payload_add_gid(payload,
+								groups[i]);
+					break;
+				default:
+					break;
+				}
+				break;
+			default:
+				break;
+			}
+		}
 	}
 
 	write_payloaded_command(slave, return_command, payload);
@@ -980,15 +1027,12 @@ process_recvmsg(struct slave *slave)
 {
 	struct msghdr msg;
 	sigset_t oset;
-	struct iovec *iov;
 	ssize_t retval;
-	int e, error, fd, flags, i, iovlen;
+	int e, error, fd, flags;
 
-	msg.msg_iov = NULL;
-	msg.msg_control = NULL;
 	error = read_recvmsg_args(slave, &fd, &msg, &flags);
 	if (error != 0)
-		goto exit;
+		return;
 
 	suspend_signal(slave, &oset);
 	retval = recvmsg(fd, &msg, flags);
@@ -996,23 +1040,86 @@ process_recvmsg(struct slave *slave)
 	resume_signal(slave, &oset);
 
 	write_recvmsg_result(slave, retval, e, &msg);
+}
 
-exit:
-	free(msg.msg_control);
-	iov = msg.msg_iov;
-	if (iov != NULL) {
-		iovlen = msg.msg_iovlen;
-		for (i = 0; i < iovlen; i++)
-			free(iov[i].iov_base);
+static int
+read_cmsghdrs(struct slave *slave, struct cmsghdr **control,
+	      socklen_t *controllen, int *actual_payload_size)
+{
+	struct cmsgspec {
+		int		cmsgspec_level;
+		int		cmsgspec_type;
+		socklen_t	cmsgspec_len;
+		socklen_t	cmsgspec_space;
+	};
+
+	struct cmsghdr *cmsghdr, *cmsghdrs;
+	struct cmsgspec *spec, *specs;
+	size_t cmsgspace, datasize;
+	socklen_t len;
+	int i, level, level_len, ncmsghdr, ncmsghdr_len, rfd, type, type_len;
+	char *p;
+
+	*actual_payload_size = 0;
+	rfd = slave->rfd;
+
+	ncmsghdr = read_int(rfd, &ncmsghdr_len);
+	*actual_payload_size += ncmsghdr_len;
+
+	/* The master gives level and type at first to compute controllen */
+	len = 0;
+	specs = (struct cmsgspec *)alloca(sizeof(specs[0]) * ncmsghdr);
+	for (i = 0; i < ncmsghdr; i++) {
+		level = read_int(rfd, &level_len);
+		*actual_payload_size += level_len;
+		type = read_int(rfd, &type_len);
+		*actual_payload_size += type_len;
+		switch (level) {
+		case SOL_SOCKET:
+			switch (type) {
+			case SCM_CREDS:
+				datasize = 0;
+				break;
+			default:
+				return (ENOPROTOOPT);
+			}
+			break;
+		default:
+			return (ENOPROTOOPT);
+		}
+		cmsgspace = CMSG_SPACE(datasize);
+
+		spec = &specs[i];
+		spec->cmsgspec_level = level;
+		spec->cmsgspec_type = type;
+		spec->cmsgspec_len = CMSG_LEN(datasize);
+		spec->cmsgspec_space = cmsgspace;
+
+		len += cmsgspace;
 	}
-	free(iov);
+	cmsghdrs = (struct cmsghdr *)mem_alloc(slave, len);
+
+	p = (char *)cmsghdrs;
+	for (i = 0; i < ncmsghdr; i++) {
+		spec = &specs[i];
+		cmsghdr = (struct cmsghdr *)p;
+		cmsghdr->cmsg_len = spec->cmsgspec_len;
+		cmsghdr->cmsg_level = spec->cmsgspec_level;
+		cmsghdr->cmsg_type = spec->cmsgspec_type;
+
+		p += spec->cmsgspec_space;
+	}
+
+	*control = cmsghdrs;
+	*controllen = len;
+
+	return (0);
 }
 
 static void
 process_sendmsg(struct slave *slave)
 {
 	struct msghdr msg;
-	struct cmsghdr *cmsghdr;
 	struct iovec *iov;
 	sigset_t oset;
 	payload_size_t actual_payload_size, payload_size, rest_size;
@@ -1020,10 +1127,9 @@ process_sendmsg(struct slave *slave)
 	ssize_t retval;
 	socklen_t controllen;
 	command_t return_command;
-	int controlcode, controlcode_len, e, fd, fd_len, flags, flags_len, i;
-	int iovlen, iovlen_len, len_len, level, level_len, msg_flags_len;
-	int namecode, namecode_len, rfd, type, type_len;
-	char buf[CMSG_SPACE(sizeof(struct cmsgcred))];
+	int cmsghdrs_len, controlcode, controlcode_len, e, error, fd, fd_len;
+	int flags, flags_len, i, iovlen, iovlen_len, len_len, msg_flags_len;
+	int namecode, namecode_len, rfd;
 	const char *fmt, *sysname = "sendmsg";
 	void *base, *control;
 
@@ -1079,24 +1185,16 @@ process_sendmsg(struct slave *slave)
 	actual_payload_size += controlcode_len;
 	switch (controlcode) {
 	case MSGHDR_MSG_CONTROL_NOT_NULL:
-		level = read_int(rfd, &level_len);
-		actual_payload_size += level_len;
-		type = read_int(rfd, &type_len);
-		actual_payload_size += type_len;
-		if ((level != SOL_SOCKET) || (type != SCM_CREDS)) {
-			assert(actual_payload_size <= payload_size);
+		error = read_cmsghdrs(slave, (struct cmsghdr **)&control,
+				      &controllen, &cmsghdrs_len);
+		if (error != 0) {
+			syslog(LOG_DEBUG, "%s: cannot read cmsghdr", sysname);
 			rest_size = payload_size - actual_payload_size;
 			drop_payload_to_error(slave, return_command, rest_size,
-					      EOPNOTSUPP);
+					      error);
 			return;
 		}
-		cmsghdr = (struct cmsghdr *)buf;
-		cmsghdr->cmsg_len = sizeof(buf);
-		cmsghdr->cmsg_level = level;
-		cmsghdr->cmsg_type = type;
-
-		control = buf;
-		controllen = sizeof(buf);
+		actual_payload_size += cmsghdrs_len;
 		break;
 	case MSGHDR_MSG_CONTROL_NULL:
 		control = NULL;
@@ -1604,6 +1702,8 @@ mainloop(struct slave *slave)
 				/* NOTREACHED */
 			}
 		}
+
+		mem_freeall(slave);
 	}
 
 	return (-1);
@@ -1682,6 +1782,7 @@ main(int argc, char* argv[])
 	slave.fork_sock = args[2];
 	if (sigprocmask(SIG_BLOCK, NULL, &slave.mask) == -1)
 		return (5);
+	slave.fsla_memory = NULL;
 
 	status = slave_main(&slave);
 	log_graceful_exit(status);
