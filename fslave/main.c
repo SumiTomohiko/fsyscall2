@@ -44,6 +44,111 @@ static int nsigs = array_sizeof(sigs);
 
 static int sigw;
 
+static const char *
+geterrorname(int e)
+{
+	static const char *errname[] = {
+		"no error",
+		"EPERM",
+		"ENOENT",
+		"ESRCH",
+		"EINTR",
+		"EIO",
+		"ENXIO",
+		"E2BIG",
+		"ENOEXEC",
+		"EBADF",
+		"ECHILD",
+		"EDEADLK",
+		"ENOMEM",
+		"EACCES",
+		"EFAULT",
+		"ENOTBLK",
+		"EBUSY",
+		"EEXIST",
+		"EXDEV",
+		"ENODEV",
+		"ENOTDIR",
+		"EISDIR",
+		"EINVAL",
+		"ENFILE",
+		"EMFILE",
+		"ENOTTY",
+		"ETXTBSY",
+		"EFBIG",
+		"ENOSPC",
+		"ESPIPE",
+		"EROFS",
+		"EMLINK",
+		"EPIPE",
+		"EDOM",
+		"ERANGE",
+		"EAGAIN",
+		"EINPROGRESS",
+		"EALREADY",
+		"ENOTSOCK",
+		"EDESTADDRREQ",
+		"EMSGSIZE",
+		"EPROTOTYPE",
+		"ENOPROTOOPT",
+		"EPROTONOSUPPORT",
+		"ESOCKTNOSUPPORT",
+		"EOPNOTSUPP",
+		"EPFNOSUPPORT",
+		"EAFNOSUPPORT",
+		"EADDRINUSE",
+		"EADDRNOTAVAIL",
+		"ENETDOWN",
+		"ENETUNREACH",
+		"ENETRESET",
+		"ECONNABORTED",
+		"ECONNRESET",
+		"ENOBUFS",
+		"EISCONN",
+		"ENOTCONN",
+		"ESHUTDOWN",
+		"ETOOMANYREFS",
+		"ETIMEDOUT",
+		"ECONNREFUSED",
+		"ELOOP",
+		"ENAMETOOLONG",
+		"EHOSTDOWN",
+		"EHOSTUNREACH",
+		"ENOTEMPTY",
+		"EPROCLIM",
+		"EUSERS",
+		"EDQUOT",
+		"ESTALE",
+		"EREMOTE",
+		"EBADRPC",
+		"ERPCMISMATCH",
+		"EPROGUNAVAIL",
+		"EPROGMISMATCH",
+		"EPROCUNAVAIL",
+		"ENOLCK",
+		"ENOSYS",
+		"EFTYPE",
+		"EAUTH",
+		"ENEEDAUTH",
+		"EIDRM",
+		"ENOMSG",
+		"EOVERFLOW",
+		"ECANCELED",
+		"EILSEQ",
+		"ENOATTR",
+		"EDOOFUS",
+		"EBADMSG",
+		"EMULTIHOP",
+		"ENOLINK",
+		"EPROTO",
+		"ENOTCAPABLE",
+		"ECAPMODE"
+	};
+	static int nerrname = array_sizeof(errname);
+
+	return ((0 <= e) && (e < nerrname) ? errname[e] : "invalid");
+}
+
 static void
 process_signal(struct slave *slave)
 {
@@ -194,9 +299,11 @@ return_int(struct slave *slave, command_t cmd, int ret, int errnum)
 	int errnum_len, ret_len;
 	char errnum_buf[FSYSCALL_BUFSIZE_INT32];
 	char ret_buf[FSYSCALL_BUFSIZE_INT32];
-	const char *fmt = "%s: ret=%d, errnum=%d";
+	const char *cmdname, *errname, *fmt = "%s: ret=%d, error=%d (%s: %s)";
 
-	syslog(LOG_DEBUG, fmt, get_command_name(cmd), ret, errnum);
+	cmdname = get_command_name(cmd);
+	errname = geterrorname(errnum);
+	syslog(LOG_DEBUG, fmt, cmdname, ret, errnum, errname, strerror(errnum));
 
 	ret_len = encode_int32(ret, ret_buf, array_sizeof(ret_buf));
 	errnum_len = (ret == -1) ? encode_int32(
@@ -213,9 +320,11 @@ return_ssize(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 	int errnum_len, ret_len;
 	char errnum_buf[FSYSCALL_BUFSIZE_INT32];
 	char ret_buf[FSYSCALL_BUFSIZE_INT64];
-	const char *fmt = "%s: ret=%zd, errnum=%d";
+	const char *cmdname, *errname, *fmt = "%s: ret=%zd, error=%d (%s: %s)";
 
-	syslog(LOG_DEBUG, fmt, get_command_name(cmd), ret, errnum);
+	cmdname = get_command_name(cmd);
+	errname = geterrorname(errnum);
+	syslog(LOG_DEBUG, fmt, cmdname, ret, errnum, errname, strerror(errnum));
 
 	ret_len = encode_int64(ret, ret_buf, array_sizeof(ret_buf));
 	errnum_len = (ret == -1) ? encode_int32(
