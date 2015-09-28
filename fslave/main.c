@@ -1024,6 +1024,7 @@ process_sendmsg(struct slave *slave)
 	int iovlen, iovlen_len, len_len, level, level_len, msg_flags_len;
 	int namecode, namecode_len, rfd, type, type_len;
 	char buf[CMSG_SPACE(sizeof(struct cmsgcred))];
+	const char *fmt, *sysname = "sendmsg";
 	void *base, *control;
 
 	return_command = SENDMSG_RETURN;
@@ -1049,6 +1050,8 @@ process_sendmsg(struct slave *slave)
 		break;
 	default:
 		assert(actual_payload_size <= payload_size);
+		fmt = "%s: invalid namecode: %d";
+		syslog(LOG_DEBUG, fmt, sysname, namecode);
 		rest_size = payload_size - actual_payload_size;
 		drop_payload_to_error(slave, return_command, rest_size, EINVAL);
 		return;
@@ -1100,6 +1103,8 @@ process_sendmsg(struct slave *slave)
 		controllen = 0;
 		break;
 	default:
+		fmt = "%s: invalid controlcode: %d";
+		syslog(LOG_DEBUG, fmt, sysname, controlcode);
 		rest_size = payload_size - actual_payload_size;
 		drop_payload_to_error(slave, return_command, rest_size, EINVAL);
 		return;
