@@ -1,0 +1,6 @@
+
+. ${tests_dir}/fdpassing2.rc
+
+expected_status="0"
+
+# vim: filetype=sh

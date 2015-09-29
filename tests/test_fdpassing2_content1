@@ -1,0 +1,8 @@
+
+. ${tests_dir}/fdpassing2.rc
+
+testcmd() {
+	test "$(cat ${filepath1})" = "${msg1}"
+}
+
+# vim: filetype=sh

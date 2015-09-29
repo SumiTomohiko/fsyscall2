@@ -283,6 +283,9 @@ tests/amd64/dup2_slave2slave/dup2_slave2slave
 tests/amd64/dup_and_close/dup_and_close
 tests/amd64/execve/execve
 tests/amd64/fcntl/fcntl
+tests/amd64/fdpassing/fdpassing
+tests/amd64/fdpassing2/fdpassing2
+tests/amd64/fdpassing_EBADF/fdpassing_EBADF
 tests/amd64/fork/fork
 tests/amd64/fstat/fstat
 tests/amd64/fstat_bind/fstat_bind

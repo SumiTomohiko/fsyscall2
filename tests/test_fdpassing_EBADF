@@ -1,0 +1,11 @@
+
+cmd="fdpassing_EBADF/fdpassing_EBADF"
+sockpath="${tmp_dir}/$$.sock"
+args="${sockpath}"
+expected_status="0"
+
+postcmd() {
+	rm -f "${sockpath}"
+}
+
+# vim: filetype=sh

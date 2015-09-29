@@ -1,0 +1,14 @@
+
+cmd="fdpassing2/fdpassing2"
+sockpath="${tmp_dir}/$$.sock"
+filepath1="${tmp_dir}/$$_1.txt"
+msg1="foobarbazquux"
+filepath2="${tmp_dir}/$$_2.txt"
+msg2="hogehogefugafugapiyopiyo"
+args="${sockpath} ${filepath1} ${msg1} ${filepath2} ${msg2}"
+
+postcmd() {
+	rm -f "${sockpath}"
+}
+
+# vim: filetype=sh
