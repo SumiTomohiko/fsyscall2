@@ -144,6 +144,7 @@ fmaster_create_data(struct thread *td)
 					 sizeof(struct fmaster_vnode),
 					 vnode_ctor, vnode_dtor, vnode_init,
 					 vnode_fini, 0, flags);
+	data->fdata_memory = NULL;
 	data->fdata_logfd = -1;
 
 	return (data);
