@@ -91,7 +91,8 @@ do_recvmsg(int sock, const char *s1, const char *s2)
 	struct cmsghdr *cmsghdr;
 	struct iovec iov[1];
 	ssize_t nbytes;
-	int fd, i, level, *p, type;
+	socklen_t len;
+	int fd, i, level, *p, *pend, *pfd, type;
 	const char **ptext, *s, *texts[2];
 	char buf[CMSG_SPACE(sizeof(int))], c;
 
@@ -112,7 +113,6 @@ do_recvmsg(int sock, const char *s1, const char *s2)
 
 	texts[0] = s1;
 	texts[1] = s2;
-	ptext = &texts[0];
 	for (cmsghdr = CMSG_FIRSTHDR(&msg);
 	     cmsghdr != NULL;
 	     cmsghdr = CMSG_NXTHDR(&msg, cmsghdr)) {
@@ -121,12 +121,16 @@ do_recvmsg(int sock, const char *s1, const char *s2)
 			switch (cmsghdr->cmsg_type) {
 			case SCM_RIGHTS:
 				p = (int *)CMSG_DATA(cmsghdr);
-				fd = *p;
-				s = *ptext;
-				write(fd, s, strlen(s));
-				if (close(fd) == -1)
-					return (2);
-				ptext++;
+				len = cmsghdr->cmsg_len;
+				pend = (int *)((char *)cmsghdr + len);
+				ptext = &texts[0];
+				for (pfd = p, i = 0; pfd != pend; pfd++, i++) {
+					fd = *pfd;
+					s = ptext[i];
+					write(fd, s, strlen(s));
+					if (close(fd) == -1)
+						return (2);
+				}
 				break;
 			default:
 				return (3);
