@@ -240,8 +240,10 @@ execute_return(struct thread *td, struct msghdr *umsg, struct msghdr *kmsg)
 	error = fmaster_read_command(td, &cmd);
 	if (error != 0)
 		return (error);
-	if (cmd != RECVMSG_RETURN)
+	if (cmd != RECVMSG_RETURN) {
+		fmaster_log(td, LOG_ERR, "command mismatched: actual=%d", cmd);
 		return (EPROTO);
+	}
 	error = fmaster_read_payload_size(td, &payload_size);
 	if (error != 0)
 		return (error);
@@ -256,8 +258,13 @@ execute_return(struct thread *td, struct msghdr *umsg, struct msghdr *kmsg)
 		if (error != 0)
 			return (error);
 		actual_payload_size += errnum_len;
-		if (payload_size != actual_payload_size)
+		if (payload_size != actual_payload_size) {
+			fmaster_log(td, LOG_ERR,
+				    "payload size mismatched for error: expecte"
+				    "d=%zu, actual=%zu",
+				    payload_size, actual_payload_size);
 			return (EPROTO);
+		}
 
 		return (errnum);
 	}
@@ -316,10 +323,15 @@ execute_return(struct thread *td, struct msghdr *umsg, struct msghdr *kmsg)
 							      &cmsgdata_len);
 					break;
 				default:
+					fmaster_log(td, LOG_ERR,
+						    "unsupported type: %d",
+						    type);
 					return (EPROTO);
 				}
 				break;
 			default:
+				fmaster_log(td, LOG_ERR,
+					    "unsupported level: %d", level);
 				return (EPROTO);
 			}
 			if (error != 0)
@@ -348,8 +360,12 @@ execute_return(struct thread *td, struct msghdr *umsg, struct msghdr *kmsg)
 			return (error);
 	}
 
-	if (actual_payload_size != payload_size)
+	if (actual_payload_size != payload_size) {
+		fmaster_log(td, LOG_ERR,
+			    "payload size mismatched: expected=%zu, actual=%zu",
+			    payload_size, actual_payload_size);
 		return (EPROTO);
+	}
 
 	td->td_retval[0] = retval;
 
