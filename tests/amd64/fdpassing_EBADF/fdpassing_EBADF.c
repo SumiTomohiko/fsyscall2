@@ -71,8 +71,6 @@ server_main(int wpipe, pid_t ppid, const char *sockpath)
 	if (write(wpipe, &datum, sizeof(datum)) != sizeof(datum))
 		return (4);
 
-	if (close(fd) == -1)
-		return (10);
 	if (close(s) == -1)
 		return (11);
 	if (close(sock) == -1)
