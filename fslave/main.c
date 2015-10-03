@@ -1055,25 +1055,26 @@ read_cmsghdrs(struct slave *slave, struct cmsghdr **control,
 
 	struct cmsghdr *cmsghdr, *cmsghdrs;
 	struct cmsgspec *spec, *specs;
+	payload_size_t payload_size;
 	size_t cmsgspace, datasize;
 	socklen_t len;
 	int i, level, level_len, ncmsghdr, ncmsghdr_len, rfd, type, type_len;
 	char *p;
 
-	*actual_payload_size = 0;
+	payload_size = 0;
 	rfd = slave->rfd;
 
 	ncmsghdr = read_int(rfd, &ncmsghdr_len);
-	*actual_payload_size += ncmsghdr_len;
+	payload_size += ncmsghdr_len;
 
 	/* The master gives level and type at first to compute controllen */
 	len = 0;
 	specs = (struct cmsgspec *)alloca(sizeof(specs[0]) * ncmsghdr);
 	for (i = 0; i < ncmsghdr; i++) {
 		level = read_int(rfd, &level_len);
-		*actual_payload_size += level_len;
+		payload_size += level_len;
 		type = read_int(rfd, &type_len);
-		*actual_payload_size += type_len;
+		payload_size += type_len;
 		switch (level) {
 		case SOL_SOCKET:
 			switch (type) {
@@ -1112,6 +1113,7 @@ read_cmsghdrs(struct slave *slave, struct cmsghdr **control,
 
 	*control = cmsghdrs;
 	*controllen = len;
+	*actual_payload_size = payload_size;
 
 	return (0);
 }
