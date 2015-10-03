@@ -938,6 +938,58 @@ count_cmsghdrs(struct msghdr *msg)
 }
 
 static void
+add_control_size_info_to_payload(struct payload *payload, struct msghdr *msg)
+{
+	struct cmsghdr *cmsghdr;
+	uintptr_t delta;
+	int level, type;
+	char *p, *pend;
+
+	for (cmsghdr = CMSG_FIRSTHDR(msg);
+	     cmsghdr != NULL;
+	     cmsghdr = CMSG_NXTHDR(msg, cmsghdr)) {
+		level = cmsghdr->cmsg_level;
+		type = cmsghdr->cmsg_type;
+		payload_add_int(payload, level);
+		payload_add_int(payload, type);
+		switch (level) {
+		case SOL_SOCKET:
+			switch (type) {
+			case SCM_CREDS:
+				/* nothing */
+				break;
+			case SCM_RIGHTS:
+				p = (char *)CMSG_DATA(cmsghdr);
+				pend = (char *)cmsghdr + cmsghdr->cmsg_len;
+				delta = (uintptr_t)pend - (uintptr_t)p;
+				payload_add_int(payload, delta / sizeof(int));
+				break;
+			default:
+				break;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+static void
+add_passed_fds_to_payload(struct payload *payload, struct cmsghdr *cmsghdr)
+{
+	int *pfd;
+	char *p, *pend;
+
+	assert(cmsghdr->cmsg_level = SOL_SOCKET);
+	assert(cmsghdr->cmsg_type = SCM_RIGHTS);
+
+	p = (char *)CMSG_DATA(cmsghdr);
+	pend = (char *)cmsghdr + cmsghdr->cmsg_len;
+	for (pfd = (int *)p; pfd != (int *)pend; pfd++)
+		payload_add_int(payload, *pfd);
+}
+
+static void
 write_recvmsg_result(struct slave *slave, ssize_t retval, int e,
 		     struct msghdr *msg)
 {
@@ -976,12 +1028,7 @@ write_recvmsg_result(struct slave *slave, ssize_t retval, int e,
 		ncmsghdr = count_cmsghdrs(msg);
 		payload_add_int(payload, ncmsghdr);
 
-		for (cmsghdr = CMSG_FIRSTHDR(msg);
-		     cmsghdr != NULL;
-		     cmsghdr = CMSG_NXTHDR(msg, cmsghdr)) {
-			payload_add_int(payload, cmsghdr->cmsg_level);
-			payload_add_int(payload, cmsghdr->cmsg_type);
-		}
+		add_control_size_info_to_payload(payload, msg);
 
 		for (cmsghdr = CMSG_FIRSTHDR(msg);
 		     cmsghdr != NULL;
@@ -1006,6 +1053,10 @@ write_recvmsg_result(struct slave *slave, ssize_t retval, int e,
 					for (i = 0; i < ngroups; i++)
 						payload_add_gid(payload,
 								groups[i]);
+					break;
+				case SCM_RIGHTS:
+					add_passed_fds_to_payload(payload,
+								  cmsghdr);
 					break;
 				default:
 					break;
@@ -1051,6 +1102,7 @@ read_cmsghdrs(struct slave *slave, struct cmsghdr **control,
 		int		cmsgspec_type;
 		socklen_t	cmsgspec_len;
 		socklen_t	cmsgspec_space;
+		int		cmsgspec_nfds;		/* for SCM_RIGHTS */
 	};
 
 	struct cmsghdr *cmsghdr, *cmsghdrs;
@@ -1058,7 +1110,8 @@ read_cmsghdrs(struct slave *slave, struct cmsghdr **control,
 	payload_size_t payload_size;
 	size_t cmsgspace, datasize;
 	socklen_t len;
-	int i, level, level_len, ncmsghdr, ncmsghdr_len, rfd, type, type_len;
+	int fd_len, i, j, level, level_len, ncmsghdr, ncmsghdr_len, nfds;
+	int nfds_len, *pfd, rfd, type, type_len;
 	char *p;
 
 	payload_size = 0;
@@ -1071,15 +1124,26 @@ read_cmsghdrs(struct slave *slave, struct cmsghdr **control,
 	len = 0;
 	specs = (struct cmsgspec *)alloca(sizeof(specs[0]) * ncmsghdr);
 	for (i = 0; i < ncmsghdr; i++) {
+		spec = &specs[i];
+
 		level = read_int(rfd, &level_len);
 		payload_size += level_len;
 		type = read_int(rfd, &type_len);
 		payload_size += type_len;
+		spec->cmsgspec_level = level;
+		spec->cmsgspec_type = type;
+
 		switch (level) {
 		case SOL_SOCKET:
 			switch (type) {
 			case SCM_CREDS:
 				datasize = 0;
+				break;
+			case SCM_RIGHTS:
+				nfds = read_int(rfd, &nfds_len);
+				payload_size += nfds_len;
+				spec->cmsgspec_nfds = nfds;
+				datasize = sizeof(int) * nfds;
 				break;
 			default:
 				return (ENOPROTOOPT);
@@ -1088,25 +1152,46 @@ read_cmsghdrs(struct slave *slave, struct cmsghdr **control,
 		default:
 			return (ENOPROTOOPT);
 		}
-		cmsgspace = CMSG_SPACE(datasize);
 
-		spec = &specs[i];
-		spec->cmsgspec_level = level;
-		spec->cmsgspec_type = type;
+		cmsgspace = CMSG_SPACE(datasize);
 		spec->cmsgspec_len = CMSG_LEN(datasize);
 		spec->cmsgspec_space = cmsgspace;
-
 		len += cmsgspace;
 	}
 	cmsghdrs = (struct cmsghdr *)mem_alloc(slave, len);
 
 	p = (char *)cmsghdrs;
 	for (i = 0; i < ncmsghdr; i++) {
-		spec = &specs[i];
 		cmsghdr = (struct cmsghdr *)p;
+
+		spec = &specs[i];
+		level = spec->cmsgspec_level;
+		type = spec->cmsgspec_type;
 		cmsghdr->cmsg_len = spec->cmsgspec_len;
-		cmsghdr->cmsg_level = spec->cmsgspec_level;
-		cmsghdr->cmsg_type = spec->cmsgspec_type;
+		cmsghdr->cmsg_level = level;
+		cmsghdr->cmsg_type = type;
+
+		switch (level) {
+		case SOL_SOCKET:
+			switch (type) {
+			case SCM_CREDS:
+				/* nothing */
+				break;
+			case SCM_RIGHTS:
+				pfd = (int *)CMSG_DATA(cmsghdr);
+				nfds = spec->cmsgspec_nfds;
+				for (j = 0; j < nfds; j++, pfd++) {
+					*pfd = read_int(rfd, &fd_len);
+					payload_size += fd_len;
+				}
+				break;
+			default:
+				break;
+			}
+			break;
+		default:
+			break;
+		}
 
 		p += spec->cmsgspec_space;
 	}

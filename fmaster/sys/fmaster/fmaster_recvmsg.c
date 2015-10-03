@@ -7,6 +7,8 @@
 #include <fsyscall/private/fmaster.h>
 #include <sys/fmaster/fmaster_proto.h>
 
+static const char *sysname = "recvmsg";
+
 /*******************************************************************************
  * code for master
  */
@@ -15,6 +17,8 @@ static int
 recvmsg_master(struct thread *td, int lfd, struct msghdr *msg, int flags)
 {
 	struct recvmsg_args args;
+
+	/* TODO: detect executing for slave */
 
 	args.s = lfd;
 	args.msg = msg;
@@ -89,6 +93,7 @@ struct cmsgspec {
 	int 		cmsgspec_type;
 	socklen_t	cmsgspec_len;
 	socklen_t	cmsgspec_space;
+	int		cmsgspec_nfds;		/* for SCM_RIGHTS */
 };
 
 static int
@@ -96,9 +101,9 @@ read_cmsgspecs(struct thread *td, int ncmsghdrs, struct cmsgspec **cmsgspecs,
 	       payload_size_t *payload_size)
 {
 	struct cmsgspec *spec, *specs;
-	payload_size_t actual_payload_size, level_len, type_len;
+	payload_size_t actual_payload_size, level_len, nfds_len, type_len;
 	size_t datasize, size;
-	int error, i, level, type;
+	int error, i, level, nfds, type;
 
 	size = sizeof(specs[0]) * ncmsghdrs;
 	specs = (struct cmsgspec *)fmaster_malloc(td, size);
@@ -107,6 +112,8 @@ read_cmsgspecs(struct thread *td, int ncmsghdrs, struct cmsgspec **cmsgspecs,
 
 	actual_payload_size = 0;
 	for (i = 0; i < ncmsghdrs; i++) {
+		spec = &specs[i];
+
 		error = fmaster_read_int(td, &level, &level_len);
 		if (error != 0)
 			return (error);
@@ -115,12 +122,22 @@ read_cmsgspecs(struct thread *td, int ncmsghdrs, struct cmsgspec **cmsgspecs,
 		if (error != 0)
 			return (error);
 		actual_payload_size += type_len;
+		spec->cmsgspec_level = level;
+		spec->cmsgspec_type = type;
 
 		switch (level) {
 		case SOL_SOCKET:
 			switch (type) {
 			case SCM_CREDS:
 				datasize = sizeof(struct cmsgcred);
+				break;
+			case SCM_RIGHTS:
+				error = fmaster_read_int(td, &nfds, &nfds_len);
+				if (error != 0)
+					return (error);
+				actual_payload_size += nfds_len;
+				spec->cmsgspec_nfds = nfds;
+				datasize = sizeof(int) * nfds;
 				break;
 			default:
 				datasize = 0;
@@ -132,9 +149,6 @@ read_cmsgspecs(struct thread *td, int ncmsghdrs, struct cmsgspec **cmsgspecs,
 			break;
 		}
 
-		spec = &specs[i];
-		spec->cmsgspec_level = level;
-		spec->cmsgspec_type = type;
 		spec->cmsgspec_len = CMSG_LEN(datasize);
 		spec->cmsgspec_space = CMSG_SPACE(datasize);
 	}
@@ -156,6 +170,35 @@ compute_space(int ncmsghdrs, const struct cmsgspec *cmsgspecs)
 		n += cmsgspecs[i].cmsgspec_space;
 
 	return (n);
+}
+
+static int
+read_passed_fds(struct thread *td, struct cmsgspec *cmsgspec, void *cmsgdata,
+		payload_size_t *actual_payload_size)
+{
+	payload_size_t lfd_len, payload_size;
+	int error, i, lfd, nfds, *pfd;
+	const char *fmt = "passed via SCM_RIGHTS (local: %d)";
+	char desc[256];
+
+	nfds = cmsgspec->cmsgspec_nfds;
+
+	payload_size = 0;
+	for (i = 0, pfd = (int *)cmsgdata; i < nfds; i++, pfd++) {
+		error = fmaster_read_int(td, &lfd, &lfd_len);
+		if (error != 0)
+			return (error);
+		payload_size += lfd_len;
+
+		snprintf(desc, sizeof(desc), fmt, lfd);
+		error = fmaster_register_file(td, FFP_SLAVE, lfd, pfd, desc);
+		if (error != 0)
+			return (error);
+	}
+
+	*actual_payload_size = payload_size;
+
+	return (0);
 }
 
 static int
@@ -314,13 +357,24 @@ execute_return(struct thread *td, struct msghdr *umsg, struct msghdr *kmsg)
 			cmsgspec = &cmsgspecs[i];
 			level = cmsgspec->cmsgspec_level;
 			type = cmsgspec->cmsgspec_type;
-			cmsgdata = CMSG_DATA(p);
+
+			cmsghdr = (struct cmsghdr *)p;
+			cmsghdr->cmsg_len = cmsgspec->cmsgspec_len;
+			cmsghdr->cmsg_level = level;
+			cmsghdr->cmsg_type = type;
+
+			cmsgdata = CMSG_DATA(cmsghdr);
 			switch (level) {
 			case SOL_SOCKET:
 				switch (type) {
 				case SCM_CREDS:
 					error = read_cmsgcred(td, cmsgdata,
 							      &cmsgdata_len);
+					break;
+				case SCM_RIGHTS:
+					error = read_passed_fds(td, cmsgspec,
+								cmsgdata,
+								&cmsgdata_len);
 					break;
 				default:
 					fmaster_log(td, LOG_ERR,
@@ -337,11 +391,6 @@ execute_return(struct thread *td, struct msghdr *umsg, struct msghdr *kmsg)
 			if (error != 0)
 				return (error);
 			actual_payload_size += cmsgdata_len;
-
-			cmsghdr = (struct cmsghdr *)p;
-			cmsghdr->cmsg_len = cmsgspec->cmsgspec_len;
-			cmsghdr->cmsg_level = level;
-			cmsghdr->cmsg_type = type;
 
 			p += cmsgspec->cmsgspec_space;
 		}
@@ -427,12 +476,11 @@ fmaster_recvmsg_main(struct thread *td, struct fmaster_recvmsg_args *uap)
 		goto exit;
 	}
 
-	error = fmaster_log_msghdr(td, "recvmsg", &kmsg);
+	error = fmaster_log_msghdr(td, sysname, &kmsg);
 	if (error != 0)
 		goto exit;
 
 exit:
-	free(kmsg.msg_control, M_TEMP);
 	free(kmsg.msg_iov, M_IOV);
 	free(kmsg.msg_name, M_TEMP);
 
@@ -451,7 +499,6 @@ sys_fmaster_recvmsg(struct thread *td, struct fmaster_recvmsg_args *uap)
 	};
 	struct timeval time_start;
 	int error, flags;
-	const char *sysname = "recvmsg";
 	char flagsstr[64];
 
 	flags = uap->flags;

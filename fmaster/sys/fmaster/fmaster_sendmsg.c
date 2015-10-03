@@ -12,13 +12,43 @@
  * code for master
  */
 
+static bool
+detect_unsupported_control(struct msghdr *msg)
+{
+	struct cmsghdr *cmsghdr;
+
+	for (cmsghdr = CMSG_FIRSTHDR(msg);
+	     cmsghdr != NULL;
+	     cmsghdr = CMSG_NXTHDR(msg, cmsghdr)) {
+		switch (cmsghdr->cmsg_level) {
+		case SOL_SOCKET:
+			switch (cmsghdr->cmsg_type) {
+			case SCM_CREDS:
+				break;
+			case SCM_RIGHTS:
+			default:
+				return (true);
+			}
+			break;
+		default:
+			return (true);
+		}
+	}
+
+	return (false);
+}
+
 static int
-sendmsg_master(struct thread *td, int lfd, struct msghdr *msg, int flags)
+sendmsg_master(struct thread *td, struct msghdr *kmsg, int lfd,
+	       struct msghdr *umsg, int flags)
 {
 	struct sendmsg_args args;
 
+	if (detect_unsupported_control(kmsg))
+		return (EOPNOTSUPP);
+
 	args.s = lfd;
-	args.msg = msg;
+	args.msg = umsg;
 	args.flags = flags;
 
 	return (sys_sendmsg(td, &args));
@@ -43,6 +73,95 @@ count_cmsghdr(struct msghdr *msg)
 	return (n);
 }
 
+#define	ASSERT_SCM_RIGHTS(cmsghdr)	do {			\
+	KASSERT((cmsghdr)->cmsg_level == SOL_SOCKET,		\
+		("cmsg_level must be SOL_SOCKET, but %d",	\
+		 (cmsghdr)->cmsg_level));			\
+	KASSERT((cmsghdr)->cmsg_type = SCM_RIGHTS,		\
+		("cmsg_type must be SCM_RIGHTS, but %d",	\
+		 (cmsghdr)->cmsg_type));			\
+} while (0)
+
+static int
+compute_nfds_to_pass(struct cmsghdr *cmsghdr)
+{
+	char *data, *pend;
+
+	ASSERT_SCM_RIGHTS(cmsghdr);
+
+	data = (char *)CMSG_DATA(cmsghdr);
+	pend = (char *)cmsghdr + cmsghdr->cmsg_len;
+
+	return (((uintptr_t)pend - (uintptr_t)data) / sizeof(int));
+}
+
+static int
+add_control_size_info_to_payload(struct thread *td, struct payload *payload,
+				 struct msghdr *msg)
+{
+	struct cmsghdr *cmsghdr;
+	int error, level, nfds, type;
+
+	for (cmsghdr = CMSG_FIRSTHDR(msg);
+	     cmsghdr != NULL;
+	     cmsghdr = CMSG_NXTHDR(msg, cmsghdr)) {
+		level = cmsghdr->cmsg_level;
+		type = cmsghdr->cmsg_type;
+		error = fsyscall_payload_add_int(payload, level);
+		if (error != 0)
+			return (error);
+		error = fsyscall_payload_add_int(payload, type);
+		if (error != 0)
+			return (error);
+		switch (level) {
+		case SOL_SOCKET:
+			switch (type) {
+			case SCM_CREDS:
+				/* nothing */
+				break;
+			case SCM_RIGHTS:
+				nfds = compute_nfds_to_pass(cmsghdr);
+				error = fsyscall_payload_add_int(payload, nfds);
+				if (error != 0)
+					return (error);
+				break;
+			default:
+				return (EOPNOTSUPP);
+			}
+			break;
+		default:
+			return (EOPNOTSUPP);
+		}
+	}
+
+	return (0);
+}
+
+static int
+add_fds_to_payload(struct thread *td, struct payload *payload,
+		   struct cmsghdr *cmsghdr)
+{
+	enum fmaster_file_place place;
+	int error, lfd, *p, *pend;
+
+	ASSERT_SCM_RIGHTS(cmsghdr);
+
+	pend = (int *)((char *)cmsghdr + cmsghdr->cmsg_len);
+	for (p = (int *)CMSG_DATA(cmsghdr); p < pend; p++) {
+		error = fmaster_get_vnode_info(td, *p, &place, &lfd);
+		if (error != 0)
+			return (error);
+		if (place != FFP_SLAVE)
+			return (EBADF);
+
+		error = fsyscall_payload_add_int(payload, lfd);
+		if (error != 0)
+			return (error);
+	}
+
+	return (0);
+}
+
 static int
 execute_call(struct thread *td, int lfd, struct msghdr *msg, int flags)
 {
@@ -50,7 +169,7 @@ execute_call(struct thread *td, int lfd, struct msghdr *msg, int flags)
 	struct cmsghdr *cmsghdr;
 	struct iovec *iov;
 	size_t len;
-	int error, i, iovlen, level, ncmsghdr, type;
+	int error, i, iovlen, ncmsghdr;
 
 	payload = fsyscall_payload_create();
 	if (payload == NULL)
@@ -110,18 +229,10 @@ execute_call(struct thread *td, int lfd, struct msghdr *msg, int flags)
 			goto exit;
 
 		/* sends level and type for the peer to decide buffer size */
-		for (cmsghdr = CMSG_FIRSTHDR(msg);
-		     cmsghdr != NULL;
-		     cmsghdr = CMSG_NXTHDR(msg, cmsghdr)) {
-			level = cmsghdr->cmsg_level;
-			type = cmsghdr->cmsg_type;
-			error = fsyscall_payload_add_int(payload, level);
-			if (error != 0)
-				goto exit;
-			error = fsyscall_payload_add_int(payload, type);
-			if (error != 0)
-				goto exit;
-		}
+		error = add_control_size_info_to_payload(td, payload, msg);
+		if (error != 0)
+			goto exit;
+
 		for (cmsghdr = CMSG_FIRSTHDR(msg);
 		     cmsghdr != NULL;
 		     cmsghdr = CMSG_NXTHDR(msg, cmsghdr)) {
@@ -130,6 +241,12 @@ execute_call(struct thread *td, int lfd, struct msghdr *msg, int flags)
 				switch (cmsghdr->cmsg_type) {
 				case SCM_CREDS:
 					/* nothing */
+					break;
+				case SCM_RIGHTS:
+					error = add_fds_to_payload(td, payload,
+								   cmsghdr);
+					if (error != 0)
+						goto exit;
 					break;
 				default:
 					error = ENOTSUP;
@@ -281,7 +398,7 @@ fmaster_sendmsg_main(struct thread *td, struct fmaster_sendmsg_args *uap)
 		goto exit2;
 	switch (place) {
 	case FFP_MASTER:
-		error = sendmsg_master(td, lfd, umsg, uap->flags);
+		error = sendmsg_master(td, &kmsg, lfd, umsg, uap->flags);
 		break;
 	case FFP_SLAVE:
 		error = sendmsg_slave(td, umsg, lfd, &kmsg, uap->flags);

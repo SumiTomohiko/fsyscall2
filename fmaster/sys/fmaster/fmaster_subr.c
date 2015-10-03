@@ -2089,6 +2089,7 @@ fmaster_log_msghdr(struct thread *td, const char *tag, const struct msghdr *msg)
 			levelstr = typestr = "invalid";
 			break;
 		}
+		LOG("cmsg_len=%d", cmsghdr->cmsg_len);
 		LOG("cmsg_level=%d (%s)", level, levelstr);
 		LOG("cmsg_type=%d (%s)", type, typestr);
 
