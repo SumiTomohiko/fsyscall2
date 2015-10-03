@@ -82,7 +82,7 @@ do_recvmsg(int sock, const char *s)
 	struct iovec iov[1];
 	ssize_t nbytes;
 	int fd, i, level, *p, type;
-	char buf[CMSG_LEN(sizeof(int))], c;
+	char buf[CMSG_SPACE(sizeof(int))], c;
 
 	iov[0].iov_base = &c;
 	iov[0].iov_len = sizeof(c);

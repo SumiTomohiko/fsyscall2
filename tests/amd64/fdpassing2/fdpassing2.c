@@ -27,7 +27,7 @@ do_sendmsg(int sock, int fd1, int fd2)
 	msg.msg_iov = iov;
 	msg.msg_iovlen = sizeof(iov) / sizeof(iov[0]);
 	msg.msg_control = cmsghdr;
-	msg.msg_controllen = len;
+	msg.msg_controllen = sizeof(buf);
 	msg.msg_flags = 0;
 	p = (int *)CMSG_DATA(buf);
 	p[0] = fd1;
@@ -93,7 +93,7 @@ do_recvmsg(int sock, const char *s1, const char *s2)
 	ssize_t nbytes;
 	int fd, i, level, *p, type;
 	const char **ptext, *s, *texts[2];
-	char buf[CMSG_LEN(sizeof(int))], c;
+	char buf[CMSG_SPACE(sizeof(int))], c;
 
 	iov[0].iov_base = &c;
 	iov[0].iov_len = sizeof(c);
