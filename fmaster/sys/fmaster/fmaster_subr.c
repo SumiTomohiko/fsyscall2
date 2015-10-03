@@ -1202,9 +1202,7 @@ accept_main(struct thread *td, command_t call_command, command_t return_command,
 		return (error);
 	if (place != FFP_SLAVE)
 		return (EPERM);
-	error = copyin(namelen, &knamelen, sizeof(knamelen));
-	if (error != 0)
-		return (error);
+	knamelen = sizeof(addr);
 	error = execute_accept_call(td, call_command, fd, knamelen);
 	if (error != 0)
 		return (error);
@@ -1212,13 +1210,18 @@ accept_main(struct thread *td, command_t call_command, command_t return_command,
 				      &actual_namelen);
 	if (error != 0)
 		return (error);
-	len = MIN(MIN(sizeof(addr), knamelen), actual_namelen);
-	error = copyout(&addr, name, len);
-	if (error != 0)
-		return (error);
-	error = copyout(&actual_namelen, namelen, sizeof(actual_namelen));
-	if (error != 0)
-		return (error);
+	if ((name != NULL) && (namelen != NULL)) {
+		error = copyin(namelen, &len, sizeof(len));
+		if (error != 0)
+			return (error);
+		error = copyout(&addr, name, MIN(len, actual_namelen));
+		if (error != 0)
+			return (error);
+		error = copyout(&actual_namelen, namelen,
+				sizeof(actual_namelen));
+		if (error != 0)
+			return (error);
+	}
 
 	return (0);
 }
