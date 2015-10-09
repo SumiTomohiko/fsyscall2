@@ -578,21 +578,6 @@ class SlaveHelper {
         protected static final int MSGHDR_MSG_CONTROL_NOT_NULL = 1;
 
         public abstract void call(Command command) throws IOException;
-
-        protected Unix.Cmsghdr readControlHeader() throws IOException {
-            int controlcode = mIn.readInteger();
-            switch (controlcode) {
-            case MSGHDR_MSG_CONTROL_NOT_NULL:
-                int level = mIn.readInteger();
-                int type = mIn.readInteger();
-                return new Unix.Cmsghdr(level, type);
-            case MSGHDR_MSG_CONTROL_NULL:
-                return null;
-            default:
-                // TODO: return EINVAL.
-                throw new IOException();
-            }
-        }
     }
 
     private class RecvmsgProc extends MsgProc {
@@ -622,8 +607,10 @@ class SlaveHelper {
                 iov[i] = new Unix.IoVec(null, len);
             }
 
-            Unix.Cmsghdr cmsghdr = readControlHeader();
-            Unix.Msghdr msg = new Unix.Msghdr(iov, cmsghdr, mIn.readInteger());
+            int controllen = mIn.readInteger();
+            Unix.Cmsghdr[] control = 0 < controllen ? new Unix.Cmsghdr[1]
+                                                    : null;
+            Unix.Msghdr msg = new Unix.Msghdr(iov, control, mIn.readInteger());
 
             int flags = mIn.readInteger();
 
@@ -660,14 +647,83 @@ class SlaveHelper {
                 iov[i] = new Unix.IoVec(buf, len);
             }
 
-            Unix.Cmsghdr cmsghdr = readControlHeader();
-            Unix.Msghdr msg = new Unix.Msghdr(iov, cmsghdr, mIn.readInteger());
+            Unix.Cmsghdr[] cmsghdrs = readControlHeaders();
+            Unix.Msghdr msg = new Unix.Msghdr(iov, cmsghdrs, mIn.readInteger());
 
             int flags = mIn.readInteger();
 
             SyscallResult.Generic64 result = mSlave.doSendmsg(fd, msg, flags);
 
             writeResult(Command.SENDMSG_RETURN, result);
+        }
+
+        private Unix.Cmsghdr[] buildControlHeaders() throws IOException {
+            int ncmsghdrs = mIn.readInteger();
+            Unix.Cmsghdr[] cmsghdrs = new Unix.Cmsghdr[ncmsghdrs];
+
+            for (int i = 0; i < ncmsghdrs; i++) {
+                int level = mIn.readInteger();
+                int type = mIn.readInteger();
+                Unix.Cmsgdata data;
+                switch (level) {
+                case Unix.Constants.SOL_SOCKET:
+                    switch (type) {
+                    case Unix.Constants.SCM_CREDS:
+                        data = null;
+                        break;
+                    default:
+                        // TODO: throw better exception
+                        throw new IOException();
+                    }
+                    break;
+                default:
+                    // TODO: throw better exception.
+                    throw new IOException();
+                }
+
+                cmsghdrs[i] = new Unix.Cmsghdr(level, type, data);
+            }
+
+            return cmsghdrs;
+        }
+
+        private void readControlBody(Unix.Cmsghdr[] cmsghdrs) throws IOException {
+            int ncmsghdrs = cmsghdrs.length;
+            for (int i = 0; i < ncmsghdrs; i++) {
+                Unix.Cmsghdr cmsghdr = cmsghdrs[i];
+                switch (cmsghdr.cmsg_level) {
+                case Unix.Constants.SOL_SOCKET:
+                    switch (cmsghdr.cmsg_type) {
+                    case Unix.Constants.SCM_CREDS:
+                        // nothing
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+
+        private Unix.Cmsghdr[] readControlHeaders() throws IOException {
+            Unix.Cmsghdr[] cmsghdrs;
+            int controlcode = mIn.readInteger();
+            switch (controlcode) {
+            case MSGHDR_MSG_CONTROL_NOT_NULL:
+                cmsghdrs = buildControlHeaders();
+                readControlBody(cmsghdrs);
+                break;
+            case MSGHDR_MSG_CONTROL_NULL:
+                cmsghdrs = null;
+                break;
+            default:
+                // TODO: return EINVAL.
+                throw new IOException();
+            }
+
+            return cmsghdrs;
         }
     }
 
@@ -772,13 +828,37 @@ class SlaveHelper {
         payload.add(result.retval);
         payload.add(result.buf, result.retval);
 
-        Unix.Cmsghdr control = result.control;
-        if (control != null) {
-            switch (control.cmsg_level) {
+        Unix.Cmsghdr[] control = result.control;
+        int ncmsghdrs = control != null ? control.length : 0;
+        payload.add(ncmsghdrs);
+        for (int i = 0; i < ncmsghdrs; i++) {
+            Unix.Cmsghdr cmsghdr = control[i];
+            int level = cmsghdr.cmsg_level;
+            int type = cmsghdr.cmsg_type;
+            payload.add(level);
+            payload.add(type);
+            switch (level) {
             case Unix.Constants.SOL_SOCKET:
-                switch (control.cmsg_type) {
+                switch (type) {
                 case Unix.Constants.SCM_CREDS:
-                    Unix.Cmsgcred cred = (Unix.Cmsgcred)control.cmsg_data;
+                    // nothing.
+                    break;
+                default:
+                    break;
+                }
+                break;
+            default:
+                break;
+            }
+        }
+
+        for (int i = 0; i < ncmsghdrs; i++) {
+            Unix.Cmsghdr cmsghdr = control[i];
+            switch (cmsghdr.cmsg_level) {
+            case Unix.Constants.SOL_SOCKET:
+                switch (cmsghdr.cmsg_type) {
+                case Unix.Constants.SCM_CREDS:
+                    Unix.Cmsgcred cred = (Unix.Cmsgcred)cmsghdr.cmsg_data;
                     payload.add(cred.cmcred_pid);
                     payload.add(cred.cmcred_uid);
                     payload.add(cred.cmcred_euid);
@@ -786,8 +866,8 @@ class SlaveHelper {
                     int[] groups = cred.cmcred_groups;
                     int ngroups = groups.length;
                     payload.add(ngroups);
-                    for (int i = 0; i < ngroups; i++) {
-                        payload.add(groups[i]);
+                    for (int j = 0; j < ngroups; j++) {
+                        payload.add(groups[j]);
                     }
                     break;
                 default:

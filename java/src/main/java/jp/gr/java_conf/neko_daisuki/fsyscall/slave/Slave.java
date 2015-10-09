@@ -17,6 +17,8 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.TimeZone;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /*
  * Android 3.2.1 does not have UnixSystem.
@@ -752,13 +754,52 @@ public class Slave implements Runnable {
             }
         }
 
+        private class ControlBuffer {
+
+            public class Writer {
+
+                public void write(Unix.Cmsghdr cmsghdr) throws InterruptedException {
+                    synchronized (mQueue) {
+                        mQueue.put(cmsghdr);
+                    }
+                }
+            }
+
+            public class Reader {
+
+                public Unix.Cmsghdr read() throws InterruptedException {
+                    synchronized (mQueue) {
+                        return mQueue.take();
+                    }
+                }
+            }
+
+            private BlockingQueue<Unix.Cmsghdr> mQueue;
+            private Reader mReader = new Reader();
+            private Writer mWriter = new Writer();
+
+            public ControlBuffer() {
+                mQueue = new LinkedBlockingQueue<Unix.Cmsghdr>();
+            }
+
+            public Reader getReader() {
+                return mReader;
+            }
+
+            public Writer getWriter() {
+                return mWriter;
+            }
+        }
+
         private class ConnectingRequest {
 
             private Socket mPeer;
             private Pair mPair;
+            private ControlBuffer mControlBuffer;
 
             public ConnectingRequest(Socket peer) {
                 mPeer = peer;
+                mControlBuffer = new ControlBuffer();
             }
 
             public Socket getPeer() {
@@ -776,29 +817,9 @@ public class Slave implements Runnable {
             public boolean isAccepted() {
                 return mPair != null;
             }
-        }
 
-        private class Controls {
-
-            private Map<Integer, Unix.Cmsgdata> mMap;
-
-            public Controls() {
-                Map<Integer, Unix.Cmsgdata> map;
-
-                map = new HashMap<Integer, Unix.Cmsgdata>();
-                mMap = Collections.synchronizedMap(map);
-            }
-
-            public void put(int level, int type, Unix.Cmsgdata data) {
-                mMap.put(computeKey(level, type), data);
-            }
-
-            public Unix.Cmsgdata get(int level, int type) {
-                return mMap.get(computeKey(level, type));
-            }
-
-            private Integer computeKey(int level, int type) {
-                return Integer.valueOf((level << 16) + type);
+            public ControlBuffer getControlBuffer() {
+                return mControlBuffer;
             }
         }
 
@@ -808,9 +829,10 @@ public class Slave implements Runnable {
         private SocketAddress mName;
         private Socket mPeer;
         private SocketOptions mOptions = new SocketOptions();
-        private Controls mControls;
 
         private SocketCore mCore;
+        private ControlBuffer.Reader mControlReader;
+        private ControlBuffer.Writer mControlWriter;
         private Queue<ConnectingRequest> mConnectingRequests;
 
         public Socket(int domain, int type, int protocol) {
@@ -982,6 +1004,7 @@ public class Slave implements Runnable {
                 }
             }
             setCore(new PipeCore(request.getPair()));
+            mControlReader = request.getControlBuffer().getReader();
 
             // The accepting side sets mPeer of this socket.
         }
@@ -1042,6 +1065,7 @@ public class Slave implements Runnable {
 
             Socket socket = new Socket(mDomain, mType, mProtocol, mName, peer);
             Pair pair = new Pair(c2s.getInputStream(), s2c.getOutputStream());
+            socket.mControlWriter = request.getControlBuffer().getWriter();
             socket.setCore(new PipeCore(pair));
 
             return socket;
@@ -1074,24 +1098,15 @@ public class Slave implements Runnable {
         }
 
         public long recvmsg(byte[] buf,
-                            Unix.Cmsghdr control) throws UnixException {
+                            Unix.Cmsghdr[] control) throws UnixException {
             long nbytes = read(buf);
 
-            if (control != null) {
-                int level = control.cmsg_level;
-                int type = control.cmsg_type;
-                switch (level) {
-                case Unix.Constants.SOL_SOCKET:
-                    switch (type) {
-                    case Unix.Constants.SCM_CREDS:
-                        control.cmsg_data = getPeer().getControl(level, type);
-                        break;
-                    default:
-                        throw new UnixException(Errno.EOPNOTSUPP);
-                    }
-                    break;
-                default:
-                    throw new UnixException(Errno.EOPNOTSUPP);
+            if ((control != null) && (0 < control.length)) {
+                try {
+                    control[0] = mControlReader.read();
+                }
+                catch (InterruptedException e) {
+                    throw new UnixException(Errno.EINTR, e);
                 }
             }
 
@@ -1099,18 +1114,29 @@ public class Slave implements Runnable {
         }
 
         public long sendmsg(Unix.Msghdr msg) throws UnixException {
-            Unix.Cmsghdr control = msg.msg_control;
-            if (control != null) {
-                int level = control.cmsg_level;
-                int type = control.cmsg_type;
-                switch (level) {
+            Unix.Cmsghdr[] control = msg.msg_control;
+            Unix.Cmsghdr[] cmsghdrs = control != null ? control
+                                                      : new Unix.Cmsghdr[0];
+            int ncmsghdrs = cmsghdrs.length;
+            for (int i = 0; i < ncmsghdrs; i++) {
+                Unix.Cmsghdr cmsghdr = cmsghdrs[i];
+                switch (cmsghdr.cmsg_level) {
                 case Unix.Constants.SOL_SOCKET:
-                    switch (type) {
+                    switch (cmsghdr.cmsg_type) {
                     case Unix.Constants.SCM_CREDS:
                         int[] groups = new int[] { GID };
                         Unix.Cmsgdata data = new Unix.Cmsgcred(mPid, UID, UID,
                                                                GID, groups);
-                        setControl(level, type, data);
+                        cmsghdr.cmsg_data = data;
+                        try {
+                            mControlWriter.write(cmsghdr);
+                        }
+                        catch (InterruptedException e) {
+                            throw new UnixException(Errno.EINTR, e);
+                        }
+                        break;
+                    case Unix.Constants.SCM_RIGHTS:
+                        // TODO
                         break;
                     default:
                         throw new UnixException(Errno.EOPNOTSUPP);
@@ -1138,22 +1164,6 @@ public class Slave implements Runnable {
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
             }
-        }
-
-        private void setControl(int level, int type, Unix.Cmsgdata data) {
-            synchronized (this) {
-                if (mControls == null) {
-                    mControls = new Controls();
-                }
-            }
-            mControls.put(level, type, data);
-        }
-
-        private Unix.Cmsgdata getControl(int level, int type) {
-            if (mControls == null) {
-                return null;
-            }
-            return mControls.get(level, type);
         }
     }
 
@@ -2330,24 +2340,8 @@ public class Slave implements Runnable {
                 len += iov[i].iov_len;
             }
             byte[] buf = new byte[len];
-            Unix.Cmsghdr control = msg.msg_control;
+            Unix.Cmsghdr[] control = msg.msg_control;
             result.retval = socket.recvmsg(buf, control);
-            if ((control != null) && (control.cmsg_data == null)) {
-                switch (control.cmsg_level) {
-                case Unix.Constants.SOL_SOCKET:
-                    switch (control.cmsg_type) {
-                    case Unix.Constants.SCM_CREDS:
-                        control.cmsg_data = new Unix.Cmsgcred(new Pid(0), 0, 0,
-                                                              0, new int [0]);
-                        break;
-                    default:
-                        break;
-                    }
-                    break;
-                default:
-                    break;
-                }
-            }
             result.buf = buf;
             result.control = control;
         }

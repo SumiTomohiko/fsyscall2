@@ -355,6 +355,15 @@ public class Unix {
     public static class Cmsgdata {
     }
 
+    public static class Cmsgfds extends Cmsgdata {
+
+        public int[] fds;
+
+        public Cmsgfds(int nfds) {
+            fds = new int[nfds];
+        }
+    }
+
     public static class Cmsgcred extends Cmsgdata {
 
         public Pid cmcred_pid;
@@ -399,9 +408,10 @@ public class Unix {
         public int cmsg_type;
         public Cmsgdata cmsg_data;
 
-        public Cmsghdr(int level, int type) {
+        public Cmsghdr(int level, int type, Cmsgdata data) {
             cmsg_level = level;
             cmsg_type = type;
+            cmsg_data = data;
         }
 
         public String toString() {
@@ -448,7 +458,7 @@ public class Unix {
          */
         //public int msg_iovlen;
 
-        public Cmsghdr msg_control;
+        public Cmsghdr[] msg_control;
 
         /*
          * architecture dependent. unused.
@@ -457,7 +467,7 @@ public class Unix {
 
         public int msg_flags;
 
-        public Msghdr(IoVec[] iov, Cmsghdr control, int flags) {
+        public Msghdr(IoVec[] iov, Cmsghdr[] control, int flags) {
             msg_iov = iov;
             msg_control = control;
             msg_flags = flags;

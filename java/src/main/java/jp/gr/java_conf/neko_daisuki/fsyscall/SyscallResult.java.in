@@ -71,7 +71,7 @@ public interface SyscallResult {
     public static class Recvmsg extends Generic64 {
 
         public byte[] buf;
-        public Unix.Cmsghdr control;
+        public Unix.Cmsghdr[] control;
     }
 
     @RESULTS@
