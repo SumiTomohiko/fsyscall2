@@ -671,6 +671,10 @@ class SlaveHelper {
                     case Unix.Constants.SCM_CREDS:
                         data = null;
                         break;
+                    case Unix.Constants.SCM_RIGHTS:
+                        int nfds = mIn.readInteger();
+                        data = new Unix.Cmsgfds(nfds);
+                        break;
                     default:
                         // TODO: throw better exception
                         throw new IOException();
@@ -696,6 +700,14 @@ class SlaveHelper {
                     switch (cmsghdr.cmsg_type) {
                     case Unix.Constants.SCM_CREDS:
                         // nothing
+                        break;
+                    case Unix.Constants.SCM_RIGHTS:
+                        Unix.Cmsgfds cmsgfds = (Unix.Cmsgfds)cmsghdr.cmsg_data;
+                        int[] fds = cmsgfds.fds;
+                        int nfds = fds.length;
+                        for (int j = 0; j < nfds; j++) {
+                            fds[j] = mIn.readInteger();
+                        }
                         break;
                     default:
                         break;
@@ -829,53 +841,67 @@ class SlaveHelper {
         payload.add(result.buf, result.retval);
 
         Unix.Cmsghdr[] control = result.control;
-        int ncmsghdrs = control != null ? control.length : 0;
-        payload.add(ncmsghdrs);
-        for (int i = 0; i < ncmsghdrs; i++) {
-            Unix.Cmsghdr cmsghdr = control[i];
-            int level = cmsghdr.cmsg_level;
-            int type = cmsghdr.cmsg_type;
-            payload.add(level);
-            payload.add(type);
-            switch (level) {
-            case Unix.Constants.SOL_SOCKET:
-                switch (type) {
-                case Unix.Constants.SCM_CREDS:
-                    // nothing.
-                    break;
-                default:
-                    break;
-                }
-                break;
-            default:
-                break;
-            }
-        }
-
-        for (int i = 0; i < ncmsghdrs; i++) {
-            Unix.Cmsghdr cmsghdr = control[i];
-            switch (cmsghdr.cmsg_level) {
-            case Unix.Constants.SOL_SOCKET:
-                switch (cmsghdr.cmsg_type) {
-                case Unix.Constants.SCM_CREDS:
-                    Unix.Cmsgcred cred = (Unix.Cmsgcred)cmsghdr.cmsg_data;
-                    payload.add(cred.cmcred_pid);
-                    payload.add(cred.cmcred_uid);
-                    payload.add(cred.cmcred_euid);
-                    payload.add(cred.cmcred_gid);
-                    int[] groups = cred.cmcred_groups;
-                    int ngroups = groups.length;
-                    payload.add(ngroups);
-                    for (int j = 0; j < ngroups; j++) {
-                        payload.add(groups[j]);
+        if (control != null) {
+            int ncmsghdrs = control.length;
+            payload.add(ncmsghdrs);
+            for (int i = 0; i < ncmsghdrs; i++) {
+                Unix.Cmsghdr cmsghdr = control[i];
+                int level = cmsghdr.cmsg_level;
+                int type = cmsghdr.cmsg_type;
+                payload.add(level);
+                payload.add(type);
+                switch (level) {
+                case Unix.Constants.SOL_SOCKET:
+                    switch (type) {
+                    case Unix.Constants.SCM_CREDS:
+                        // nothing.
+                        break;
+                    case Unix.Constants.SCM_RIGHTS:
+                        Unix.Cmsgfds data = (Unix.Cmsgfds)cmsghdr.cmsg_data;
+                        payload.add(data.fds.length);
+                        break;
+                    default:
+                        break;
                     }
                     break;
                 default:
                     break;
                 }
-                break;
-            default:
-                break;
+            }
+
+            for (int i = 0; i < ncmsghdrs; i++) {
+                Unix.Cmsghdr cmsghdr = control[i];
+                switch (cmsghdr.cmsg_level) {
+                case Unix.Constants.SOL_SOCKET:
+                    switch (cmsghdr.cmsg_type) {
+                    case Unix.Constants.SCM_CREDS:
+                        Unix.Cmsgcred cred = (Unix.Cmsgcred)cmsghdr.cmsg_data;
+                        payload.add(cred.cmcred_pid);
+                        payload.add(cred.cmcred_uid);
+                        payload.add(cred.cmcred_euid);
+                        payload.add(cred.cmcred_gid);
+                        int[] groups = cred.cmcred_groups;
+                        int ngroups = groups.length;
+                        payload.add(ngroups);
+                        for (int j = 0; j < ngroups; j++) {
+                            payload.add(groups[j]);
+                        }
+                        break;
+                    case Unix.Constants.SCM_RIGHTS:
+                        Unix.Cmsgfds data = (Unix.Cmsgfds)cmsghdr.cmsg_data;
+                        int[] fds = data.fds;
+                        int nfds = fds.length;
+                        for (int j = 0; j < nfds; j++) {
+                            payload.add(fds[j]);
+                        }
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                default:
+                    break;
+                }
             }
         }
 

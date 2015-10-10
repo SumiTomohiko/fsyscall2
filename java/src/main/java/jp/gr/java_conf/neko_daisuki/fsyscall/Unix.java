@@ -352,15 +352,30 @@ public class Unix {
         public static final int SCM_BINTIME = 0x04;
     }
 
-    public static class Cmsgdata {
+    public abstract static class Cmsgdata {
+
+        public abstract Cmsgdata copy();
     }
 
     public static class Cmsgfds extends Cmsgdata {
 
         public int[] fds;
 
+        public Cmsgfds(int[] fds) {
+            this.fds = fds;
+        }
+
         public Cmsgfds(int nfds) {
-            fds = new int[nfds];
+            this(new int[nfds]);
+        }
+
+        public Cmsgdata copy() {
+            int len = this.fds.length;
+            int[] fds = new int[len];
+            for (int i = 0; i < len; i++) {
+                fds[i] = this.fds[i];
+            }
+            return new Cmsgfds(fds);
         }
     }
 
@@ -382,6 +397,16 @@ public class Unix {
             cmcred_euid = euid;
             cmcred_gid = gid;
             cmcred_groups = groups;
+        }
+
+        public Cmsgdata copy() {
+            int len = cmcred_groups.length;
+            int[] groups = new int[len];
+            for (int i = 0; i < len; i++) {
+                groups[i] = cmcred_groups[i];
+            }
+            return new Cmsgcred(cmcred_pid, cmcred_uid, cmcred_euid, cmcred_gid,
+                                groups);
         }
 
         public String toString() {
@@ -412,6 +437,13 @@ public class Unix {
             cmsg_level = level;
             cmsg_type = type;
             cmsg_data = data;
+        }
+
+        public Cmsghdr(Cmsghdr cmsghdr) {
+            cmsg_level = cmsghdr.cmsg_level;
+            cmsg_type = cmsghdr.cmsg_type;
+            Cmsgdata data = cmsghdr.cmsg_data;
+            cmsg_data = data != null ? data.copy() : null;
         }
 
         public String toString() {

@@ -708,6 +708,29 @@ public class Slave implements Runnable {
 
     private class Socket extends UnixFile {
 
+        public class Control {
+
+            private Unix.Cmsghdr mCmsghdr;
+            private UnixFile[] mFiles;
+
+            public Control(Unix.Cmsghdr cmsghdr) {
+                mCmsghdr = cmsghdr;
+            }
+
+            public Control(Unix.Cmsghdr cmsghdr, UnixFile[] files) {
+                this(cmsghdr);
+                mFiles = files;
+            }
+
+            public Unix.Cmsghdr getCmsghdr() {
+                return mCmsghdr;
+            }
+
+            public UnixFile[] getFiles() {
+                return mFiles;
+            }
+        }
+
         private class PipeCore implements SocketCore {
 
             private InputStream mIn;
@@ -758,28 +781,28 @@ public class Slave implements Runnable {
 
             public class Writer {
 
-                public void write(Unix.Cmsghdr cmsghdr) throws InterruptedException {
+                public void write(Control control) throws InterruptedException {
                     synchronized (mQueue) {
-                        mQueue.put(cmsghdr);
+                        mQueue.put(control);
                     }
                 }
             }
 
             public class Reader {
 
-                public Unix.Cmsghdr read() throws InterruptedException {
+                public Control read() throws InterruptedException {
                     synchronized (mQueue) {
                         return mQueue.take();
                     }
                 }
             }
 
-            private BlockingQueue<Unix.Cmsghdr> mQueue;
+            private BlockingQueue<Control> mQueue;
             private Reader mReader = new Reader();
             private Writer mWriter = new Writer();
 
             public ControlBuffer() {
-                mQueue = new LinkedBlockingQueue<Unix.Cmsghdr>();
+                mQueue = new LinkedBlockingQueue<Control>();
             }
 
             public Reader getReader() {
@@ -1102,12 +1125,31 @@ public class Slave implements Runnable {
             long nbytes = read(buf);
 
             if ((control != null) && (0 < control.length)) {
+                Socket.Control cntl;
                 try {
-                    control[0] = mControlReader.read();
+                    cntl = mControlReader.read();
                 }
                 catch (InterruptedException e) {
                     throw new UnixException(Errno.EINTR, e);
                 }
+                Unix.Cmsghdr cmsghdr = cntl.getCmsghdr();
+                switch (cmsghdr.cmsg_level) {
+                case Unix.Constants.SOL_SOCKET:
+                    switch (cmsghdr.cmsg_type) {
+                    case Unix.Constants.SCM_CREDS:
+                        break;
+                    case Unix.Constants.SCM_RIGHTS:
+                        int[] fds = registerFiles(cntl.getFiles());
+                        cmsghdr.cmsg_data = new Unix.Cmsgfds(fds);
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                default:
+                    break;
+                }
+                control[0] = cmsghdr;
             }
 
             return nbytes;
@@ -1124,19 +1166,10 @@ public class Slave implements Runnable {
                 case Unix.Constants.SOL_SOCKET:
                     switch (cmsghdr.cmsg_type) {
                     case Unix.Constants.SCM_CREDS:
-                        int[] groups = new int[] { GID };
-                        Unix.Cmsgdata data = new Unix.Cmsgcred(mPid, UID, UID,
-                                                               GID, groups);
-                        cmsghdr.cmsg_data = data;
-                        try {
-                            mControlWriter.write(cmsghdr);
-                        }
-                        catch (InterruptedException e) {
-                            throw new UnixException(Errno.EINTR, e);
-                        }
+                        writeCreds(cmsghdr);
                         break;
                     case Unix.Constants.SCM_RIGHTS:
-                        // TODO
+                        writeRights(cmsghdr);
                         break;
                     default:
                         throw new UnixException(Errno.EOPNOTSUPP);
@@ -1163,6 +1196,50 @@ public class Slave implements Runnable {
             }
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
+            }
+        }
+
+        private void writeRights(Unix.Cmsghdr cmsghdr) throws UnixException {
+            Unix.Cmsgfds data = (Unix.Cmsgfds)cmsghdr.cmsg_data;
+            int[] fds = data.fds;
+            UnixFile[] files = getLockedFiles(fds);
+            if (files == null) {
+                throw new UnixException(Errno.EBADF);
+            }
+            try {
+                int len = fds.length;
+                for (int i = 0; i < len; i++) {
+                    files[i].incRefCount();
+                }
+
+                Unix.Cmsghdr copy = new Unix.Cmsghdr(cmsghdr);
+                Socket.Control control = new Socket.Control(copy, files);
+                try {
+                    mControlWriter.write(control);
+                }
+                catch (InterruptedException e) {
+                    throw new UnixException(Errno.EINTR, e);
+                }
+            }
+            finally {
+                int len = fds.length;
+                for (int i = 0; i < len; i++) {
+                    files[i].unlock();
+                }
+            }
+        }
+
+        private void writeCreds(Unix.Cmsghdr cmsghdr) throws UnixException {
+            int[] groups = new int[] { GID };
+            Unix.Cmsgdata data = new Unix.Cmsgcred(mPid, UID, UID, GID, groups);
+            cmsghdr.cmsg_data = data;
+            Unix.Cmsghdr copy = new Unix.Cmsghdr(cmsghdr);
+            Socket.Control control = new Socket.Control(copy);
+            try {
+                mControlWriter.write(control);
+            }
+            catch (InterruptedException e) {
+                throw new UnixException(Errno.EINTR, e);
             }
         }
     }
@@ -2792,17 +2869,41 @@ public class Slave implements Runnable {
         return i < len ? i : -1;
     }
 
+    private UnixFile[] getLockedFiles(int[] fds) {
+        int nFiles = fds.length;
+        UnixFile[] files = new UnixFile[nFiles];
+        synchronized (mFiles) {
+            for (int i = 0; i < nFiles; i++) {
+                UnixFile file = getLockedFile(fds[i]);
+                if (file == null) {
+                    for (int j = 0; j < nFiles; j++) {
+                        UnixFile f = files[j];
+                        if (f != null) {
+                            f.unlock();
+                        }
+                    }
+                    return null;
+                }
+                files[i] = file;
+            }
+        }
+
+        return files;
+    }
+
     /**
      * Returns a file of <var>fd</var> or null. A returned file is locked. You
      * M_U_S_T unlock this.
      */
     private UnixFile getLockedFile(int fd) {
         UnixFile file;
-        try {
-            file = mFiles[fd];
-        }
-        catch (IndexOutOfBoundsException unused) {
-            return null;
+        synchronized (mFiles) {
+            try {
+                file = mFiles[fd];
+            }
+            catch (IndexOutOfBoundsException unused) {
+                return null;
+            }
         }
         if (file != null) {
             file.lock();
@@ -2841,6 +2942,29 @@ public class Slave implements Runnable {
 
         String fmt = "new file registered: file=%s, fd=%d";
         mLogger.info(String.format(fmt, file, at));
+    }
+
+    private int[] registerFiles(UnixFile[] files) throws UnixException {
+        int nFiles = files.length;
+        int[] fds = new int[nFiles];
+        synchronized (mFiles) {
+            for (int i = 0; i < nFiles; i++) {
+                fds[i] = registerFile(files[i]);
+            }
+        }
+        return fds;
+    }
+
+    private int registerFile(UnixFile file) throws UnixException {
+        int fd;
+        synchronized (mFiles) {
+            fd = findFreeSlotOfFile();
+            if (fd < 0) {
+                throw new UnixException(Errno.EMFILE);
+            }
+            registerFileAt(file, fd);
+        }
+        return fd;
     }
 
     private int registerFile(FileRegisteringCallback callback) throws UnixException {

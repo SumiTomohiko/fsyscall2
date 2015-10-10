@@ -10,7 +10,12 @@ abstract class UnixFile implements EventScannee {
 
     private boolean mNonBlocking = false;
     private boolean mCloseOnExec = false;
-    private Lock mLock = new ReentrantReadWriteLock().writeLock();
+    private ReentrantReadWriteLock.WriteLock mLock;
+    private int mRefCount = 1;
+
+    public UnixFile() {
+        mLock = new ReentrantReadWriteLock().writeLock();
+    }
 
     public void lock() {
         mLock.lock();
@@ -28,8 +33,18 @@ abstract class UnixFile implements EventScannee {
         return mCloseOnExec;
     }
 
+    public void incRefCount() {
+        checkLock();
+        mRefCount++;
+    }
+
     public void close() throws UnixException {
-        doClose();
+        checkLock();
+
+        mRefCount--;
+        if (mRefCount == 0) {
+            doClose();
+        }
     }
 
     public void enableNonBlocking(boolean nonBlocking) {
@@ -51,6 +66,12 @@ abstract class UnixFile implements EventScannee {
     }
 
     protected abstract void doClose() throws UnixException;
+
+    private void checkLock() {
+        if (!mLock.isHeldByCurrentThread()) {
+            throw new IllegalStateException();
+        }
+    }
 }
 
 // vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4
