@@ -71,35 +71,6 @@ convert_pollfd_to_kevent(struct kevent *kev, struct pollfd *fds, nfds_t nfds)
 	return (0);
 }
 
-struct kevent_bonus {
-	struct kevent *changelist;
-	struct kevent *eventlist;
-};
-
-static int
-kevent_copyin(void *arg, struct kevent *kevp, int count)
-{
-	struct kevent_bonus *bonus;
-
-	bonus = (struct kevent_bonus *)arg;
-	memcpy(kevp, bonus->changelist, sizeof(kevp[0]) * count);
-	bonus->changelist += count;
-
-	return (0);
-}
-
-static int
-kevent_copyout(void *arg, struct kevent *kevp, int count)
-{
-	struct kevent_bonus *bonus;
-
-	bonus = (struct kevent_bonus *)arg;
-	memcpy(bonus->eventlist, kevp, sizeof(kevp[0]) * count);
-	bonus->eventlist += count;
-
-	return (0);
-}
-
 static int
 convert_kevent_to_pollfd(struct pollfd *fds, nfds_t nfds, struct kevent *kev,
 			 int nkev)
@@ -137,41 +108,26 @@ static int
 kevent_poll(struct thread *td, struct pollfd *fds, nfds_t nfds, int timeout)
 {
 	struct malloc_type *mt;
-	struct kevent_copyops kops;
-	struct kevent_bonus kbonus;
 	struct kevent *changelist, *eventlist;
 	struct timespec *pts, ts;
 	size_t size;
 	nfds_t i;
-	int error, error2, kq, n, neventlist, nkev;
-
-	error = sys_kqueue(td, NULL);
-	if (error != 0)
-		return (error);
-	kq = td->td_retval[0];
+	int error, n, neventlist, nkev;
 
 	nkev = count_kevents(fds, nfds);
 	size = sizeof(changelist[0]) * nkev;
 	mt = M_TEMP;
 	changelist = (struct kevent *)malloc(size, mt, M_WAITOK);
-	if (changelist == NULL) {
-		error = ENOMEM;
-		goto exit1;
-	}
+	if (changelist == NULL)
+		return (ENOMEM);
 	error = convert_pollfd_to_kevent(changelist, fds, nfds);
 	if (error != 0)
-		goto exit2;
+		goto exit1;
 	eventlist = (struct kevent *)malloc(size, mt, M_WAITOK);
 	if (eventlist == NULL) {
 		error = ENOMEM;
-		goto exit2;
+		goto exit1;
 	}
-
-	kbonus.changelist = changelist;
-	kbonus.eventlist = eventlist;
-	kops.arg = &kbonus;
-	kops.k_copyout = kevent_copyout;
-	kops.k_copyin = kevent_copyin;
 	if (timeout != INFTIM) {
 		ts.tv_sec = timeout / 1000;
 		ts.tv_nsec = (timeout % 1000) * 1000000;
@@ -179,21 +135,20 @@ kevent_poll(struct thread *td, struct pollfd *fds, nfds_t nfds, int timeout)
 	}
 	else
 		pts = NULL;
-	error = kern_kevent(td, kq, nkev, nkev, &kops, pts);
+
+	error = fmaster_do_kevent(td, changelist, nkev, eventlist, &neventlist,
+				  pts);
 	if (error != 0)
-		goto exit3;
-	neventlist = td->td_retval[0];
+		goto exit2;
+
 	error = convert_kevent_to_pollfd(fds, nfds, eventlist, neventlist);
 	if (error != 0)
-		goto exit3;
+		goto exit2;
 
-exit3:
-	free(eventlist, mt);
 exit2:
-	free(changelist, mt);
+	free(eventlist, mt);
 exit1:
-	error2 = kern_close(td, kq);
-	error = (error == 0) && (error2 != 0) ? error2 : error;
+	free(changelist, mt);
 
 	if (error == 0) {
 		n = 0;

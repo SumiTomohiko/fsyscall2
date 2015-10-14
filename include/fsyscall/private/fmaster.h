@@ -177,6 +177,8 @@ int	fmaster_initialize_kqueue(struct thread *, struct fmaster_data *);
 void	fmaster_schedtail(struct thread *);
 int	fmaster_copyin_msghdr(struct thread *, const struct msghdr *,
 			      struct msghdr *);
+int	fmaster_do_kevent(struct thread *, const struct kevent *, int,
+			  struct kevent *, int *, const struct timespec *);
 
 /* misc */
 typedef unsigned int flag_t;

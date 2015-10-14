@@ -484,16 +484,31 @@ die(struct thread *td, const char *cause)
 	exit1(td, 1);
 }
 
+struct kevent_bonus {
+	const struct kevent *changelist;
+	struct kevent *eventlist;
+};
+
 static int
 kevent_copyout(void *arg, struct kevent *kevp, int count)
 {
-	struct kevent *kev;
+	struct kevent_bonus *bonus;
 
-	if (1 < count)
-		return (EINVAL);
+	bonus = (struct kevent_bonus *)arg;
+	memcpy(bonus->eventlist, kevp, sizeof(kevp[0]) * count);
+	bonus->eventlist += count;
 
-	kev = (struct kevent *)arg;
-	memcpy(kev, kevp, sizeof(*kev) * count);
+	return (0);
+}
+
+static int
+kevent_copyin(void *arg, struct kevent *kevp, int count)
+{
+	struct kevent_bonus *bonus;
+
+	bonus = (struct kevent_bonus *)arg;
+	memcpy(kevp, bonus->changelist, sizeof(kevp[0]) * count);
+	bonus->changelist += count;
 
 	return (0);
 }
@@ -504,12 +519,15 @@ wait_data(struct thread *td)
 	struct kevent kev;
 	struct timespec timeout;
 	struct kevent_copyops k_ops;
+	struct kevent_bonus k_bonus;
 	int error, kq;
 
 	kq = fmaster_data_of_thread(td)->kq;
 	timeout.tv_sec = 8;
 	timeout.tv_nsec = 0;
-	k_ops.arg = &kev;
+	k_bonus.changelist = NULL;
+	k_bonus.eventlist = &kev;
+	k_ops.arg = &k_bonus;
 	k_ops.k_copyin = NULL;
 	k_ops.k_copyout = kevent_copyout;
 	error = kern_kevent(td, kq, 0, 1, &k_ops, &timeout);
@@ -1345,25 +1363,12 @@ fmaster_execute_connect_protocol(struct thread *td, const char *command,
 	return (error);
 }
 
-static int
-kevent_copyin(void *arg, struct kevent *kevp, int count)
-{
-	struct kevent *kev;
-
-	if (1 < count)
-		return (EINVAL);
-
-	kev = (struct kevent *)arg;
-	memcpy(kevp, kev, sizeof(*kev) * count);
-
-	return (0);
-}
-
 int
 fmaster_initialize_kqueue(struct thread *td, struct fmaster_data *data)
 {
 	struct kevent kev;
 	struct kevent_copyops k_ops;
+	struct kevent_bonus k_bonus;
 	pid_t pid;
 	int error, kq;
 	u_short flags;
@@ -1380,7 +1385,9 @@ fmaster_initialize_kqueue(struct thread *td, struct fmaster_data *data)
 
 	flags = EV_ADD | EV_ENABLE | EV_CLEAR;
 	EV_SET(&kev, data->rfd, EVFILT_READ, flags, 0, 0, NULL);
-	k_ops.arg = &kev;
+	k_bonus.changelist = &kev;
+	k_bonus.eventlist = NULL;
+	k_ops.arg = &k_bonus;
 	k_ops.k_copyout = NULL;
 	k_ops.k_copyin = kevent_copyin;
 	error = kern_kevent(td, kq, 1, 0, &k_ops, NULL);
@@ -2162,4 +2169,35 @@ fmaster_freeall(struct thread *td)
 	}
 
 	data->fdata_memory = NULL;
+}
+
+int
+fmaster_do_kevent(struct thread *td, const struct kevent *changelist,
+		  int nchanges, struct kevent *eventlist, int *nevents,
+		  const struct timespec *timeout)
+{
+	struct kevent_copyops k_ops;
+	struct kevent_bonus k_bonus;
+	int error, error2, kq;
+
+	error = sys_kqueue(td, NULL);
+	if (error != 0)
+		return (error);
+	kq = td->td_retval[0];
+
+	k_bonus.changelist = changelist;
+	k_bonus.eventlist = eventlist;
+	k_ops.arg = &k_bonus;
+	k_ops.k_copyout = kevent_copyout;
+	k_ops.k_copyin = kevent_copyin;
+	error = kern_kevent(td, kq, nchanges, *nevents, &k_ops, timeout);
+	if (error != 0)
+		goto exit;
+	*nevents = td->td_retval[0];
+
+exit:
+	error2 = kern_close(td, kq);
+	error = (error == 0) && (error2 != 0) ? error2 : error;
+
+	return (error);
 }
