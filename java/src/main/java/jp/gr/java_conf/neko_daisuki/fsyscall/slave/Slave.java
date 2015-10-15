@@ -818,11 +818,13 @@ public class Slave implements Runnable {
 
             private Socket mPeer;
             private Pair mPair;
-            private ControlBuffer mControlBuffer;
+            private ControlBuffer mControlBufferFromClient;
+            private ControlBuffer mControlBufferFromServer;
 
             public ConnectingRequest(Socket peer) {
                 mPeer = peer;
-                mControlBuffer = new ControlBuffer();
+                mControlBufferFromClient = new ControlBuffer();
+                mControlBufferFromServer = new ControlBuffer();
             }
 
             public Socket getPeer() {
@@ -841,8 +843,12 @@ public class Slave implements Runnable {
                 return mPair != null;
             }
 
-            public ControlBuffer getControlBuffer() {
-                return mControlBuffer;
+            public ControlBuffer getControlBufferFromServer() {
+                return mControlBufferFromServer;
+            }
+
+            public ControlBuffer getControlBufferFromClient() {
+                return mControlBufferFromClient;
             }
         }
 
@@ -1027,7 +1033,8 @@ public class Slave implements Runnable {
                 }
             }
             setCore(new PipeCore(request.getPair()));
-            mControlReader = request.getControlBuffer().getReader();
+            mControlReader = request.getControlBufferFromServer().getReader();
+            mControlWriter = request.getControlBufferFromClient().getWriter();
 
             // The accepting side sets mPeer of this socket.
         }
@@ -1088,7 +1095,8 @@ public class Slave implements Runnable {
 
             Socket socket = new Socket(mDomain, mType, mProtocol, mName, peer);
             Pair pair = new Pair(c2s.getInputStream(), s2c.getOutputStream());
-            socket.mControlWriter = request.getControlBuffer().getWriter();
+            socket.mControlReader = request.getControlBufferFromClient().getReader();
+            socket.mControlWriter = request.getControlBufferFromServer().getWriter();
             socket.setCore(new PipeCore(pair));
 
             return socket;
