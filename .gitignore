@@ -257,6 +257,7 @@ tests/*/open/open
 tests/*/read/read
 tests/*/write/write
 tests/amd64/accept/accept
+tests/amd64/ancillary_from_client/ancillary_from_client
 tests/amd64/bind/bind
 tests/amd64/chdir/chdir
 tests/amd64/chdir_access/chdir_access
