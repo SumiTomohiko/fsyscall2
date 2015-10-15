@@ -254,9 +254,9 @@ write_call(struct thread *td, int nfds, fd_set *readfds, fd_set *writefds, fd_se
 	char timeout_buf[FSYSCALL_BUFSIZE_INT32];
 	char usec_buf[FSYSCALL_BUFSIZE_INT64], *writefds_buf;
 
-	KASSERT(readfds != NULL, "readfds must be NULL.");
-	KASSERT(writefds != NULL, "writefds must be NULL.");
-	KASSERT(exceptfds != NULL, "exceptfds must be NULL.");
+	KASSERT(readfds != NULL, "NULL readfds disallowed");
+	KASSERT(writefds != NULL, "NULL writefds disallowed");
+	KASSERT(exceptfds != NULL, "NULL exceptfds disallowed");
 
 	nreadfds = fsyscall_count_fds(nfds, readfds);
 	nwritefds = fsyscall_count_fds(nfds, writefds);
