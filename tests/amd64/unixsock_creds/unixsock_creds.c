@@ -4,7 +4,7 @@
 static char datum = '*';
 
 static int
-do_sendmsg(int fd, const char *sockpath)
+do_sendmsg(int fd)
 {
 	struct msghdr msg;
 	struct cmsghdr *cmsghdr;
@@ -66,7 +66,7 @@ server_main(pid_t ppid, const char *sockpath)
 	if ((s = accept(sock, (struct sockaddr *)&name, &namelen)) == -1)
 		return (6);
 
-	if (do_sendmsg(s, sockpath) != 0)
+	if (do_sendmsg(s) != 0)
 		return (7);
 
 	if (close(s) == -1)
