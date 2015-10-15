@@ -369,8 +369,10 @@ return_ssize(struct slave *slave, command_t cmd, ssize_t ret, int errnum)
 	return_generic(slave, cmd, ret_buf, ret_len, errnum_buf, errnum_len);
 }
 
+#define	MAX(a, b)	((a) < (b) ? (b) : (a))
+
 static void
-read_fds(struct slave *slave, fd_set *fds, payload_size_t *len)
+read_fds(struct slave *slave, int *maxfd, fd_set *fds, payload_size_t *len)
 {
 	payload_size_t payload_size;
 	int fd, fd_len, i, nfds, nfds_len, rfd;
@@ -384,6 +386,7 @@ read_fds(struct slave *slave, fd_set *fds, payload_size_t *len)
 		fd = read_int32(rfd, &fd_len);
 		payload_size += fd_len;
 		FD_SET(fd, fds);
+		*maxfd = MAX(*maxfd, fd);
 	}
 
 	*len = payload_size;
@@ -394,21 +397,19 @@ read_select_parameters(struct slave *slave, int *nfds, fd_set *readfds, fd_set *
 {
 	payload_size_t actual_payload_size, exceptfds_len, payload_size;
 	payload_size_t readfds_len, writefds_len;
-	int nfds_len, rfd, timeout_status, timeout_status_len, tv_sec_len;
+	int maxfd, rfd, timeout_status, timeout_status_len, tv_sec_len;
 	int tv_usec_len;
 
 	rfd = slave->rfd;
 	actual_payload_size = 0;
 	payload_size = read_payload_size(rfd);
 
-	*nfds = read_int32(rfd, &nfds_len);
-	actual_payload_size += nfds_len;
-
-	read_fds(slave, readfds, &readfds_len);
+	maxfd = 0;
+	read_fds(slave, &maxfd, readfds, &readfds_len);
 	actual_payload_size += readfds_len;
-	read_fds(slave, writefds, &writefds_len);
+	read_fds(slave, &maxfd, writefds, &writefds_len);
 	actual_payload_size += writefds_len;
-	read_fds(slave, exceptfds, &exceptfds_len);
+	read_fds(slave, &maxfd, exceptfds, &exceptfds_len);
 	actual_payload_size += exceptfds_len;
 
 	timeout_status = read_int32(rfd, &timeout_status_len);
@@ -428,6 +429,8 @@ read_select_parameters(struct slave *slave, int *nfds, fd_set *readfds, fd_set *
 	}
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
+
+	*nfds = maxfd + 1;
 }
 
 static size_t

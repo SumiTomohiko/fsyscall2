@@ -243,11 +243,10 @@ write_call(struct thread *td, int nfds, fd_set *readfds, fd_set *writefds, fd_se
 	struct malloc_type *type;
 	payload_size_t exceptfds_len, payload_size, readfds_len, writefds_len;
 	unsigned long exceptfds_buf_len, readfds_buf_len, writefds_buf_len;
-	int error, flags, nexceptfds, nexceptfds_len, nfds_len, nreadfds;
-	int nreadfds_len, nwritefds, nwritefds_len, sec_len, timeout_len;
+	int error, flags, nexceptfds, nexceptfds_len, nreadfds, nreadfds_len;
+	int nwritefds, nwritefds_len, sec_len, timeout_len;
 	int usec_len, wfd;
 	char *exceptfds_buf, nexceptfds_buf[FSYSCALL_BUFSIZE_INT32];
-	char nfds_buf[FSYSCALL_BUFSIZE_INT32];
 	char nreadfds_buf[FSYSCALL_BUFSIZE_INT32];
 	char nwritefds_buf[FSYSCALL_BUFSIZE_INT32];
 	char *readfds_buf, sec_buf[FSYSCALL_BUFSIZE_INT64];
@@ -290,7 +289,6 @@ write_call(struct thread *td, int nfds, fd_set *readfds, fd_set *writefds, fd_se
 		goto finally;					\
 	}							\
 } while (0)
-	ENCODE_INT32(nfds, nfds_buf, nfds_len);
 	ENCODE_INT32(nreadfds, nreadfds_buf, nreadfds_len);
 	ENCODE_INT32(nwritefds, nwritefds_buf, nwritefds_len);
 	ENCODE_INT32(nexceptfds, nexceptfds_buf, nexceptfds_len);
@@ -329,7 +327,7 @@ write_call(struct thread *td, int nfds, fd_set *readfds, fd_set *writefds, fd_se
 		sec_len = usec_len = 0;
 #undef	ENCODE_INT64
 
-	payload_size = nfds_len + nreadfds_len + readfds_len + nwritefds_len +
+	payload_size = nreadfds_len + readfds_len + nwritefds_len +
 		       writefds_len + nexceptfds_len + exceptfds_len +
 		       timeout_len + sec_len + usec_len;
 	error = fmaster_write_command(td, SELECT_CALL);
@@ -344,7 +342,7 @@ write_call(struct thread *td, int nfds, fd_set *readfds, fd_set *writefds, fd_se
 	if (error != 0)					\
 		goto finally;				\
 } while (0)
-	WRITE(nfds_buf, nfds_len);
+	/* The master does not send nfds. Because the slave can compute it. */
 	WRITE(nreadfds_buf, nreadfds_len);
 	WRITE(readfds_buf, readfds_len);
 	WRITE(nwritefds_buf, nwritefds_len);

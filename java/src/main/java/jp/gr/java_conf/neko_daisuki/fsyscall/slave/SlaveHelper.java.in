@@ -258,13 +258,12 @@ class SlaveHelper {
 
         public void call(Command command) throws IOException {
             PayloadSize payloadSize = mIn.readPayloadSize();
-            int nfds = mIn.readInteger();
             Collection<Integer> in = readFds();
             Collection<Integer> ou = readFds();
             Collection<Integer> ex = readFds();
             int flag = mIn.readInteger();
             Unix.TimeVal timeout = flag == 0 ? null : readTimeVal();
-            SyscallResult.Select result = mSlave.doSelect(nfds, in, ou, ex, timeout);
+            SyscallResult.Select result = mSlave.doSelect(in, ou, ex, timeout);
             writeResult(Command.SELECT_RETURN, result);
         }
 

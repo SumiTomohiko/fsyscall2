@@ -2313,9 +2313,9 @@ public class Slave implements Runnable {
         return runPoll(new PollRunner(fds), timeout);
     }
 
-    public SyscallResult.Select doSelect(int nfds, Collection<Integer> in, Collection<Integer> ou, Collection<Integer> ex, Unix.TimeVal timeout) throws IOException {
-        String fmt = "select(nfds=%d, in, ou, ex, timeout)";
-        mLogger.info(String.format(fmt, nfds));
+    public SyscallResult.Select doSelect(Collection<Integer> in, Collection<Integer> ou, Collection<Integer> ex, Unix.TimeVal timeout) throws IOException {
+        String fmt = "select(in, ou, ex, timeout)";
+        mLogger.info(String.format(fmt));
 
         SyscallResult.Select result = new SyscallResult.Select();
 
