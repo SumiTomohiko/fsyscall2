@@ -2313,9 +2313,10 @@ public class Slave implements Runnable {
         return runPoll(new PollRunner(fds), timeout);
     }
 
-    public SyscallResult.Select doSelect(Collection<Integer> in, Collection<Integer> ou, Collection<Integer> ex, Unix.TimeVal timeout) throws IOException {
-        String fmt = "select(in, ou, ex, timeout)";
-        mLogger.info(String.format(fmt));
+    public SyscallResult.Select doSelect(Unix.Fdset in, Unix.Fdset ou,
+                                         Unix.Fdset ex, Unix.TimeVal timeout) throws IOException {
+        String fmt = "select(in=%s, ou=%s, ex=%s, timeout=%s)";
+        mLogger.info(String.format(fmt, in, ou, ex, timeout));
 
         SyscallResult.Select result = new SyscallResult.Select();
 
@@ -2323,9 +2324,9 @@ public class Slave implements Runnable {
 
         long usecInterval = 100 * 1000;
 
-        Collection<Integer> inReady = new HashSet<Integer>();
-        Collection<Integer> ouReady = new HashSet<Integer>();
-        Collection<Integer> exReady = new HashSet<Integer>();
+        Unix.Fdset inReady = new Unix.Fdset();
+        Unix.Fdset ouReady = new Unix.Fdset();
+        Unix.Fdset exReady = new Unix.Fdset();
         long usecTime = 0;
         int nReadyFds = 0;
         SelectPred readPred = new ReadSelectPred();
@@ -2931,7 +2932,8 @@ public class Slave implements Runnable {
         return file;
     }
 
-    private void selectFds(Collection<Integer> dest, Collection<Integer> src, SelectPred pred) throws UnixException {
+    private void selectFds(Unix.Fdset dest, Unix.Fdset src,
+                           SelectPred pred) throws UnixException {
         for (Integer fd: src) {
             UnixFile file = getValidFile(fd.intValue());
             try {

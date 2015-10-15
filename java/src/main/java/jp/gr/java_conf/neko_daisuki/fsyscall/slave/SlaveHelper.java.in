@@ -118,7 +118,7 @@ class SlaveHelper {
             add(buffer);
         }
 
-        public void add(Collection<Integer> fds) {
+        public void add(Unix.Fdset fds) {
             add(fds.size());
             for (Integer fd: fds) {
                 add(fd.intValue());
@@ -258,9 +258,9 @@ class SlaveHelper {
 
         public void call(Command command) throws IOException {
             PayloadSize payloadSize = mIn.readPayloadSize();
-            Collection<Integer> in = readFds();
-            Collection<Integer> ou = readFds();
-            Collection<Integer> ex = readFds();
+            Unix.Fdset in = readFds();
+            Unix.Fdset ou = readFds();
+            Unix.Fdset ex = readFds();
             int flag = mIn.readInteger();
             Unix.TimeVal timeout = flag == 0 ? null : readTimeVal();
             SyscallResult.Select result = mSlave.doSelect(in, ou, ex, timeout);
@@ -274,11 +274,11 @@ class SlaveHelper {
             return tv;
         }
 
-        private Collection<Integer> readFds() throws IOException {
-            Collection<Integer> fds = new HashSet<Integer>();
+        private Unix.Fdset readFds() throws IOException {
+            Unix.Fdset fds = new Unix.Fdset();
             int n = mIn.readInteger();
             for (int i = 0; i < n; i++) {
-                fds.add(Integer.valueOf(mIn.readInteger()));
+                fds.add(mIn.readInteger());
             }
             return fds;
         }

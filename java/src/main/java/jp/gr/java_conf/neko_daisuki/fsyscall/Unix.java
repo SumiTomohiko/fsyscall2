@@ -1,9 +1,35 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall;
 
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.List;
 
 public class Unix {
+
+    public static class Fdset implements Iterable<Integer> {
+
+        private Collection<Integer> mFds = new LinkedList<Integer>();
+
+        public void add(int fd) {
+            mFds.add(Integer.valueOf(fd));
+        }
+
+        public int size() {
+            return mFds.size();
+        }
+
+        public Iterator<Integer> iterator() {
+            return mFds.iterator();
+        }
+
+        public String toString() {
+            return String.format("Fdset(%s)", chainStrings(mFds, ",", "empty"));
+        }
+
+        public void clear() {
+            mFds.clear();
+        }
+    }
 
     public static class IoVec {
 
@@ -127,7 +153,7 @@ public class Unix {
             private String mName;
 
             public static String toString(Flag[] flags, long n) {
-                List<String> sa = new LinkedList<String>();
+                Collection<String> sa = new LinkedList<String>();
                 int length = flags.length;
                 for (int i = 0; i < length; i++) {
                     Flag flag = flags[i];
@@ -135,16 +161,7 @@ public class Unix {
                         sa.add(flag.getName());
                     }
                 }
-                int size = sa.size();
-                if (size == 0) {
-                    return "nothing";
-                }
-                StringBuilder builder = new StringBuilder(sa.get(0));
-                for (int i = 1; i < size; i++) {
-                    builder.append("|");
-                    builder.append(sa.get(i));
-                }
-                return builder.toString();
+                return chainStrings(sa, "|", "nothing");
             }
 
             public Flag(long mask, String name) {
@@ -519,6 +536,18 @@ public class Unix {
 
     public static int W_STOPCODE(int sig) {
         return (sig << 8) | _WSTOPPED;
+    }
+
+    private static String chainStrings(Collection c, String sep,
+                                       String nothing) {
+        String s = "";
+        StringBuilder builder = new StringBuilder();
+        for (Object o: c) {
+            builder.append(s);
+            builder.append(o != null ? o.toString() : "null");
+            s = sep;
+        }
+        return 0 < builder.length() ? builder.toString() : nothing;
     }
 }
 

@@ -46,9 +46,9 @@ public interface SyscallResult {
 
     public static class Select extends Generic32 {
 
-        public Collection<Integer> in;
-        public Collection<Integer> ou;
-        public Collection<Integer> ex;
+        public Unix.Fdset in;
+        public Unix.Fdset ou;
+        public Unix.Fdset ex;
     }
 
     public static class Accept extends Generic32 {
