@@ -394,6 +394,15 @@ public class Unix {
             }
             return new Cmsgfds(fds);
         }
+
+        public String toString() {
+            Collection<Integer> c = new LinkedList<Integer>();
+            int len = this.fds.length;
+            for (int i = 0; i < len; i++) {
+                c.add(Integer.valueOf(this.fds[i]));
+            }
+            return String.format("Cmsgfds([%s])", chainStrings(c, ",", ""));
+        }
     }
 
     public static class Cmsgcred extends Cmsgdata {
@@ -474,6 +483,9 @@ public class Unix {
                 case Constants.SCM_CREDS:
                     type = "SCM_CREDS";
                     break;
+                case Constants.SCM_RIGHTS:
+                    type = "SCM_RIGHTS";
+                    break;
                 default:
                     type = "unknown";
                     break;
@@ -524,7 +536,21 @@ public class Unix {
 
         public String toString() {
             String fmt = "Msghdr(msg_iovlen=%d, msg_control=%s, msg_flags=%d)";
-            return String.format(fmt, msg_iov.length, msg_control, msg_flags);
+
+            String cntlstr;
+            if (msg_control != null) {
+                Collection<Cmsghdr> c = new LinkedList<Cmsghdr>();
+                int len = msg_control.length;
+                for (int i = 0; i < len; i++) {
+                    c.add(msg_control[i]);
+                }
+                cntlstr = String.format("[%s]", chainStrings(c, ",", ""));
+            }
+            else {
+                cntlstr = "null";
+            }
+
+            return String.format(fmt, msg_iov.length, cntlstr, msg_flags);
         }
     }
 
