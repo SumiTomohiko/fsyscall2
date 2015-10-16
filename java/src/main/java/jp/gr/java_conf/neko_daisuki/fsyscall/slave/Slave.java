@@ -2360,6 +2360,11 @@ public class Slave implements Runnable {
             nReadyFds = inReady.size() + ouReady.size() + exReady.size();
         }
 
+        if (mCancelled) {
+            result.setError(Errno.EINTR);
+            return result;
+        }
+
         result.retval = nReadyFds;
         if (nReadyFds == 0) {
             return result;
