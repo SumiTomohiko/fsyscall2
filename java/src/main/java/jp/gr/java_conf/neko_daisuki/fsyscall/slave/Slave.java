@@ -47,6 +47,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.ByteUtil;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
 
@@ -1929,6 +1930,7 @@ public class Slave implements Runnable {
         }
 
         result.buf = Arrays.copyOf(buffer, (int)result.retval);
+        logBuffer("read: result", result.buf);
 
         return result;
     }
@@ -1992,6 +1994,7 @@ public class Slave implements Runnable {
         }
 
         result.buf = Arrays.copyOf(buffer, (int)result.retval);
+        logBuffer("pread: result", result.buf);
 
         return result;
     }
@@ -2271,6 +2274,7 @@ public class Slave implements Runnable {
                 System.arraycopy(v.iov_base, 0, buffer, pos, len);
                 pos += len;
             }
+            logBuffer("writev", buffer);
 
             try {
                 result.retval = file.write(buffer);
@@ -2606,6 +2610,7 @@ public class Slave implements Runnable {
         if (fd == 2) {
             logPossibleDyingMessage(buf);
         }
+        logBuffer("write: buf", buf);
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
@@ -3100,6 +3105,10 @@ public class Slave implements Runnable {
 
         result.retval = 0;
         return result;
+    }
+
+    private void logBuffer(String tag, byte[] buf) {
+        mLogger.debug(String.format("%s: %s", tag, ByteUtil.toString(buf)));
     }
 
     private void logPossibleDyingMessage(byte[] buf) {
