@@ -1929,8 +1929,9 @@ public class Slave implements Runnable {
             file.unlock();
         }
 
-        result.buf = Arrays.copyOf(buffer, (int)result.retval);
-        logBuffer("read: result", result.buf);
+        int len = (int)result.retval;
+        result.buf = Arrays.copyOf(buffer, len);
+        logBuffer(String.format("read: fd=%d: result", fd), result.buf, len);
 
         return result;
     }
@@ -1993,8 +1994,9 @@ public class Slave implements Runnable {
             file.unlock();
         }
 
-        result.buf = Arrays.copyOf(buffer, (int)result.retval);
-        logBuffer("pread: result", result.buf);
+        int len = (int)result.retval;
+        result.buf = Arrays.copyOf(buffer, len);
+        logBuffer(String.format("pread: fd=%d: result", fd), result.buf, len);
 
         return result;
     }
@@ -2274,7 +2276,7 @@ public class Slave implements Runnable {
                 System.arraycopy(v.iov_base, 0, buffer, pos, len);
                 pos += len;
             }
-            logBuffer("writev", buffer);
+            logBuffer(String.format("writev: fd=%d", fd), buffer);
 
             try {
                 result.retval = file.write(buffer);
@@ -2610,7 +2612,7 @@ public class Slave implements Runnable {
         if (fd == 2) {
             logPossibleDyingMessage(buf);
         }
-        logBuffer("write: buf", buf);
+        logBuffer(String.format("write: fd=%d: buf", fd), buf);
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
@@ -3107,8 +3109,13 @@ public class Slave implements Runnable {
         return result;
     }
 
+    private void logBuffer(String tag, byte[] buf, int len) {
+        String s = ByteUtil.toString(buf, len);
+        mLogger.debug(String.format("%s: %s", tag, s));
+    }
+
     private void logBuffer(String tag, byte[] buf) {
-        mLogger.debug(String.format("%s: %s", tag, ByteUtil.toString(buf)));
+        logBuffer(tag, buf, buf.length);
     }
 
     private void logPossibleDyingMessage(byte[] buf) {
