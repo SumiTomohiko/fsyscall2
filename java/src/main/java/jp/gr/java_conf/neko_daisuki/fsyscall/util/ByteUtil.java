@@ -72,9 +72,8 @@ public class ByteUtil {
         " ", " ", " ", " ", " ", " ", " ", " "
     };
 
-    public static String toString(byte[] buf) {
+    public static String toString(byte[] buf, int len) {
         StringBuilder builder = new StringBuilder();
-        int len = buf.length;
         for (int i = 0; i < len; i++) {
             builder.append(toString(buf[i]));
         }
@@ -87,7 +86,7 @@ public class ByteUtil {
 
     private static String toString(byte c) {
         if (isPrint(c)) {
-            return CHARS[toUnsigned(c)];
+            return escape(CHARS[toUnsigned(c)]);
         }
 
         switch ((char)c) {
@@ -104,6 +103,10 @@ public class ByteUtil {
         }
 
         return String.format("\\x%02x", c);
+    }
+
+    private static String escape(String s) {
+        return "\\".equals(s) ? "\\\\" : s;
     }
 
     private static boolean isPrint(byte c) {
