@@ -13,8 +13,11 @@ abstract class UnixFile implements EventScannee {
     private ReentrantReadWriteLock.WriteLock mLock;
     private int mRefCount = 1;
 
-    public UnixFile() {
+    private Alarm mAlarm;
+
+    public UnixFile(Alarm alarm) {
         mLock = new ReentrantReadWriteLock().writeLock();
+        mAlarm = alarm;
     }
 
     public void lock() {
@@ -51,11 +54,16 @@ abstract class UnixFile implements EventScannee {
         mNonBlocking = nonBlocking;
     }
 
+    public int write(byte[] buffer) throws UnixException {
+        int nBytes = doWrite(buffer);
+        mAlarm.alarm();
+        return nBytes;
+    }
+
     public abstract boolean isReadyToRead() throws UnixException;
     public abstract boolean isReadyToWrite() throws UnixException;
     public abstract int read(byte[] buffer) throws UnixException;
     public abstract long pread(byte[] buffer, long offset) throws UnixException;
-    public abstract int write(byte[] buffer) throws UnixException;
     public abstract long lseek(long offset, int whence) throws UnixException;
     public abstract Unix.Stat fstat() throws UnixException;
     public abstract long getFilterFlags();
@@ -65,6 +73,11 @@ abstract class UnixFile implements EventScannee {
         return mNonBlocking;
     }
 
+    protected Alarm getAlarm() {
+        return mAlarm;
+    }
+
+    protected abstract int doWrite(byte[] buffer) throws UnixException;
     protected abstract void doClose() throws UnixException;
 
     private void checkLock() {

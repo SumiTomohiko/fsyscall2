@@ -197,7 +197,8 @@ public class Application {
 
     public Slave newSlave(PairId pairId, NormalizedPath currentDirectory,
                           UnixFile[] files, Permissions permissions,
-                          Links links, Slave.Listener listener) throws IOException {
+                          Links links, Slave.Listener listener,
+                          Alarm alarm) throws IOException {
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
 
@@ -205,7 +206,7 @@ public class Application {
         OutputStream slaveOut = slave2hub.getOutputStream();
         Slave slave = new Slave(this, mPidGenerator.next(), slaveIn, slaveOut,
                                 currentDirectory, files, permissions, links,
-                                listener);
+                                listener, alarm);
         addSlave(slave);
 
         InputStream hubIn = slave2hub.getInputStream();

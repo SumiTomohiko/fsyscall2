@@ -545,6 +545,10 @@ public class Slave implements Runnable {
 
         private Events mEvents = new Events();
 
+        public KQueue(Alarm alarm) {
+            super(alarm);
+        }
+
         public boolean isReadyToRead() throws UnixException {
             return false;
         }
@@ -558,10 +562,6 @@ public class Slave implements Runnable {
         }
 
         public long pread(byte[] buffer, long offset) throws UnixException {
-            throw new UnixException(Errno.ENXIO);
-        }
-
-        public int write(byte[] buffer) throws UnixException {
             throw new UnixException(Errno.ENXIO);
         }
 
@@ -589,6 +589,10 @@ public class Slave implements Runnable {
         @Override
         public long getFilterFlags() {
             return 0L;
+        }
+
+        protected int doWrite(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.ENXIO);
         }
 
         protected void doClose() throws UnixException {
@@ -629,14 +633,14 @@ public class Slave implements Runnable {
             catch (IOException e) {
                 throw new UnixException(Errno.EIO, e);
             }
-            return new UnixInputFile(path, false);
+            return new UnixInputFile(mAlarm, path, false);
         }
     }
 
     private class KQueueCallback implements FileRegisteringCallback {
 
         public UnixFile call() throws UnixException {
-            return new KQueue();
+            return new KQueue(mAlarm);
         }
     }
 
@@ -653,7 +657,7 @@ public class Slave implements Runnable {
         }
 
         public UnixFile call() throws UnixException {
-            return new Socket(mDomain, mType, mProtocol);
+            return new Socket(mAlarm, mDomain, mType, mProtocol);
         }
     }
 
@@ -673,11 +677,11 @@ public class Slave implements Runnable {
             switch (mFlags & Unix.Constants.O_ACCMODE) {
             case Unix.Constants.O_RDONLY:
                 boolean create = (mFlags & Unix.Constants.O_CREAT) != 0;
-                file = new UnixInputFile(mPath.toString(), create);
+                file = new UnixInputFile(mAlarm, mPath.toString(), create);
                 break;
             case Unix.Constants.O_WRONLY:
                 // XXX: Here ignores O_CREAT.
-                file = new UnixOutputFile(mPath.toString());
+                file = new UnixOutputFile(mAlarm, mPath.toString());
                 break;
             default:
                 throw new UnixException(Errno.EINVAL);
@@ -960,15 +964,16 @@ public class Slave implements Runnable {
         private ControlBuffer.Writer mControlWriter;
         private Queue<ConnectingRequest> mConnectingRequests;
 
-        public Socket(int domain, int type, int protocol) {
+        public Socket(Alarm alarm, int domain, int type, int protocol) {
+            super(alarm);
             mDomain = domain;
             mType = type;
             mProtocol = protocol;
         }
 
-        public Socket(int domain, int type, int protocol, SocketAddress name,
-                      Socket peer) {
-            this(domain, type, protocol);
+        public Socket(Alarm alarm, int domain, int type, int protocol,
+                      SocketAddress name, Socket peer) {
+            this(alarm, domain, type, protocol);
             mName = name;
             setPeer(peer);
         }
@@ -1054,20 +1059,6 @@ public class Slave implements Runnable {
             }
         }
 
-        public int write(byte[] buffer) throws UnixException {
-            OutputStream out = mCore.getOutputStream();
-            if (out == null) {
-                throw new UnixException(Errno.ENOTCONN);
-            }
-            try {
-                out.write(buffer);
-            }
-            catch (IOException e) {
-                throw new UnixException(Errno.EIO, e);
-            }
-            return buffer.length;
-        }
-
         public long lseek(long offset, int whence) throws UnixException {
             return offset;
         }
@@ -1113,11 +1104,16 @@ public class Slave implements Runnable {
             if (queue == null) {
                 throw new UnixException(Errno.EINVAL);
             }
+
             ConnectingRequest request = new ConnectingRequest(this);
             synchronized (queue) {
+                // Wake up the accept(2)'ing thread.
                 queue.offer(request);
                 queue.notifyAll();
             }
+            // Wake up the poll(2)'ing thread before accept(2).
+            getAlarm().alarm();
+
             synchronized (request) {
                 while (!request.isAccepted()) {
                     try {
@@ -1189,7 +1185,8 @@ public class Slave implements Runnable {
                 request.notifyAll();
             }
 
-            Socket socket = new Socket(mDomain, mType, mProtocol, mName, peer);
+            Socket socket = new Socket(getAlarm(), mDomain, mType, mProtocol,
+                                       mName, peer);
             Pair pair = new Pair(c2s.getInputStream(), s2c.getOutputStream());
             socket.mControlReader = request.getControlBufferFromClient().getReader();
             socket.mControlWriter = request.getControlBufferFromServer().getWriter();
@@ -1328,6 +1325,20 @@ public class Slave implements Runnable {
                                  state);
         }
 
+        protected int doWrite(byte[] buffer) throws UnixException {
+            OutputStream out = mCore.getOutputStream();
+            if (out == null) {
+                throw new UnixException(Errno.ENOTCONN);
+            }
+            try {
+                out.write(buffer);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            return buffer.length;
+        }
+
         protected void doClose() throws UnixException {
             try {
                 mCore.close();
@@ -1384,8 +1395,9 @@ public class Slave implements Runnable {
 
     private class ExternalPeer extends Socket {
 
-        public ExternalPeer(int domain, int type, int protocol, SocketAddress name, Socket peer) {
-            super(domain, type, protocol, name, peer);
+        public ExternalPeer(Alarm alarm, int domain, int type, int protocol,
+                            SocketAddress name, Socket peer) {
+            super(alarm, domain, type, protocol, name, peer);
         }
     }
 
@@ -1393,7 +1405,10 @@ public class Slave implements Runnable {
 
         protected RandomAccessFile mFile;
 
-        protected UnixRandomAccessFile(String path, String mode) throws UnixException {
+        protected UnixRandomAccessFile(Alarm alarm, String path,
+                                       String mode) throws UnixException {
+            super(alarm);
+
             try {
                 mFile = new RandomAccessFile(path, mode);
             }
@@ -1468,8 +1483,9 @@ public class Slave implements Runnable {
 
     private static class UnixInputFile extends UnixRandomAccessFile {
 
-        public UnixInputFile(String path, boolean create) throws UnixException {
-            super(path, create ? "rw" : "r");
+        public UnixInputFile(Alarm alarm, String path,
+                             boolean create) throws UnixException {
+            super(alarm, path, create ? "rw" : "r");
         }
 
         public boolean isReadyToRead() throws UnixException {
@@ -1514,10 +1530,6 @@ public class Slave implements Runnable {
             return nBytes == -1 ? 0 : nBytes;
         }
 
-        public int write(byte[] buffer) throws UnixException {
-            throw new UnixException(Errno.EBADF);
-        }
-
         @Override
         public void clearFilterFlags() {
             // does nothing.
@@ -1527,14 +1539,18 @@ public class Slave implements Runnable {
         public long getFilterFlags() {
             return 0L;
         }
+
+        protected int doWrite(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.EBADF);
+        }
     }
 
     private static class UnixOutputFile extends UnixRandomAccessFile {
 
         private long mFilterFlags;
 
-        public UnixOutputFile(String path) throws UnixException {
-            super(path, "rw");
+        public UnixOutputFile(Alarm alarm, String path) throws UnixException {
+            super(alarm, path, "rw");
         }
 
         public boolean isReadyToRead() throws UnixException {
@@ -1553,17 +1569,6 @@ public class Slave implements Runnable {
             throw new UnixException(Errno.EBADF);
         }
 
-        public int write(byte[] buffer) throws UnixException {
-            try {
-                mFile.write(buffer);
-            }
-            catch (IOException e) {
-                throw new UnixException(Errno.EIO, e);
-            }
-            mFilterFlags |= KEvent.NOTE_WRITE;
-            return buffer.length;
-        }
-
         @Override
         public void clearFilterFlags() {
             mFilterFlags = 0;
@@ -1573,9 +1578,24 @@ public class Slave implements Runnable {
         public long getFilterFlags() {
             return mFilterFlags;
         }
+
+        protected int doWrite(byte[] buffer) throws UnixException {
+            try {
+                mFile.write(buffer);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            mFilterFlags |= KEvent.NOTE_WRITE;
+            return buffer.length;
+        }
     }
 
     private abstract static class UnixStream extends UnixFile {
+
+        public UnixStream(Alarm alarm) {
+            super(alarm);
+        }
 
         public long lseek(long offset, int whence) throws UnixException {
             throw new UnixException(Errno.ESPIPE);
@@ -1590,7 +1610,8 @@ public class Slave implements Runnable {
 
         private InputStream mIn;
 
-        public UnixInputStream(InputStream in) {
+        public UnixInputStream(Alarm alarm, InputStream in) {
+            super(alarm);
             mIn = in;
         }
 
@@ -1622,10 +1643,6 @@ public class Slave implements Runnable {
             throw new UnixException(Errno.ESPIPE);
         }
 
-        public int write(byte[] buffer) throws UnixException {
-            throw new UnixException(Errno.EBADF);
-        }
-
         @Override
         public void clearFilterFlags() {
             // does nothing.
@@ -1634,6 +1651,10 @@ public class Slave implements Runnable {
         @Override
         public long getFilterFlags() {
             return 0L;
+        }
+
+        protected int doWrite(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.EBADF);
         }
 
         protected void doClose() throws UnixException {
@@ -1651,7 +1672,8 @@ public class Slave implements Runnable {
         private OutputStream mOut;
         private long mFilterFlags;
 
-        public UnixOutputStream(OutputStream out) {
+        public UnixOutputStream(Alarm alarm, OutputStream out) {
+            super(alarm);
             mOut = out;
         }
 
@@ -1671,17 +1693,6 @@ public class Slave implements Runnable {
             throw new UnixException(Errno.ESPIPE);
         }
 
-        public int write(byte[] buffer) throws UnixException {
-            try {
-                mOut.write(buffer);
-            }
-            catch (IOException e) {
-                throw new UnixException(Errno.EIO, e);
-            }
-            mFilterFlags |= KEvent.NOTE_WRITE;
-            return buffer.length;
-        }
-
         @Override
         public void clearFilterFlags() {
             mFilterFlags = 0;
@@ -1690,6 +1701,17 @@ public class Slave implements Runnable {
         @Override
         public long getFilterFlags() {
             return mFilterFlags;
+        }
+
+        protected int doWrite(byte[] buffer) throws UnixException {
+            try {
+                mOut.write(buffer);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            mFilterFlags |= KEvent.NOTE_WRITE;
+            return buffer.length;
         }
 
         protected void doClose() throws UnixException {
@@ -1825,6 +1847,8 @@ public class Slave implements Runnable {
     private SignalSet mPendingSignals = new SignalSet();
     private Integer mExitStatus;
 
+    private Alarm mAlarm;
+
     // helpers
     private SlaveHelper mHelper;
     private FcntlProcs mFcntlProcs;
@@ -1837,13 +1861,15 @@ public class Slave implements Runnable {
                  Permissions permissions, Links links, Listener listener) throws IOException {
         mLogger.info("a slave is starting.");
 
+        Alarm alarm = new Alarm();
+
         UnixFile[] files = new UnixFile[UNIX_FILE_NUM];
-        files[0] = new UnixInputStream(stdin);
-        files[1] = new UnixOutputStream(stdout);
-        files[2] = new UnixOutputStream(stderr);
+        files[0] = new UnixInputStream(alarm, stdin);
+        files[1] = new UnixOutputStream(alarm, stdout);
+        files[2] = new UnixOutputStream(alarm, stderr);
 
         initialize(application, pid, hubIn, hubOut, currentDirectory, files,
-                   permissions, links, listener);
+                   permissions, links, listener, alarm);
 
         writeOpenedFileDescriptors();
         mLogger.verbose("file descripters were transfered from the slave.");
@@ -1855,9 +1881,9 @@ public class Slave implements Runnable {
     public Slave(Application application, Pid pid, InputStream hubIn,
                  OutputStream hubOut, NormalizedPath currentDirectory,
                  UnixFile[] files, Permissions permissions, Links links,
-                 Listener listener) {
+                 Listener listener, Alarm alarm) {
         initialize(application, pid, hubIn, hubOut, currentDirectory, files,
-                   permissions, links, listener);
+                   permissions, links, listener, alarm);
     }
 
     public void kill(Signal sig) throws UnixException {
@@ -1912,6 +1938,7 @@ public class Slave implements Runnable {
 
     public void cancel() {
         mCancelled = true;
+        mAlarm.alarm();
     }
 
     public Pid getPid() {
@@ -2371,7 +2398,8 @@ public class Slave implements Runnable {
                 return result;
             }
             sock.setCore(core);
-            Socket peer = new ExternalPeer(domain, type, protocol, name, sock);
+            Socket peer = new ExternalPeer(mAlarm, domain, type, protocol, name,
+                                           sock);
             sock.setPeer(peer);
         }
         finally {
@@ -2444,8 +2472,53 @@ public class Slave implements Runnable {
     public SyscallResult.Generic32 doPoll(PollFds fds, int nfds, int timeout) throws IOException {
         String fmt = "poll(fds=%s, nfds=%d, timeout=%d)";
         mLogger.info(String.format(fmt, fds, nfds, timeout));
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        return runPoll(new PollRunner(fds), timeout);
+        int[] da = new int[nfds];
+        for (int i = 0; i < nfds; i++) {
+            da[i] = fds.get(i).getFd();
+        }
+        UnixFile[] files = getFiles(da);
+        if (files == null) {
+            result.setError(Errno.EBADF);
+            return result;
+        }
+
+        long t0 = System.currentTimeMillis();
+        synchronized (mAlarm) {
+            while (true) {
+                int nReadyFds;
+                try {
+                    nReadyFds = scanPollFds(fds, files);
+                }
+                catch (UnixException e) {
+                    result.setError(e.getErrno());
+                    return result;
+                }
+                if (0 < nReadyFds) {
+                    result.retval = nReadyFds;
+                    return result;
+                }
+                long t1 = System.currentTimeMillis();
+                long t = t1 - t0;
+                if ((timeout != Unix.Constants.INFTIM) && (timeout <= t)) {
+                    return result;
+                }
+                if (mCancelled) {
+                    result.setError(Errno.EINTR);
+                    return result;
+                }
+                long limit = timeout == Unix.Constants.INFTIM ? 0
+                                                              : timeout - t;
+                try {
+                    mAlarm.wait(limit);
+                }
+                catch (InterruptedException unused) {
+                    result.setError(Errno.EINTR);
+                    return result;
+                }
+            }
+        }
     }
 
     public SyscallResult.Select doSelect(Unix.Fdset in, Unix.Fdset ou,
@@ -2775,7 +2848,8 @@ public class Slave implements Runnable {
             files[i] = mFiles[i];
         }
         Slave slave = mApplication.newSlave(pairId, mCurrentDirectory, files,
-                                            mPermissions, mLinks, mListener);
+                                            mPermissions, mLinks, mListener,
+                                            mAlarm);
         Pid pid = slave.getPid();
         Thread thread = new Thread(slave);
         thread.start();
@@ -3023,25 +3097,33 @@ public class Slave implements Runnable {
         return i < len ? i : -1;
     }
 
-    private UnixFile[] getLockedFiles(int[] fds) {
+    private UnixFile[] getFiles(int[] fds) {
         int nFiles = fds.length;
         UnixFile[] files = new UnixFile[nFiles];
         synchronized (mFiles) {
             for (int i = 0; i < nFiles; i++) {
-                UnixFile file = getLockedFile(fds[i]);
+                UnixFile file;
+                try {
+                    file = mFiles[fds[i]];
+                }
+                catch (IndexOutOfBoundsException unused) {
+                    return null;
+                }
                 if (file == null) {
-                    for (int j = 0; j < nFiles; j++) {
-                        UnixFile f = files[j];
-                        if (f != null) {
-                            f.unlock();
-                        }
-                    }
                     return null;
                 }
                 files[i] = file;
             }
         }
+        return files;
+    }
 
+    private UnixFile[] getLockedFiles(int[] fds) {
+        UnixFile[] files = getFiles(fds);
+        int nFiles = files.length;
+        for (int i = 0; i < nFiles; i++) {
+            files[i].lock();
+        }
         return files;
     }
 
@@ -3404,7 +3486,7 @@ public class Slave implements Runnable {
                             OutputStream hubOut,
                             NormalizedPath currentDirectory, UnixFile[] files,
                             Permissions permissions, Links links,
-                            Listener listener) {
+                            Listener listener, Alarm alarm) {
         mApplication = application;
         mPid = pid;
         mIn = new SyscallInputStream(hubIn);
@@ -3415,11 +3497,43 @@ public class Slave implements Runnable {
         mCurrentDirectory = currentDirectory;
         mFiles = files;
 
+        mAlarm = alarm;
+
         mHelper = new SlaveHelper(this, mIn, mOut);
         mFcntlProcs = new FcntlProcs();
         mFcntlProcs.put(Unix.Constants.F_GETFD, new FGetFdProc());
         mFcntlProcs.put(Unix.Constants.F_SETFD, new FSetFdProc());
         mFcntlProcs.put(Unix.Constants.F_SETFL, new FSetFlProc());
+    }
+
+    private int scanPollFds(PollFds fds,
+                            UnixFile[] files) throws UnixException {
+        int nReadyFds = 0;
+        int nFiles = fds.size();
+        for (int i = 0; i < nFiles; i++) {
+            PollFd fd = fds.get(i);
+            UnixFile file = files[i];
+            file.lock();
+            try {
+                int events = fd.getEvents();
+                if ((events & Unix.Constants.POLLIN) != 0) {
+                    if (file.isReadyToRead()) {
+                        fd.addRevents(Unix.Constants.POLLIN);
+                    }
+                }
+                if ((events & Unix.Constants.POLLOUT) != 0) {
+                    if (file.isReadyToWrite()) {
+                        fd.addRevents(Unix.Constants.POLLOUT);
+                    }
+                }
+            }
+            finally {
+                file.unlock();
+            }
+            nReadyFds += (fd.getRevents() != 0 ? 1 : 0);
+        }
+
+        return nReadyFds;
     }
 
     static {
