@@ -523,7 +523,7 @@ wait_data(struct thread *td)
 	int error, kq;
 
 	kq = fmaster_data_of_thread(td)->kq;
-	timeout.tv_sec = 8;
+	timeout.tv_sec = 120;
 	timeout.tv_nsec = 0;
 	k_bonus.changelist = NULL;
 	k_bonus.eventlist = &kev;
