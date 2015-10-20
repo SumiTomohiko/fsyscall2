@@ -288,6 +288,8 @@ public class Unix {
         public static final int PF_LOCAL = AF_LOCAL;
         public static final int PF_UNIX = PF_LOCAL;
 
+        public static final int SOCK_STREAM = 1;
+
         public static final int F_DUPFD = 0;
         public static final int F_GETFD = 1;
         public static final int F_SETFD = 2;

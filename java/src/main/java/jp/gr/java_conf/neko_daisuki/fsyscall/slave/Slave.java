@@ -1199,6 +1199,40 @@ public class Slave implements Runnable {
             return nbytes;
         }
 
+        public String toString() {
+            String domain;
+            switch (mDomain) {
+            case Unix.Constants.PF_LOCAL:
+                domain = "PF_LOCAL";
+                break;
+            default:
+                domain = "unknown";
+                break;
+            }
+            String type;
+            switch (mType) {
+            case Unix.Constants.SOCK_STREAM:
+                type = "SOCK_STREAM";
+                break;
+            default:
+                type = "unknown";
+                break;
+            }
+
+            String state;
+            if (mName != null) {
+                String fmt = mPeer != null ? "connected with %s"
+                                           : "bound to %s";
+                state = String.format(fmt, mName);
+            }
+            else {
+                state = "disconnected";
+            }
+            String fmt = "Socket(domain=%d (%s), type=%d (%s), protocol=%d, %s)";
+            return String.format(fmt, mDomain, domain, mType, type, mProtocol,
+                                 state);
+        }
+
         protected void doClose() throws UnixException {
             try {
                 mCore.close();

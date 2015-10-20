@@ -22,6 +22,10 @@ public class SocketAddress {
         return 2;
     }
 
+    public String toString() {
+        return String.format("SocketAddress(%s)", getBaseString());
+    }
+
     protected String getBaseString() {
         return String.format("sa_len=%d, sa_family=%d", mLen, mFamily);
     }
