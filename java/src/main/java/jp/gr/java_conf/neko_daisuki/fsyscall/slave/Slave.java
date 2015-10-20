@@ -17,6 +17,8 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.TimeZone;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -115,6 +117,84 @@ public class Slave implements Runnable {
                 Thread.sleep(interval);
                 t += 1000 * interval;
                 act = runner.run();
+            }
+        }
+    }
+
+    private class TimeoutTimer {
+
+        private class Worker extends TimerTask {
+
+            private long mTimeBegin;
+            private IOException mIOException;
+            private UnixException mUnixException;
+
+            public Worker() {
+                mTimeBegin = System.currentTimeMillis();
+            }
+
+            public void run() {
+                TimeoutRunner.Action action;
+                try {
+                    action = mTask.run();
+                }
+                catch (IOException e) {
+                    mIOException = e;
+                    return;
+                }
+                catch (UnixException e) {
+                    mUnixException = e;
+                    return;
+                }
+
+                long t = System.currentTimeMillis() - mTimeBegin;   // msec
+                if (mDetector.isTimeout(1000 * t /* usec */)) {
+                    stop();
+                }
+                else if (action != TimeoutRunner.Action.CONTINUE) {
+                    stop();
+                }
+                else if (mCancelled) {
+                    stop();
+                }
+            }
+
+            private void stop() {
+                cancel();
+                synchronized (this) {
+                    notifyAll();
+                }
+            }
+        }
+
+        private TimeoutDetector mDetector;
+        private TimeoutRunner mTask;
+
+        public TimeoutTimer(Unix.TimeSpec timeout, TimeoutRunner task) {
+            this(TimeoutDetector.newInstance(timeout), task);
+        }
+
+        public TimeoutTimer(long timeout, TimeoutRunner task) {
+            this(TimeoutDetector.newInstance(timeout), task);
+        }
+
+        public TimeoutTimer(TimeoutDetector detector, TimeoutRunner task) {
+            mDetector = detector;
+            mTask = task;
+        }
+
+        public void run() throws IOException, InterruptedException,
+                                 UnixException {
+            Worker worker = new Worker();
+            synchronized (worker) {
+                new Timer(true).schedule(worker, 0, 100);
+                worker.wait();
+            }
+            if (worker.mIOException != null) {
+                throw worker.mIOException;
+            }
+            else if (worker.mUnixException != null) {
+                throw worker.mUnixException;
             }
         }
     }
@@ -663,12 +743,27 @@ public class Slave implements Runnable {
         }
     }
 
-    private static interface TimeoutDetector {
+    private static abstract class TimeoutDetector {
 
-        public boolean isTimeout(long usec);
+        public abstract boolean isTimeout(long usec);
+
+        public static TimeoutDetector newInstance(Unix.TimeSpec timeout) {
+            return timeout != null ? new TrueTimeoutDetector(timeout)
+                                   : new InfinityTimeoutDetector();
+        }
+
+        public static TimeoutDetector newInstance(long timeout) {
+            if (timeout == Unix.Constants.INFTIM) {
+                return new InfinityTimeoutDetector();
+            }
+            else if (timeout == 0L) {
+                return new ZeroTimeoutDetector();
+            }
+            return new TrueTimeoutDetector(timeout);
+        }
     }
 
-    private static class ZeroTimeoutDetector implements TimeoutDetector {
+    private static class ZeroTimeoutDetector extends TimeoutDetector {
 
         private int mCount = 0;
 
@@ -679,14 +774,14 @@ public class Slave implements Runnable {
         }
     }
 
-    private static class InfinityTimeoutDetector implements TimeoutDetector {
+    private static class InfinityTimeoutDetector extends TimeoutDetector {
 
         public boolean isTimeout(long usec) {
             return false;
         }
     }
 
-    private static class TrueTimeoutDetector implements TimeoutDetector {
+    private static class TrueTimeoutDetector extends TimeoutDetector {
 
         private long mTime; // usec
 
@@ -2881,9 +2976,13 @@ public class Slave implements Runnable {
                                             int timeout) throws IOException {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        TimeoutLoop loop = new TimeoutLoop(timeout);
+        TimeoutTimer timer = new TimeoutTimer(timeout, runner);
         try {
-            loop.run(runner);
+            timer.run();
+        }
+        catch (IOException unused) {
+            result.setError(Errno.EIO);
+            return result;
         }
         catch (InterruptedException unused) {
             result.setError(Errno.EINTR);
