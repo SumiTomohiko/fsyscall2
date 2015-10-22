@@ -974,7 +974,7 @@ public class Slave implements Runnable {
         public Socket(Alarm alarm, int domain, int type, int protocol,
                       SocketAddress name, Socket peer) {
             this(alarm, domain, type, protocol);
-            mName = name;
+            setName(name);
             setPeer(peer);
         }
 
@@ -1000,6 +1000,10 @@ public class Slave implements Runnable {
 
         public SocketAddress getName() {
             return mName;
+        }
+
+        public void setName(SocketAddress name) {
+            mName = name;
         }
 
         public void setCore(SocketCore core) {
@@ -1095,7 +1099,7 @@ public class Slave implements Runnable {
                 throw new UnixException(Errno.EIO, e);
             }
             Socket peer = (Socket)mApplication.getUnixDomainSocket(path);
-            mName = new UnixDomainAddress(2, addr.getFamily(), "");
+            setName(new UnixDomainAddress(2, addr.getFamily(), ""));
             connect(peer);
         }
 
@@ -1146,7 +1150,7 @@ public class Slave implements Runnable {
             }
             mApplication.bindSocket(path, this);
             setCore(new LocalBoundCore());
-            mName = addr;
+            setName(addr);
         }
 
         public Socket accept() throws UnixException {
@@ -2398,6 +2402,7 @@ public class Slave implements Runnable {
                 return result;
             }
             sock.setCore(core);
+            sock.setName(name);
             Socket peer = new ExternalPeer(mAlarm, domain, type, protocol, name,
                                            sock);
             sock.setPeer(peer);
