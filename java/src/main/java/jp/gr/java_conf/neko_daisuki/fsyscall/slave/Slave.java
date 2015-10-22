@@ -1356,9 +1356,6 @@ public class Slave implements Runnable {
             Unix.Cmsgfds data = (Unix.Cmsgfds)cmsghdr.cmsg_data;
             int[] fds = data.fds;
             UnixFile[] files = getLockedFiles(fds);
-            if (files == null) {
-                throw new UnixException(Errno.EBADF);
-            }
             try {
                 int len = fds.length;
                 for (int i = 0; i < len; i++) {
@@ -1790,6 +1787,198 @@ public class Slave implements Runnable {
         }
     }
 
+    private interface AlarmReaction {
+
+        public int run() throws UnixException;
+    }
+
+    private class AlarmReactor {
+
+        public static final int ACTION_BREAK = 0;
+        public static final int ACTION_CONTINUE = 1;
+
+        private static final long INFTIM = Unix.Constants.INFTIM;
+
+        private AlarmReaction mReaction;
+        private Unix.TimeSpec mTimeout;
+
+        public AlarmReactor(AlarmReaction reaction, long timeout /* msec */) {
+            setReaction(reaction);
+
+            if (timeout != Unix.Constants.INFTIM) {
+                int sec = (int)(timeout / 1000);
+                long nsec = (timeout % 1000) * 1000000;
+                mTimeout = new Unix.TimeSpec(sec, nsec);
+            }
+        }
+
+        public AlarmReactor(AlarmReaction reaction, Unix.TimeVal timeout) {
+            setReaction(reaction);
+
+            if (timeout != null) {
+                int sec = (int)timeout.tv_sec;
+                long nsec = 1000 * timeout.tv_usec;
+                mTimeout = new Unix.TimeSpec(sec, nsec);
+            }
+        }
+
+        public void run() throws UnixException {
+            long t0 = System.nanoTime();
+            long nanoTimeout = mTimeout != null ? mTimeout.toNanoTime() : 0;
+            synchronized (mAlarm) {
+                while (true) {
+                    int action = mReaction.run();
+                    switch (action) {
+                    case ACTION_BREAK:
+                        return;
+                    case ACTION_CONTINUE:
+                        break;
+                    default:
+                        String fmt = "unsupported action: %d";
+                        throw new RuntimeException(String.format(fmt, action));
+                    }
+
+                    long t = System.nanoTime() - t0;
+                    if ((mTimeout != null) && (nanoTimeout <= t)) {
+                        return;
+                    }
+                    if (mCancelled) {
+                        throw new UnixException(Errno.EINTR);
+                    }
+                    long nano = mTimeout != null ? nanoTimeout - t : 0;
+                    try {
+                        mAlarm.wait(nano / 1000000, (int)(nano % 1000000));
+                    }
+                    catch (InterruptedException e) {
+                        throw new UnixException(Errno.EINTR, e);
+                    }
+                }
+            }
+        }
+
+        private void setReaction(AlarmReaction reaction) {
+            mReaction = reaction;
+        }
+    }
+
+    private class PollReaction implements AlarmReaction {
+
+        private PollFds mFds;
+        private UnixFile[] mFiles;
+        private int mReadyFdsNumber;
+
+        public PollReaction(PollFds fds, UnixFile[] files) {
+            mFds = fds;
+            mFiles = files;
+        }
+
+        public int getReadyFdsNumber() {
+            return mReadyFdsNumber;
+        }
+
+        public int run() throws UnixException {
+            int nReadyFds = 0;
+            int nFiles = mFds.size();
+            for (int i = 0; i < nFiles; i++) {
+                PollFd fd = mFds.get(i);
+                UnixFile file = mFiles[i];
+                file.lock();
+                try {
+                    int events = fd.getEvents();
+                    if ((events & Unix.Constants.POLLIN) != 0) {
+                        if (file.isReadyToRead()) {
+                            fd.addRevents(Unix.Constants.POLLIN);
+                        }
+                    }
+                    if ((events & Unix.Constants.POLLOUT) != 0) {
+                        if (file.isReadyToWrite()) {
+                            fd.addRevents(Unix.Constants.POLLOUT);
+                        }
+                    }
+                }
+                finally {
+                    file.unlock();
+                }
+                nReadyFds += (fd.getRevents() != 0 ? 1 : 0);
+            }
+
+            mReadyFdsNumber = nReadyFds;
+
+            return 0 < nReadyFds ? AlarmReactor.ACTION_BREAK
+                                 : AlarmReactor.ACTION_CONTINUE;
+        }
+    }
+
+    private class SelectReaction implements AlarmReaction {
+
+        private Unix.Fdset mInReady = new Unix.Fdset();
+        private Unix.Fdset mOuReady = new Unix.Fdset();
+        private Unix.Fdset mExReady = new Unix.Fdset();
+        private Unix.Fdset mIn;
+        private UnixFile[] mInFiles;
+        private Unix.Fdset mOu;
+        private UnixFile[] mOuFiles;
+        private Unix.Fdset mEx;
+        private UnixFile[] mExFiles;
+
+        public SelectReaction(Unix.Fdset in, UnixFile[] inFiles, Unix.Fdset ou,
+                              UnixFile[] ouFiles, Unix.Fdset ex,
+                              UnixFile[] exFiles) {
+            mIn = in;
+            mInFiles = inFiles;
+            mOu = ou;
+            mOuFiles = ouFiles;
+            mEx = ex;
+            mExFiles = exFiles;
+        }
+
+        public Unix.Fdset getInReady() {
+            return mInReady;
+        }
+
+        public Unix.Fdset getOuReady() {
+            return mOuReady;
+        }
+
+        public Unix.Fdset getExReady() {
+            return mExReady;
+        }
+
+        public int getReadyFdsNumber() {
+            return mInReady.size() + mOuReady.size() + mExReady.size();
+        }
+
+        public int run() throws UnixException {
+            mInReady.clear();
+            mOuReady.clear();
+            mExReady.clear();
+
+            selectFds(mInReady, mIn, mInFiles, READ_SELECT_PRED);
+            selectFds(mOuReady, mOu, mOuFiles, WRITE_SELECT_PRED);
+            // TODO: Perform for ex (But how?).
+
+            return 0 < getReadyFdsNumber() ? AlarmReactor.ACTION_BREAK
+                                           : AlarmReactor.ACTION_CONTINUE;
+        }
+
+        private void selectFds(Unix.Fdset ready, Unix.Fdset fds,
+                               UnixFile[] files, SelectPred pred) throws UnixException {
+            int nfds = fds.size();
+            for (int i = 0; i < nfds; i++) {
+                UnixFile file = files[i];
+                file.lock();
+                try {
+                    if (pred.isReady(file)) {
+                        ready.add(fds.get(i));
+                    }
+                }
+                finally {
+                    file.unlock();
+                }
+            }
+        }
+    }
+
     private static final int UID = 1001;
     private static final int GID = 1001;
     private static final int UNIX_FILE_NUM = 256;
@@ -1827,6 +2016,8 @@ public class Slave implements Runnable {
             " ", " ", " ", " ", " ", " ", " ", " ",
             " ", " ", " ", " ", " ", " ", " ", " "
     };
+    private static final SelectPred READ_SELECT_PRED = new ReadSelectPred();
+    private static final SelectPred WRITE_SELECT_PRED = new WriteSelectPred();
 
     // static helpers
     private static NormalizedPath mPwdDbPath;
@@ -2479,113 +2670,70 @@ public class Slave implements Runnable {
         mLogger.info(String.format(fmt, fds, nfds, timeout));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        int[] da = new int[nfds];
-        for (int i = 0; i < nfds; i++) {
-            da[i] = fds.get(i).getFd();
+        UnixFile[] files;
+        try {
+            files = getFiles(fds);
         }
-        UnixFile[] files = getFiles(da);
-        if (files == null) {
-            result.setError(Errno.EBADF);
+        catch (UnixException e) {
+            result.setError(e.getErrno());
             return result;
         }
 
-        long t0 = System.currentTimeMillis();
-        synchronized (mAlarm) {
-            while (true) {
-                int nReadyFds;
-                try {
-                    nReadyFds = scanPollFds(fds, files);
-                }
-                catch (UnixException e) {
-                    result.setError(e.getErrno());
-                    return result;
-                }
-                if (0 < nReadyFds) {
-                    result.retval = nReadyFds;
-                    return result;
-                }
-                long t1 = System.currentTimeMillis();
-                long t = t1 - t0;
-                if ((timeout != Unix.Constants.INFTIM) && (timeout <= t)) {
-                    return result;
-                }
-                if (mCancelled) {
-                    result.setError(Errno.EINTR);
-                    return result;
-                }
-                long limit = timeout == Unix.Constants.INFTIM ? 0
-                                                              : timeout - t;
-                try {
-                    mAlarm.wait(limit);
-                }
-                catch (InterruptedException unused) {
-                    result.setError(Errno.EINTR);
-                    return result;
-                }
-            }
+        PollReaction reaction = new PollReaction(fds, files);
+        try {
+            new AlarmReactor(reaction, timeout).run();
         }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+
+        result.retval = reaction.getReadyFdsNumber();
+
+        return result;
     }
 
     public SyscallResult.Select doSelect(Unix.Fdset in, Unix.Fdset ou,
                                          Unix.Fdset ex, Unix.TimeVal timeout) throws IOException {
         String fmt = "select(in=%s, ou=%s, ex=%s, timeout=%s)";
         mLogger.info(String.format(fmt, in, ou, ex, timeout));
-
         SyscallResult.Select result = new SyscallResult.Select();
 
-        TimeoutDetector timeoutDetector = timeout != null ? new TrueTimeoutDetector(timeout) : new InfinityTimeoutDetector();
-
-        long usecInterval = 100 * 1000;
-
-        Unix.Fdset inReady = new Unix.Fdset();
-        Unix.Fdset ouReady = new Unix.Fdset();
-        Unix.Fdset exReady = new Unix.Fdset();
-        long usecTime = 0;
-        int nReadyFds = 0;
-        SelectPred readPred = new ReadSelectPred();
-        SelectPred writePred = new WriteSelectPred();
-        while (!timeoutDetector.isTimeout(usecTime) && (nReadyFds == 0) && !mCancelled) {
-            inReady.clear();
-            ouReady.clear();
-            exReady.clear();
-
-            try {
-                selectFds(inReady, in, readPred);
-                selectFds(ouReady, ou, writePred);
-                // TODO: Perform for ex (But how?).
+        UnixFile[] inFiles;
+        UnixFile[] ouFiles;
+        UnixFile[] exFiles;
+        try {
+            synchronized (mFiles) {
+                inFiles = getFiles(in);
+                ouFiles = getFiles(ou);
+                exFiles = getFiles(ex);
             }
-            catch (UnixException e) {
-                result.retval = -1;
-                result.errno = e.getErrno();
-                return result;
-            }
-
-            try {
-                Thread.sleep(usecInterval / 1000);
-            }
-            catch (InterruptedException e) {
-                result.retval = -1;
-                result.errno = Errno.EINTR;
-                return result;
-            }
-            usecTime += usecInterval;
-
-            nReadyFds = inReady.size() + ouReady.size() + exReady.size();
         }
-
-        if (mCancelled) {
-            result.setError(Errno.EINTR);
+        catch (UnixException e) {
+            result.setError(e.getErrno());
             return result;
         }
 
+        SelectReaction reaction = new SelectReaction(in, inFiles, ou, ouFiles,
+                                                     ex, exFiles);
+        try {
+            new AlarmReactor(reaction, timeout).run();
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+
+        int nReadyFds = reaction.getReadyFdsNumber();
         result.retval = nReadyFds;
         if (nReadyFds == 0) {
             return result;
         }
 
-        result.in = inReady;
-        result.ou = ouReady;
-        result.ex = exReady;
+        result.in = reaction.getInReady();
+        result.ou = reaction.getOuReady();
+        result.ex = reaction.getExReady();
+
         return result;
     }
 
@@ -3102,7 +3250,25 @@ public class Slave implements Runnable {
         return i < len ? i : -1;
     }
 
-    private UnixFile[] getFiles(int[] fds) {
+    private UnixFile[] getFiles(Unix.Fdset fds) throws UnixException {
+        int nfds = fds.size();
+        int[] da = new int[nfds];
+        for (int i = 0; i < nfds; i++) {
+            da[i] = fds.get(i);
+        }
+        return getFiles(da);
+    }
+
+    private UnixFile[] getFiles(PollFds fds) throws UnixException {
+        int nfds = fds.size();
+        int[] da = new int[nfds];
+        for (int i = 0; i < nfds; i++) {
+            da[i] = fds.get(i).getFd();
+        }
+        return getFiles(da);
+    }
+
+    private UnixFile[] getFiles(int[] fds) throws UnixException {
         int nFiles = fds.length;
         UnixFile[] files = new UnixFile[nFiles];
         synchronized (mFiles) {
@@ -3111,11 +3277,11 @@ public class Slave implements Runnable {
                 try {
                     file = mFiles[fds[i]];
                 }
-                catch (IndexOutOfBoundsException unused) {
-                    return null;
+                catch (IndexOutOfBoundsException e) {
+                    throw new UnixException(Errno.EBADF, e);
                 }
                 if (file == null) {
-                    return null;
+                    throw new UnixException(Errno.EBADF);
                 }
                 files[i] = file;
             }
@@ -3123,7 +3289,7 @@ public class Slave implements Runnable {
         return files;
     }
 
-    private UnixFile[] getLockedFiles(int[] fds) {
+    private UnixFile[] getLockedFiles(int[] fds) throws UnixException {
         UnixFile[] files = getFiles(fds);
         int nFiles = files.length;
         for (int i = 0; i < nFiles; i++) {
@@ -3162,21 +3328,6 @@ public class Slave implements Runnable {
             throw new UnixException(Errno.EBADF);
         }
         return file;
-    }
-
-    private void selectFds(Unix.Fdset dest, Unix.Fdset src,
-                           SelectPred pred) throws UnixException {
-        for (Integer fd: src) {
-            UnixFile file = getValidFile(fd.intValue());
-            try {
-                if (pred.isReady(file)) {
-                    dest.add(fd);
-                }
-            }
-            finally {
-                file.unlock();
-            }
-        }
     }
 
     private void registerFileAt(UnixFile file, int at) {
@@ -3509,36 +3660,6 @@ public class Slave implements Runnable {
         mFcntlProcs.put(Unix.Constants.F_GETFD, new FGetFdProc());
         mFcntlProcs.put(Unix.Constants.F_SETFD, new FSetFdProc());
         mFcntlProcs.put(Unix.Constants.F_SETFL, new FSetFlProc());
-    }
-
-    private int scanPollFds(PollFds fds,
-                            UnixFile[] files) throws UnixException {
-        int nReadyFds = 0;
-        int nFiles = fds.size();
-        for (int i = 0; i < nFiles; i++) {
-            PollFd fd = fds.get(i);
-            UnixFile file = files[i];
-            file.lock();
-            try {
-                int events = fd.getEvents();
-                if ((events & Unix.Constants.POLLIN) != 0) {
-                    if (file.isReadyToRead()) {
-                        fd.addRevents(Unix.Constants.POLLIN);
-                    }
-                }
-                if ((events & Unix.Constants.POLLOUT) != 0) {
-                    if (file.isReadyToWrite()) {
-                        fd.addRevents(Unix.Constants.POLLOUT);
-                    }
-                }
-            }
-            finally {
-                file.unlock();
-            }
-            nReadyFds += (fd.getRevents() != 0 ? 1 : 0);
-        }
-
-        return nReadyFds;
     }
 
     static {
