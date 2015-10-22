@@ -3,15 +3,20 @@ package jp.gr.java_conf.neko_daisuki.fsyscall;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 
 public class Unix {
 
     public static class Fdset implements Iterable<Integer> {
 
-        private Collection<Integer> mFds = new LinkedList<Integer>();
+        private List<Integer> mFds = new LinkedList<Integer>();
 
         public void add(int fd) {
             mFds.add(Integer.valueOf(fd));
+        }
+
+        public int get(int index) {
+            return mFds.get(index).intValue();
         }
 
         public int size() {
@@ -78,9 +83,21 @@ public class Unix {
         public int tv_sec;
         public long tv_nsec;
 
+        public TimeSpec() {
+        }
+
+        public TimeSpec(int sec, long nsec) {
+            tv_sec = sec;
+            tv_nsec = nsec;
+        }
+
         public String toString() {
             String fmt = "TimeSpec(tv_sec=%d, tv_nsec=%d)";
             return String.format(fmt, tv_sec, tv_nsec);
+        }
+
+        public long toNanoTime() {
+            return 1000000000 * tv_sec + tv_nsec;
         }
     }
 
