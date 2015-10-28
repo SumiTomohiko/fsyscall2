@@ -102,7 +102,7 @@ log_buf(struct thread *td, int fd, const char *buf, size_t nbytes)
 	struct malloc_type *mt;
 	size_t i, n, size;
 	int error;
-	unsigned char *p, *q, s[64], *tmp;
+	unsigned char *p, *q, s[256], *tmp;
 
 	mt = M_TEMP;
 	size = MIN(nbytes + 1, sizeof(s));
