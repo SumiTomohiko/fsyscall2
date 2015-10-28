@@ -121,143 +121,6 @@ public class Slave implements Runnable {
         }
     }
 
-    private class TimeoutTimer {
-
-        private class Worker extends TimerTask {
-
-            private long mTimeBegin;
-            private IOException mIOException;
-            private UnixException mUnixException;
-
-            public Worker() {
-                mTimeBegin = System.currentTimeMillis();
-            }
-
-            public void run() {
-                TimeoutRunner.Action action;
-                try {
-                    action = mTask.run();
-                }
-                catch (IOException e) {
-                    mIOException = e;
-                    return;
-                }
-                catch (UnixException e) {
-                    mUnixException = e;
-                    return;
-                }
-
-                long t = System.currentTimeMillis() - mTimeBegin;   // msec
-                if (mDetector.isTimeout(1000 * t /* usec */)) {
-                    stop();
-                }
-                else if (action != TimeoutRunner.Action.CONTINUE) {
-                    stop();
-                }
-                else if (mCancelled) {
-                    stop();
-                }
-            }
-
-            private void stop() {
-                cancel();
-                synchronized (this) {
-                    notifyAll();
-                }
-            }
-        }
-
-        private TimeoutDetector mDetector;
-        private TimeoutRunner mTask;
-
-        public TimeoutTimer(Unix.TimeSpec timeout, TimeoutRunner task) {
-            this(TimeoutDetector.newInstance(timeout), task);
-        }
-
-        public TimeoutTimer(long timeout, TimeoutRunner task) {
-            this(TimeoutDetector.newInstance(timeout), task);
-        }
-
-        public TimeoutTimer(TimeoutDetector detector, TimeoutRunner task) {
-            mDetector = detector;
-            mTask = task;
-        }
-
-        public void run() throws IOException, InterruptedException,
-                                 UnixException {
-            Worker worker = new Worker();
-            synchronized (worker) {
-                new Timer(true).schedule(worker, 0, 100);
-                worker.wait();
-            }
-            if (worker.mIOException != null) {
-                throw worker.mIOException;
-            }
-            else if (worker.mUnixException != null) {
-                throw worker.mUnixException;
-            }
-        }
-    }
-
-    private class PollRunner implements TimeoutRunner {
-
-        private int mReadyFdsNumber;
-        private PollFds mFds;
-
-        public PollRunner(PollFds fds) {
-            mFds = fds;
-        }
-
-        public int getReadyFdsNumber() {
-            return mReadyFdsNumber;
-        }
-
-        public Action run() throws IOException, UnixException {
-            for (PollFd fd: mFds) {
-                UnixFile file = getValidFile(fd.getFd());
-                try {
-                    int events = fd.getEvents();
-                    if ((events & Unix.Constants.POLLIN) != 0) {
-                        if (file.isReadyToRead()) {
-                            fd.addRevents(Unix.Constants.POLLIN);
-                        }
-                    }
-                    if ((events & Unix.Constants.POLLOUT) != 0) {
-                        if (file.isReadyToWrite()) {
-                            fd.addRevents(Unix.Constants.POLLOUT);
-                        }
-                    }
-                }
-                finally {
-                    file.unlock();
-                }
-            }
-            int nReadyFds = 0;
-            for (PollFd fd: mFds) {
-                nReadyFds += (fd.getRevents() != 0 ? 1 : 0);
-            }
-            if (0 < nReadyFds) {
-                mReadyFdsNumber = nReadyFds;
-                return Action.BREAK;
-            }
-
-            return Action.CONTINUE;
-        }
-    }
-
-    private class InterruptablePollRunner extends PollRunner {
-
-        public InterruptablePollRunner(PollFds fds) {
-            super(fds);
-        }
-
-        public Action run() throws IOException, UnixException {
-            Action action = super.run();
-            return (action == Action.BREAK) || mIn.isReady() ? Action.BREAK
-                                                             : Action.CONTINUE;
-        }
-    }
-
     private interface EventFilter {
 
         public KEvent scan(long ident, boolean clear, long fflags) throws UnixException;
@@ -1789,7 +1652,7 @@ public class Slave implements Runnable {
 
     private interface AlarmReaction {
 
-        public int run() throws UnixException;
+        public int run() throws IOException, UnixException;
     }
 
     private class AlarmReactor {
@@ -1822,7 +1685,7 @@ public class Slave implements Runnable {
             }
         }
 
-        public void run() throws UnixException {
+        public void run() throws IOException, UnixException {
             long t0 = System.nanoTime();
             long nanoTimeout = mTimeout != null ? mTimeout.toNanoTime() : 0;
             synchronized (mAlarm) {
@@ -1876,7 +1739,7 @@ public class Slave implements Runnable {
             return mReadyFdsNumber;
         }
 
-        public int run() throws UnixException {
+        public int run() throws IOException, UnixException {
             int nReadyFds = 0;
             int nFiles = mFds.size();
             for (int i = 0; i < nFiles; i++) {
@@ -1906,6 +1769,19 @@ public class Slave implements Runnable {
 
             return 0 < nReadyFds ? AlarmReactor.ACTION_BREAK
                                  : AlarmReactor.ACTION_CONTINUE;
+        }
+    }
+
+    private class InterruptablePollReaction extends PollReaction {
+
+        public InterruptablePollReaction(PollFds fds, UnixFile[] files) {
+            super(fds, files);
+        }
+
+        public int run() throws IOException, UnixException {
+            boolean isBreak = super.run() == AlarmReactor.ACTION_BREAK;
+            return isBreak || mIn.isReady() ? AlarmReactor.ACTION_BREAK
+                                            : AlarmReactor.ACTION_CONTINUE;
         }
     }
 
@@ -1948,7 +1824,7 @@ public class Slave implements Runnable {
             return mInReady.size() + mOuReady.size() + mExReady.size();
         }
 
-        public int run() throws UnixException {
+        public int run() throws IOException, UnixException {
             mInReady.clear();
             mOuReady.clear();
             mExReady.clear();
@@ -2662,35 +2538,30 @@ public class Slave implements Runnable {
         String fmt = "interruptable poll(fds=%s, nfds=%d, timeout=%d)";
         mLogger.info(String.format(fmt, fds, nfds, timeout));
 
-        return runPoll(new InterruptablePollRunner(fds), timeout);
+        UnixFile[] files;
+        try {
+            files = getFiles(fds);
+        }
+        catch (UnixException e) {
+            return new SyscallResult.Generic32(e.getErrno());
+        }
+
+        return runPoll(new InterruptablePollReaction(fds, files), timeout);
     }
 
     public SyscallResult.Generic32 doPoll(PollFds fds, int nfds, int timeout) throws IOException {
         String fmt = "poll(fds=%s, nfds=%d, timeout=%d)";
         mLogger.info(String.format(fmt, fds, nfds, timeout));
-        SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         UnixFile[] files;
         try {
             files = getFiles(fds);
         }
         catch (UnixException e) {
-            result.setError(e.getErrno());
-            return result;
+            return new SyscallResult.Generic32(e.getErrno());
         }
 
-        PollReaction reaction = new PollReaction(fds, files);
-        try {
-            new AlarmReactor(reaction, timeout).run();
-        }
-        catch (UnixException e) {
-            result.setError(e.getErrno());
-            return result;
-        }
-
-        result.retval = reaction.getReadyFdsNumber();
-
-        return result;
+        return runPoll(new PollReaction(fds, files), timeout);
     }
 
     public SyscallResult.Select doSelect(Unix.Fdset in, Unix.Fdset ou,
@@ -3199,28 +3070,19 @@ public class Slave implements Runnable {
         return retval;
     }
 
-    private SyscallResult.Generic32 runPoll(PollRunner runner,
+    private SyscallResult.Generic32 runPoll(PollReaction reaction,
                                             int timeout) throws IOException {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        TimeoutTimer timer = new TimeoutTimer(timeout, runner);
         try {
-            timer.run();
-        }
-        catch (IOException unused) {
-            result.setError(Errno.EIO);
-            return result;
-        }
-        catch (InterruptedException unused) {
-            result.setError(Errno.EINTR);
-            return result;
+            new AlarmReactor(reaction, timeout).run();
         }
         catch (UnixException e) {
             result.setError(e.getErrno());
             return result;
         }
 
-        result.retval = runner.getReadyFdsNumber();
+        result.retval = reaction.getReadyFdsNumber();
 
         return result;
     }
