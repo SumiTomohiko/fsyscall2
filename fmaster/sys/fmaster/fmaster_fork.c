@@ -39,7 +39,8 @@ execute_call(struct thread *td, struct fmaster_fork_args *uap)
 MALLOC_DEFINE(M_TOKEN, "token", "buffer for token");
 
 static int
-do_fork(struct thread *td, const char *token, uint64_t token_size)
+do_fork(struct thread *td, pid_t slave_pid, const char *token,
+	uint64_t token_size)
 {
 	struct thread *td2;
 	struct proc *p2;
@@ -52,6 +53,7 @@ do_fork(struct thread *td, const char *token, uint64_t token_size)
 	error = fmaster_copy_data(td, data2);
 	if (error != 0)
 		return (error);
+	data2->fdata_slave_pid = slave_pid;
 	error = fmaster_set_token(data2, token, token_size);
 	if (error != 0)
 		return (error);
@@ -71,7 +73,8 @@ do_fork(struct thread *td, const char *token, uint64_t token_size)
 }
 
 static int
-execute_return(struct thread *td, struct fmaster_fork_args *uap, char **ptoken, uint64_t *ptoken_size)
+execute_return(struct thread *td, struct fmaster_fork_args *uap,
+	       pid_t *slave_pid, char **ptoken, uint64_t *ptoken_size)
 {
 	payload_size_t payload_size;
 	uint64_t token_size;
@@ -103,7 +106,7 @@ execute_return(struct thread *td, struct fmaster_fork_args *uap, char **ptoken, 
 	error = fmaster_read_int32(td, &pid, &pid_size);
 	if (error != 0)
 		return (error);
-	td->td_retval[0] = pid;
+	*slave_pid = td->td_retval[0] = pid;
 
 	return (0);
 }
@@ -112,16 +115,17 @@ static int
 fmaster_fork_main(struct thread *td, struct fmaster_fork_args *uap)
 {
 	uint64_t token_size;
+	pid_t slave_pid;
 	int error;
 	char *token = NULL;
 
 	error = execute_call(td, uap);
 	if (error != 0)
 		return (error);
-	error = execute_return(td, uap, &token, &token_size);
+	error = execute_return(td, uap, &slave_pid, &token, &token_size);
 	if (error != 0)
 		goto exit;
-	error = do_fork(td, token, token_size);
+	error = do_fork(td, slave_pid, token, token_size);
 
 exit:
 	if (token != NULL)

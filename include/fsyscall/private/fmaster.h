@@ -61,6 +61,8 @@ struct fmaster_data {
 	struct mtx		fdata_files_lock;
 	uma_zone_t		fdata_vnodes;
 
+	pid_t			fdata_slave_pid;
+
 	char fork_sock[MAXPATHLEN];
 	uint64_t token_size;
 	char token[DATA_TOKEN_SIZE];
@@ -69,6 +71,8 @@ struct fmaster_data {
 
 	int fdata_logfd;
 };
+
+#define	SLAVE_PID_UNKNOWN	(-1)
 
 /* I/O */
 int	fmaster_read_command(struct thread *, command_t *);
