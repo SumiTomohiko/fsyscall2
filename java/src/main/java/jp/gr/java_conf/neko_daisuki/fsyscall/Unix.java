@@ -97,7 +97,7 @@ public class Unix {
         }
 
         public long toNanoTime() {
-            return 1000000000 * tv_sec + tv_nsec;
+            return 1000000000L * tv_sec + tv_nsec;
         }
     }
 
