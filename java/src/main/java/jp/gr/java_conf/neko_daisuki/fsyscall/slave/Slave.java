@@ -2868,9 +2868,7 @@ public class Slave implements Runnable {
 
         int len = mFiles.length;
         UnixFile[] files = new UnixFile[len];
-        for (int i = 0; i < len; i++) {
-            files[i] = mFiles[i];
-        }
+        System.arraycopy(mFiles, 0, files, 0, len);
         Slave slave = mApplication.newSlave(pairId, mCurrentDirectory, files,
                                             mPermissions, mLinks, mListener,
                                             mAlarm);
