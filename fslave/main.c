@@ -983,8 +983,8 @@ add_passed_fds_to_payload(struct payload *payload, struct cmsghdr *cmsghdr)
 	int *pfd;
 	char *p, *pend;
 
-	assert(cmsghdr->cmsg_level = SOL_SOCKET);
-	assert(cmsghdr->cmsg_type = SCM_RIGHTS);
+	assert(cmsghdr->cmsg_level == SOL_SOCKET);
+	assert(cmsghdr->cmsg_type == SCM_RIGHTS);
 
 	p = (char *)CMSG_DATA(cmsghdr);
 	pend = (char *)cmsghdr + cmsghdr->cmsg_len;
