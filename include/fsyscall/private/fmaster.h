@@ -22,55 +22,9 @@ enum fmaster_file_place {
 };
 
 #define	VNODE_DESC_LEN	256
-
-struct fmaster_vnode {
-	struct mtx		fv_lock;
-	enum fmaster_file_place	fv_place;
-	int			fv_local;
-	int			fv_refcount;
-	char			fv_desc[VNODE_DESC_LEN];
-};
-
-struct fmaster_file {
-	struct fmaster_vnode	*ff_vnode;
-	bool			ff_close_on_exec;
-};
-
-struct fmaster_memory;
-
 #define	FILES_NUM	256
-#define	DATA_TOKEN_SIZE	64
 
-struct fmaster_data {
-	int rfd;
-	int wfd;
-	int kq;		/* kqueue for rfd */
-	size_t rfdlen;	/* readable data length in the buffer of rfd */
-
-	/*
-	 * fdata_files - What is this?
-	 *
-	 * A master process handles two kinds of file. One is file opened in the
-	 * slave process, another one is file opened in the master process, like
-	 * pipes. In some cases, a slave file may be same as a master fd. So, if
-	 * a master process requests open(2), and the slave process successed
-	 * the request, the fmaster kernel module returns a virtual fd. This
-	 * virtual fd is index of fmaster_data::fdata_files.
-	 */
-	struct fmaster_file	fdata_files[FILES_NUM];
-	struct mtx		fdata_files_lock;
-	uma_zone_t		fdata_vnodes;
-
-	pid_t			fdata_slave_pid;
-
-	char fork_sock[MAXPATHLEN];
-	uint64_t token_size;
-	char token[DATA_TOKEN_SIZE];
-
-	struct fmaster_memory	*fdata_memory;
-
-	int fdata_logfd;
-};
+struct fmaster_data;
 
 #define	SLAVE_PID_UNKNOWN	(-1)
 
@@ -116,22 +70,21 @@ int	fmaster_write_payloaded_command(struct thread *, command_t,
 					struct payload *);
 
 /* thread attributes */
-struct fmaster_data *
-	fmaster_data_of_thread(struct thread *);
 int	fmaster_rfd_of_thread(struct thread *);
 int	fmaster_wfd_of_thread(struct thread *);
+void	fmaster_set_slave_pid(struct thread *, pid_t);
+pid_t	fmaster_get_slave_pid(struct thread *);
 
 /* lifecycle of emuldata */
-struct fmaster_data *
-	fmaster_create_data(struct thread *);
+int	fmaster_create_data(struct thread *, int, int, const char *,
+			    struct fmaster_data **);
+int	fmaster_create_data2(struct thread *, pid_t, const char *, size_t,
+			     struct fmaster_data **);
 void	fmaster_delete_data(struct fmaster_data *);
 
 /* vnode operations */
 void			fmaster_lock_file_table(struct thread *);
 void			fmaster_unlock_file_table(struct thread *);
-struct fmaster_vnode 	*fmaster_alloc_vnode(struct thread *);
-void			fmaster_unlock_vnode(struct thread *,
-					     struct fmaster_vnode *);
 int			fmaster_get_vnode_info(struct thread *, int,
 					       enum fmaster_file_place *,
 					       int *);
@@ -173,8 +126,6 @@ void	*fmaster_malloc(struct thread *, size_t);
 void	fmaster_freeall(struct thread *);
 
 /* anything else */
-int	fmaster_copy_data(struct thread *, struct fmaster_data *);
-int	fmaster_set_token(struct fmaster_data *, const char *, size_t);
 int	fmaster_is_master_file(struct thread *, const char *);
 
 int	fmaster_initialize_kqueue(struct thread *, struct fmaster_data *);

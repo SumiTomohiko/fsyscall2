@@ -10,7 +10,7 @@ fmaster_getpid_pre_execute(struct thread *td, struct fmaster_getpid_args *uap,
 {
 	pid_t slave_pid;
 
-	slave_pid = fmaster_data_of_thread(td)->fdata_slave_pid;
+	slave_pid = fmaster_get_slave_pid(td);
 	if (slave_pid == SLAVE_PID_UNKNOWN)
 		return (PRE_EXEC_CONT);
 

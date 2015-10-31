@@ -37,6 +37,57 @@
 /* Set 1 if you want to write log /tmp/fmaster.log.<pid> */
 #define	LOG_TO_FILE	0
 
+struct fmaster_memory {
+	struct fmaster_memory	*mem_next;
+	char			mem_data[0];
+};
+
+struct fmaster_vnode {
+	struct mtx		fv_lock;
+	enum fmaster_file_place	fv_place;
+	int			fv_local;
+	int			fv_refcount;
+	char			fv_desc[VNODE_DESC_LEN];
+};
+
+struct fmaster_file {
+	struct fmaster_vnode	*ff_vnode;
+	bool			ff_close_on_exec;
+};
+
+#define	DATA_TOKEN_SIZE	64
+
+struct fmaster_data {
+	int rfd;
+	int wfd;
+	int kq;		/* kqueue for rfd */
+	size_t rfdlen;	/* readable data length in the buffer of rfd */
+
+	/*
+	 * fdata_files - What is this?
+	 *
+	 * A master process handles two kinds of file. One is file opened in the
+	 * slave process, another one is file opened in the master process, like
+	 * pipes. In some cases, a slave file may be same as a master fd. So, if
+	 * a master process requests open(2), and the slave process successed
+	 * the request, the fmaster kernel module returns a virtual fd. This
+	 * virtual fd is index of fmaster_data::fdata_files.
+	 */
+	struct fmaster_file	fdata_files[FILES_NUM];
+	struct mtx		fdata_files_lock;
+	uma_zone_t		fdata_vnodes;
+
+	pid_t			fdata_slave_pid;
+
+	char fork_sock[MAXPATHLEN];
+	uint64_t token_size;
+	char token[DATA_TOKEN_SIZE];
+
+	struct fmaster_memory	*fdata_memory;
+
+	int fdata_logfd;
+};
+
 MALLOC_DEFINE(M_FMASTER, "fdata", "emuldata of fmaster");
 
 static void
@@ -104,6 +155,13 @@ vnode_fini(void *mem, int size)
 #endif
 }
 
+static struct fmaster_data *
+fmaster_data_of_thread(struct thread *td)
+{
+
+	return ((struct fmaster_data *)(td->td_proc->p_emuldata));
+}
+
 int
 fmaster_openlog(struct thread *td)
 {
@@ -125,8 +183,8 @@ fmaster_openlog(struct thread *td)
 	return (0);
 }
 
-struct fmaster_data *
-fmaster_create_data(struct thread *td)
+static struct fmaster_data *
+create_data(struct thread *td)
 {
 	struct fmaster_data *data;
 	struct fmaster_file *file;
@@ -149,6 +207,124 @@ fmaster_create_data(struct thread *td)
 	data->fdata_logfd = -1;
 
 	return (data);
+}
+
+int
+fmaster_create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
+		    struct fmaster_data **pdata)
+{
+	struct fmaster_data *data;
+	size_t len;
+	int error;
+
+	data = create_data(td);
+	if (data == NULL)
+		return (ENOMEM);
+	data->rfd = rfd;
+	data->wfd = wfd;
+	len = sizeof(data->fork_sock);
+	error = copystr(fork_sock, data->fork_sock, len, NULL);
+	if (error != 0)
+		return (error);
+
+	*pdata = data;
+
+	return (0);
+}
+
+static int
+fmaster_set_token(struct fmaster_data *data, const char *token,
+		  size_t token_size)
+{
+
+	if (sizeof(data->token) < token_size)
+		return (ENOMEM);
+	memcpy(data->token, token, token_size);
+	data->token_size = token_size;
+
+	return (0);
+}
+
+static int
+fmaster_copy_data(struct thread *td, struct fmaster_data *dest)
+{
+	uma_zone_t zone;
+	const struct fmaster_data *data;
+	const struct fmaster_vnode *vnode;
+	struct fmaster_vnode *newvnode;
+	int error, i;
+
+	data = fmaster_data_of_thread(td);
+	memcpy(dest->fork_sock, data->fork_sock, sizeof(data->fork_sock));
+
+	fmaster_lock_file_table(td);
+
+	zone = dest->fdata_vnodes;
+	for (i = 0; i < FILES_NUM; i++) {
+		vnode =	data->fdata_files[i].ff_vnode;
+		if (vnode == NULL) {
+			dest->fdata_files[i].ff_vnode = NULL;
+			continue;
+		}
+		newvnode = (struct fmaster_vnode *)uma_zalloc(zone, M_WAITOK);
+		if (newvnode == NULL) {
+			error = ENOMEM;
+			goto exit;
+		}
+		newvnode->fv_place = vnode->fv_place;
+		newvnode->fv_local = vnode->fv_local;
+		newvnode->fv_refcount = vnode->fv_refcount;
+		strcpy(newvnode->fv_desc, vnode->fv_desc);
+		dest->fdata_files[i].ff_vnode = newvnode;
+	}
+
+	error = 0;
+exit:
+	fmaster_unlock_file_table(td);
+
+	return (error);
+}
+
+pid_t
+fmaster_get_slave_pid(struct thread *td)
+{
+
+	return (fmaster_data_of_thread(td)->fdata_slave_pid);
+}
+
+void
+fmaster_set_slave_pid(struct thread *td, pid_t slave_pid)
+{
+
+	fmaster_data_of_thread(td)->fdata_slave_pid = slave_pid;
+}
+
+int
+fmaster_create_data2(struct thread *td, pid_t slave_pid, const char *token,
+		     size_t token_size, struct fmaster_data **pdata)
+{
+	struct fmaster_data *data;
+	int error;
+
+	data = create_data(td);
+	if (data == NULL)
+		return (ENOMEM);
+	error = fmaster_copy_data(td, data);
+	if (error != 0)
+		goto fail;
+	data->fdata_slave_pid = slave_pid;
+	error = fmaster_set_token(data, token, token_size);
+	if (error != 0)
+		goto fail;
+
+	*pdata = data;
+
+	return (0);
+
+fail:
+	fmaster_delete_data(data);
+
+	return (error);
 }
 
 #define	SAVE_RETVAL(td, retval)		do {	\
@@ -219,7 +395,7 @@ fmaster_unlock_file_table(struct thread *td)
 	mtx_unlock(&data->fdata_files_lock);
 }
 
-struct fmaster_vnode *
+static struct fmaster_vnode *
 fmaster_alloc_vnode(struct thread *td)
 {
 	uma_zone_t zone;
@@ -302,7 +478,7 @@ fmaster_get_locked_vnode_of_fd(struct thread *td, int fd)
 	return (vnode);
 }
 
-void
+static void
 fmaster_unlock_vnode(struct thread *td, struct fmaster_vnode *vnode)
 {
 
@@ -776,12 +952,6 @@ int
 fmaster_write(struct thread *td, int d, const void *buf, size_t nbytes)
 {
 	return (write_aio(td, d, buf, nbytes, UIO_SYSSPACE));
-}
-
-struct fmaster_data *
-fmaster_data_of_thread(struct thread *td)
-{
-	return ((struct fmaster_data *)(td->td_proc->p_emuldata));
 }
 
 int
@@ -1734,59 +1904,6 @@ exit:
 	return (error);
 }
 
-int
-fmaster_copy_data(struct thread *td, struct fmaster_data *dest)
-{
-	uma_zone_t zone;
-	const struct fmaster_data *data;
-	const struct fmaster_vnode *vnode;
-	struct fmaster_vnode *newvnode;
-	int error, i;
-
-	data = fmaster_data_of_thread(td);
-	memcpy(dest->fork_sock, data->fork_sock, sizeof(data->fork_sock));
-
-	fmaster_lock_file_table(td);
-
-	zone = dest->fdata_vnodes;
-	for (i = 0; i < FILES_NUM; i++) {
-		vnode =	data->fdata_files[i].ff_vnode;
-		if (vnode == NULL) {
-			dest->fdata_files[i].ff_vnode = NULL;
-			continue;
-		}
-		newvnode = (struct fmaster_vnode *)uma_zalloc(zone, M_WAITOK);
-		if (newvnode == NULL) {
-			error = ENOMEM;
-			goto exit;
-		}
-		newvnode->fv_place = vnode->fv_place;
-		newvnode->fv_local = vnode->fv_local;
-		newvnode->fv_refcount = vnode->fv_refcount;
-		strcpy(newvnode->fv_desc, vnode->fv_desc);
-		dest->fdata_files[i].ff_vnode = newvnode;
-	}
-
-	error = 0;
-exit:
-	fmaster_unlock_file_table(td);
-
-	return (error);
-}
-
-int
-fmaster_set_token(struct fmaster_data *data, const char *token,
-		  size_t token_size)
-{
-
-	if (sizeof(data->token) < token_size)
-		return (ENOMEM);
-	memcpy(data->token, token, token_size);
-	data->token_size = token_size;
-
-	return (0);
-}
-
 static const char *
 basename(const char *path)
 {
@@ -2128,11 +2245,6 @@ fmaster_log_msghdr(struct thread *td, const char *tag, const struct msghdr *msg)
 
 	return (0);
 }
-
-struct fmaster_memory {
-	struct fmaster_memory	*mem_next;
-	char			mem_data[0];
-};
 
 static struct malloc_type *memory_type = M_TEMP;
 

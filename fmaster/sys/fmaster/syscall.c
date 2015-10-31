@@ -65,18 +65,12 @@ create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
 	    struct fmaster_data **pdata)
 {
 	struct fmaster_data *data;
-	size_t len;
 	int error;
 
-	data = fmaster_create_data(td);
-	if (data == NULL)
-		return (ENOMEM);
-	data->rfd = rfd;
-	data->wfd = wfd;
-	len = sizeof(data->fork_sock);
-	error = copystr(fork_sock, data->fork_sock, len, NULL);
+	error = fmaster_create_data(td, rfd, wfd, fork_sock, &data);
 	if (error != 0)
-		goto fail;
+		return (error);
+
 	error = fmaster_initialize_kqueue(td, data);
 	if (error != 0)
 		goto fail;
@@ -86,7 +80,7 @@ create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
 	return (0);
 
 fail:
-	free(data, M_FMASTER);
+	fmaster_delete_data(data);
 
 	return (error);
 }
@@ -94,7 +88,6 @@ fail:
 static int
 read_fds(struct thread *td, struct fmaster_data *data)
 {
-	struct fmaster_vnode *vnode;
 	int _, d, error, m, nbytes, pos;
 
 	error = fmaster_read_int32(td, &nbytes, &_);
@@ -108,15 +101,9 @@ read_fds(struct thread *td, struct fmaster_data *data)
 		error = fmaster_read_int32(td, &d, &m);
 		if (error != 0)
 			goto exit;
-		vnode = fmaster_alloc_vnode(td);
-		if (vnode == NULL) {
-			error = ENOMEM;
+		error = fmaster_register_file(td, FFP_SLAVE, d, &_, "default");
+		if (error != 0)
 			goto exit;
-		}
-		vnode->fv_place = FFP_SLAVE;
-		vnode->fv_local = d;
-		strcpy(vnode->fv_desc, "default");
-		data->fdata_files[d].ff_vnode = vnode;
 		pos += m;
 	}
 

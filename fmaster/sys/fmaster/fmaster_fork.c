@@ -47,14 +47,7 @@ do_fork(struct thread *td, pid_t slave_pid, const char *token,
 	struct fmaster_data *data2;
 	int error;
 
-	data2 = fmaster_create_data(td);
-	if (data2 == NULL)
-		return (ENOMEM);
-	error = fmaster_copy_data(td, data2);
-	if (error != 0)
-		return (error);
-	data2->fdata_slave_pid = slave_pid;
-	error = fmaster_set_token(data2, token, token_size);
+	error = fmaster_create_data2(td, slave_pid, token, token_size, &data2);
 	if (error != 0)
 		return (error);
 
