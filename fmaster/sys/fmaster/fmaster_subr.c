@@ -40,9 +40,11 @@
 #define	LOG_TO_FILE	0
 
 struct fmaster_memory {
-	struct fmaster_memory	*mem_next;
-	char			mem_data[0];
+	SLIST_ENTRY(fmaster_memory)	mem_next;
+	char				mem_data[0];
 };
+
+SLIST_HEAD(memory_list, fmaster_memory);
 
 struct fmaster_thread_data;
 LIST_HEAD(thread_list, fmaster_thread_data);
@@ -61,7 +63,7 @@ struct fmaster_thread_data {
 	size_t				ftd_rfdlen;	/* readable data length
 							   in the buffer of rfd
 							   */
-	struct fmaster_memory		*ftd_memory;
+	struct memory_list		ftd_memory;
 	uint64_t			ftd_token_size;
 	char				ftd_token[DATA_TOKEN_SIZE];
 };
@@ -288,7 +290,7 @@ add_thread(struct fmaster_data *data, fmaster_tid tid,
 	tdata->ftd_tid = tid;
 	tdata->ftd_rfd = tdata->ftd_wfd = tdata->ftd_kq = -1;
 	tdata->ftd_rfdlen = 0;
-	tdata->ftd_memory = NULL;
+	SLIST_INIT(&tdata->ftd_memory);
 	tdata->ftd_token_size = 0;
 	tdata->ftd_token[0] = '\0';
 
@@ -2442,8 +2444,7 @@ fmaster_malloc(struct thread *td, size_t size)
 		return (NULL);
 
 	thread_data = fmaster_thread_data_of_thread(td);
-	memory->mem_next = thread_data->ftd_memory;
-	thread_data->ftd_memory = memory;
+	SLIST_INSERT_HEAD(&thread_data->ftd_memory, memory, mem_next);
 
 	return (&memory->mem_data[0]);
 }
@@ -2455,14 +2456,10 @@ fmaster_freeall(struct thread *td)
 	struct fmaster_memory *memory, *next;
 
 	thread_data = fmaster_thread_data_of_thread(td);
-	memory = thread_data->ftd_memory;
-	while (memory != NULL) {
-		next = memory->mem_next;
+	SLIST_FOREACH_SAFE(memory, &thread_data->ftd_memory, mem_next, next)
 		free(memory, memory_type);
-		memory = next;
-	}
 
-	thread_data->ftd_memory = NULL;
+	SLIST_INIT(&thread_data->ftd_memory);
 }
 
 int
