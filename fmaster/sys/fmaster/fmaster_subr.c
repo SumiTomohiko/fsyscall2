@@ -304,6 +304,88 @@ add_thread(struct fmaster_data *data, fmaster_tid tid,
 	return (0);
 }
 
+struct kevent_bonus {
+	const struct kevent *changelist;
+	struct kevent *eventlist;
+};
+
+static int
+kevent_copyin(void *arg, struct kevent *kevp, int count)
+{
+	struct kevent_bonus *bonus;
+
+	bonus = (struct kevent_bonus *)arg;
+	memcpy(kevp, bonus->changelist, sizeof(kevp[0]) * count);
+	bonus->changelist += count;
+
+	return (0);
+}
+
+static int
+fmaster_initialize_kqueue(struct thread *td,
+			  struct fmaster_thread_data *thread_data)
+{
+	struct kevent kev;
+	struct kevent_copyops k_ops;
+	struct kevent_bonus k_bonus;
+	pid_t pid;
+	int error, kq;
+	u_short flags;
+	const char *fmt;
+
+	pid = td->td_proc->p_pid;
+	error = sys_kqueue(td, NULL);
+	if (error != 0) {
+		fmt = "sys_kqueue failed: error=%d";
+		fmaster_log(td, LOG_DEBUG, fmt, error);
+		return (error);
+	}
+	kq = td->td_retval[0];
+
+	flags = EV_ADD | EV_ENABLE | EV_CLEAR;
+	EV_SET(&kev, thread_data->ftd_rfd, EVFILT_READ, flags, 0, 0, NULL);
+	k_bonus.changelist = &kev;
+	k_bonus.eventlist = NULL;
+	k_ops.arg = &k_bonus;
+	k_ops.k_copyout = NULL;
+	k_ops.k_copyin = kevent_copyin;
+	error = kern_kevent(td, kq, 1, 0, &k_ops, NULL);
+	if (error != 0) {
+		fmt = "kern_kevent failed: error=%d";
+		fmaster_log(td, LOG_DEBUG, fmt, error);
+		return (error);
+	}
+
+	thread_data->ftd_kq = kq;
+	thread_data->ftd_rfdlen = 0;
+
+	return (0);
+}
+
+static int
+fmaster_initialize_kqueues(struct thread *td, struct fmaster_data *data)
+{
+	struct fmaster_thread_data *tdata;
+	struct fmaster_threads *threads;
+	struct rmlock *lock;
+	int error, i;
+
+	threads = &data->fdata_threads;
+	lock = &threads->fth_lock;
+	rm_wlock(lock);
+
+	for (i = 0; i < THREAD_BUCKETS_NUM; i++)
+		LIST_FOREACH(tdata, &threads->fth_threads[i], ftd_list) {
+			error = fmaster_initialize_kqueue(td, tdata);
+			if (error != 0)
+				return (error);
+		}
+
+	rm_wunlock(lock);
+
+	return (0);
+}
+
 int
 fmaster_create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
 		    struct fmaster_data **pdata)
@@ -323,6 +405,9 @@ fmaster_create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
 	thread->ftd_wfd = wfd;
 	len = sizeof(data->fork_sock);
 	error = copystr(fork_sock, data->fork_sock, len, NULL);
+	if (error != 0)
+		return (error);
+	error = fmaster_initialize_kqueues(td, data);
 	if (error != 0)
 		return (error);
 
@@ -811,11 +896,6 @@ die(struct thread *td, const char *cause)
 	exit1(td, 1);
 }
 
-struct kevent_bonus {
-	const struct kevent *changelist;
-	struct kevent *eventlist;
-};
-
 static int
 kevent_copyout(void *arg, struct kevent *kevp, int count)
 {
@@ -824,18 +904,6 @@ kevent_copyout(void *arg, struct kevent *kevp, int count)
 	bonus = (struct kevent_bonus *)arg;
 	memcpy(bonus->eventlist, kevp, sizeof(kevp[0]) * count);
 	bonus->eventlist += count;
-
-	return (0);
-}
-
-static int
-kevent_copyin(void *arg, struct kevent *kevp, int count)
-{
-	struct kevent_bonus *bonus;
-
-	bonus = (struct kevent_bonus *)arg;
-	memcpy(kevp, bonus->changelist, sizeof(kevp[0]) * count);
-	bonus->changelist += count;
 
 	return (0);
 }
@@ -1686,71 +1754,6 @@ fmaster_execute_connect_protocol(struct thread *td, const char *command,
 	fmaster_log_syscall_end(td, command, &time_start, error);
 
 	return (error);
-}
-
-static int
-fmaster_initialize_kqueue(struct thread *td,
-			  struct fmaster_thread_data *thread_data)
-{
-	struct kevent kev;
-	struct kevent_copyops k_ops;
-	struct kevent_bonus k_bonus;
-	pid_t pid;
-	int error, kq;
-	u_short flags;
-	const char *fmt;
-
-	pid = td->td_proc->p_pid;
-	error = sys_kqueue(td, NULL);
-	if (error != 0) {
-		fmt = "sys_kqueue failed: error=%d";
-		fmaster_log(td, LOG_DEBUG, fmt, error);
-		return (error);
-	}
-	kq = td->td_retval[0];
-
-	flags = EV_ADD | EV_ENABLE | EV_CLEAR;
-	EV_SET(&kev, thread_data->ftd_rfd, EVFILT_READ, flags, 0, 0, NULL);
-	k_bonus.changelist = &kev;
-	k_bonus.eventlist = NULL;
-	k_ops.arg = &k_bonus;
-	k_ops.k_copyout = NULL;
-	k_ops.k_copyin = kevent_copyin;
-	error = kern_kevent(td, kq, 1, 0, &k_ops, NULL);
-	if (error != 0) {
-		fmt = "kern_kevent failed: error=%d";
-		fmaster_log(td, LOG_DEBUG, fmt, error);
-		return (error);
-	}
-
-	thread_data->ftd_kq = kq;
-	thread_data->ftd_rfdlen = 0;
-
-	return (0);
-}
-
-int
-fmaster_initialize_kqueues(struct thread *td, struct fmaster_data *data)
-{
-	struct fmaster_thread_data *tdata;
-	struct fmaster_threads *threads;
-	struct rmlock *lock;
-	int error, i;
-
-	threads = &data->fdata_threads;
-	lock = &threads->fth_lock;
-	rm_wlock(lock);
-
-	for (i = 0; i < THREAD_BUCKETS_NUM; i++)
-		LIST_FOREACH(tdata, &threads->fth_threads[i], ftd_list) {
-			error = fmaster_initialize_kqueue(td, tdata);
-			if (error != 0)
-				return (error);
-		}
-
-	rm_wunlock(lock);
-
-	return (0);
 }
 
 static int

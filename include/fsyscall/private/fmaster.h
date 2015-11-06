@@ -128,7 +128,6 @@ void	fmaster_freeall(struct thread *);
 /* anything else */
 int	fmaster_is_master_file(struct thread *, const char *);
 
-int	fmaster_initialize_kqueues(struct thread *, struct fmaster_data *);
 void	fmaster_schedtail(struct thread *);
 int	fmaster_copyin_msghdr(struct thread *, const struct msghdr *,
 			      struct msghdr *);

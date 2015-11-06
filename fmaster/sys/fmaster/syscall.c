@@ -71,18 +71,9 @@ create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
 	if (error != 0)
 		return (error);
 
-	error = fmaster_initialize_kqueues(td, data);
-	if (error != 0)
-		goto fail;
-
 	*pdata = data;
 
 	return (0);
-
-fail:
-	fmaster_delete_data(data);
-
-	return (error);
 }
 
 static int
