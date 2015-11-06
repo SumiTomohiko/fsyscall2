@@ -46,9 +46,6 @@ struct fmaster_memory {
 
 SLIST_HEAD(memory_list, fmaster_memory);
 
-struct fmaster_thread_data;
-LIST_HEAD(thread_list, fmaster_thread_data);
-
 typedef lwpid_t			fmaster_tid;
 
 #define	DATA_TOKEN_SIZE	64
@@ -67,6 +64,8 @@ struct fmaster_thread_data {
 	uint64_t			ftd_token_size;
 	char				ftd_token[DATA_TOKEN_SIZE];
 };
+
+LIST_HEAD(thread_list, fmaster_thread_data);
 
 #define	THREAD_BUCKETS_NUM	(257)
 
