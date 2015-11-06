@@ -228,10 +228,12 @@ create_data(struct fmaster_data **pdata)
 {
 	struct fmaster_data *data;
 	struct fmaster_file *file;
+	struct malloc_type *mt;
 	int error, flags, i;
 
+	mt = M_FMASTER;
 	flags = M_WAITOK;
-	data = (struct fmaster_data *)malloc(sizeof(*data), M_FMASTER, flags);
+	data = (struct fmaster_data *)malloc(sizeof(*data), mt, flags);
 	if (data == NULL)
 		return (ENOMEM);
 
@@ -248,7 +250,7 @@ create_data(struct fmaster_data **pdata)
 
 	error = initialize_threads(&data->fdata_threads);
 	if (error != 0)
-		return (error);
+		goto fail;
 
 	data->fdata_slave_pid = SLAVE_PID_UNKNOWN;
 	data->fdata_logfd = -1;
@@ -256,6 +258,13 @@ create_data(struct fmaster_data **pdata)
 	*pdata = data;
 
 	return (0);
+
+fail:
+	uma_zdestroy(data->fdata_vnodes);
+	mtx_destroy(&data->fdata_files_lock);
+	free(data, mt);
+
+	return (error);
 }
 
 static int
