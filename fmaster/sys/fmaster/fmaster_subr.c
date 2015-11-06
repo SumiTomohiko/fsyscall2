@@ -13,6 +13,8 @@
 #include <sys/mutex.h>
 #include <sys/poll.h>
 #include <sys/proc.h>
+#include <sys/queue.h>
+#include <sys/rmlock.h>
 #include <sys/select.h>
 #include <sys/selinfo.h>
 #include <sys/socket.h>
@@ -42,6 +44,36 @@ struct fmaster_memory {
 	char			mem_data[0];
 };
 
+struct fmaster_thread_data;
+LIST_HEAD(thread_list, fmaster_thread_data);
+
+typedef lwpid_t			fmaster_tid;
+
+#define	DATA_TOKEN_SIZE	64
+
+struct fmaster_thread_data {
+	LIST_ENTRY(fmaster_thread_data)	ftd_list;
+
+	fmaster_tid			ftd_tid;
+	int				ftd_rfd;
+	int				ftd_wfd;
+	int				ftd_kq;		/* kqueue for rfd */
+	size_t				ftd_rfdlen;	/* readable data length
+							   in the buffer of rfd
+							   */
+	struct fmaster_memory		*ftd_memory;
+	uint64_t			ftd_token_size;
+	char				ftd_token[DATA_TOKEN_SIZE];
+};
+
+#define	THREAD_BUCKETS_NUM	(257)
+
+struct fmaster_threads {
+	struct rmlock		fth_lock;
+	uma_zone_t		fth_allocator;
+	struct thread_list	fth_threads[THREAD_BUCKETS_NUM];
+};
+
 struct fmaster_vnode {
 	struct mtx		fv_lock;
 	enum fmaster_file_place	fv_place;
@@ -55,14 +87,7 @@ struct fmaster_file {
 	bool			ff_close_on_exec;
 };
 
-#define	DATA_TOKEN_SIZE	64
-
 struct fmaster_data {
-	int rfd;
-	int wfd;
-	int kq;		/* kqueue for rfd */
-	size_t rfdlen;	/* readable data length in the buffer of rfd */
-
 	/*
 	 * fdata_files - What is this?
 	 *
@@ -71,19 +96,17 @@ struct fmaster_data {
 	 * pipes. In some cases, a slave file may be same as a master fd. So, if
 	 * a master process requests open(2), and the slave process successed
 	 * the request, the fmaster kernel module returns a virtual fd. This
-	 * virtual fd is index of fmaster_data::fdata_files.
+	 * virtual fd is index of fmaster_proc_data::fdata_files.
 	 */
 	struct fmaster_file	fdata_files[FILES_NUM];
 	struct mtx		fdata_files_lock;
 	uma_zone_t		fdata_vnodes;
 
+	struct fmaster_threads	fdata_threads;
+
 	pid_t			fdata_slave_pid;
 
 	char fork_sock[MAXPATHLEN];
-	uint64_t token_size;
-	char token[DATA_TOKEN_SIZE];
-
-	struct fmaster_memory	*fdata_memory;
 
 	int fdata_logfd;
 };
@@ -156,7 +179,7 @@ vnode_fini(void *mem, int size)
 }
 
 static struct fmaster_data *
-fmaster_data_of_thread(struct thread *td)
+fmaster_proc_data_of_thread(struct thread *td)
 {
 
 	return ((struct fmaster_data *)(td->td_proc->p_emuldata));
@@ -177,21 +200,40 @@ fmaster_openlog(struct thread *td)
 		log(LOG_ERR, "cannot open log: %s\n", logpath);
 		return (error);
 	}
-	fmaster_data_of_thread(td)->fdata_logfd = td->td_retval[0];
+	fmaster_proc_data_of_thread(td)->fdata_logfd = td->td_retval[0];
 #endif
 
 	return (0);
 }
 
-static struct fmaster_data *
-create_data(struct thread *td)
+static int
+initialize_threads(struct fmaster_threads *threads)
+{
+	int i;
+
+	rm_init(&threads->fth_lock, "fthreads");
+	threads->fth_allocator = uma_zcreate("fthreads",
+					     sizeof(struct fmaster_thread_data),
+					     NULL, NULL, NULL, NULL, 0,
+					     M_WAITOK);
+	for (i = 0; i < THREAD_BUCKETS_NUM; i++)
+		LIST_INIT(&threads->fth_threads[i]);
+
+	return (0);
+}
+
+static int
+create_data(struct fmaster_data **pdata)
 {
 	struct fmaster_data *data;
 	struct fmaster_file *file;
-	int flags, i;
+	int error, flags, i;
 
 	flags = M_WAITOK;
 	data = (struct fmaster_data *)malloc(sizeof(*data), M_FMASTER, flags);
+	if (data == NULL)
+		return (ENOMEM);
+
 	for (i = 0; i < FILES_NUM; i++) {
 		file = &data->fdata_files[i];
 		file->ff_vnode = NULL;
@@ -202,26 +244,82 @@ create_data(struct thread *td)
 					 sizeof(struct fmaster_vnode),
 					 vnode_ctor, vnode_dtor, vnode_init,
 					 vnode_fini, 0, flags);
+
+	error = initialize_threads(&data->fdata_threads);
+	if (error != 0)
+		return (error);
+
 	data->fdata_slave_pid = SLAVE_PID_UNKNOWN;
-	data->fdata_memory = NULL;
 	data->fdata_logfd = -1;
 
-	return (data);
+	*pdata = data;
+
+	return (0);
+}
+
+static int
+hash_tid(fmaster_tid tid)
+{
+
+	return (tid % THREAD_BUCKETS_NUM);
+}
+
+static struct thread_list *
+get_thread_bucket(struct fmaster_threads *threads, fmaster_tid tid)
+{
+
+	return (&threads->fth_threads[hash_tid(tid)]);
+}
+
+static int
+add_thread(struct fmaster_data *data, fmaster_tid tid,
+	   struct fmaster_thread_data **pthread)
+{
+	struct fmaster_thread_data *tdata;
+	struct fmaster_threads *threads;
+	struct rmlock *lock;
+	struct thread_list *list;
+
+	threads = &data->fdata_threads;
+	tdata = (struct fmaster_thread_data *)uma_zalloc(threads->fth_allocator,
+							 M_WAITOK);
+	if (tdata == NULL)
+		return (ENOMEM);
+	tdata->ftd_tid = tid;
+	tdata->ftd_rfd = tdata->ftd_wfd = tdata->ftd_kq = -1;
+	tdata->ftd_rfdlen = 0;
+	tdata->ftd_memory = NULL;
+	tdata->ftd_token_size = 0;
+	tdata->ftd_token[0] = '\0';
+
+	lock = &threads->fth_lock;
+	rm_wlock(lock);
+	list = get_thread_bucket(threads, tid);
+	LIST_INSERT_HEAD(list, tdata, ftd_list);
+	rm_wunlock(lock);
+
+	*pthread = tdata;
+
+	return (0);
 }
 
 int
 fmaster_create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
 		    struct fmaster_data **pdata)
 {
+	struct fmaster_thread_data *thread;
 	struct fmaster_data *data;
 	size_t len;
 	int error;
 
-	data = create_data(td);
-	if (data == NULL)
-		return (ENOMEM);
-	data->rfd = rfd;
-	data->wfd = wfd;
+	error = create_data(&data);
+	if (error != 0)
+		return (error);
+	error = add_thread(data, td->td_tid, &thread);
+	if (error != 0)
+		return (error);
+	thread->ftd_rfd = rfd;
+	thread->ftd_wfd = wfd;
 	len = sizeof(data->fork_sock);
 	error = copystr(fork_sock, data->fork_sock, len, NULL);
 	if (error != 0)
@@ -233,14 +331,21 @@ fmaster_create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
 }
 
 static int
-fmaster_set_token(struct fmaster_data *data, const char *token,
-		  size_t token_size)
+add_forking_thread(struct fmaster_data *data, fmaster_tid tid,
+		   const char *token, size_t token_size)
 {
+	struct fmaster_thread_data *thread;
+	int error;
 
-	if (sizeof(data->token) < token_size)
+	if (sizeof(thread->ftd_token) < token_size)
 		return (ENOMEM);
-	memcpy(data->token, token, token_size);
-	data->token_size = token_size;
+
+	error = add_thread(data, tid, &thread);
+	if (error != 0)
+		return (error);
+
+	memcpy(thread->ftd_token, token, token_size);
+	thread->ftd_token_size = token_size;
 
 	return (0);
 }
@@ -254,7 +359,7 @@ fmaster_copy_data(struct thread *td, struct fmaster_data *dest)
 	struct fmaster_vnode *newvnode;
 	int error, i;
 
-	data = fmaster_data_of_thread(td);
+	data = fmaster_proc_data_of_thread(td);
 	memcpy(dest->fork_sock, data->fork_sock, sizeof(data->fork_sock));
 
 	fmaster_lock_file_table(td);
@@ -285,35 +390,67 @@ exit:
 	return (error);
 }
 
+static struct fmaster_thread_data *
+fmaster_thread_data_of_thread(struct thread *td)
+{
+	struct rm_priotracker *ptracker, tracker;
+	struct fmaster_thread_data *thread_data;
+	struct fmaster_threads *threads;
+	struct fmaster_data *data;
+	struct rmlock *lock;
+	struct thread_list *list;
+	fmaster_tid tid;
+
+	tid = td->td_tid;
+
+	data = fmaster_proc_data_of_thread(td);
+	threads = &data->fdata_threads;
+	lock = &threads->fth_lock;
+	ptracker = &tracker;
+	rm_rlock(lock, ptracker);
+
+	list = get_thread_bucket(threads, tid);
+	LIST_FOREACH(thread_data, list, ftd_list)
+		if (thread_data->ftd_tid == tid)
+			break;
+
+	rm_runlock(lock, ptracker);
+
+	KASSERT(thread_data != NULL, ("thread data not found: tid=%d", tid));
+
+	return (thread_data);
+}
+
 pid_t
 fmaster_get_slave_pid(struct thread *td)
 {
 
-	return (fmaster_data_of_thread(td)->fdata_slave_pid);
+	return (fmaster_proc_data_of_thread(td)->fdata_slave_pid);
 }
 
 void
 fmaster_set_slave_pid(struct thread *td, pid_t slave_pid)
 {
 
-	fmaster_data_of_thread(td)->fdata_slave_pid = slave_pid;
+	fmaster_proc_data_of_thread(td)->fdata_slave_pid = slave_pid;
 }
 
 int
-fmaster_create_data2(struct thread *td, pid_t slave_pid, const char *token,
-		     size_t token_size, struct fmaster_data **pdata)
+fmaster_create_data2(struct thread *td, pid_t slave_pid, lwpid_t tid,
+		     const char *token, size_t token_size,
+		     struct fmaster_data **pdata)
 {
 	struct fmaster_data *data;
 	int error;
 
-	data = create_data(td);
-	if (data == NULL)
-		return (ENOMEM);
+	error = create_data(&data);
+	if (error != 0)
+		return (error);
 	error = fmaster_copy_data(td, data);
 	if (error != 0)
 		goto fail;
 	data->fdata_slave_pid = slave_pid;
-	error = fmaster_set_token(data, token, token_size);
+	error = add_forking_thread(data, tid, token, token_size);
 	if (error != 0)
 		goto fail;
 
@@ -352,7 +489,7 @@ fmaster_log(struct thread *td, int pri, const char *fmt, ...)
 	pid = td->td_proc->p_pid;
 	size = snprintf(buf, sizeof(buf), "fmaster[%d]: %s\n", pid, msg);
 
-	data = fmaster_data_of_thread(td);
+	data = fmaster_proc_data_of_thread(td);
 	logfd = data->fdata_logfd;
 	if (logfd != -1) {
 		SAVE_RETVAL(td, retval);
@@ -366,8 +503,20 @@ fmaster_log(struct thread *td, int pri, const char *fmt, ...)
 void
 fmaster_delete_data(struct fmaster_data *data)
 {
+	struct fmaster_thread_data *tdata, *tmp;
+	struct fmaster_threads *threads;
+	struct thread_list *list;
 	uma_zone_t zone;
 	int i;
+
+	threads = &data->fdata_threads;
+	for (i = 0; i < THREAD_BUCKETS_NUM; i++) {
+		list = &threads->fth_threads[i];
+		LIST_FOREACH_SAFE(tdata, list, ftd_list, tmp)
+			uma_zfree(threads->fth_allocator, tdata);
+	}
+	uma_zdestroy(threads->fth_allocator);
+	rm_destroy(&threads->fth_lock);
 
 	zone = data->fdata_vnodes;
 	for (i = 0; i < FILES_NUM; i++)
@@ -382,7 +531,7 @@ fmaster_lock_file_table(struct thread *td)
 {
 	struct fmaster_data *data;
 
-	data = fmaster_data_of_thread(td);
+	data = fmaster_proc_data_of_thread(td);
 	mtx_lock(&data->fdata_files_lock);
 }
 
@@ -391,7 +540,7 @@ fmaster_unlock_file_table(struct thread *td)
 {
 	struct fmaster_data *data;
 
-	data = fmaster_data_of_thread(td);
+	data = fmaster_proc_data_of_thread(td);
 	mtx_unlock(&data->fdata_files_lock);
 }
 
@@ -401,14 +550,14 @@ fmaster_alloc_vnode(struct thread *td)
 	uma_zone_t zone;
 	struct fmaster_vnode *vnode;
 
-	zone = fmaster_data_of_thread(td)->fdata_vnodes;
+	zone = fmaster_proc_data_of_thread(td)->fdata_vnodes;
 	vnode = (struct fmaster_vnode *)uma_zalloc(zone, M_WAITOK);
 
 	return (vnode);
 }
 
 #define	ENSURE_FILES_LOCK_OWNED(td)	do {\
-	if (mtx_owned(&fmaster_data_of_thread((td))->fdata_files_lock) == 0)\
+	if (mtx_owned(&fmaster_proc_data_of_thread((td))->fdata_files_lock) == 0)\
 		return (EDOOFUS);\
 } while (0)
 
@@ -423,7 +572,7 @@ unref_fd(struct thread *td, int fd, enum fmaster_file_place *place, int *lfd,
 
 	if ((fd < 0) || (FILES_NUM <= fd))
 		return (EBADF);
-	data = fmaster_data_of_thread(td);
+	data = fmaster_proc_data_of_thread(td);
 	vnode = data->fdata_files[fd].ff_vnode;
 	if (vnode == NULL)
 		return (EBADF);
@@ -468,7 +617,7 @@ fmaster_get_locked_vnode_of_fd(struct thread *td, int fd)
 
 	fmaster_lock_file_table(td);
 
-	data = fmaster_data_of_thread(td);
+	data = fmaster_proc_data_of_thread(td);
 	vnode = data->fdata_files[fd].ff_vnode;
 	if (vnode != NULL)
 		mtx_lock(&vnode->fv_lock);
@@ -693,13 +842,15 @@ kevent_copyin(void *arg, struct kevent *kevp, int count)
 static int
 wait_data(struct thread *td)
 {
+	struct fmaster_thread_data *thread_data;
 	struct kevent kev;
 	struct timespec timeout;
 	struct kevent_copyops k_ops;
 	struct kevent_bonus k_bonus;
 	int error, kq;
 
-	kq = fmaster_data_of_thread(td)->kq;
+	thread_data = fmaster_thread_data_of_thread(td);
+	kq = thread_data->ftd_kq;
 	timeout.tv_sec = 120;
 	timeout.tv_nsec = 0;
 	k_bonus.changelist = NULL;
@@ -712,7 +863,7 @@ wait_data(struct thread *td)
 		return (error);
 	if (td->td_retval[0] == 0)
 		return (ETIMEDOUT);
-	fmaster_data_of_thread(td)->rfdlen += kev.data;
+	thread_data->ftd_rfdlen += kev.data;
 
 	return (0);
 }
@@ -720,6 +871,7 @@ wait_data(struct thread *td)
 static int
 do_readv(struct thread *td, int d, void *buf, size_t nbytes, int segflg)
 {
+	struct fmaster_thread_data *thread_data;
 	struct uio auio;
 	struct iovec aiov;
 	int error;
@@ -735,8 +887,9 @@ do_readv(struct thread *td, int d, void *buf, size_t nbytes, int segflg)
 	auio.uio_segflg = segflg;
 
 	error = 0;
+	thread_data = fmaster_thread_data_of_thread(td);
 	while (0 < auio.uio_resid) {
-		if (fmaster_data_of_thread(td)->rfdlen == 0) {
+		if (thread_data->ftd_rfdlen == 0) {
 			error = wait_data(td);
 			if (error != 0)
 				return (error);
@@ -746,7 +899,7 @@ do_readv(struct thread *td, int d, void *buf, size_t nbytes, int segflg)
 			return (error);
 		if (td->td_retval[0] == 0)
 			die(td, "readv");
-		fmaster_data_of_thread(td)->rfdlen -= td->td_retval[0];
+		thread_data->ftd_rfdlen -= td->td_retval[0];
 	}
 
 	return (error);
@@ -957,13 +1110,13 @@ fmaster_write(struct thread *td, int d, const void *buf, size_t nbytes)
 int
 fmaster_rfd_of_thread(struct thread *td)
 {
-	return (fmaster_data_of_thread(td)->rfd);
+	return (fmaster_thread_data_of_thread(td)->ftd_rfd);
 }
 
 int
 fmaster_wfd_of_thread(struct thread *td)
 {
-	return (fmaster_data_of_thread(td)->wfd);
+	return (fmaster_thread_data_of_thread(td)->ftd_wfd);
 }
 
 #define	IMPLEMENT_WRITE_X(type, name, bufsize, encode)	\
@@ -1096,7 +1249,7 @@ get_vfd_of_lfd(struct thread *td, enum fmaster_file_place place, int lfd,
 
 	fmaster_lock_file_table(td);
 
-	files = fmaster_data_of_thread(td)->fdata_files;
+	files = fmaster_proc_data_of_thread(td)->fdata_files;
 	for (i = 0; i < FILES_NUM; i++) {
 		file = &files[i];
 		if (file == NULL)
@@ -1180,7 +1333,7 @@ find_unused_fd(struct thread *td, int *fd)
 
 	ENSURE_FILES_LOCK_OWNED(td);
 
-	files = fmaster_data_of_thread(td)->fdata_files;
+	files = fmaster_proc_data_of_thread(td)->fdata_files;
 	for (i = 0; i < FILES_NUM; i++)
 		if (files[i].ff_vnode == NULL) {
 			*fd = i;
@@ -1217,7 +1370,7 @@ fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
 
 	ENSURE_FILES_LOCK_OWNED(td);
 
-	file = &fmaster_data_of_thread(td)->fdata_files[vfd];
+	file = &fmaster_proc_data_of_thread(td)->fdata_files[vfd];
 	if (file->ff_vnode != NULL)
 		return (EBADF);
 
@@ -1534,8 +1687,9 @@ fmaster_execute_connect_protocol(struct thread *td, const char *command,
 	return (error);
 }
 
-int
-fmaster_initialize_kqueue(struct thread *td, struct fmaster_data *data)
+static int
+fmaster_initialize_kqueue(struct thread *td,
+			  struct fmaster_thread_data *thread_data)
 {
 	struct kevent kev;
 	struct kevent_copyops k_ops;
@@ -1555,7 +1709,7 @@ fmaster_initialize_kqueue(struct thread *td, struct fmaster_data *data)
 	kq = td->td_retval[0];
 
 	flags = EV_ADD | EV_ENABLE | EV_CLEAR;
-	EV_SET(&kev, data->rfd, EVFILT_READ, flags, 0, 0, NULL);
+	EV_SET(&kev, thread_data->ftd_rfd, EVFILT_READ, flags, 0, 0, NULL);
 	k_bonus.changelist = &kev;
 	k_bonus.eventlist = NULL;
 	k_ops.arg = &k_bonus;
@@ -1568,8 +1722,32 @@ fmaster_initialize_kqueue(struct thread *td, struct fmaster_data *data)
 		return (error);
 	}
 
-	data->kq = kq;
-	data->rfdlen = 0;
+	thread_data->ftd_kq = kq;
+	thread_data->ftd_rfdlen = 0;
+
+	return (0);
+}
+
+int
+fmaster_initialize_kqueues(struct thread *td, struct fmaster_data *data)
+{
+	struct fmaster_thread_data *tdata;
+	struct fmaster_threads *threads;
+	struct rmlock *lock;
+	int error, i;
+
+	threads = &data->fdata_threads;
+	lock = &threads->fth_lock;
+	rm_wlock(lock);
+
+	for (i = 0; i < THREAD_BUCKETS_NUM; i++)
+		LIST_FOREACH(tdata, &threads->fth_threads[i], ftd_list) {
+			error = fmaster_initialize_kqueue(td, tdata);
+			if (error != 0)
+				return (error);
+		}
+
+	rm_wunlock(lock);
 
 	return (0);
 }
@@ -1605,7 +1783,7 @@ connect(struct thread *td, int sock)
 
 	paddr = (struct sockaddr_un *)&addr;
 	paddr->sun_family = AF_LOCAL;
-	path = fmaster_data_of_thread(td)->fork_sock;
+	path = fmaster_proc_data_of_thread(td)->fork_sock;
 	error = copystr(path, paddr->sun_path, sizeof(paddr->sun_path), NULL);
 	if (error != 0)
 		return (error);
@@ -1621,6 +1799,7 @@ connect(struct thread *td, int sock)
 static int
 connect_to_mhub(struct thread *td)
 {
+	struct fmaster_thread_data *thread_data;
 	struct fmaster_data *data;
 	int error, pidlen, sock;
 	char buf[FSYSCALL_BUFSIZE_PID];
@@ -1632,13 +1811,15 @@ connect_to_mhub(struct thread *td)
 	if (error != 0)
 		return (error);
 
-	data = fmaster_data_of_thread(td);
-	data->rfd = data->wfd = sock;
-	error = fmaster_initialize_kqueue(td, data);
+	thread_data = fmaster_thread_data_of_thread(td);
+	thread_data->ftd_rfd = thread_data->ftd_wfd = sock;
+	data = fmaster_proc_data_of_thread(td);
+	error = fmaster_initialize_kqueues(td, data);
 	if (error != 0)
 		return (error);
 
-	error = fmaster_write(td, sock, data->token, data->token_size);
+	error = fmaster_write(td, sock, thread_data->ftd_token,
+			      thread_data->ftd_token_size);
 	if (error != 0)
 		return (error);
 	pidlen = fsyscall_encode_pid(td->td_proc->p_pid, buf, sizeof(buf));
@@ -1852,7 +2033,7 @@ fmaster_dup2(struct thread *td, int from, int to)
 
 	fmaster_lock_file_table(td);
 
-	data = fmaster_data_of_thread(td);
+	data = fmaster_proc_data_of_thread(td);
 	vnode = data->fdata_files[from].ff_vnode;
 	if (vnode == NULL) {
 		error = EBADF;
@@ -1880,7 +2061,7 @@ fmaster_dup(struct thread *td, int fd, int *newfd)
 
 	fmaster_lock_file_table(td);
 
-	data = fmaster_data_of_thread(td);
+	data = fmaster_proc_data_of_thread(td);
 	vnode = data->fdata_files[fd].ff_vnode;
 	if (vnode == NULL) {
 		error = EBADF;
@@ -1933,7 +2114,7 @@ _fmaster_dump_file_table(struct thread *td, const char *filename,
 	fmaster_lock_file_table(td);
 
 	pid = td->td_proc->p_pid;
-	data = fmaster_data_of_thread(td);
+	data = fmaster_proc_data_of_thread(td);
 	for (i = 0; i < FILES_NUM; i++) {
 		vnode = data->fdata_files[i].ff_vnode;
 		if (vnode == NULL)
@@ -1983,7 +2164,7 @@ fmaster_close_on_exec(struct thread *td)
 
 	fmaster_lock_file_table(td);
 
-	data = fmaster_data_of_thread(td);
+	data = fmaster_proc_data_of_thread(td);
 	for (i = 0; i < FILES_NUM; i++) {
 		file = &data->fdata_files[i];
 		if (file->ff_vnode == NULL)
@@ -2031,7 +2212,7 @@ fmaster_set_close_on_exec(struct thread *td, int fd, bool close_on_exec)
 
 	fmaster_lock_file_table(td);
 
-	file = &fmaster_data_of_thread(td)->fdata_files[fd];
+	file = &fmaster_proc_data_of_thread(td)->fdata_files[fd];
 	if (file->ff_vnode == NULL) {
 		error = EBADF;
 		goto exit;
@@ -2251,7 +2432,7 @@ static struct malloc_type *memory_type = M_TEMP;
 void *
 fmaster_malloc(struct thread *td, size_t size)
 {
-	struct fmaster_data *data;
+	struct fmaster_thread_data *thread_data;
 	struct fmaster_memory *memory;
 	size_t totalsize;
 
@@ -2260,9 +2441,9 @@ fmaster_malloc(struct thread *td, size_t size)
 	if (memory == NULL)
 		return (NULL);
 
-	data = fmaster_data_of_thread(td);
-	memory->mem_next = data->fdata_memory;
-	data->fdata_memory = memory;
+	thread_data = fmaster_thread_data_of_thread(td);
+	memory->mem_next = thread_data->ftd_memory;
+	thread_data->ftd_memory = memory;
 
 	return (&memory->mem_data[0]);
 }
@@ -2270,18 +2451,18 @@ fmaster_malloc(struct thread *td, size_t size)
 void
 fmaster_freeall(struct thread *td)
 {
-	struct fmaster_data *data;
+	struct fmaster_thread_data *thread_data;
 	struct fmaster_memory *memory, *next;
 
-	data = fmaster_data_of_thread(td);
-	memory = data->fdata_memory;
+	thread_data = fmaster_thread_data_of_thread(td);
+	memory = thread_data->ftd_memory;
 	while (memory != NULL) {
 		next = memory->mem_next;
 		free(memory, memory_type);
 		memory = next;
 	}
 
-	data->fdata_memory = NULL;
+	thread_data->ftd_memory = NULL;
 }
 
 int

@@ -47,16 +47,18 @@ do_fork(struct thread *td, pid_t slave_pid, const char *token,
 	struct fmaster_data *data2;
 	int error;
 
-	error = fmaster_create_data2(td, slave_pid, token, token_size, &data2);
-	if (error != 0)
-		return (error);
-
 	error = fork1(td, RFFDG | RFPROC | RFSTOPPED, 0, &p2, NULL, 0);
 	if (error != 0)
 		return (error);
 	fmaster_log(td, LOG_DEBUG, "forked: the child is pid %d", p2->p_pid);
-	p2->p_emuldata = data2;
+
 	td2 = FIRST_THREAD_IN_PROC(p2);
+	error = fmaster_create_data2(td, slave_pid, td2->td_tid, token,
+				     token_size, &data2);
+	if (error != 0)
+		return (error);
+
+	p2->p_emuldata = data2;
 	thread_lock(td2);
 	TD_SET_CAN_RUN(td2);
 	sched_add(td2, SRQ_BORING);

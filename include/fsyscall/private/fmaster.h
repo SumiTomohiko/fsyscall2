@@ -78,8 +78,8 @@ pid_t	fmaster_get_slave_pid(struct thread *);
 /* lifecycle of emuldata */
 int	fmaster_create_data(struct thread *, int, int, const char *,
 			    struct fmaster_data **);
-int	fmaster_create_data2(struct thread *, pid_t, const char *, size_t,
-			     struct fmaster_data **);
+int	fmaster_create_data2(struct thread *, pid_t, lwpid_t, const char *,
+			     size_t, struct fmaster_data **);
 void	fmaster_delete_data(struct fmaster_data *);
 
 /* vnode operations */
@@ -128,7 +128,7 @@ void	fmaster_freeall(struct thread *);
 /* anything else */
 int	fmaster_is_master_file(struct thread *, const char *);
 
-int	fmaster_initialize_kqueue(struct thread *, struct fmaster_data *);
+int	fmaster_initialize_kqueues(struct thread *, struct fmaster_data *);
 void	fmaster_schedtail(struct thread *);
 int	fmaster_copyin_msghdr(struct thread *, const struct msghdr *,
 			      struct msghdr *);

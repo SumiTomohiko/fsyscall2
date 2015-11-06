@@ -71,7 +71,7 @@ create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
 	if (error != 0)
 		return (error);
 
-	error = fmaster_initialize_kqueue(td, data);
+	error = fmaster_initialize_kqueues(td, data);
 	if (error != 0)
 		goto fail;
 
