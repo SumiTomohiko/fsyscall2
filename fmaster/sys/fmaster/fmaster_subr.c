@@ -73,6 +73,7 @@ struct fmaster_threads {
 	struct rmlock		fth_lock;
 	uma_zone_t		fth_allocator;
 	struct thread_list	fth_threads[THREAD_BUCKETS_NUM];
+	int			fth_nthreads;
 };
 
 struct fmaster_vnode {
@@ -219,6 +220,7 @@ initialize_threads(struct fmaster_threads *threads)
 					     M_WAITOK);
 	for (i = 0; i < THREAD_BUCKETS_NUM; i++)
 		LIST_INIT(&threads->fth_threads[i]);
+	threads->fth_nthreads = 0;
 
 	return (0);
 }
@@ -306,6 +308,7 @@ add_thread(struct fmaster_data *data, fmaster_tid tid,
 	rm_wlock(lock);
 	list = get_thread_bucket(threads, tid);
 	LIST_INSERT_HEAD(list, tdata, ftd_list);
+	threads->fth_nthreads++;
 	rm_wunlock(lock);
 
 	*pthread = tdata;
@@ -2502,4 +2505,39 @@ exit:
 	error = (error == 0) && (error2 != 0) ? error2 : error;
 
 	return (error);
+}
+
+int
+fmaster_release_thread(struct thread *td)
+{
+	struct proc *p;
+	struct fmaster_data *data;
+	struct fmaster_thread_data *tdata;
+	struct fmaster_threads *threads;
+	struct rmlock *lock;
+	int nthreads;
+
+	tdata = fmaster_thread_data_of_thread(td);
+	data = fmaster_proc_data_of_thread(td);
+	threads = &data->fdata_threads;
+	lock = &threads->fth_lock;
+
+	rm_wlock(lock);
+	LIST_REMOVE(tdata, ftd_list);
+	uma_zfree(threads->fth_allocator, tdata);
+	threads->fth_nthreads--;
+	nthreads = threads->fth_nthreads;
+	rm_wunlock(lock);
+
+	if (nthreads == 0) {
+		p = td->td_proc;
+		PROC_LOCK(p);
+		if (p->p_emuldata != NULL) {
+			fmaster_delete_data(data);
+			p->p_emuldata = NULL;
+		}
+		PROC_UNLOCK(p);
+	}
+
+	return (0);
 }

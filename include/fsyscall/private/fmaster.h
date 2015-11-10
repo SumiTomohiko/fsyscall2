@@ -75,12 +75,13 @@ int	fmaster_wfd_of_thread(struct thread *);
 void	fmaster_set_slave_pid(struct thread *, pid_t);
 pid_t	fmaster_get_slave_pid(struct thread *);
 
-/* lifecycle of emuldata */
+/* lifecycle */
 int	fmaster_create_data(struct thread *, int, int, const char *,
 			    struct fmaster_data **);
 int	fmaster_create_data2(struct thread *, pid_t, lwpid_t, const char *,
 			     size_t, struct fmaster_data **);
 void	fmaster_delete_data(struct fmaster_data *);
+int	fmaster_release_thread(struct thread *);
 
 /* vnode operations */
 void			fmaster_lock_file_table(struct thread *);

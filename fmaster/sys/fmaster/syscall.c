@@ -165,18 +165,6 @@ static struct sysent se = {
  */
 static int offset = NO_SYSCALL;
 
-static eventhandler_tag fmaster_exit_tag;
-
-extern struct sysent fmaster_sysent[];
-
-static void
-process_exit(void *_, struct proc *p)
-{
-	if (p->p_sysent->sv_table != fmaster_sysent)
-		return;
-	fmaster_delete_data(p->p_emuldata);
-}
-
 /*
  * The function called at load/unload.
  */
@@ -187,15 +175,9 @@ fmaster_modevent(struct module *_, int cmd, void *__)
 
 	switch (cmd) {
 	case MOD_LOAD :
-		fmaster_exit_tag = EVENTHANDLER_REGISTER(
-			process_exit,
-			process_exit,
-			NULL,
-			EVENTHANDLER_PRI_ANY);
 		log(LOG_INFO, "loaded fmaster.\n");
 		break;
 	case MOD_UNLOAD :
-		EVENTHANDLER_DEREGISTER(process_exit, fmaster_exit_tag);
 		log(LOG_INFO, "unloaded fmaster.\n");
 		break;
 	default :
