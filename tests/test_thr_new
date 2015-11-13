@@ -1,0 +1,5 @@
+
+cmd="thr_new/thr_new"
+expected_status="0"
+
+# vim: filetype=sh
