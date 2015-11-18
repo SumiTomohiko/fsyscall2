@@ -37,8 +37,8 @@
 #include <fsyscall/private/select.h>
 
 struct memory {
-	struct memory	*mem_next;
-	char		mem_data[0];
+	SLIST_ENTRY(memory)	mem_next;
+	char			mem_data[0];
 };
 
 static int	mainloop(struct slave_thread *);
@@ -238,8 +238,7 @@ mem_alloc(struct slave_thread *slave_thread, size_t size)
 
 	totalsize = sizeof(struct memory) + size;
 	memory = (struct memory *)malloc_or_die(totalsize);
-	memory->mem_next = slave_thread->fsth_memory;
-	slave_thread->fsth_memory = memory;
+	SLIST_INSERT_HEAD(&slave_thread->fsth_memory, memory, mem_next);
 
 	return (&memory->mem_data[0]);
 }
@@ -247,16 +246,13 @@ mem_alloc(struct slave_thread *slave_thread, size_t size)
 static void
 mem_freeall(struct slave_thread *slave_thread)
 {
-	struct memory *memory, *next;
+	struct memory *memory, *tmp;
 
-	memory = slave_thread->fsth_memory;
-	while (memory != NULL) {
-		next = memory->mem_next;
+	SLIST_FOREACH_SAFE(memory, &slave_thread->fsth_memory, mem_next, tmp) {
+		SLIST_REMOVE(&slave_thread->fsth_memory, memory, memory,
+			     mem_next);
 		free(memory);
-		memory = next;
 	}
-
-	slave_thread->fsth_memory = NULL;
 }
 
 static void
@@ -1602,7 +1598,7 @@ start_new_thread(struct slave *slave, const char *token, size_t token_size)
 
 	new_thread = malloc_slave_thread();
 	new_thread->fsth_slave = slave;
-	new_thread->fsth_memory = NULL;
+	SLIST_INIT(&new_thread->fsth_memory);
 	new_thread->fsth_rfd = new_thread->fsth_wfd = sock;
 	new_thread->fsth_signal_watcher = false;
 	add_thread(slave, new_thread);
@@ -2111,7 +2107,7 @@ main(int argc, char* argv[])
 
 	slave_thread = malloc_slave_thread();
 	slave_thread->fsth_slave = slave;
-	slave_thread->fsth_memory = NULL;
+	SLIST_INIT(&slave_thread->fsth_memory);
 	slave_thread->fsth_rfd = atoi_or_die(args[0], "rfd");
 	slave_thread->fsth_wfd = atoi_or_die(args[1], "wfd");
 	slave_thread->fsth_signal_watcher = true;

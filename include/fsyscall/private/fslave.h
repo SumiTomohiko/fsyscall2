@@ -25,7 +25,7 @@ struct slave_thread {
 	SLIST_ENTRY(slave_thread)	fsth_next;
 
 	struct slave			*fsth_slave;
-	struct memory			*fsth_memory;
+	SLIST_HEAD(, memory)		fsth_memory;
 	int				fsth_rfd;
 	int				fsth_wfd;
 	bool				fsth_signal_watcher;
