@@ -11,7 +11,8 @@ LDADD=		${LIB_DIR}/read_sockaddr/libread_sockaddr.a \
 		${LIB_DIR}/malloc_or_die/libmalloc_or_die.a \
 		${LIB_DIR}/encode/libencode.a ${LIB_DIR}/die/libdie.a \
 		${LIB_DIR}/log/liblog.a ${LIB_DIR}/command/libcommand.a \
-		${LIB_DIR}/select/libselect.a
+		${LIB_DIR}/select/libselect.a \
+		${LIB_DIR}/close_or_die/libclose_or_die.a -lpthread
 WITHOUT_MAN=	yes
 
 .include "Makefile.makesyscalls"

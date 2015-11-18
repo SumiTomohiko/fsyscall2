@@ -1,27 +1,42 @@
 #if !defined(FSYSCALL_PRIVATE_FSLAVE_H_INCLUDED)
 #define FSYSCALL_PRIVATE_FSLAVE_H_INCLUDED
 
+#include <sys/queue.h>
+#include <pthread.h>
 #include <signal.h>
+#include <stdbool.h>
 
 #include <fsyscall/private/command.h>
 
-struct memory;
+struct slave_thread;
 
 struct slave {
+	pthread_rwlock_t		fsla_lock;
+	SLIST_HEAD(, slave_thread)	fsla_slaves;
+
 	sigset_t mask;	/* signal mask during system call */
-	int rfd;
-	int wfd;
 	int sigr;	/* file descriptor for data from signal handler */
-	const char *fork_sock;
-	struct memory	*fsla_memory;
+	char *fork_sock;
+};
+
+struct memory;
+
+struct slave_thread {
+	SLIST_ENTRY(slave_thread)	fsth_next;
+
+	struct slave			*fsth_slave;
+	struct memory			*fsth_memory;
+	int				fsth_rfd;
+	int				fsth_wfd;
+	bool				fsth_signal_watcher;
 };
 
 void die_if_payload_size_mismatched(int, int);
-void return_int(struct slave *, command_t, int, int);
-void return_ssize(struct slave *, command_t, ssize_t, int);
-void resume_signal(struct slave *, sigset_t *);
-void suspend_signal(struct slave *, sigset_t *);
+void return_int(struct slave_thread *, command_t, int, int);
+void return_ssize(struct slave_thread *, command_t, ssize_t, int);
+void resume_signal(struct slave_thread *, sigset_t *);
+void suspend_signal(struct slave_thread *, sigset_t *);
 
-void process_close(struct slave *);
+void process_close(struct slave_thread *);
 
 #endif

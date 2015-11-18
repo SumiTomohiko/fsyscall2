@@ -18,7 +18,7 @@ def make_formal_arguments_of_execute_call(syscall, a):
     return "{datatype}{asterisk}{name}".format(**locals())
 
 def print_fslave_head(p, syscall):
-    args = ["struct slave *slave", "int *retval", "int *errnum"]
+    args = ["struct slave_thread *slave_thread", "int *retval", "int *errnum"]
     for a in syscall.output_args:
         args.append(make_formal_arguments_of_execute_call(syscall, a))
 
@@ -105,7 +105,7 @@ def print_fslave_call(p, print_newline, syscall):
     print_locals(p, local_vars)
     print_newline()
     p("""\
-\trfd = slave->rfd;
+\trfd = slave_thread->fsth_rfd;
 \tpayload_size = read_payload_size(rfd);
 """)
     print_newline()
@@ -195,10 +195,10 @@ def print_fslave_call(p, print_newline, syscall):
         ast = (1 if data.out and data.is_array else 0) * "*"
         args.append("{ast}{name}".format(ast=ast, name=a.name))
     p("""\
-\tsuspend_signal(slave, &oset);
+\tsuspend_signal(slave_thread, &oset);
 \t*retval = {name}({args});
 \t*errnum = errno;
-\tresume_signal(slave, &oset);
+\tresume_signal(slave_thread, &oset);
 """.format(name=drop_prefix(syscall.name), args=", ".join(args)))
 
     for a in syscall.args:
@@ -227,7 +227,7 @@ def print_fslave_return(p, print_newline, syscall):
                       for a in output_args])
     p("""\
 static void
-execute_return(struct slave *slave, int retval, int errnum, {args})
+execute_return(struct slave_thread *slave_thread, int retval, int errnum, {args})
 {{
 """.format(**locals()))
 
@@ -266,7 +266,7 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
     return_func = get_fslave_return_func(syscall)
     p("""\
 \tif (retval == -1) {{
-\t\t{return_func}(slave, {cmd_name}_RETURN, retval, errnum);
+\t\t{return_func}(slave_thread, {cmd_name}_RETURN, retval, errnum);
 \t\treturn;
 \t}}
 """.format(**locals()))
@@ -297,7 +297,7 @@ execute_return(struct slave *slave, int retval, int errnum, {args})
     p("""\
 \tpayload_size = retval_len + {payload_size};
 
-\twfd = slave->wfd;
+\twfd = slave_thread->fsth_wfd;
 \twrite_command(wfd, {cmd_name}_RETURN);
 \twrite_payload_size(wfd, payload_size);
 \twrite_or_die(wfd, retval_buf, retval_len);
@@ -349,7 +349,7 @@ def print_fslave_main(p, print_newline, syscall):
     name = drop_prefix(syscall.name)
     p("""\
 void
-process_{name}(struct slave *slave)
+process_{name}(struct slave_thread *slave_thread)
 {{
 """.format(**locals()))
 
@@ -364,8 +364,8 @@ process_{name}(struct slave *slave)
         print_newline()
         return_func = get_fslave_return_func(syscall)
         p("""\
-\texecute_call(slave, &retval, &errnum);
-\t{return_func}(slave, {cmd_name}_RETURN, retval, errnum);
+\texecute_call(slave_thread, &retval, &errnum);
+\t{return_func}(slave_thread, {cmd_name}_RETURN, retval, errnum);
 }}
 """.format(**locals()))
         return
@@ -380,8 +380,8 @@ process_{name}(struct slave *slave)
     call_args = ", ".join(["&{name}".format(**vars(a)) for a in out_arguments])
     ret_args = make_execute_return_actual_arguments(syscall, out_arguments)
     p("""\
-\texecute_call(slave, &retval, &errnum, {call_args});
-\texecute_return(slave, retval, errnum, {ret_args});
+\texecute_call(slave_thread, &retval, &errnum, {call_args});
+\texecute_return(slave_thread, retval, errnum, {ret_args});
 }}
 """.format(**locals()))
 
@@ -409,7 +409,7 @@ def write_dispatch(dirpath, syscalls):
             name = drop_prefix(syscall.name)
             p("""\
 \t\t\tcase {cmd}_CALL:
-\t\t\t\tprocess_{name}(slave);
+\t\t\t\tprocess_{name}(slave_thread);
 \t\t\t\tbreak;
 """.format(**locals()))
         write_c_footer(p)
@@ -434,7 +434,7 @@ def write_proto(dirpath, syscalls):
             if syscall.name not in FSLAVE_SYSCALLS:
                 continue
             p("""\
-void process_{name}(struct slave *);
+void process_{name}(struct slave_thread *);
 """.format(name=drop_prefix(syscall.name)))
         print_newline()
         p("""\
