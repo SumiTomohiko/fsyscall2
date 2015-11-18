@@ -334,7 +334,8 @@ process_signaled(struct shub *shub, struct slave *slave, command_t cmd)
 }
 
 static void
-transfer_payload_from_slave(struct shub *shub, struct slave *slave, command_t cmd)
+transfer_payload_from_slave(struct shub *shub, struct slave *slave,
+			    command_t cmd)
 {
 	uint32_t payload_size;
 	int len, rfd, wfd;

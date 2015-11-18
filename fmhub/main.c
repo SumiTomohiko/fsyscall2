@@ -127,7 +127,8 @@ find_syscall()
 }
 
 static void
-exec_master(int syscall_num, int rfd, int wfd, const char *fork_sock, int argc, char *argv[], const char *envp[])
+exec_master(int syscall_num, int rfd, int wfd, const char *fork_sock, int argc,
+	    char *argv[], const char *envp[])
 {
 	char **args;
 	int i;
@@ -469,7 +470,8 @@ transfer_simple_command_from_master(struct mhub *mhub, struct master *master,
 }
 
 static void
-transfer_payload_from_master(struct mhub *mhub, struct master *master, command_t cmd)
+transfer_payload_from_master(struct mhub *mhub, struct master *master,
+			     command_t cmd)
 {
 	pair_id_t pair_id;
 	int len, payload_size, rfd, wfd;
@@ -701,7 +703,8 @@ free_env(struct env *penv)
 }
 
 static int
-mhub_main(struct mhub *mhub, const char *fork_sock, int argc, char *argv[], struct env *penv)
+mhub_main(struct mhub *mhub, const char *fork_sock, int argc, char *argv[],
+	  struct env *penv)
 {
 	struct master *master;
 	int hub2master[2], master2hub[2], rfd, syscall_num, wfd;

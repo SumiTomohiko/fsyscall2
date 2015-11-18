@@ -399,7 +399,8 @@ write_open_fds(struct slave_thread *slave_thread)
 }
 
 static void
-return_generic(struct slave_thread *slave_thread, command_t cmd, char *ret_buf, int ret_len, char *errnum_buf, int errnum_len)
+return_generic(struct slave_thread *slave_thread, command_t cmd, char *ret_buf,
+	       int ret_len, char *errnum_buf, int errnum_len)
 {
 	int wfd;
 
@@ -481,7 +482,9 @@ read_fds(struct slave_thread *slave_thread, int *maxfd, fd_set *fds,
 }
 
 static void
-read_select_parameters(struct slave_thread *slave_thread, int *nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout, struct timeval **ptimeout)
+read_select_parameters(struct slave_thread *slave_thread, int *nfds,
+		       fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
+		       struct timeval *timeout, struct timeval **ptimeout)
 {
 	payload_size_t actual_payload_size, exceptfds_len, payload_size;
 	payload_size_t readfds_len, writefds_len;
@@ -553,7 +556,8 @@ write_select_timeout(struct slave_thread *slave_thread)
 }
 
 static void
-write_select_ready(struct slave_thread *slave_thread, int retval, int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
+write_select_ready(struct slave_thread *slave_thread, int retval, int nfds,
+		   fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
 {
 	payload_size_t exceptfds_len, nexceptfds_len, nreadfds_len;
 	payload_size_t nwritefds_len, payload_size, readfds_len, retval_len;
@@ -1745,7 +1749,9 @@ process_kevent(struct slave_thread *slave_thread)
 	retval = kevent(kq, changelist, nchanges, eventlist, nevents, ptimeout);
 	e = errno;
 	resume_signal(slave_thread, &oset);
-	syslog(LOG_DEBUG, "kevent: kq=%d, nchanges=%d, nevents=%d, retval=%d", kq, nchanges, nevents, retval);
+	syslog(LOG_DEBUG,
+	       "kevent: kq=%d, nchanges=%d, nevents=%d, retval=%d",
+	       kq, nchanges, nevents, retval);
 	return_command = KEVENT_RETURN;
 	if (retval == -1) {
 		return_int(slave_thread, return_command, retval, e);
@@ -1875,7 +1881,8 @@ process_select(struct slave_thread *slave_thread)
 	FD_ZERO(&exceptfds);
 	FD_ZERO(&readfds);
 	FD_ZERO(&writefds);
-	read_select_parameters(slave_thread, &nfds, &readfds, &writefds, &exceptfds, &timeout, &ptimeout);
+	read_select_parameters(slave_thread, &nfds, &readfds, &writefds,
+			       &exceptfds, &timeout, &ptimeout);
 
 	suspend_signal(slave_thread, &oset);
 	retval = select(nfds, &readfds, &writefds, &exceptfds, ptimeout);
@@ -1890,7 +1897,8 @@ process_select(struct slave_thread *slave_thread)
 		write_select_timeout(slave_thread);
 		break;
 	default:
-		write_select_ready(slave_thread, retval, nfds, &readfds, &writefds, &exceptfds);
+		write_select_ready(slave_thread, retval, nfds, &readfds,
+				   &writefds, &exceptfds);
 		break;
 	}
 }
