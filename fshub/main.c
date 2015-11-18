@@ -246,12 +246,12 @@ process_fork_socket(struct shub *shub)
 }
 
 static void
-process_fork(struct shub *shub)
+transfer_token(struct shub *shub, command_t cmd)
 {
 	struct fork_info *fork_info;
 	pair_id_t child_pair_id, pair_id;
 	int rfd, wfd;
-	const char *fmt = "FORK_CALL: pair_id=%ld";
+	const char *fmt = "%s: pair_id=%ld";
 	char *token;
 
 	rfd = shub->mhub.rfd;
@@ -259,7 +259,7 @@ process_fork(struct shub *shub)
 	read_payload_size(rfd);	// unused
 	child_pair_id = read_pair_id(rfd);
 
-	syslog(LOG_DEBUG, fmt, pair_id);
+	syslog(LOG_DEBUG, fmt, get_command_name(cmd), pair_id);
 
 	fork_info = (struct fork_info *)malloc_or_die(sizeof(*fork_info));
 	token = fork_info->token;
@@ -268,7 +268,7 @@ process_fork(struct shub *shub)
 	PREPEND_ITEM(&shub->fork_info, fork_info);
 
 	wfd = find_slave_of_pair_id(shub, pair_id)->wfd;
-	write_command(wfd, FORK_CALL);
+	write_command(wfd, cmd);
 	write_payload_size(wfd, TOKEN_SIZE);
 	write_or_die(wfd, token, TOKEN_SIZE);
 
@@ -288,7 +288,8 @@ process_mhub(struct shub *shub)
 		process_exit(shub);
 		break;
 	case FORK_CALL:
-		process_fork(shub);
+	case THR_NEW_CALL:
+		transfer_token(shub, cmd);
 		break;
 	case CLOSE_CALL:
 	case POLL_CALL:
@@ -390,6 +391,7 @@ process_slave(struct shub *shub, struct slave *slave)
 	case SIGPROCMASK_RETURN:
 	case SENDMSG_RETURN:
 	case RECVMSG_RETURN:
+	case THR_NEW_RETURN:
 #include "dispatch_ret.inc"
 		transfer_payload_from_slave(shub, slave, cmd);
 		break;

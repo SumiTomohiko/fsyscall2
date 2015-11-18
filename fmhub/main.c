@@ -352,7 +352,7 @@ process_fork_socket(struct mhub *mhub)
 }
 
 static void
-process_fork_return(struct mhub *mhub)
+transfer_token(struct mhub *mhub, command_t cmd)
 {
 	struct fork_info *fi;
 	struct payload *payload;
@@ -376,7 +376,7 @@ process_fork_return(struct mhub *mhub)
 	payload_size = payload_get_size(payload);
 
 	wfd = find_master_of_pair_id(mhub, pair_id)->wfd;
-	write_command(wfd, FORK_RETURN);
+	write_command(wfd, cmd);
 	write_payload_size(wfd, payload_size + buf_size);
 	write_or_die(wfd, payload_get(payload), payload_size);
 	write_or_die(wfd, buf, buf_size);
@@ -400,7 +400,8 @@ process_shub(struct mhub *mhub)
 		process_signaled(mhub, cmd);
 		break;
 	case FORK_RETURN:
-		process_fork_return(mhub);
+	case THR_NEW_RETURN:
+		transfer_token(mhub, cmd);
 		break;
 	case CLOSE_RETURN:
 	case POLL_RETURN:
@@ -491,21 +492,23 @@ transfer_payload_from_master(struct mhub *mhub, struct master *master, command_t
 }
 
 static void
-read_fork_call(struct mhub *mhub, struct master *master)
+read_fork_kind_call(struct mhub *mhub, struct master *master, command_t cmd)
 {
 	int len, payload_size;
 	char buf[FSYSCALL_BUFSIZE_PAYLOAD_SIZE];
-	const char *fmt = "FORK_CALL: pair_id=%ld, payload_size=%d";
+	const char *fmt = "%s: pair_id=%ld, payload_size=%d", *name;
 
 	len = read_numeric_sequence(master->rfd, buf, array_sizeof(buf));
 	payload_size = decode_int32(buf, len);
 	assert(payload_size == 0);
 
-	syslog(LOG_DEBUG, fmt, master->pair_id, payload_size);
+	name = get_command_name(cmd);
+	syslog(LOG_DEBUG, fmt, name, master->pair_id, payload_size);
 }
 
 static void
-write_fork_call(struct mhub *mhub, struct master *master, struct fork_info *fi)
+write_fork_kind_call(struct mhub *mhub, struct master *master, command_t cmd,
+		     struct fork_info *fi)
 {
 	payload_size_t payload_size;
 	int wfd;
@@ -514,18 +517,18 @@ write_fork_call(struct mhub *mhub, struct master *master, struct fork_info *fi)
 	payload_size = encode_pair_id(fi->child_pair_id, buf, sizeof(buf));
 
 	wfd = mhub->shub.wfd;
-	write_command(wfd, FORK_CALL);
+	write_command(wfd, cmd);
 	write_pair_id(wfd, master->pair_id);
 	write_payload_size(wfd, payload_size);
 	write_or_die(wfd, buf, payload_size);
 }
 
 static void
-process_fork_call(struct mhub *mhub, struct master *master)
+process_fork_kind_call(struct mhub *mhub, struct master *master, command_t cmd)
 {
 	struct fork_info *fi;
 
-	read_fork_call(mhub, master);
+	read_fork_kind_call(mhub, master, cmd);
 
 	fi = (struct fork_info *)malloc_or_die(sizeof(*fi));
 	fi->parent_pair_id = master->pair_id;
@@ -534,7 +537,7 @@ process_fork_call(struct mhub *mhub, struct master *master)
 	mhub->next_pair_id++;
 	PREPEND_ITEM(&mhub->fork_info, fi);
 
-	write_fork_call(mhub, master, fi);
+	write_fork_kind_call(mhub, master, cmd, fi);
 }
 
 static void
@@ -553,7 +556,8 @@ process_master(struct mhub *mhub, struct master *master)
 		process_exit(mhub, master);
 		break;
 	case FORK_CALL:
-		process_fork_call(mhub, master);
+	case THR_NEW_CALL:
+		process_fork_kind_call(mhub, master, cmd);
 		break;
 	case CLOSE_CALL:
 	case POLL_CALL:
