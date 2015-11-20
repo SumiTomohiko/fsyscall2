@@ -34,7 +34,7 @@
 struct master {
 	struct item item;
 	pair_id_t pair_id;
-	pid_t pid;
+	pid_t pid;		/* used to signal */
 	int rfd;
 	int wfd;
 };
