@@ -340,12 +340,10 @@ fmaster_initialize_kqueue(struct thread *td,
 	struct kevent kev;
 	struct kevent_copyops k_ops;
 	struct kevent_bonus k_bonus;
-	pid_t pid;
 	int error, kq;
 	u_short flags;
 	const char *fmt;
 
-	pid = td->td_proc->p_pid;
 	error = sys_kqueue(td, NULL);
 	if (error != 0) {
 		fmt = "sys_kqueue failed: error=%d";
