@@ -22,23 +22,6 @@
 #include <sys/fmaster/fmaster_proto.h>
 
 static int
-execute_call(struct thread *td, struct fmaster_fork_args *uap)
-{
-	payload_size_t payload_size;
-	int error;
-
-	error = fmaster_write_command(td, FORK_CALL);
-	if (error != 0)
-		return (error);
-	payload_size = 0;
-	error = fmaster_write_payload_size(td, payload_size);
-
-	return (error);
-}
-
-MALLOC_DEFINE(M_TOKEN, "token", "buffer for token");
-
-static int
 do_fork(struct thread *td, pid_t slave_pid, const char *token,
 	uint64_t token_size)
 {
@@ -68,65 +51,24 @@ do_fork(struct thread *td, pid_t slave_pid, const char *token,
 }
 
 static int
-execute_return(struct thread *td, struct fmaster_fork_args *uap,
-	       pid_t *slave_pid, char **ptoken, uint64_t *ptoken_size)
-{
-	payload_size_t payload_size;
-	uint64_t token_size;
-	command_t cmd;
-	pid_t pid;
-	int error, pid_size, token_size_size;
-	char *token;
-
-	error = fmaster_read_command(td, &cmd);
-	if (error != 0)
-		return (error);
-	if (cmd != FORK_RETURN)
-		return (EPROTO);
-	error = fmaster_read_payload_size(td, &payload_size);
-	if (error != 0)
-		return (error);
-
-	error = fmaster_read_uint64(td, &token_size, &token_size_size);
-	if (error != 0)
-		return (error);
-	*ptoken_size = token_size;
-	token = (char *)malloc(token_size, M_TOKEN, M_WAITOK);
-	if (token == NULL)
-		return (ENOMEM);
-	*ptoken = token;
-	error = fmaster_read(td, fmaster_rfd_of_thread(td), token, token_size);
-	if (error != 0)
-		return (error);
-	error = fmaster_read_int32(td, &pid, &pid_size);
-	if (error != 0)
-		return (error);
-	*slave_pid = td->td_retval[0] = pid;
-
-	return (0);
-}
-
-static int
 fmaster_fork_main(struct thread *td, struct fmaster_fork_args *uap)
 {
 	uint64_t token_size;
-	pid_t slave_pid;
 	int error;
-	char *token = NULL;
+	char *token;
 
-	error = execute_call(td, uap);
+	error = fmaster_write_command_with_empty_payload(td, FORK_CALL);
 	if (error != 0)
 		return (error);
-	error = execute_return(td, uap, &slave_pid, &token, &token_size);
+	error = fmaster_execute_return_int32_with_token(td, FORK_RETURN, &token,
+							&token_size);
 	if (error != 0)
-		goto exit;
-	error = do_fork(td, slave_pid, token, token_size);
+		return (error);
+	error = do_fork(td, td->td_retval[0], token, token_size);
+	if (error != 0)
+		return (error);
 
-exit:
-	if (token != NULL)
-		free(token, M_TOKEN);
-
-	return (error);
+	return (0);
 }
 
 int
@@ -140,6 +82,7 @@ sys_fmaster_fork(struct thread *td, struct fmaster_fork_args *uap)
 	microtime(&time_start);
 
 	error = fmaster_fork_main(td, uap);
+	fmaster_freeall(td);
 
 	fmaster_log_syscall_end(td, SYSCALL_NAME, &time_start, error);
 

@@ -175,6 +175,21 @@ transfer_payload_to_slave(struct shub *shub, command_t cmd)
 }
 
 static void
+process_thr_exit(struct shub *shub)
+{
+	struct slave *slave;
+	pair_id_t pair_id;
+
+	pair_id = read_pair_id(shub->mhub.rfd);
+	slave = find_slave_of_pair_id(shub, pair_id);
+	syslog(LOG_DEBUG, "THR_EXIT_CALL: pair_id=%ld", pair_id);
+
+	write_command(slave->wfd, THR_EXIT_CALL);
+
+	dispose_slave(slave);
+}
+
+static void
 process_exit(struct shub *shub)
 {
 	struct slave *slave;
@@ -311,6 +326,9 @@ process_mhub(struct shub *shub)
 		break;
 	case POLL_END:
 		transfer_simple_command_to_slave(shub, cmd);
+		break;
+	case THR_EXIT_CALL:
+		process_thr_exit(shub);
 		break;
 	default:
 		diex(-1, "unknown command (%d) from the master hub", cmd);

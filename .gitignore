@@ -177,10 +177,8 @@ fmaster/sys/fmaster/fmaster_syscalls.c
 fmaster/sys/fmaster/fmaster_sysent.c
 fmaster/sys/fmaster/fmaster_systrace_args.c
 fmaster/sys/fmaster/fmaster_thr_create.c
-fmaster/sys/fmaster/fmaster_thr_exit.c
 fmaster/sys/fmaster/fmaster_thr_kill.c
 fmaster/sys/fmaster/fmaster_thr_kill2.c
-fmaster/sys/fmaster/fmaster_thr_new.c
 fmaster/sys/fmaster/fmaster_thr_set_name.c
 fmaster/sys/fmaster/fmaster_thr_suspend.c
 fmaster/sys/fmaster/fmaster_thr_wake.c

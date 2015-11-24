@@ -52,11 +52,37 @@ static int nsigs = array_sizeof(sigs);
 
 static int sigw;
 
+#if 0
+static void
+sighandler(int sig)
+{
+
+	syslog(LOG_DEBUG, "signaled (default): SIG%s", sys_signame[sig]);
+}
+#endif
+
+static void
+reset_signal_handler()
+{
+	struct sigaction act;
+	int i;
+
+	act.sa_handler = SIG_DFL;
+#if 0
+	act.sa_handler = sighandler;
+#endif
+	act.sa_flags = 0;
+	sigfillset(&act.sa_mask);
+	for (i = 0; i < nsigs; i++)
+		sigaction(sigs[i], &act, NULL);
+}
+
 static void
 destroy_slave(struct slave *slave)
 {
 
 	free(slave->fork_sock);
+	reset_signal_handler();
 	close_or_die(sigw);
 	close_or_die(slave->sigr);
 	pthread_rwlock_destroy(&slave->fsla_lock);
@@ -1476,11 +1502,13 @@ static int
 initialize_signal_handling(struct slave *slave)
 {
 	int fds[2];
+	const char *fmt = "initialized signal handling: sigr=%d, sigw=%d";
 
 	if (pipe(fds) == -1)
 		return (-1);
 	slave->sigr = fds[0];
 	sigw = fds[1];
+	syslog(LOG_DEBUG, fmt, slave->sigr, sigw);
 
 	return (0);
 }
@@ -1899,6 +1927,15 @@ process_select(struct slave_thread *slave_thread)
 	}
 }
 
+static void
+process_thr_exit(struct slave_thread *slave_thread)
+{
+
+	pthread_exit(NULL);
+	/* NOTREACHED */
+	die(2, "pthread_exit(3) returned???");
+}
+
 static int
 process_exit(struct slave_thread *slave_thread)
 {
@@ -2014,6 +2051,9 @@ mainloop(struct slave_thread *slave_thread)
 				break;
 			case EXIT_CALL:
 				return process_exit(slave_thread);
+			case THR_EXIT_CALL:
+				process_thr_exit(slave_thread);
+				break;
 			default:
 				diex(-1, "unknown command (%d)", cmd);
 				/* NOTREACHED */

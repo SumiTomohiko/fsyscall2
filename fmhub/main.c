@@ -437,6 +437,22 @@ dispose_master(struct master *master)
 }
 
 static void
+process_thr_exit(struct mhub *mhub, struct master *master)
+{
+	pair_id_t pair_id;
+	int wfd;
+
+	pair_id = master->pair_id;
+	syslog(LOG_DEBUG, "THR_EXIT_CALL: pair_id=%ld", pair_id);
+
+	wfd = mhub->shub.wfd;
+	write_command(wfd, THR_EXIT_CALL);
+	write_pair_id(wfd, pair_id);
+
+	dispose_master(master);
+}
+
+static void
 process_exit(struct mhub *mhub, struct master *master)
 {
 	pair_id_t pair_id;
@@ -536,6 +552,9 @@ process_fork_kind_call(struct mhub *mhub, struct master *master, command_t cmd)
 	fi->parent_pair_id = master->pair_id;
 	fi->child_pair_id = mhub->next_pair_id;
 	hub_generate_token(fi->token, TOKEN_SIZE);
+#if 0
+	syslog(LOG_DEBUG, "token generated: %s", fi->token);
+#endif
 	mhub->next_pair_id++;
 	PREPEND_ITEM(&mhub->fork_info, fi);
 
@@ -581,6 +600,9 @@ process_master(struct mhub *mhub, struct master *master)
 		break;
 	case POLL_END:
 		transfer_simple_command_from_master(mhub, master, cmd);
+		break;
+	case THR_EXIT_CALL:
+		process_thr_exit(mhub, master);
 		break;
 	default:
 		diex(-1, fmt, cmd, master->pair_id);

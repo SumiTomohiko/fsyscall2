@@ -69,13 +69,17 @@ int	fmaster_write_from_userspace(struct thread *, int, const void *, size_t);
 int	fmaster_write_payloaded_command(struct thread *, command_t,
 					struct payload *);
 
-/* thread attributes */
+/* thread */
 int	fmaster_rfd_of_thread(struct thread *);
 int	fmaster_wfd_of_thread(struct thread *);
 void	fmaster_set_slave_pid(struct thread *, pid_t);
 pid_t	fmaster_get_slave_pid(struct thread *);
+void	fmaster_end_thread_creating(struct thread *);
+void	fmaster_start_thread_creating(struct thread *);
 
 /* lifecycle */
+int	fmaster_add_thread(struct thread *, lwpid_t, int, int, const char *,
+			   uint64_t);
 int	fmaster_create_data(struct thread *, int, int, const char *,
 			    struct fmaster_data **);
 int	fmaster_create_data2(struct thread *, pid_t, lwpid_t, const char *,
@@ -103,6 +107,8 @@ int	fmaster_fd_of_master_fd(struct thread *, int, int *);
 int	fmaster_fd_of_slave_fd(struct thread *, int, int *);
 
 /* protocols */
+int	fmaster_connect_to_mhub(struct thread *, const char *, uint64_t, pid_t,
+				int *);
 int	fmaster_execute_close(struct thread *, int);
 int	fmaster_execute_return_optional32(struct thread *, command_t,
 					  int (*)(struct thread *, int,
@@ -110,6 +116,8 @@ int	fmaster_execute_return_optional32(struct thread *, command_t,
 					  void *);
 int	fmaster_execute_return_generic32(struct thread *, command_t);
 int	fmaster_execute_return_generic64(struct thread *, command_t);
+int	fmaster_execute_return_int32_with_token(struct thread *, command_t,
+						char **, uint64_t *);
 int	fmaster_execute_connect_protocol(struct thread *td, const char *command,
 					 command_t call_command,
 					 command_t return_command, int s,
@@ -120,6 +128,7 @@ int	fmaster_execute_accept_protocol(struct thread *, const char *,
 					struct sockaddr *, socklen_t *);
 int	fmaster_return_fd(struct thread *, enum fmaster_file_place, int,
 			  const char *);
+int	fmaster_write_command_with_empty_payload(struct thread *, command_t);
 
 /* memory management */
 void	*fmaster_malloc(struct thread *, size_t);

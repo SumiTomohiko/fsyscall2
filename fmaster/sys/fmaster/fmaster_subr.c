@@ -62,7 +62,7 @@ struct fmaster_thread_data {
 							   */
 	struct memory_list		ftd_memory;
 	uint64_t			ftd_token_size;
-	char				ftd_token[DATA_TOKEN_SIZE];
+	char				ftd_token[DATA_TOKEN_SIZE + 1];
 };
 
 LIST_HEAD(thread_list, fmaster_thread_data);
@@ -105,6 +105,8 @@ struct fmaster_data {
 	uma_zone_t		fdata_vnodes;
 
 	struct fmaster_threads	fdata_threads;
+	struct mtx		fdata_thread_creating_mutex;
+	struct mtx		fdata_thread_created_mutex;
 
 	pid_t			fdata_slave_pid;
 
@@ -253,6 +255,8 @@ create_data(struct fmaster_data **pdata)
 	error = initialize_threads(&data->fdata_threads);
 	if (error != 0)
 		goto fail;
+	mtx_init(&data->fdata_thread_creating_mutex, "fthcring", NULL, MTX_DEF);
+	mtx_init(&data->fdata_thread_created_mutex, "fthcred", NULL, MTX_SPIN);
 
 	data->fdata_slave_pid = SLAVE_PID_UNKNOWN;
 	data->fdata_logfd = -1;
@@ -284,6 +288,21 @@ get_thread_bucket(struct fmaster_threads *threads, fmaster_tid tid)
 }
 
 static int
+thread_data_set_token(struct fmaster_thread_data *tdata, const char *token,
+		      size_t token_size)
+{
+
+	if (sizeof(tdata->ftd_token) - 1 < token_size)
+		return (ENOMEM);
+
+	memcpy(tdata->ftd_token, token, token_size);
+	tdata->ftd_token[token_size] = '\0';
+	tdata->ftd_token_size = token_size;
+
+	return (0);
+}
+
+static int
 add_thread(struct fmaster_data *data, fmaster_tid tid,
 	   struct fmaster_thread_data **pthread)
 {
@@ -301,8 +320,7 @@ add_thread(struct fmaster_data *data, fmaster_tid tid,
 	tdata->ftd_rfd = tdata->ftd_wfd = tdata->ftd_kq = -1;
 	tdata->ftd_rfdlen = 0;
 	SLIST_INIT(&tdata->ftd_memory);
-	tdata->ftd_token_size = 0;
-	tdata->ftd_token[0] = '\0';
+	thread_data_set_token(tdata, "", 0);
 
 	lock = &threads->fth_lock;
 	rm_wlock(lock);
@@ -433,15 +451,12 @@ add_forking_thread(struct fmaster_data *data, fmaster_tid tid,
 	struct fmaster_thread_data *thread;
 	int error;
 
-	if (sizeof(thread->ftd_token) < token_size)
-		return (ENOMEM);
-
 	error = add_thread(data, tid, &thread);
 	if (error != 0)
 		return (error);
-
-	memcpy(thread->ftd_token, token, token_size);
-	thread->ftd_token_size = token_size;
+	error = thread_data_set_token(thread, token, token_size);
+	if (error != 0)
+		return (error);
 
 	return (0);
 }
@@ -596,16 +611,13 @@ fmaster_log(struct thread *td, int pri, const char *fmt, ...)
 	log(pri, "%s", buf);
 }
 
-void
-fmaster_delete_data(struct fmaster_data *data)
+static void
+destroy_threads(struct fmaster_threads *threads)
 {
 	struct fmaster_thread_data *tdata, *tmp;
-	struct fmaster_threads *threads;
 	struct thread_list *list;
-	uma_zone_t zone;
 	int i;
 
-	threads = &data->fdata_threads;
 	for (i = 0; i < THREAD_BUCKETS_NUM; i++) {
 		list = &threads->fth_threads[i];
 		LIST_FOREACH_SAFE(tdata, list, ftd_list, tmp)
@@ -613,6 +625,35 @@ fmaster_delete_data(struct fmaster_data *data)
 	}
 	uma_zdestroy(threads->fth_allocator);
 	rm_destroy(&threads->fth_lock);
+}
+
+void
+fmaster_start_thread_creating(struct thread *td)
+{
+	struct fmaster_data *data;
+
+	data = fmaster_proc_data_of_thread(td);
+	mtx_lock(&data->fdata_thread_creating_mutex);
+}
+
+void
+fmaster_end_thread_creating(struct thread *td)
+{
+	struct fmaster_data *data;
+
+	data = fmaster_proc_data_of_thread(td);
+	mtx_unlock(&data->fdata_thread_creating_mutex);
+}
+
+void
+fmaster_delete_data(struct fmaster_data *data)
+{
+	uma_zone_t zone;
+	int i;
+
+	mtx_destroy(&data->fdata_thread_created_mutex);
+	mtx_destroy(&data->fdata_thread_creating_mutex);
+	destroy_threads(&data->fdata_threads);
 
 	zone = data->fdata_vnodes;
 	for (i = 0; i < FILES_NUM; i++)
@@ -1815,6 +1856,7 @@ connect_to_mhub(struct thread *td)
 {
 	struct fmaster_thread_data *thread_data;
 	struct fmaster_data *data;
+	struct mtx *lock;
 	int error, pidlen, sock;
 	char buf[FSYSCALL_BUFSIZE_PID];
 
@@ -1825,9 +1867,15 @@ connect_to_mhub(struct thread *td)
 	if (error != 0)
 		return (error);
 
-	thread_data = fmaster_thread_data_of_thread(td);
-	thread_data->ftd_rfd = thread_data->ftd_wfd = sock;
 	data = fmaster_proc_data_of_thread(td);
+	lock = &data->fdata_thread_created_mutex;
+	mtx_lock(lock);
+	while ((thread_data = fmaster_thread_data_of_thread(td)) == NULL)
+		msleep_spin(lock, lock, "fthcreat", 0);
+	mtx_unlock(lock);
+
+	KASSERT(thread_data != NULL, ("thread data not found: tid=0x%x", tid));
+	thread_data->ftd_rfd = thread_data->ftd_wfd = sock;
 	error = fmaster_initialize_kqueues(td, data);
 	if (error != 0)
 		return (error);
@@ -1851,6 +1899,8 @@ fmaster_schedtail(struct thread *td)
 {
 	int error;
 	const char *fmt = "cannot connect to mhub: error=%d";
+
+	fmaster_log(td, LOG_DEBUG, "fmaster_schedtail started");
 
 	error = fmaster_openlog(td);
 	if (error != 0)
@@ -2536,6 +2586,91 @@ fmaster_release_thread(struct thread *td)
 		}
 		PROC_UNLOCK(p);
 	}
+
+	return (0);
+}
+
+int
+fmaster_write_command_with_empty_payload(struct thread *td, command_t cmd)
+{
+	int error;
+
+	error = fmaster_write_command(td, cmd);
+	if (error != 0)
+		return (error);
+	error = fmaster_write_payload_size(td, 0);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+fmaster_execute_return_int32_with_token(struct thread *td,
+					command_t expected_cmd, char **ptoken,
+					uint64_t *ptoken_size)
+{
+	payload_size_t payload_size;
+	uint64_t token_size;
+	command_t cmd;
+	int error, retval, retval_size, token_size_size;
+	char *token;
+
+	error = fmaster_read_command(td, &cmd);
+	if (error != 0)
+		return (error);
+	if (expected_cmd != cmd)
+		return (EPROTO);
+	error = fmaster_read_payload_size(td, &payload_size);
+	if (error != 0)
+		return (error);
+
+	error = fmaster_read_uint64(td, &token_size, &token_size_size);
+	if (error != 0)
+		return (error);
+	*ptoken_size = token_size;
+	token = (char *)fmaster_malloc(td, token_size + 1);
+	if (token == NULL)
+		return (ENOMEM);
+	*ptoken = token;
+	error = fmaster_read(td, fmaster_rfd_of_thread(td), token, token_size);
+	if (error != 0)
+		return (error);
+	token[token_size] = '\0';
+	error = fmaster_read_int32(td, &retval, &retval_size);
+	if (error != 0)
+		return (error);
+	td->td_retval[0] = retval;
+
+	return (0);
+}
+
+int
+fmaster_add_thread(struct thread *td, lwpid_t tid, int rfd, int wfd,
+		   const char *token, uint64_t token_size)
+{
+	struct fmaster_data *data;
+	struct fmaster_thread_data *tdata;
+	struct mtx *lock;
+	int error;
+
+	data = fmaster_proc_data_of_thread(td);
+	error = add_thread(data, tid, &tdata);
+	if (error != 0)
+		return (error);
+	tdata->ftd_rfd = rfd;
+	tdata->ftd_wfd = wfd;
+	error = thread_data_set_token(tdata, token, token_size);
+	if (error != 0)
+		return (error);
+	error = fmaster_initialize_kqueue(td, tdata);
+	if (error != 0)
+		return (error);
+
+	lock = &data->fdata_thread_created_mutex;
+	mtx_lock(lock);
+	wakeup(lock);
+	mtx_unlock(lock);
 
 	return (0);
 }
