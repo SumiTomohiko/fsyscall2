@@ -1112,7 +1112,8 @@ fmaster_read_sockaddr(struct thread *td, struct sockaddr_storage *addr,
 }
 
 static int
-read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize, int *size)
+read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize,
+		      int *size)
 {
 	int error;
 	char *p, *pend;
@@ -1190,7 +1191,8 @@ fmaster_read_command(struct thread *td, command_t *dest)
 }
 
 static int
-write_aio(struct thread *td, int d, const void *buf, size_t nbytes, enum uio_seg segflg)
+write_aio(struct thread *td, int d, const void *buf, size_t nbytes,
+	  enum uio_seg segflg)
 {
 	struct uio auio;
 	struct iovec aiov;
@@ -1216,7 +1218,8 @@ write_aio(struct thread *td, int d, const void *buf, size_t nbytes, enum uio_seg
 }
 
 int
-fmaster_write_from_userspace(struct thread *td, int d, const void *buf, size_t nbytes)
+fmaster_write_from_userspace(struct thread *td, int d, const void *buf,
+			     size_t nbytes)
 {
 	return (write_aio(td, d, buf, nbytes, UIO_USERSPACE));
 }
@@ -1265,7 +1268,10 @@ IMPLEMENT_WRITE_X(
 		fsyscall_encode_int32)
 
 int
-fmaster_execute_return_optional32(struct thread *td, command_t expected_cmd, int (*callback)(struct thread *, int, payload_size_t *, void *), void *bonus)
+fmaster_execute_return_optional32(struct thread *td, command_t expected_cmd,
+				  int (*callback)(struct thread *, int,
+						  payload_size_t *, void *),
+				  void *bonus)
 {
 	payload_size_t actual_payload_size, optional_payload_size, payload_size;
 	command_t cmd;
@@ -1987,7 +1993,8 @@ fmaster_get_sockopt_name(int optname)
 }
 
 void
-fmaster_chain_flags(char *buf, size_t bufsize, flag_t flags, struct flag_definition defs[], size_t ndefs)
+fmaster_chain_flags(char *buf, size_t bufsize, flag_t flags,
+		    struct flag_definition defs[], size_t ndefs)
 {
 	int i, len, size;
 	const char *sep;
