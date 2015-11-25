@@ -244,13 +244,38 @@ class SlaveHelper {
         }
     }
 
-    private class ForkProc extends CommandDispatcher.Proc {
+    private abstract class SlaveAddingProc extends CommandDispatcher.Proc {
 
         public void call(Command command) throws IOException {
             PayloadSize payloadSize = mIn.readPayloadSize();
             PairId pairId = new PairId(mIn.readInteger());
-            SyscallResult.Generic32 result = mSlave.doFork(pairId);
-            writeResult(Command.FORK_RETURN, result);
+            SyscallResult.Generic32 result = syscall(pairId);
+            writeResult(getReturnCommand(), result);
+        }
+
+        protected abstract SyscallResult.Generic32 syscall(PairId newPairId) throws IOException;
+        protected abstract Command getReturnCommand();
+    }
+
+    private class ForkProc extends SlaveAddingProc {
+
+        protected SyscallResult.Generic32 syscall(PairId newPairId) throws IOException {
+            return mSlave.doFork(newPairId);
+        }
+
+        protected Command getReturnCommand() {
+            return Command.FORK_RETURN;
+        }
+    }
+
+    private class ThrNewProc extends SlaveAddingProc {
+
+        protected SyscallResult.Generic32 syscall(PairId newPairId) throws IOException {
+            return mSlave.doThrNew(newPairId);
+        }
+
+        protected Command getReturnCommand() {
+            return Command.THR_NEW_RETURN;
         }
     }
 
@@ -738,6 +763,13 @@ class SlaveHelper {
         }
     }
 
+    private class ThrExitProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            mSlave.doThrExit();
+        }
+    }
+
     private class ExitProc extends CommandDispatcher.Proc {
 
         public void call(Command command) throws IOException {
@@ -793,6 +825,8 @@ class SlaveHelper {
         dispatcher.addEntry(Command.POLL_START, new PollStartProc());
         dispatcher.addEntry(Command.SENDMSG_CALL, new SendmsgProc());
         dispatcher.addEntry(Command.RECVMSG_CALL, new RecvmsgProc());
+        dispatcher.addEntry(Command.THR_NEW_CALL, new ThrNewProc());
+        dispatcher.addEntry(Command.THR_EXIT_CALL, new ThrExitProc());
         @DISPATCHES@;
         return dispatcher;
     }

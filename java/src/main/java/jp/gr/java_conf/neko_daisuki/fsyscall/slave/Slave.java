@@ -54,7 +54,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
 
 /**
- * The class for fsyscall process.
+ * The class for one fsyscall thread.
  *
  * The Slave class must be public because the NexecClient is using the
  * Slave.Listener.
@@ -113,7 +113,7 @@ public class Slave implements Runnable {
             TimeoutRunner.Action act = runner.run();
             int interval = 10;  // msec
             long t = 1000 * interval; // usec
-            while (!mDetector.isTimeout(t) && (act == TimeoutRunner.Action.CONTINUE) && !mCancelled) {
+            while (!mDetector.isTimeout(t) && (act == TimeoutRunner.Action.CONTINUE) && !mTerminated) {
                 Thread.sleep(interval);
                 t += 1000 * interval;
                 act = runner.run();
@@ -571,11 +571,6 @@ public class Slave implements Runnable {
         public Socket getClientSocket() {
             return mClientSocket;
         }
-    }
-
-    private enum State {
-        RUNNING,
-        ZOMBIE
     }
 
     private static class GetSocketException extends Exception {
@@ -1244,7 +1239,8 @@ public class Slave implements Runnable {
 
         private void writeCreds(Unix.Cmsghdr cmsghdr) throws UnixException {
             int[] groups = new int[] { GID };
-            Unix.Cmsgdata data = new Unix.Cmsgcred(mPid, UID, UID, GID, groups);
+            Pid pid = getPid();
+            Unix.Cmsgdata data = new Unix.Cmsgcred(pid, UID, UID, GID, groups);
             cmsghdr.cmsg_data = data;
             Unix.Cmsghdr copy = new Unix.Cmsghdr(cmsghdr);
             Socket.Control control = new Socket.Control(copy);
@@ -1705,7 +1701,7 @@ public class Slave implements Runnable {
                     if ((mTimeout != null) && (nanoTimeout <= t)) {
                         return;
                     }
-                    if (mCancelled) {
+                    if (mTerminated) {
                         throw new UnixException(Errno.EINTR);
                     }
                     long nano = mTimeout != null ? nanoTimeout - t : 0;
@@ -1911,22 +1907,20 @@ public class Slave implements Runnable {
     private Listener mListener;
 
     // states
-    private Pid mPid;
-    private State mState = State.RUNNING;
+    private Process mProcess;
     private NormalizedPath mCurrentDirectory;
     private UnixFile[] mFiles;
     private SignalSet mPendingSignals = new SignalSet();
-    private Integer mExitStatus;
 
     private Alarm mAlarm;
 
     // helpers
     private SlaveHelper mHelper;
     private FcntlProcs mFcntlProcs;
-    private boolean mCancelled = false;
+    private boolean mTerminated = false;
     private EventFilters mEventFilters = new EventFilters();
 
-    public Slave(Application application, Pid pid, InputStream hubIn,
+    public Slave(Application application, Process process, InputStream hubIn,
                  OutputStream hubOut, NormalizedPath currentDirectory,
                  InputStream stdin, OutputStream stdout, OutputStream stderr,
                  Permissions permissions, Links links, Listener listener) throws IOException {
@@ -1939,7 +1933,7 @@ public class Slave implements Runnable {
         files[1] = new UnixOutputStream(alarm, stdout);
         files[2] = new UnixOutputStream(alarm, stderr);
 
-        initialize(application, pid, hubIn, hubOut, currentDirectory, files,
+        initialize(application, process, hubIn, hubOut, currentDirectory, files,
                    permissions, links, listener, alarm);
 
         writeOpenedFileDescriptors();
@@ -1947,13 +1941,13 @@ public class Slave implements Runnable {
     }
 
     /**
-     * Constructor for fork(2).
+     * Constructor for fork(2)/thr_new(2).
      */
-    public Slave(Application application, Pid pid, InputStream hubIn,
+    public Slave(Application application, Process process, InputStream hubIn,
                  OutputStream hubOut, NormalizedPath currentDirectory,
                  UnixFile[] files, Permissions permissions, Links links,
                  Listener listener, Alarm alarm) {
-        initialize(application, pid, hubIn, hubOut, currentDirectory, files,
+        initialize(application, process, hubIn, hubOut, currentDirectory, files,
                    permissions, links, listener, alarm);
     }
 
@@ -1964,18 +1958,14 @@ public class Slave implements Runnable {
         mPendingSignals.add(sig);
     }
 
-    public Integer getExitStatus() {
-        return mExitStatus;
-    }
-
     @Override
     public void run() {
-        mLogger.info(String.format("a slave started: pid=%s", mPid));
+        mLogger.info(String.format("a slave started: pid=%s", getPid()));
 
         try {
             try {
                 try {
-                    while (!mCancelled && (mExitStatus == null)) {
+                    while (!mTerminated) {
                         for (Signal sig: mPendingSignals.toCollection()) {
                             writeSignaled(sig);
                         }
@@ -1987,7 +1977,7 @@ public class Slave implements Runnable {
                             Thread.sleep(10 /* msec */);
                         }
                         catch (InterruptedException unused) {
-                            mCancelled = true;
+                            terminate();
                         }
                     }
                 }
@@ -2003,21 +1993,17 @@ public class Slave implements Runnable {
             mLogger.err("I/O error", e);
             e.printStackTrace();
         }
-        mState = State.ZOMBIE;
-        mApplication.onSlaveTerminated(this);
+        mProcess.remove(this);
+        mApplication.onSlaveTerminated(mProcess);
     }
 
-    public void cancel() {
-        mCancelled = true;
+    public void terminate() {
+        mTerminated = true;
         mAlarm.alarm();
     }
 
     public Pid getPid() {
-        return mPid;
-    }
-
-    public boolean isZombie() {
-        return mState == State.ZOMBIE;
+        return mProcess.getPid();
     }
 
     public SyscallResult.Generic32 doSigprocmask(int how, SignalSet set) {
@@ -2785,7 +2771,7 @@ public class Slave implements Runnable {
     public SyscallResult.Generic32 doGetpid() throws IOException {
         mLogger.info("getpid()");
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
-        result.retval = mPid.toInteger();
+        result.retval = getPid().toInteger();
         return result;
     }
 
@@ -2863,30 +2849,51 @@ public class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Generic32 doThrNew(PairId newPairId) throws IOException {
+        String fmt = "thr_new(newPairId=%s)";
+        mLogger.info(String.format(fmt, newPairId.toString()));
+
+        Slave slave = mApplication.newSlave(newPairId, mProcess,
+                                            mCurrentDirectory, mFiles,
+                                            mPermissions, mLinks, mListener,
+                                            mAlarm);
+        startSlave(slave, "thr_new(2)'ed", newPairId);
+
+        return new SyscallResult.Generic32();
+    }
+
     public SyscallResult.Generic32 doFork(PairId pairId) throws IOException {
         mLogger.info(String.format("fork(pairId=%s)", pairId.toString()));
 
         int len = mFiles.length;
         UnixFile[] files = new UnixFile[len];
         System.arraycopy(mFiles, 0, files, 0, len);
+
         Slave slave = mApplication.newSlave(pairId, mCurrentDirectory, files,
                                             mPermissions, mLinks, mListener,
                                             mAlarm);
-        Pid pid = slave.getPid();
-        Thread thread = new Thread(slave);
-        thread.start();
-        String fmt = "forked: thread=%s, pairId=%s, pid=%s";
-        mLogger.info(String.format(fmt, thread.getName(), pairId, pid));
+        startSlave(slave, "forked", pairId);
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
-        result.retval = pid.toInteger();
+        result.retval = slave.getPid().toInteger();
 
         return result;
     }
 
+    public void doThrExit() throws IOException {
+        mLogger.info("thr_exit()");
+
+        if (mProcess.size() == 1) {
+            return;
+        }
+
+        terminate();
+    }
+
     public void doExit(int rval) throws IOException {
         mLogger.info(String.format("exit(rval=%d)", rval));
-        mExitStatus = Integer.valueOf(rval);
+        mProcess.setExitStatus(rval);
+        terminate();
     }
 
     public SyscallResult.Generic32 doChmod(String path,
@@ -3004,21 +3011,21 @@ public class Slave implements Runnable {
         mLogger.info(String.format("wait4(pid=%d, options=%d)", pid, options));
         SyscallResult.Wait4 result = new SyscallResult.Wait4();
 
-        Slave slave;
+        Process process;
         try {
-            slave = mApplication.waitChildTerminating(new Pid(pid));
+            process = mApplication.waitChildTerminating(new Pid(pid));
         }
         catch (InterruptedException unused) {
             result.setError(Errno.EINTR);
             return result;
         }
-        if (slave == null) {
+        if (process == null) {
             result.setError(Errno.EINVAL);
             return result;
         }
 
-        result.retval = slave.getPid().toInteger();
-        result.status = Unix.W_EXITCODE(slave.getExitStatus().intValue(), 0);
+        result.retval = process.getPid().toInteger();
+        result.status = Unix.W_EXITCODE(process.getExitStatus().intValue(), 0);
         result.rusage = new Unix.Rusage();
 
         return result;
@@ -3066,6 +3073,16 @@ public class Slave implements Runnable {
         }
 
         return retval;
+    }
+
+    private void startSlave(Slave slave, String desc, PairId newPairId) {
+        Thread thread = new Thread(slave);
+        thread.start();
+
+        String fmt = "%s: thread=%s, pairId=%s, pid=%s";
+        Pid pid = slave.getPid();
+        String name = thread.getName();
+        mLogger.info(String.format(fmt, desc, name, newPairId, pid));
     }
 
     private SyscallResult.Generic32 runPoll(PollReaction reaction,
@@ -3498,13 +3515,13 @@ public class Slave implements Runnable {
         return true;
     }
 
-    private void initialize(Application application, Pid pid, InputStream hubIn,
-                            OutputStream hubOut,
+    private void initialize(Application application, Process process,
+                            InputStream hubIn, OutputStream hubOut,
                             NormalizedPath currentDirectory, UnixFile[] files,
                             Permissions permissions, Links links,
                             Listener listener, Alarm alarm) {
         mApplication = application;
-        mPid = pid;
+        mProcess = process;
         mIn = new SyscallInputStream(hubIn);
         mOut = new SyscallOutputStream(hubOut);
         mPermissions = permissions;

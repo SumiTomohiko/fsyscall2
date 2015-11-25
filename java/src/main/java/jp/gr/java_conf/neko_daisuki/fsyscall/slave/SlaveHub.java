@@ -201,7 +201,12 @@ class SlaveHub {
             out.write(command);
             out.write(status);
 
-            mSlaves.remove(pairId).close();
+            removeSlave(pairId);
+            return;
+        case THR_EXIT_CALL:
+            mLogger.verbose(String.format("executing %s", command.toString()));
+            out.write(command);
+            removeSlave(pairId);
             return;
         case POLL_END:
             out.write(command);
@@ -228,6 +233,10 @@ class SlaveHub {
             String fmt = "requested version is not supported: %d";
             throw new ProtocolError(String.format(fmt, version));
         }
+    }
+
+    private void removeSlave(PairId pairId) throws IOException {
+        mSlaves.remove(pairId).close();
     }
 
     private void transportFileDescriptors(Peer slave) throws IOException {

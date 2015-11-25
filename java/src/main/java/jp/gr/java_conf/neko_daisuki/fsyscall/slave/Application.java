@@ -26,25 +26,25 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
 
 public class Application {
 
-    private static class Slaves implements Iterable<Slave> {
+    private static class Processes implements Iterable<Process> {
 
-        private static class SlaveIterator implements Iterator<Slave> {
+        private static class ProcessIterator implements Iterator<Process> {
 
-            private Slave[] mSlaves;
+            private Process[] mProcesses;
             private int mPosition;
 
-            public SlaveIterator(Slave[] slaves) {
-                mSlaves = slaves;
+            public ProcessIterator(Process[] processes) {
+                mProcesses = processes;
             }
 
             @Override
             public boolean hasNext() {
-                return mPosition < mSlaves.length;
+                return mPosition < mProcesses.length;
             }
 
             @Override
-            public Slave next() {
-                Slave slave = mSlaves[mPosition];
+            public Process next() {
+                Process slave = mProcesses[mPosition];
                 mPosition++;
                 return slave;
             }
@@ -54,27 +54,28 @@ public class Application {
             }
         }
 
-        private Map<Pid, Slave> mSlaves = new HashMap<Pid, Slave>();
+        private Map<Pid, Process> mProcesses = new HashMap<Pid, Process>();
 
-        public synchronized void add(Slave slave) {
-            mSlaves.put(slave.getPid(), slave);
+        public synchronized void add(Process process) {
+            mProcesses.put(process.getPid(), process);
         }
 
-        public Slave get(Pid pid) {
-            return mSlaves.get(pid);
+        public Process get(Pid pid) {
+            return mProcesses.get(pid);
         }
 
         public synchronized void remove(Pid pid) {
-            mSlaves.remove(pid);
+            mProcesses.remove(pid);
         }
 
         public synchronized Collection<Pid> pids() {
-            return new HashSet<Pid>(mSlaves.keySet());
+            return new HashSet<Pid>(mProcesses.keySet());
         }
 
         @Override
-        public synchronized Iterator<Slave> iterator() {
-            return new SlaveIterator(mSlaves.values().toArray(new Slave[0]));
+        public synchronized Iterator<Process> iterator() {
+            Collection<Process> processes = mProcesses.values();
+            return new ProcessIterator(processes.toArray(new Process[0]));
         }
     }
 
@@ -184,7 +185,7 @@ public class Application {
 
     private static Logging.Logger mLogger;
 
-    private Slaves mSlaves = new Slaves();
+    private Processes mProcesses = new Processes();
     private SlaveHub mSlaveHub;
     private Integer mExitStatus;
     private PidGenerator mPidGenerator = new PidGenerator();
@@ -195,25 +196,42 @@ public class Application {
     private String mResourceDirectory;
     private ResourceFiles mResourceFiles = new ResourceFiles();
 
-    public Slave newSlave(PairId pairId, NormalizedPath currentDirectory,
-                          UnixFile[] files, Permissions permissions,
-                          Links links, Slave.Listener listener,
+    /**
+     * This is for thr_new(2) (fork(2) also uses this internally).
+     */
+    public Slave newSlave(PairId newPairId, Process process,
+                          NormalizedPath currentDirectory, UnixFile[] files,
+                          Permissions permissions, Links links,
+                          Slave.Listener listener,
                           Alarm alarm) throws IOException {
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
 
         InputStream slaveIn = hub2slave.getInputStream();
         OutputStream slaveOut = slave2hub.getOutputStream();
-        Slave slave = new Slave(this, mPidGenerator.next(), slaveIn, slaveOut,
+        Slave slave = new Slave(this, process, slaveIn, slaveOut,
                                 currentDirectory, files, permissions, links,
                                 listener, alarm);
-        addSlave(slave);
+        process.add(slave);
 
         InputStream hubIn = slave2hub.getInputStream();
         OutputStream hubOut = hub2slave.getOutputStream();
-        mSlaveHub.addSlave(hubIn, hubOut, pairId);
+        mSlaveHub.addSlave(hubIn, hubOut, newPairId);
 
         return slave;
+    }
+
+    /**
+     * This is for fork(2).
+     */
+    public Slave newSlave(PairId pairId, NormalizedPath currentDirectory,
+                          UnixFile[] files, Permissions permissions,
+                          Links links, Slave.Listener listener,
+                          Alarm alarm) throws IOException {
+        Process process = new Process(mPidGenerator.next());
+        addProcess(process);
+        return newSlave(pairId, process, currentDirectory, files, permissions,
+                        links, listener, alarm);
     }
 
     public int run(InputStream in, OutputStream out,
@@ -226,14 +244,16 @@ public class Application {
 
         mResourceDirectory = resourceDirectory;
 
+        Process process = new Process(mPidGenerator.next());
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
         Slave slave = new Slave(
-                this, mPidGenerator.next(),
+                this, process,
                 hub2slave.getInputStream(), slave2hub.getOutputStream(),
                 currentDirectory, stdin, stdout, stderr,
                 permissions, links, listener);
-        addSlave(slave);
+        addProcess(process);
+        process.add(slave);
         mSlaveHub = new SlaveHub(
                 this,
                 in, out,
@@ -242,7 +262,7 @@ public class Application {
         new Thread(slave).start();
         mSlaveHub.work();
         synchronized (mTerminatingMonitor) {
-            for (Pid pid: mSlaves.pids()) {
+            for (Pid pid: mProcesses.pids()) {
                 waitChildTerminating(pid);
             }
         }
@@ -253,8 +273,8 @@ public class Application {
 
     public void cancel() {
         mCancelled = true;
-        for (Slave slave: mSlaves) {
-            slave.cancel();
+        for (Process process: mProcesses) {
+            process.terminate();
         }
     }
 
@@ -278,11 +298,11 @@ public class Application {
         mLocalBoundSockets.unlink(path);
     }
 
-    public Slave waitChildTerminating(Pid pid) throws InterruptedException {
+    public Process waitChildTerminating(Pid pid) throws InterruptedException {
         String tag = "wait child terminating";
-        Slave child = mSlaves.get(pid);
+        Process child = mProcesses.get(pid);
         if (child == null) {
-            String fmt = "%s: the slave of pid %s not found";
+            String fmt = "%s: the process of pid %s not found";
             mLogger.warn(String.format(fmt, tag, pid));
             return null;
         }
@@ -290,35 +310,38 @@ public class Application {
             while (!child.isZombie()) {
                 mTerminatingMonitor.wait();
             }
-            String fmt = "%s: released the slave of pid %s";
+            String fmt = "%s: released the process of pid %s";
             mLogger.info(String.format(fmt, tag, pid));
-            mSlaves.remove(pid);
+            mProcesses.remove(pid);
             mPidGenerator.release(pid);
         }
         return child;
     }
 
     public void kill(Pid pid, Signal sig) throws UnixException {
-        Slave slave = mSlaves.get(pid);
-        if (slave == null) {
+        Process process = mProcesses.get(pid);
+        if (process == null) {
             throw new UnixException(Errno.ESRCH);
         }
-        slave.kill(sig);
+        process.kill(sig);
     }
 
     public String getResourcePath(URL url) throws IOException {
         return mResourceFiles.getPath(url);
     }
 
-    public void onSlaveTerminated(Slave slave) {
-        mExitStatus = slave.getExitStatus();
+    public void onSlaveTerminated(Process process) {
         synchronized (mTerminatingMonitor) {
-            mTerminatingMonitor.notifyAll();
+            mExitStatus = mExitStatus != null ? mExitStatus
+                                              : process.getExitStatus();
+            if (process.isZombie()) {
+                mTerminatingMonitor.notifyAll();
+            }
         }
     }
 
-    private void addSlave(Slave slave) {
-        mSlaves.add(slave);
+    private void addProcess(Process process) {
+        mProcesses.add(process);
     }
 
     private static void usage(PrintStream out) {
