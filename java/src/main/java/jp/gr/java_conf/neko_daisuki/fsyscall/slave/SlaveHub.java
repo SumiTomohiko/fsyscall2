@@ -75,7 +75,7 @@ class SlaveHub {
         mLogger.verbose("version negotiation finished.");
 
         PairId firstPairId = mMhub.getInputStream().readPairId();
-        mLogger.info(String.format("the first pair id is %s.", firstPairId));
+        mLogger.info("the first pair id is %s.", firstPairId);
 
         mSlaves = new HashMap<PairId, SlavePeer>();
         mNewSlaves = Collections.synchronizedMap(new HashMap<PairId, SlavePeer>());
@@ -149,7 +149,7 @@ class SlaveHub {
         byte signum = slave.getInputStream().readByte();
 
         String fmt = "processing SIGNALED: signal=%d (%s)";
-        mLogger.debug(String.format(fmt, signum, Signal.toString(signum)));
+        mLogger.debug(fmt, signum, Signal.toString(signum));
 
         SyscallOutputStream out = mMhub.getOutputStream();
         out.write(Command.SIGNALED);
@@ -196,7 +196,7 @@ class SlaveHub {
             mLogger.verbose("executing EXIT_CALL.");
 
             int status = in.readInteger();
-            mLogger.info(String.format("exit status is %d.", status));
+            mLogger.info("exit status is %d.", status);
 
             out.write(command);
             out.write(status);
@@ -204,7 +204,7 @@ class SlaveHub {
             removeSlave(pairId);
             return;
         case THR_EXIT_CALL:
-            mLogger.verbose(String.format("executing %s", command.toString()));
+            mLogger.verbose("executing %s", command);
             out.write(command);
             removeSlave(pairId);
             return;

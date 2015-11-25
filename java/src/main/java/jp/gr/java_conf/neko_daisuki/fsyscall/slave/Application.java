@@ -302,16 +302,14 @@ public class Application {
         String tag = "wait child terminating";
         Process child = mProcesses.get(pid);
         if (child == null) {
-            String fmt = "%s: the process of pid %s not found";
-            mLogger.warn(String.format(fmt, tag, pid));
+            mLogger.warn("%s: the process of pid %s not found", tag, pid);
             return null;
         }
         synchronized (mTerminatingMonitor) {
             while (!child.isZombie()) {
                 mTerminatingMonitor.wait();
             }
-            String fmt = "%s: released the process of pid %s";
-            mLogger.info(String.format(fmt, tag, pid));
+            mLogger.info("%s: released the process of pid %s", tag, pid);
             mProcesses.remove(pid);
             mPidGenerator.release(pid);
         }

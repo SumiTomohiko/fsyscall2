@@ -85,27 +85,28 @@ public class Logging {
             mTag = tag;
         }
 
-        public void verbose(String message) {
-            mDestination.verbose(formatMessage(message));
+        public void verbose(String fmt, Object... args) {
+            mDestination.verbose(formatMessage(fmt, args));
         }
 
-        public void debug(String message) {
-            mDestination.debug(formatMessage(message));
+        public void debug(String fmt, Object... args) {
+            mDestination.debug(formatMessage(fmt, args));
         }
 
-        public void info(String message) {
-            mDestination.info(formatMessage(message));
+        public void info(String fmt, Object... args) {
+            mDestination.info(formatMessage(fmt, args));
         }
 
-        public void warn(String message) {
-            mDestination.warn(formatMessage(message));
+        public void warn(String fmt, Object... args) {
+            mDestination.warn(formatMessage(fmt, args));
         }
 
-        public void err(String message) {
-            mDestination.err(formatMessage(message));
+        public void err(String fmt, Object... args) {
+            mDestination.err(formatMessage(fmt, args));
         }
 
-        public void err(String message, Throwable e) {
+        public void err(Throwable e, String fmt, Object... args) {
+            String message = String.format(fmt, args);
             err(String.format("%s: %s", message, e.getMessage()));
             StackTraceElement[] elements = e.getStackTrace();
             for (int i = 0; i < elements.length; i++) {
@@ -113,8 +114,9 @@ public class Logging {
             }
         }
 
-        private String formatMessage(String message) {
+        private String formatMessage(String fmt, Object[] args) {
             String name = Thread.currentThread().getName();
+            String message = String.format(fmt, args);
             return String.format("%s: %s: %s", name, mTag, message);
         }
     }

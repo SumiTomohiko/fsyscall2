@@ -1960,7 +1960,7 @@ public class Slave implements Runnable {
 
     @Override
     public void run() {
-        mLogger.info(String.format("a slave started: pid=%s", getPid()));
+        mLogger.info("a slave started: pid=%s", getPid());
 
         try {
             try {
@@ -1990,7 +1990,7 @@ public class Slave implements Runnable {
             }
         }
         catch (IOException e) {
-            mLogger.err("I/O error", e);
+            mLogger.err(e, "I/O error");
             e.printStackTrace();
         }
         mProcess.remove(this);
@@ -2007,7 +2007,6 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doSigprocmask(int how, SignalSet set) {
-        String fmt = "sigprocmask(how=%d (%s), set=%s)";
         String howString;
         switch (how) {
         case Unix.Constants.SIG_BLOCK:
@@ -2023,14 +2022,14 @@ public class Slave implements Runnable {
             howString = "invalid";
             break;
         }
-        mLogger.info(String.format(fmt, how, howString, set));
+        mLogger.info("sigprocmask(how=%d (%s), set=%s)", how, howString, set);
 
         return new SyscallResult.Generic32();
     }
 
     public SyscallResult.Generic32 doKill(int pid, int signum) throws IOException {
         String fmt = "kill(pid=%d, signum=%d (%s))";
-        mLogger.info(String.format(fmt, pid, signum, Signal.toString(signum)));
+        mLogger.info(fmt, pid, signum, Signal.toString(signum));
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
         try {
@@ -2045,7 +2044,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doListen(int s, int backlog) throws IOException {
-        mLogger.info(String.format("listen(s=%d, backlog=%d)", s, backlog));
+        mLogger.info("listen(s=%d, backlog=%d)", s, backlog);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         Socket sock;
@@ -2071,7 +2070,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doChdir(String path) throws IOException {
-        mLogger.info(String.format("chdir(path=%s)", StringUtil.quote(path)));
+        mLogger.info("chdir(path=%s)", StringUtil.quote(path));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         NormalizedPath actPath = getActualPath(path);
@@ -2103,17 +2102,16 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doOpen(String path, int flags, int mode) throws IOException {
-        String fmt = "open(path=%s, flags=0o%o (%s), mode=0o%o (%s))";
-        String msg = String.format(fmt, StringUtil.quote(path), flags,
-                                   Unix.Constants.Open.toString(flags), mode,
-                                   Unix.Constants.Mode.toString(mode));
-        mLogger.info(msg);
+        mLogger.info("open(path=%s, flags=0o%o (%s), mode=0o%o (%s))",
+                     StringUtil.quote(path),
+                     flags,Unix.Constants.Open.toString(flags), mode,
+                     Unix.Constants.Mode.toString(mode));
 
         return openActualFile(getActualPath(path), flags, mode);
     }
 
     public SyscallResult.Read doRead(int fd, long nbytes) throws IOException {
-        mLogger.info(String.format("read(fd=%d, nbytes=%d)", fd, nbytes));
+        mLogger.info("read(fd=%d, nbytes=%d)", fd, nbytes);
         SyscallResult.Read result = new SyscallResult.Read();
 
         UnixFile file = getLockedFile(fd);
@@ -2150,8 +2148,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic64 doLseek(int fd, long offset, int whence) throws IOException {
-        String fmt = "lseek(fd=%d, offset=%d, whence=%d)";
-        mLogger.info(String.format(fmt, fd, offset, whence));
+        mLogger.info("lseek(fd=%d, offset=%d, whence=%d)", fd, offset, whence);
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
@@ -2180,8 +2177,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Pread doPread(int fd, long nbyte, long offset) throws IOException {
-        String fmt = "pread(fd=%d, nbyte=%d, offset=%d)";
-        mLogger.info(String.format(fmt, fd, nbyte, offset));
+        mLogger.info("pread(fd=%d, nbyte=%d, offset=%d)", fd, nbyte, offset);
 
         SyscallResult.Pread result = new SyscallResult.Pread();
 
@@ -2215,8 +2211,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Accept doGetpeername(int s, int namelen) throws IOException {
-        String fmt = "getpeername(s=%d, namelen=%d)";
-        mLogger.info(String.format(fmt, s, namelen));
+        mLogger.info("getpeername(s=%d, namelen=%d)", s, namelen);
         SyscallResult.Accept result = new SyscallResult.Accept();
 
         Socket socket;
@@ -2241,8 +2236,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Accept doGetsockname(int s, int namelen) throws IOException {
-        String fmt = "getsockname(s=%d, namelen=%d)";
-        mLogger.info(String.format(fmt, s, namelen));
+        mLogger.info("getsockname(s=%d, namelen=%d)", s, namelen);
         SyscallResult.Accept result = new SyscallResult.Accept();
 
         Socket socket;
@@ -2267,7 +2261,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Accept doAccept(int s, int addrlen) throws IOException {
-        mLogger.info(String.format("accept(s=%d, addrlen=%d)", s, addrlen));
+        mLogger.info("accept(s=%d, addrlen=%d)", s, addrlen);
         SyscallResult.Accept result = new SyscallResult.Accept();
 
         Socket socket;
@@ -2321,7 +2315,7 @@ public class Slave implements Runnable {
      * java.nio.files package).
      */
     public SyscallResult.Lstat doLstat(String path) throws IOException {
-        mLogger.info(String.format("lstat(path=%s)", StringUtil.quote(path)));
+        mLogger.info("lstat(path=%s)", StringUtil.quote(path));
 
         SyscallResult.Lstat result = new SyscallResult.Lstat();
 
@@ -2334,7 +2328,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Fstat doFstat(int fd) throws IOException {
-        mLogger.info(String.format("fstat(fd=%d)", fd));
+        mLogger.info("fstat(fd=%d)", fd);
 
         SyscallResult.Fstat result = new SyscallResult.Fstat();
 
@@ -2360,14 +2354,13 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Stat doStat(String path) throws IOException {
-        mLogger.info(String.format("stat(path=%s)", StringUtil.quote(path)));
+        mLogger.info("stat(path=%s)", StringUtil.quote(path));
         return statActualFile(getActualPath(path));
     }
 
     public SyscallResult.Generic32 doBind(int s, UnixDomainAddress addr,
                                           int addrlen) throws IOException {
-        String fmt = "bind(s=%d, addr=%s, addrlen=%d)";
-        mLogger.info(String.format(fmt, s, addr, addrlen));
+        mLogger.info("bind(s=%d, addr=%s, addrlen=%d)", s, addr, addrlen);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         Socket sock;
@@ -2399,9 +2392,9 @@ public class Slave implements Runnable {
         fmt = "%s(s=%d, level=%d (%s), optname=%d (%s), optlen=%d, optval=%d)";
         String levelName = SocketLevel.toString(level);
         String name = SocketOption.toString(optname);
-        String message = String.format(fmt, "setsockopt", s, level, levelName,
-                                       optname, name, optlen, optval);
-        mLogger.info(message);
+        mLogger.info(fmt,
+                     "setsockopt", s, level, levelName, optname, name, optlen,
+                     optval);
 
         return runSetsockopt(s, SocketLevel.valueOf(level),
                              SocketOption.valueOf(optname), optval);
@@ -2414,9 +2407,7 @@ public class Slave implements Runnable {
         fmt = "getsockopt(s=%d, level=%d (%s), optname=%d (%s), optlen=%d)";
         String levelName = SocketLevel.toString(level);
         String name = SocketOption.toString(optname);
-        String message = String.format(fmt, s, level, levelName, optname, name,
-                                       optlen);
-        mLogger.info(message);
+        mLogger.info(fmt, s, level, levelName, optname, name, optlen);
 
         return runGetsockopt(s, SocketLevel.valueOf(level),
                              SocketOption.valueOf(optname));
@@ -2424,8 +2415,7 @@ public class Slave implements Runnable {
 
     public SyscallResult.Generic32 doConnect(int s, UnixDomainAddress name,
                                              int namelen) throws IOException {
-        String fmt = "connect(s=%d, name=%s, namelen=%d)";
-        mLogger.info(String.format(fmt, s, name, namelen));
+        mLogger.info("connect(s=%d, name=%s, namelen=%d)", s, name, namelen);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         Socket sock;
@@ -2468,7 +2458,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doWritev(int fd, Unix.IoVec[] iovec) throws IOException {
-        mLogger.info(String.format("writev(fd=%d, iovec)", fd));
+        mLogger.info("writev(fd=%d, iovec)", fd);
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
@@ -2510,7 +2500,7 @@ public class Slave implements Runnable {
 
     public SyscallResult.Generic32 doSocket(int domain, int type, int protocol) throws IOException {
         String fmt = "socket(domain=%d, type=%d, protocol=%d)";
-        mLogger.info(String.format(fmt, domain, type, protocol));
+        mLogger.info(fmt, domain, type, protocol);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         FileRegisteringCallback callback = new SocketCallback(domain, type,
@@ -2522,7 +2512,7 @@ public class Slave implements Runnable {
 
     public SyscallResult.Generic32 doPollStart(PollFds fds, int nfds, int timeout) throws IOException {
         String fmt = "interruptable poll(fds=%s, nfds=%d, timeout=%d)";
-        mLogger.info(String.format(fmt, fds, nfds, timeout));
+        mLogger.info(fmt, fds, nfds, timeout);
 
         UnixFile[] files;
         try {
@@ -2536,8 +2526,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doPoll(PollFds fds, int nfds, int timeout) throws IOException {
-        String fmt = "poll(fds=%s, nfds=%d, timeout=%d)";
-        mLogger.info(String.format(fmt, fds, nfds, timeout));
+        mLogger.info("poll(fds=%s, nfds=%d, timeout=%d)", fds, nfds, timeout);
 
         UnixFile[] files;
         try {
@@ -2553,7 +2542,7 @@ public class Slave implements Runnable {
     public SyscallResult.Select doSelect(Unix.Fdset in, Unix.Fdset ou,
                                          Unix.Fdset ex, Unix.TimeVal timeout) throws IOException {
         String fmt = "select(in=%s, ou=%s, ex=%s, timeout=%s)";
-        mLogger.info(String.format(fmt, in, ou, ex, timeout));
+        mLogger.info(fmt, in, ou, ex, timeout);
         SyscallResult.Select result = new SyscallResult.Select();
 
         UnixFile[] inFiles;
@@ -2600,7 +2589,7 @@ public class Slave implements Runnable {
      */
     public SyscallResult.Readlink doReadlink(String path, long count) throws IOException {
         String fmt = "readlink(path=%s, count=%d)";
-        mLogger.info(String.format(fmt, StringUtil.quote(path), count));
+        mLogger.info(fmt, StringUtil.quote(path), count);
 
         return readlinkActualFile(getActualPath(path), count);
     }
@@ -2610,7 +2599,7 @@ public class Slave implements Runnable {
      */
     public SyscallResult.Generic32 doAccess(String path, int flags) throws IOException {
         String fmt = "access(path=%s, flags=0x%02x)";
-        mLogger.info(String.format(fmt, StringUtil.quote(path), flags));
+        mLogger.info(fmt, StringUtil.quote(path), flags);
 
         return accessActualFile(getActualPath(path), flags);
     }
@@ -2618,7 +2607,7 @@ public class Slave implements Runnable {
     public SyscallResult.Generic32 doLink(String path1, String path2) throws IOException {
         String s1 = StringUtil.quote(path1);
         String s2 = StringUtil.quote(path2);
-        mLogger.info(String.format("link(path1=%s, path2=%s)", s1, s2));
+        mLogger.info("link(path1=%s, path2=%s)", s1, s2);
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
         result.retval = -1;
@@ -2628,8 +2617,7 @@ public class Slave implements Runnable {
 
     public SyscallResult.Recvmsg doRecvmsg(int fd, Unix.Msghdr msg,
                                            int flags) throws IOException {
-        String fmt = "recvmsg(fd=%d, msg=%s, flags=%d)";
-        mLogger.info(String.format(fmt, fd, msg, flags));
+        mLogger.info("recvmsg(fd=%d, msg=%s, flags=%d)", fd, msg, flags);
 
         SyscallResult.Recvmsg result = new SyscallResult.Recvmsg();
 
@@ -2667,8 +2655,7 @@ public class Slave implements Runnable {
 
     public SyscallResult.Generic64 doSendmsg(int fd, Unix.Msghdr msg,
                                              int flags) throws IOException {
-        String fmt = "sendmsg(fd=%d, msg=%s, flags=%d)";
-        mLogger.info(String.format(fmt, fd, msg, flags));
+        mLogger.info("sendmsg(fd=%d, msg=%s, flags=%d)", fd, msg, flags);
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
@@ -2716,7 +2703,7 @@ public class Slave implements Runnable {
         String fmt = "fcntl(fd=%d, cmd=%d (%s), arg=%d%s)";
         String name = mFcntlCommands.get(cmd);
         String s = makeFcntlArgString(cmd, arg);
-        mLogger.info(String.format(fmt, fd, cmd, name, arg, s));
+        mLogger.info(fmt, fd, cmd, name, arg, s);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         UnixFile file = getLockedFile(fd);
@@ -2737,7 +2724,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doClose(int fd) throws IOException {
-        mLogger.info(String.format("close(fd=%d)", fd));
+        mLogger.info("close(fd=%d)", fd);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         synchronized (mFiles) {
@@ -2820,7 +2807,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic64 doWrite(int fd, byte[] buf, long nbytes) throws IOException {
-        mLogger.info(String.format("write(fd=%d, buf, nbytes=%d)", fd, nbytes));
+        mLogger.info("write(fd=%d, buf, nbytes=%d)", fd, nbytes);
         if (fd == 2) {
             logPossibleDyingMessage(buf);
         }
@@ -2850,8 +2837,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doThrNew(PairId newPairId) throws IOException {
-        String fmt = "thr_new(newPairId=%s)";
-        mLogger.info(String.format(fmt, newPairId.toString()));
+        mLogger.info("thr_new(newPairId=%s)", newPairId);
 
         Slave slave = mApplication.newSlave(newPairId, mProcess,
                                             mCurrentDirectory, mFiles,
@@ -2863,7 +2849,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doFork(PairId pairId) throws IOException {
-        mLogger.info(String.format("fork(pairId=%s)", pairId.toString()));
+        mLogger.info("fork(pairId=%s)", pairId);
 
         int len = mFiles.length;
         UnixFile[] files = new UnixFile[len];
@@ -2891,15 +2877,14 @@ public class Slave implements Runnable {
     }
 
     public void doExit(int rval) throws IOException {
-        mLogger.info(String.format("exit(rval=%d)", rval));
+        mLogger.info("exit(rval=%d)", rval);
         mProcess.setExitStatus(rval);
         terminate();
     }
 
     public SyscallResult.Generic32 doChmod(String path,
                                            int mode) throws IOException {
-        String fmt = "chmod(path=%s, mode=0o%o)";
-        mLogger.info(String.format(fmt, StringUtil.quote(path), mode));
+        mLogger.info("chmod(path=%s, mode=0o%o)", StringUtil.quote(path), mode);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         NormalizedPath actPath = getActualPath(path);
@@ -2933,7 +2918,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doRmdir(String path) throws IOException {
-        mLogger.info(String.format("rmdir(path=%s)", StringUtil.quote(path)));
+        mLogger.info("rmdir(path=%s)", StringUtil.quote(path));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         NormalizedPath actPath = getActualPath(path);
@@ -2956,7 +2941,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doUnlink(String path) throws IOException {
-        mLogger.info(String.format("unlink(path=%s)", StringUtil.quote(path)));
+        mLogger.info("unlink(path=%s)", StringUtil.quote(path));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         NormalizedPath actPath = getActualPath(path);
@@ -2988,8 +2973,7 @@ public class Slave implements Runnable {
 
     public SyscallResult.Generic32 doMkdir(String path,
                                            int mode) throws IOException {
-        String fmt = "mkdir(path=%s, mode=0o%o)";
-        mLogger.info(String.format(fmt, StringUtil.quote(path), mode));
+        mLogger.info("mkdir(path=%s, mode=0o%o)", StringUtil.quote(path), mode);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         NormalizedPath actPath = getActualPath(path);
@@ -3008,7 +2992,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Wait4 doWait4(int pid, int options) throws IOException {
-        mLogger.info(String.format("wait4(pid=%d, options=%d)", pid, options));
+        mLogger.info("wait4(pid=%d, options=%d)", pid, options);
         SyscallResult.Wait4 result = new SyscallResult.Wait4();
 
         Process process;
@@ -3035,9 +3019,7 @@ public class Slave implements Runnable {
                                          int nchanges, int nevents,
                                          Unix.TimeSpec timeout) throws IOException {
         String fmt = "kevent(kq=%d, changelist=%s, nchanges=%d, nevents=%d, timeout=%s)";
-        String msg = String.format(fmt, kq, changelist, nchanges, nevents,
-                                   timeout);
-        mLogger.info(msg);
+        mLogger.info(fmt, kq, changelist, nchanges, nevents, timeout);
         SyscallResult.Kevent retval = new SyscallResult.Kevent();
 
         UnixFile file = getLockedFile(kq);
@@ -3082,7 +3064,7 @@ public class Slave implements Runnable {
         String fmt = "%s: thread=%s, pairId=%s, pid=%s";
         Pid pid = slave.getPid();
         String name = thread.getName();
-        mLogger.info(String.format(fmt, desc, name, newPairId, pid));
+        mLogger.info(fmt, desc, name, newPairId, pid);
     }
 
     private SyscallResult.Generic32 runPoll(PollReaction reaction,
@@ -3209,9 +3191,7 @@ public class Slave implements Runnable {
 
     private void registerFileAt(UnixFile file, int at) {
         mFiles[at] = file;
-
-        String fmt = "new file registered: file=%s, fd=%d";
-        mLogger.info(String.format(fmt, file, at));
+        mLogger.info("new file registered: file=%s, fd=%d", file, at);
     }
 
     private int[] registerFiles(UnixFile[] files) throws UnixException {
@@ -3264,7 +3244,7 @@ public class Slave implements Runnable {
     }
 
     private SyscallResult.Generic32 openActualFile(NormalizedPath absPath, int flags, int mode) throws IOException {
-        mLogger.info(String.format("open actual file: %s", absPath));
+        mLogger.info("open actual file: %s", absPath);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         if (absPath.equals(mPwdDbPath)) {
@@ -3289,7 +3269,7 @@ public class Slave implements Runnable {
     }
 
     private SyscallResult.Stat statActualFile(NormalizedPath absPath) throws IOException {
-        mLogger.info(String.format("stat actual file: %s", absPath));
+        mLogger.info("stat actual file: %s", absPath);
 
         SyscallResult.Stat result = new SyscallResult.Stat();
 
@@ -3324,7 +3304,7 @@ public class Slave implements Runnable {
     private SyscallResult.Readlink readlinkActualFile(NormalizedPath absPath,
                                                       long count)
                                                       throws IOException {
-        mLogger.info(String.format("readlink actual file: %s", absPath));
+        mLogger.info("readlink actual file: %s", absPath);
 
         SyscallResult.Readlink result = new SyscallResult.Readlink();
 
@@ -3343,7 +3323,7 @@ public class Slave implements Runnable {
     private SyscallResult.Generic32 accessActualFile(NormalizedPath absPath,
                                                      int flags)
                                                      throws IOException {
-        mLogger.info(String.format("access actual file: %s", absPath));
+        mLogger.info("access actual file: %s", absPath);
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
@@ -3359,7 +3339,7 @@ public class Slave implements Runnable {
 
     private void logBuffer(String tag, byte[] buf, int len) {
         String s = ByteUtil.toString(buf, len);
-        mLogger.debug(String.format("%s: %s", tag, s));
+        mLogger.debug("%s: %s", tag, s);
     }
 
     private void logBuffer(String tag, byte[] buf) {
@@ -3371,7 +3351,7 @@ public class Slave implements Runnable {
         for (int i = 0; i < size; i++) {
             String fmt = "write(2) to fd 2: buf[%d]=0x%02x (%s)";
             byte c = buf[i];
-            mLogger.debug(String.format(fmt, i, c, CHARS[c]));
+            mLogger.debug(fmt, i, c, CHARS[c]);
         }
     }
 

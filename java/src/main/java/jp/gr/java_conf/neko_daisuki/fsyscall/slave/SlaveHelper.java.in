@@ -227,7 +227,7 @@ class SlaveHelper {
                 result = mSlave.doSigprocmask(how, set);
             }
             catch (UnixException e) {
-                mLogger.err("Invalid signal requested", e);
+                mLogger.err(e, "Invalid signal requested");
                 result = new SyscallResult.Generic32(e.getErrno());
             }
             writeResult(Command.SIGPROCMASK_RETURN, result);
@@ -348,7 +348,7 @@ class SlaveHelper {
                 break;
             default:
                 String fmt = "result (%s): retval=%d, fds=%s";
-                mLogger.info(String.format(fmt, name, retval, fds.toString()));
+                mLogger.info(fmt, name, retval, fds.toString());
                 Payload payload = new Payload();
                 payload.add(retval);
                 for (int i = 0; i < nfds; i++) {
@@ -795,7 +795,7 @@ class SlaveHelper {
 
     public void runSlave() throws IOException {
         Command command = mIn.readCommand();
-        mLogger.debug(String.format("read command: %s", command.toString()));
+        mLogger.debug("read command: %s", command.toString());
 
         CommandDispatcher.Proc proc = mDispatcher.get(command);
         if (proc == null) {
@@ -864,7 +864,7 @@ class SlaveHelper {
         long retval = result.retval;
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            mLogger.info(fmt, logHead, retval, result.errno);
             writeError(command, result);
             return;
         }
@@ -949,7 +949,7 @@ class SlaveHelper {
         long retval = result.retval;
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            mLogger.info(fmt, logHead, retval, result.errno);
             writeError(command, result);
             return;
         }
@@ -957,9 +957,7 @@ class SlaveHelper {
         SocketOption option = SocketOption.valueOf(optname);
         if (option.equals(SocketOption.SO_REUSEADDR)) {
             String fmt = "%s: retval=%d, optval=%d, optlen=%d";
-            String message = String.format(fmt, logHead, result.retval,
-                                           result.n, result.optlen);
-            mLogger.info(message);
+            mLogger.info(fmt, logHead, result.retval, result.n, result.optlen);
 
             Payload payload = new Payload();
             payload.add(result.retval);
@@ -976,13 +974,13 @@ class SlaveHelper {
         long retval = result.retval;
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            mLogger.info(fmt, logHead, retval, result.errno);
 
             writeError(command, result);
             return;
         }
 
-        mLogger.info(String.format("%s: retval=%d", logHead, retval));
+        mLogger.info("%s: retval=%d", logHead, retval);
 
         Payload payload = new Payload();
         payload.add(retval);
@@ -996,13 +994,13 @@ class SlaveHelper {
         int retval = result.retval;
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            mLogger.info(fmt, logHead, retval, result.errno);
 
             writeError(command, result);
             return;
         }
 
-        mLogger.info(String.format("%s: retval=%d", logHead, retval));
+        mLogger.info("%s: retval=%d", logHead, retval);
 
         Payload payload = new Payload();
         payload.add(retval);
@@ -1016,7 +1014,7 @@ class SlaveHelper {
         int retval = result.retval;
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            mLogger.info(fmt, logHead, retval, result.errno);
             writeError(command, result);
             return;
         }
@@ -1024,7 +1022,7 @@ class SlaveHelper {
         String fmt = "%s: retval=%d, status=%d, rusage=%s";
         int status = result.status;
         Unix.Rusage rusage = result.rusage;
-        mLogger.info(String.format(fmt, logHead, retval, status, rusage));
+        mLogger.info(fmt, logHead, retval, status, rusage);
 
         Payload payload = new Payload();
         payload.add(retval);
@@ -1039,15 +1037,15 @@ class SlaveHelper {
         int retval = result.retval;
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            mLogger.info(fmt, logHead, retval, result.errno);
             writeError(command, result);
             return;
         }
 
         String fmt = "%s: retval=%d, tp->tv_sec=%d, tp->tv_usec=%d, tzp->tz_minuteswest=%d, tzp->tz_dsttime=%d";
-        mLogger.info(String.format(fmt, logHead, retval, result.tp.tv_sec,
-                                   result.tp.tv_usec, result.tzp.tz_minuteswest,
-                                   result.tzp.tz_dsttime));
+        mLogger.info(fmt,
+                     logHead, retval, result.tp.tv_sec, result.tp.tv_usec,
+                     result.tzp.tz_minuteswest, result.tzp.tz_dsttime);
 
         Payload payload = new Payload();
         payload.add(retval);
@@ -1064,12 +1062,12 @@ class SlaveHelper {
 
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.info(String.format(fmt, logHead, retval, errno));
+            mLogger.info(fmt, logHead, retval, errno);
             writeError(command, retval, errno);
             return;
         }
 
-        mLogger.info(String.format("%s: retval=%d", logHead, retval));
+        mLogger.info("%s: retval=%d", logHead, retval);
 
         Payload payload = new Payload();
         payload.add(retval);
@@ -1095,7 +1093,7 @@ class SlaveHelper {
         long retval = result.retval;
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            mLogger.info(fmt, logHead, retval, result.errno);
             writeError(command, result);
             return;
         }
@@ -1110,14 +1108,14 @@ class SlaveHelper {
         long retval = result.retval;
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            mLogger.info(fmt, logHead, retval, result.errno);
             writeError(command, result);
             return;
         }
 
         String fmt = "%s: retval=%d, addr=%s, addrlen=%d";
         SocketAddress addr = result.addr;
-        mLogger.info(String.format(fmt, logHead, retval, addr, result.addrlen));
+        mLogger.info(fmt, logHead, retval, addr, result.addrlen);
 
         Payload payload = new Payload();
         payload.add(retval);
@@ -1133,13 +1131,13 @@ class SlaveHelper {
         int retval = result.retval;
         if (retval == -1) {
             String fmt = "%s: retval=%d, errno=%s";
-            mLogger.info(String.format(fmt, logHead, retval, result.errno));
+            mLogger.info(fmt, logHead, retval, result.errno);
 
             writeError(command, result);
             return;
         }
 
-        mLogger.info(String.format("%s: retval=%d", logHead, retval));
+        mLogger.info("%s: retval=%d", logHead, retval);
 
         Payload payload = new Payload();
         payload.add(retval);
