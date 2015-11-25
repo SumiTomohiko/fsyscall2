@@ -574,7 +574,7 @@ public class Slave implements Runnable {
     }
 
     private enum State {
-        NORMAL,
+        RUNNING,
         ZOMBIE
     }
 
@@ -1912,7 +1912,7 @@ public class Slave implements Runnable {
 
     // states
     private Pid mPid;
-    private State mState = State.NORMAL;
+    private State mState = State.RUNNING;
     private NormalizedPath mCurrentDirectory;
     private UnixFile[] mFiles;
     private SignalSet mPendingSignals = new SignalSet();
