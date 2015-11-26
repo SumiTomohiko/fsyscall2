@@ -78,8 +78,7 @@ void	fmaster_end_thread_creating(struct thread *);
 void	fmaster_start_thread_creating(struct thread *);
 
 /* lifecycle */
-int	fmaster_add_thread(struct thread *, lwpid_t, int, int, const char *,
-			   uint64_t);
+int	fmaster_add_thread(struct thread *, lwpid_t, const char *, uint64_t);
 int	fmaster_create_data(struct thread *, int, int, const char *,
 			    struct fmaster_data **);
 int	fmaster_create_data2(struct thread *, pid_t, lwpid_t, const char *,

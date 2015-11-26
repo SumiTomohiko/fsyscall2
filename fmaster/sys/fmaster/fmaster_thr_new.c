@@ -48,7 +48,7 @@ start_new_thread(struct thread *td, struct fmaster_thr_new_args *uap,
 		 const char *token, uint64_t token_size)
 {
 	lwpid_t tid;
-	int error, sock;
+	int error;
 
 	fmaster_start_thread_creating(td);
 	error = create_new_thread(td, uap, &tid);
@@ -56,7 +56,7 @@ start_new_thread(struct thread *td, struct fmaster_thr_new_args *uap,
 	if (error != 0)
 		return (error);
 
-	error = fmaster_add_thread(td, tid, sock, sock, token, token_size);
+	error = fmaster_add_thread(td, tid, token, token_size);
 	if (error != 0)
 		return (error);
 

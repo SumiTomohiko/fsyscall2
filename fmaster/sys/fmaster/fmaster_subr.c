@@ -2653,8 +2653,8 @@ fmaster_execute_return_int32_with_token(struct thread *td,
 }
 
 int
-fmaster_add_thread(struct thread *td, lwpid_t tid, int rfd, int wfd,
-		   const char *token, uint64_t token_size)
+fmaster_add_thread(struct thread *td, lwpid_t tid, const char *token,
+		   uint64_t token_size)
 {
 	struct fmaster_data *data;
 	struct fmaster_thread_data *tdata;
@@ -2665,12 +2665,7 @@ fmaster_add_thread(struct thread *td, lwpid_t tid, int rfd, int wfd,
 	error = add_thread(data, tid, &tdata);
 	if (error != 0)
 		return (error);
-	tdata->ftd_rfd = rfd;
-	tdata->ftd_wfd = wfd;
 	error = thread_data_set_token(tdata, token, token_size);
-	if (error != 0)
-		return (error);
-	error = fmaster_initialize_kqueue(td, tdata);
 	if (error != 0)
 		return (error);
 
