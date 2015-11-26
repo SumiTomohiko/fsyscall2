@@ -9,7 +9,8 @@
 #include <sys/fmaster/fmaster_proto.h>
 
 enum fmaster_pre_execute_result
-fmaster_stat_pre_execute(struct thread *td, struct fmaster_stat_args *uap, int *error)
+fmaster_stat_pre_execute(struct thread *td, struct fmaster_stat_args *uap,
+			 int *error)
 {
 
 	if (fmaster_is_master_file(td, uap->path)) {

@@ -132,7 +132,8 @@ exit:
  * logs it.
  */
 enum fmaster_pre_execute_result
-fmaster_write_pre_execute(struct thread *td, struct fmaster_write_args *uap, int *error)
+fmaster_write_pre_execute(struct thread *td, struct fmaster_write_args *uap,
+			  int *error)
 {
 	size_t nbytes;
 	int fd;
