@@ -567,25 +567,25 @@ log_args(struct thread *td, struct pollfd *fds, nfds_t nfds)
 	enum fmaster_file_place place;
 	int error, fd, lfd;
 	short events;
-	const char *splace;
-	char sevents[256];
+	char desc[256], sevents[256];
 
 	pid = td->td_proc->p_pid;
 	for (i = 0; i < nfds; i++) {
 		pfd = &fds[i];
 		fd = pfd->fd;
 		error = fmaster_get_vnode_info(td, fd, &place, &lfd);
-		if (error != 0)
-			return (error);
-		splace = place == FFP_MASTER ? "master"
-					     : place == FFP_SLAVE ? "slave"
-								  : "invalid";
+		if (error == 0)
+			snprintf(desc, sizeof(desc),
+				 "%s: %d",
+				 fmaster_str_of_place(place), lfd);
+		else
+			strcpy(desc, "invalid");
 		events = pfd->events;
 		events_to_string(sevents, sizeof(sevents), events);
 		fmaster_log(td, LOG_DEBUG,
-			    "poll: fds[%d]: fd=%d (%s: %d), events=%d (%s), rev"
-			    "ents=%d",
-			    i, fd, splace, lfd, events, sevents, pfd->revents);
+			    "poll: fds[%d]: fd=%d (%s), events=%d (%s), revents"
+			    "=%d",
+			    i, fd, desc, events, sevents, pfd->revents);
 	}
 
 	return (0);
