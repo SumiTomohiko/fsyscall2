@@ -365,7 +365,7 @@ fmaster_initialize_kqueue(struct thread *td,
 	error = sys_kqueue(td, NULL);
 	if (error != 0) {
 		fmt = "sys_kqueue failed: error=%d";
-		fmaster_log(td, LOG_DEBUG, fmt, error);
+		fmaster_log(td, LOG_ERR, fmt, error);
 		return (error);
 	}
 	kq = td->td_retval[0];
@@ -380,7 +380,7 @@ fmaster_initialize_kqueue(struct thread *td,
 	error = kern_kevent(td, kq, 1, 0, &k_ops, NULL);
 	if (error != 0) {
 		fmt = "kern_kevent failed: error=%d";
-		fmaster_log(td, LOG_DEBUG, fmt, error);
+		fmaster_log(td, LOG_ERR, fmt, error);
 		return (error);
 	}
 
