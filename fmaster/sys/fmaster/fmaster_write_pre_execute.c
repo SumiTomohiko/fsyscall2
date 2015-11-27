@@ -10,7 +10,7 @@
 #include <sys/fmaster/fmaster_proto.h>
 
 static void
-log_error(struct thread *td, int fd, const char *buf, size_t nbytes)
+log_all(struct thread *td, int fd, const char *buf, size_t nbytes)
 {
 	static char chars[] = {
 		' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
@@ -49,16 +49,14 @@ log_error(struct thread *td, int fd, const char *buf, size_t nbytes)
 	size_t size;
 	pid_t pid;
 	int i;
-	const char *fmt = "write(2) to fd 2: buf[%d]=0x%02x (%c)";
+	const char *fmt = "write(2) to fd %d: buf[%d]=0x%02x (%c)";
 	unsigned char c;
 
-	if (fd != 2)
-		return;
 	pid = td->td_proc->p_pid;
 	size = MIN(nbytes, 1024);
 	for (i = 0; i < size; i++) {
 		c = (unsigned char)buf[i];
-		fmaster_log(td, LOG_DEBUG, fmt, i, c, chars[c]);
+		fmaster_log(td, LOG_DEBUG, fmt, fd, i, c, chars[c]);
 	}
 }
 
@@ -144,8 +142,9 @@ fmaster_write_pre_execute(struct thread *td, struct fmaster_write_args *uap,
 	nbytes = uap->nbytes;
 
 	switch (fd) {
+	case 1:
 	case 2:
-		log_error(td, fd, buf, nbytes);
+		log_all(td, fd, buf, nbytes);
 		break;
 	default:
 		log_buf(td, fd, buf, nbytes);
