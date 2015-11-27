@@ -116,7 +116,7 @@ log_buf(struct thread *td, int fd, const char *buf, size_t nbytes)
 		*q = chars[(unsigned int)*p];
 	*q = '\0';
 
-	fmaster_log(td, LOG_DEBUG, "write: buf: %s", s);
+	fmaster_log(td, LOG_DEBUG, "write: fd=%d: buf: %s", fd, s);
 
 	error = 0;
 exit:
@@ -145,7 +145,7 @@ fmaster_write_pre_execute(struct thread *td, struct fmaster_write_args *uap,
 	case 1:
 	case 2:
 		log_all(td, fd, buf, nbytes);
-		break;
+		/* FALLTHROUGH */
 	default:
 		log_buf(td, fd, buf, nbytes);
 		break;
