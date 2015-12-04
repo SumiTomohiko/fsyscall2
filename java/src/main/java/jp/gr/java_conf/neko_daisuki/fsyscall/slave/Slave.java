@@ -2106,10 +2106,12 @@ public class Slave implements Runnable {
         mLogger.info("read(fd=%d, nbytes=%d)", fd, nbytes);
         SyscallResult.Read result = new SyscallResult.Read();
 
-        UnixFile file = mProcess.getLockedFile(fd);
-        if (file == null) {
-            result.retval = -1;
-            result.errno = Errno.EBADF;
+        UnixFile file;
+        try {
+            file = mProcess.getLockedFile(fd);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
             return result;
         }
 
@@ -2144,10 +2146,12 @@ public class Slave implements Runnable {
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
-        UnixFile file = mProcess.getLockedFile(fd);
-        if (file == null) {
-            result.retval = -1;
-            result.errno = Errno.EBADF;
+        UnixFile file;
+        try {
+            file = mProcess.getLockedFile(fd);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
             return result;
         }
 
@@ -2173,10 +2177,12 @@ public class Slave implements Runnable {
 
         SyscallResult.Pread result = new SyscallResult.Pread();
 
-        UnixFile file = mProcess.getLockedFile(fd);
-        if (file == null) {
-            result.retval = -1;
-            result.errno = Errno.EBADF;
+        UnixFile file;
+        try {
+            file = mProcess.getLockedFile(fd);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
             return result;
         }
 
@@ -2324,10 +2330,12 @@ public class Slave implements Runnable {
 
         SyscallResult.Fstat result = new SyscallResult.Fstat();
 
-        UnixFile file = mProcess.getLockedFile(fd);
-        if (file == null) {
-            result.retval = -1;
-            result.errno = Errno.EBADF;
+        UnixFile file;
+        try {
+            file = mProcess.getLockedFile(fd);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
             return result;
         }
 
@@ -2454,10 +2462,12 @@ public class Slave implements Runnable {
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        UnixFile file = mProcess.getLockedFile(fd);
-        if (file == null) {
-            result.retval = -1;
-            result.errno = Errno.EBADF;
+        UnixFile file;
+        try {
+            file = mProcess.getLockedFile(fd);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
             return result;
         }
 
@@ -2696,10 +2706,12 @@ public class Slave implements Runnable {
         mLogger.info(fmt, fd, cmd, name, arg, s);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        UnixFile file = mProcess.getLockedFile(fd);
-        if (file == null) {
-            result.retval = -1;
-            result.errno = Errno.EBADF;
+        UnixFile file;
+        try {
+            file = mProcess.getLockedFile(fd);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
             return result;
         }
 
@@ -2791,10 +2803,12 @@ public class Slave implements Runnable {
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
-        UnixFile file = mProcess.getLockedFile(fd);
-        if (file == null) {
-            result.retval = -1;
-            result.errno = Errno.EBADF;
+        UnixFile file;
+        try {
+            file = mProcess.getLockedFile(fd);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
             return result;
         }
 
@@ -2993,9 +3007,12 @@ public class Slave implements Runnable {
         mLogger.info(fmt, kq, changelist, nchanges, nevents, timeout);
         SyscallResult.Kevent retval = new SyscallResult.Kevent();
 
-        UnixFile file = mProcess.getLockedFile(kq);
-        if (file == null) {
-            retval.setError(Errno.EBADF);
+        UnixFile file;
+        try {
+            file = mProcess.getLockedFile(kq);
+        }
+        catch (UnixException e) {
+            retval.setError(e.getErrno());
             return retval;
         }
         try {
@@ -3220,9 +3237,12 @@ public class Slave implements Runnable {
      * You M_U_S_T unlock this.
      */
     private Socket getLockedSocket(int fd) throws GetSocketException {
-        UnixFile file = mProcess.getLockedFile(fd);
-        if (file == null) {
-            throw new GetSocketException(Errno.EBADF);
+        UnixFile file;
+        try {
+            file = mProcess.getLockedFile(fd);
+        }
+        catch (UnixException e) {
+            throw new GetSocketException(e.getErrno());
         }
         Socket sock;
         try {

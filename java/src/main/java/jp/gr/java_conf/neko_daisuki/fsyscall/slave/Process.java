@@ -131,9 +131,6 @@ class Process {
     public void closeFile(int fd) throws UnixException {
         synchronized (mFiles) {
             UnixFile file = getLockedFile(fd);
-            if (file == null) {
-                throw new UnixException(Errno.EBADF);
-            }
             try {
                 file.close();
             }
@@ -148,19 +145,17 @@ class Process {
      * Returns a file of <var>fd</var> or null. A returned file is locked. You
      * M_U_S_T unlock this.
      */
-    public UnixFile getLockedFile(int fd) {
+    public UnixFile getLockedFile(int fd) throws UnixException {
         UnixFile file;
         synchronized (mFiles) {
             try {
                 file = mFiles[fd];
             }
-            catch (IndexOutOfBoundsException unused) {
-                return null;
+            catch (IndexOutOfBoundsException e) {
+                throw new UnixException(Errno.EBADF, e);
             }
         }
-        if (file != null) {
-            file.lock();
-        }
+        file.lock();
         return file;
     }
 
