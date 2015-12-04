@@ -3072,18 +3072,6 @@ public class Slave implements Runnable {
         }
     }
 
-    /**
-     * Returns a file of <var>fd</var> or throws an exception. A returned file
-     * is locked. You M_U_S_T unlock this.
-     */
-    private UnixFile getValidFile(int fd) throws UnixException {
-        UnixFile file = mProcess.getLockedFile(fd);
-        if (file == null) {
-            throw new UnixException(Errno.EBADF);
-        }
-        return file;
-    }
-
     private void registerFile(Process.FileRegisteringCallback callback,
                               SyscallResult.Generic32 result) {
         int fd;
