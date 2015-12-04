@@ -200,7 +200,7 @@ public class Application {
      * This is for thr_new(2) (fork(2) also uses this internally).
      */
     public Slave newSlave(PairId newPairId, Process process,
-                          NormalizedPath currentDirectory, UnixFile[] files,
+                          NormalizedPath currentDirectory,
                           Permissions permissions, Links links,
                           Slave.Listener listener,
                           Alarm alarm) throws IOException {
@@ -210,8 +210,8 @@ public class Application {
         InputStream slaveIn = hub2slave.getInputStream();
         OutputStream slaveOut = slave2hub.getOutputStream();
         Slave slave = new Slave(this, process, slaveIn, slaveOut,
-                                currentDirectory, files, permissions, links,
-                                listener, alarm);
+                                currentDirectory, permissions, links, listener,
+                                alarm);
         process.add(slave);
 
         InputStream hubIn = slave2hub.getInputStream();
@@ -224,14 +224,15 @@ public class Application {
     /**
      * This is for fork(2).
      */
-    public Slave newSlave(PairId pairId, NormalizedPath currentDirectory,
-                          UnixFile[] files, Permissions permissions,
-                          Links links, Slave.Listener listener,
-                          Alarm alarm) throws IOException {
-        Process process = new Process(mPidGenerator.next());
+    public Slave newProcess(PairId pairId, Process parent,
+                            NormalizedPath currentDirectory,
+                            Permissions permissions, Links links,
+                            Slave.Listener listener,
+                            Alarm alarm) throws IOException {
+        Process process = new Process(mPidGenerator.next(), parent);
         addProcess(process);
-        return newSlave(pairId, process, currentDirectory, files, permissions,
-                        links, listener, alarm);
+        return newSlave(pairId, process, currentDirectory, permissions, links,
+                        listener, alarm);
     }
 
     public int run(InputStream in, OutputStream out,

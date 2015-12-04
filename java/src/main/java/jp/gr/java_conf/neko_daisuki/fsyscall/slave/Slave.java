@@ -475,12 +475,7 @@ public class Slave implements Runnable {
         }
     }
 
-    private interface FileRegisteringCallback {
-
-        public UnixFile call() throws UnixException;
-    }
-
-    private class OpenResourceCallback implements FileRegisteringCallback {
+    private class OpenResourceCallback implements Process.FileRegisteringCallback {
 
         private URL mUrl;
 
@@ -500,14 +495,14 @@ public class Slave implements Runnable {
         }
     }
 
-    private class KQueueCallback implements FileRegisteringCallback {
+    private class KQueueCallback implements Process.FileRegisteringCallback {
 
         public UnixFile call() throws UnixException {
             return new KQueue(mAlarm);
         }
     }
 
-    private class SocketCallback implements FileRegisteringCallback {
+    private class SocketCallback implements Process.FileRegisteringCallback {
 
         private int mDomain;
         private int mType;
@@ -524,7 +519,7 @@ public class Slave implements Runnable {
         }
     }
 
-    private class OpenCallback implements FileRegisteringCallback {
+    private class OpenCallback implements Process.FileRegisteringCallback {
 
         private NormalizedPath mPath;
         private int mFlags;
@@ -554,7 +549,7 @@ public class Slave implements Runnable {
         }
     }
 
-    private class AcceptCallback implements FileRegisteringCallback {
+    private class AcceptCallback implements Process.FileRegisteringCallback {
 
         private Socket mSocket;
         private Socket mClientSocket;
@@ -1102,7 +1097,7 @@ public class Slave implements Runnable {
                     case Unix.Constants.SCM_CREDS:
                         break;
                     case Unix.Constants.SCM_RIGHTS:
-                        int[] fds = registerFiles(cntl.getFiles());
+                        int[] fds = mProcess.registerFiles(cntl.getFiles());
                         cmsghdr.cmsg_data = new Unix.Cmsgfds(fds);
                         break;
                     default:
@@ -1213,7 +1208,7 @@ public class Slave implements Runnable {
         private void writeRights(Unix.Cmsghdr cmsghdr) throws UnixException {
             Unix.Cmsgfds data = (Unix.Cmsgfds)cmsghdr.cmsg_data;
             int[] fds = data.fds;
-            UnixFile[] files = getLockedFiles(fds);
+            UnixFile[] files = mProcess.getLockedFiles(fds);
             try {
                 int len = fds.length;
                 for (int i = 0; i < len; i++) {
@@ -1853,7 +1848,6 @@ public class Slave implements Runnable {
 
     private static final int UID = 1001;
     private static final int GID = 1001;
-    private static final int UNIX_FILE_NUM = 256;
     private static final String CHARS[] = {
             " ", " ", " ", " ", " ", " ", " ", " ",
             " ", " ", " ", " ", " ", " ", " ", " ",
@@ -1896,7 +1890,7 @@ public class Slave implements Runnable {
     private static Map<Integer, String> mFcntlCommands;
     private static Logging.Logger mLogger;
 
-    private final FileRegisteringCallback KQUEUE_CALLBACK = new KQueueCallback();
+    private final Process.FileRegisteringCallback KQUEUE_CALLBACK = new KQueueCallback();
 
     // settings
     private Application mApplication;
@@ -1909,7 +1903,6 @@ public class Slave implements Runnable {
     // states
     private Process mProcess;
     private NormalizedPath mCurrentDirectory;
-    private UnixFile[] mFiles;
     private SignalSet mPendingSignals = new SignalSet();
 
     private Alarm mAlarm;
@@ -1928,12 +1921,11 @@ public class Slave implements Runnable {
 
         Alarm alarm = new Alarm();
 
-        UnixFile[] files = new UnixFile[UNIX_FILE_NUM];
-        files[0] = new UnixInputStream(alarm, stdin);
-        files[1] = new UnixOutputStream(alarm, stdout);
-        files[2] = new UnixOutputStream(alarm, stderr);
+        process.registerFileAt(new UnixInputStream(alarm, stdin), 0);
+        process.registerFileAt(new UnixOutputStream(alarm, stdout), 1);
+        process.registerFileAt(new UnixOutputStream(alarm, stderr), 2);
 
-        initialize(application, process, hubIn, hubOut, currentDirectory, files,
+        initialize(application, process, hubIn, hubOut, currentDirectory,
                    permissions, links, listener, alarm);
 
         writeOpenedFileDescriptors();
@@ -1945,9 +1937,9 @@ public class Slave implements Runnable {
      */
     public Slave(Application application, Process process, InputStream hubIn,
                  OutputStream hubOut, NormalizedPath currentDirectory,
-                 UnixFile[] files, Permissions permissions, Links links,
-                 Listener listener, Alarm alarm) {
-        initialize(application, process, hubIn, hubOut, currentDirectory, files,
+                 Permissions permissions, Links links, Listener listener,
+                 Alarm alarm) {
+        initialize(application, process, hubIn, hubOut, currentDirectory,
                    permissions, links, listener, alarm);
     }
 
@@ -2114,7 +2106,7 @@ public class Slave implements Runnable {
         mLogger.info("read(fd=%d, nbytes=%d)", fd, nbytes);
         SyscallResult.Read result = new SyscallResult.Read();
 
-        UnixFile file = getLockedFile(fd);
+        UnixFile file = mProcess.getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
@@ -2152,7 +2144,7 @@ public class Slave implements Runnable {
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
-        UnixFile file = getLockedFile(fd);
+        UnixFile file = mProcess.getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
@@ -2181,7 +2173,7 @@ public class Slave implements Runnable {
 
         SyscallResult.Pread result = new SyscallResult.Pread();
 
-        UnixFile file = getLockedFile(fd);
+        UnixFile file = mProcess.getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
@@ -2278,7 +2270,7 @@ public class Slave implements Runnable {
         try {
             callback = new AcceptCallback(socket);
             try {
-                fd = registerFile(callback);
+                fd = mProcess.registerFile(callback);
             }
             catch (UnixException e) {
                 result.setError(e.getErrno());
@@ -2332,7 +2324,7 @@ public class Slave implements Runnable {
 
         SyscallResult.Fstat result = new SyscallResult.Fstat();
 
-        UnixFile file = getLockedFile(fd);
+        UnixFile file = mProcess.getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
@@ -2462,7 +2454,7 @@ public class Slave implements Runnable {
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        UnixFile file = getLockedFile(fd);
+        UnixFile file = mProcess.getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
@@ -2503,8 +2495,9 @@ public class Slave implements Runnable {
         mLogger.info(fmt, domain, type, protocol);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        FileRegisteringCallback callback = new SocketCallback(domain, type,
-                                                              protocol);
+        Process.FileRegisteringCallback callback = new SocketCallback(domain,
+                                                                      type,
+                                                                      protocol);
         registerFile(callback, result);
 
         return result;
@@ -2516,7 +2509,7 @@ public class Slave implements Runnable {
 
         UnixFile[] files;
         try {
-            files = getFiles(fds);
+            files = mProcess.getFiles(fds);
         }
         catch (UnixException e) {
             return new SyscallResult.Generic32(e.getErrno());
@@ -2530,7 +2523,7 @@ public class Slave implements Runnable {
 
         UnixFile[] files;
         try {
-            files = getFiles(fds);
+            files = mProcess.getFiles(fds);
         }
         catch (UnixException e) {
             return new SyscallResult.Generic32(e.getErrno());
@@ -2545,20 +2538,17 @@ public class Slave implements Runnable {
         mLogger.info(fmt, in, ou, ex, timeout);
         SyscallResult.Select result = new SyscallResult.Select();
 
-        UnixFile[] inFiles;
-        UnixFile[] ouFiles;
-        UnixFile[] exFiles;
+        Process.SelectFiles files;
         try {
-            synchronized (mFiles) {
-                inFiles = getFiles(in);
-                ouFiles = getFiles(ou);
-                exFiles = getFiles(ex);
-            }
+            files = mProcess.getFiles(in, ou, ex);
         }
         catch (UnixException e) {
             result.setError(e.getErrno());
             return result;
         }
+        UnixFile[] inFiles = files.inFiles;
+        UnixFile[] ouFiles = files.ouFiles;
+        UnixFile[] exFiles = files.exFiles;
 
         SelectReaction reaction = new SelectReaction(in, inFiles, ou, ouFiles,
                                                      ex, exFiles);
@@ -2706,7 +2696,7 @@ public class Slave implements Runnable {
         mLogger.info(fmt, fd, cmd, name, arg, s);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        UnixFile file = getLockedFile(fd);
+        UnixFile file = mProcess.getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
@@ -2727,25 +2717,11 @@ public class Slave implements Runnable {
         mLogger.info("close(fd=%d)", fd);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        synchronized (mFiles) {
-            UnixFile file = getLockedFile(fd);
-            if (file == null) {
-                result.setError(Errno.EBADF);
-                return result;
-            }
-
-            try {
-                file.close();
-            }
-            catch (UnixException e) {
-                result.setError(e.getErrno());
-                return result;
-            }
-            finally {
-                file.unlock();
-            }
-
-            mFiles[fd] = null;
+        try {
+            mProcess.closeFile(fd);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
         }
 
         return result;
@@ -2815,7 +2791,7 @@ public class Slave implements Runnable {
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
-        UnixFile file = getLockedFile(fd);
+        UnixFile file = mProcess.getLockedFile(fd);
         if (file == null) {
             result.retval = -1;
             result.errno = Errno.EBADF;
@@ -2840,9 +2816,8 @@ public class Slave implements Runnable {
         mLogger.info("thr_new(newPairId=%s)", newPairId);
 
         Slave slave = mApplication.newSlave(newPairId, mProcess,
-                                            mCurrentDirectory, mFiles,
-                                            mPermissions, mLinks, mListener,
-                                            mAlarm);
+                                            mCurrentDirectory, mPermissions,
+                                            mLinks, mListener, mAlarm);
         startSlave(slave, "thr_new(2)'ed", newPairId);
 
         return new SyscallResult.Generic32();
@@ -2851,13 +2826,9 @@ public class Slave implements Runnable {
     public SyscallResult.Generic32 doFork(PairId pairId) throws IOException {
         mLogger.info("fork(pairId=%s)", pairId);
 
-        int len = mFiles.length;
-        UnixFile[] files = new UnixFile[len];
-        System.arraycopy(mFiles, 0, files, 0, len);
-
-        Slave slave = mApplication.newSlave(pairId, mCurrentDirectory, files,
-                                            mPermissions, mLinks, mListener,
-                                            mAlarm);
+        Slave slave = mApplication.newProcess(pairId, mProcess,
+                                              mCurrentDirectory, mPermissions,
+                                              mLinks, mListener, mAlarm);
         startSlave(slave, "forked", pairId);
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
@@ -3022,7 +2993,7 @@ public class Slave implements Runnable {
         mLogger.info(fmt, kq, changelist, nchanges, nevents, timeout);
         SyscallResult.Kevent retval = new SyscallResult.Kevent();
 
-        UnixFile file = getLockedFile(kq);
+        UnixFile file = mProcess.getLockedFile(kq);
         if (file == null) {
             retval.setError(Errno.EBADF);
             return retval;
@@ -3101,139 +3072,23 @@ public class Slave implements Runnable {
         }
     }
 
-    private int findFreeSlotOfFile() {
-        int len = mFiles.length;
-        int i;
-        for (i = 0; (i < len) && (mFiles[i] != null); i++) {
-        }
-        return i < len ? i : -1;
-    }
-
-    private UnixFile[] getFiles(Unix.Fdset fds) throws UnixException {
-        int nfds = fds.size();
-        int[] da = new int[nfds];
-        for (int i = 0; i < nfds; i++) {
-            da[i] = fds.get(i);
-        }
-        return getFiles(da);
-    }
-
-    private UnixFile[] getFiles(PollFds fds) throws UnixException {
-        int nfds = fds.size();
-        int[] da = new int[nfds];
-        for (int i = 0; i < nfds; i++) {
-            da[i] = fds.get(i).getFd();
-        }
-        return getFiles(da);
-    }
-
-    private UnixFile[] getFiles(int[] fds) throws UnixException {
-        int nFiles = fds.length;
-        UnixFile[] files = new UnixFile[nFiles];
-        synchronized (mFiles) {
-            for (int i = 0; i < nFiles; i++) {
-                UnixFile file;
-                try {
-                    file = mFiles[fds[i]];
-                }
-                catch (IndexOutOfBoundsException e) {
-                    throw new UnixException(Errno.EBADF, e);
-                }
-                if (file == null) {
-                    throw new UnixException(Errno.EBADF);
-                }
-                files[i] = file;
-            }
-        }
-        return files;
-    }
-
-    private UnixFile[] getLockedFiles(int[] fds) throws UnixException {
-        UnixFile[] files = getFiles(fds);
-        int nFiles = files.length;
-        for (int i = 0; i < nFiles; i++) {
-            files[i].lock();
-        }
-        return files;
-    }
-
-    /**
-     * Returns a file of <var>fd</var> or null. A returned file is locked. You
-     * M_U_S_T unlock this.
-     */
-    private UnixFile getLockedFile(int fd) {
-        UnixFile file;
-        synchronized (mFiles) {
-            try {
-                file = mFiles[fd];
-            }
-            catch (IndexOutOfBoundsException unused) {
-                return null;
-            }
-        }
-        if (file != null) {
-            file.lock();
-        }
-        return file;
-    }
-
     /**
      * Returns a file of <var>fd</var> or throws an exception. A returned file
      * is locked. You M_U_S_T unlock this.
      */
     private UnixFile getValidFile(int fd) throws UnixException {
-        UnixFile file = getLockedFile(fd);
+        UnixFile file = mProcess.getLockedFile(fd);
         if (file == null) {
             throw new UnixException(Errno.EBADF);
         }
         return file;
     }
 
-    private void registerFileAt(UnixFile file, int at) {
-        mFiles[at] = file;
-        mLogger.info("new file registered: file=%s, fd=%d", file, at);
-    }
-
-    private int[] registerFiles(UnixFile[] files) throws UnixException {
-        int nFiles = files.length;
-        int[] fds = new int[nFiles];
-        synchronized (mFiles) {
-            for (int i = 0; i < nFiles; i++) {
-                fds[i] = registerFile(files[i]);
-            }
-        }
-        return fds;
-    }
-
-    private int registerFile(UnixFile file) throws UnixException {
-        int fd;
-        synchronized (mFiles) {
-            fd = findFreeSlotOfFile();
-            if (fd < 0) {
-                throw new UnixException(Errno.EMFILE);
-            }
-            registerFileAt(file, fd);
-        }
-        return fd;
-    }
-
-    private int registerFile(FileRegisteringCallback callback) throws UnixException {
-        int fd;
-        synchronized (mFiles) {
-            fd = findFreeSlotOfFile();
-            if (fd < 0) {
-                throw new UnixException(Errno.EMFILE);
-            }
-            registerFileAt(callback.call(), fd);
-        }
-        return fd;
-    }
-
-    private void registerFile(FileRegisteringCallback callback,
+    private void registerFile(Process.FileRegisteringCallback callback,
                               SyscallResult.Generic32 result) {
         int fd;
         try {
-            fd = registerFile(callback);
+            fd = mProcess.registerFile(callback);
         }
         catch (UnixException e) {
             result.setError(e.getErrno());
@@ -3377,7 +3232,7 @@ public class Slave implements Runnable {
      * You M_U_S_T unlock this.
      */
     private Socket getLockedSocket(int fd) throws GetSocketException {
-        UnixFile file = getLockedFile(fd);
+        UnixFile file = mProcess.getLockedFile(fd);
         if (file == null) {
             throw new GetSocketException(Errno.EBADF);
         }
@@ -3497,7 +3352,7 @@ public class Slave implements Runnable {
 
     private void initialize(Application application, Process process,
                             InputStream hubIn, OutputStream hubOut,
-                            NormalizedPath currentDirectory, UnixFile[] files,
+                            NormalizedPath currentDirectory,
                             Permissions permissions, Links links,
                             Listener listener, Alarm alarm) {
         mApplication = application;
@@ -3508,7 +3363,6 @@ public class Slave implements Runnable {
         mLinks = links;
         setListener(listener);
         mCurrentDirectory = currentDirectory;
-        mFiles = files;
 
         mAlarm = alarm;
 
