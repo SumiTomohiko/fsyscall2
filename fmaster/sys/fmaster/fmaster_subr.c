@@ -584,21 +584,33 @@ fail:
 	(td)->td_retval[1] = (retval)[1];	\
 } while (0)
 
+static void
+build_log_head(struct thread *td, char *buf, size_t bufsize)
+{
+	struct proc *p;
+	const char *fmt;
+
+#define	COMMON	"fmaster[%d]"
+	p = td->td_proc;
+	fmt = (p->p_flag & P_HADTHREADS) != 0 ? COMMON ": tid=0x%x" : COMMON;
+	snprintf(buf, bufsize, fmt, p->p_pid, td->td_tid);
+#undef	COMMON
+}
+
 void
 fmaster_log(struct thread *td, int pri, const char *fmt, ...)
 {
 	struct fmaster_data *data;
 	va_list ap;
 	register_t retval[2];
-	pid_t pid;
 	int logfd, size;
-	char buf[1024], msg[1024];
+	char buf[1024], head[256], msg[1024];
 
+	build_log_head(td, head, sizeof(head));
 	va_start(ap, fmt);
 	vsnprintf(msg, sizeof(msg), fmt, ap);
 	va_end(ap);
-	pid = td->td_proc->p_pid;
-	size = snprintf(buf, sizeof(buf), "fmaster[%d]: %s\n", pid, msg);
+	size = snprintf(buf, sizeof(buf), "%s: %s\n", head, msg);
 
 	data = fmaster_proc_data_of_thread(td);
 	logfd = data->fdata_logfd;
