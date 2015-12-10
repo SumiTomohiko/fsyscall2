@@ -133,32 +133,12 @@ int	fmaster_write_command_with_empty_payload(struct thread *, command_t);
 void	*fmaster_malloc(struct thread *, size_t);
 void	fmaster_freeall(struct thread *);
 
-/* anything else */
-int	fmaster_is_master_file(struct thread *, const char *);
-
-void	fmaster_schedtail(struct thread *);
-int	fmaster_copyin_msghdr(struct thread *, const struct msghdr *,
-			      struct msghdr *);
-int	fmaster_do_kevent(struct thread *, const struct kevent *, int,
-			  struct kevent *, int *, const struct timespec *);
-
-/* misc */
+/* logging */
 typedef unsigned int flag_t;
 
 struct flag_definition {
 	flag_t value;
 	const char *name;
-};
-
-enum fmaster_side {
-	SIDE_MASTER = 0x01,
-	SIDE_SLAVE = 0x02,
-	SIDE_BOTH = SIDE_MASTER | SIDE_SLAVE
-};
-
-enum fmaster_pre_execute_result {
-	PRE_EXEC_END,
-	PRE_EXEC_CONT
 };
 
 #define	DEFINE_FLAG(name)	{ name, #name }
@@ -169,6 +149,8 @@ long	fmaster_subtract_timeval(const struct timeval *,
 				 const struct timeval *);
 int	fmaster_openlog(struct thread *);
 void	fmaster_log(struct thread *, int, const char *, ...);
+void	fmaster_log_all(struct thread *, const char *, const char *, size_t);
+int	fmaster_log_buf(struct thread *, const char *, const char *, size_t);
 void	fmaster_log_syscall_end(struct thread *, const char *,
 				const struct timeval *, int);
 int	fmaster_log_msghdr(struct thread *, const char *,
@@ -181,6 +163,27 @@ void	_fmaster_dump_file_table(struct thread *, const char *, unsigned int);
 #define	fmaster_dump_file_table(td)	do {			\
 	_fmaster_dump_file_table((td), __FILE__, __LINE__);	\
 } while (0)
+
+/* anything else */
+int	fmaster_is_master_file(struct thread *, const char *);
+
+void	fmaster_schedtail(struct thread *);
+int	fmaster_copyin_msghdr(struct thread *, const struct msghdr *,
+			      struct msghdr *);
+int	fmaster_do_kevent(struct thread *, const struct kevent *, int,
+			  struct kevent *, int *, const struct timespec *);
+
+/* misc */
+enum fmaster_side {
+	SIDE_MASTER = 0x01,
+	SIDE_SLAVE = 0x02,
+	SIDE_BOTH = SIDE_MASTER | SIDE_SLAVE
+};
+
+enum fmaster_pre_execute_result {
+	PRE_EXEC_END,
+	PRE_EXEC_CONT
+};
 
 #define	array_sizeof(a)		(sizeof(a) / sizeof(a[0]))
 

@@ -8,6 +8,8 @@
 #include <fsyscall/private/fmaster.h>
 #include <sys/fmaster/fmaster_proto.h>
 
+static const char *sysname = "sendmsg";
+
 /*******************************************************************************
  * code for master
  */
@@ -389,7 +391,7 @@ fmaster_sendmsg_main(struct thread *td, struct fmaster_sendmsg_args *uap)
 	if (error != 0)
 		goto exit1;
 
-	error = fmaster_log_msghdr(td, "sendmsg", &kmsg);
+	error = fmaster_log_msghdr(td, sysname, &kmsg);
 	if (error != 0)
 		goto exit2;
 
@@ -431,7 +433,6 @@ sys_fmaster_sendmsg(struct thread *td, struct fmaster_sendmsg_args *uap)
 	};
 	struct timeval time_start;
 	int error, flags;
-	const char *sysname = "sendmsg";
 	char flagsstr[64];
 
 	flags = uap->flags;

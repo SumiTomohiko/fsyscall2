@@ -559,15 +559,15 @@ events_to_string(char *buf, size_t bufsize, short events)
 }
 
 static int
-log_args(struct thread *td, struct pollfd *fds, nfds_t nfds)
+log_args(struct thread *td, const char *tag, struct pollfd *fds, nfds_t nfds)
 {
 	struct pollfd *pfd;
 	nfds_t i;
 	pid_t pid;
 	enum fmaster_file_place place;
 	int error, fd, lfd;
-	short events;
-	char desc[256], sevents[256];
+	short events, revents;
+	char desc[256], sevents[256], srevents[256];
 
 	pid = td->td_proc->p_pid;
 	for (i = 0; i < nfds; i++) {
@@ -582,10 +582,13 @@ log_args(struct thread *td, struct pollfd *fds, nfds_t nfds)
 			strcpy(desc, "invalid");
 		events = pfd->events;
 		events_to_string(sevents, sizeof(sevents), events);
+		revents = pfd->revents;
+		events_to_string(srevents, sizeof(srevents), revents);
 		fmaster_log(td, LOG_DEBUG,
-			    "poll: fds[%d]: fd=%d (%s), events=%d (%s), revents"
-			    "=%d",
-			    i, fd, desc, events, sevents, pfd->revents);
+			    "poll: %s: fds[%d]: fd=%d (%s), events=%d (%s), rev"
+			    "ents=%d (%s)",
+			    tag, i, fd, desc, events, sevents, revents,
+			    srevents);
 	}
 
 	return (0);
@@ -640,7 +643,7 @@ fmaster_poll_main(struct thread *td, struct fmaster_poll_args *uap)
 	error = copyin(uap->fds, fds, size);
 	if (error != 0)
 		goto exit;
-	error = log_args(td, fds, nfds);
+	error = log_args(td, "input", fds, nfds);
 	if (error != 0)
 		goto exit;
 
@@ -661,6 +664,9 @@ fmaster_poll_main(struct thread *td, struct fmaster_poll_args *uap)
 		error = EBADF;
 		break;
 	}
+	if (error != 0)
+		goto exit;
+	error = log_args(td, "output", fds, nfds);
 	if (error != 0)
 		goto exit;
 

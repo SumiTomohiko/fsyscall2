@@ -325,6 +325,15 @@ def print_pre_execute(p, print_newline, syscall):
 def build_actual_args(syscall):
     return ", ".join(["td", "uap"] + (["lfd"] if find_file_descriptor_argument(syscall) is not None else []))
 
+def print_post_execute(syscall, p):
+    if syscall.post_execute:
+        name = syscall.name
+        p("""\
+\terror = {name}_post_execute(td, uap);
+\tif (error != 0)
+\t\treturn (error);
+""".format(**locals()))
+
 def print_generic_tail(p, print_newline, syscall):
     print_call_tail(p, print_newline)
 
@@ -350,12 +359,7 @@ static int
 \tif (error != 0)
 \t\treturn (error);
 """.format(**locals()))
-    if syscall.post_execute:
-        p("""\
-\terror = {name}_post_execute(td, uap);
-\tif (error != 0)
-\t\treturn (error);
-""".format(**locals()))
+    print_post_execute(syscall, p)
     if syscall.post_common:
         p("""\
 \terror = {name}_post_common(td, uap);
@@ -514,7 +518,13 @@ static int
 \terror = execute_call({act_args});
 \tif (error != 0)
 \t\treturn (error);
-\treturn (execute_return(td, uap));
+\terror = execute_return(td, uap);
+\tif (error != 0)
+\t\treturn (error);
+""".format(**locals()))
+    print_post_execute(syscall, p)
+    p("""\
+\treturn (0);
 }}
 """.format(**locals()))
     print_wrapper(p, print_newline, syscall)
