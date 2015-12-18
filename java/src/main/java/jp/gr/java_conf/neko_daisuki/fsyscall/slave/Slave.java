@@ -2656,6 +2656,7 @@ public class Slave implements Runnable {
     public SyscallResult.Generic64 doSendmsg(int fd, Unix.Msghdr msg,
                                              int flags) throws IOException {
         mLogger.info("sendmsg(fd=%d, msg=%s, flags=%d)", fd, msg, flags);
+        log("sendmsg", "msg.msg_iov", msg.msg_iov);
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
@@ -3195,6 +3196,15 @@ public class Slave implements Runnable {
 
         result.retval = 0;
         return result;
+    }
+
+    private void log(String tag, String name, Unix.IoVec[] iov) {
+        int len = iov.length;
+        for (int i = 0; i < len; i++) {
+            Unix.IoVec v = iov[i];
+            String s = ByteUtil.toString(v.iov_base, (int)v.iov_len);
+            mLogger.debug("%s: %s[%d]=%s", tag, name, i, s);
+        }
     }
 
     private void logBuffer(String tag, byte[] buf, int len) {
