@@ -403,6 +403,8 @@ execute_return(struct thread *td, struct msghdr *umsg, struct msghdr *kmsg)
 		}
 		else
 			controllen = 0;
+		/* This assignment is only for logging */
+		kmsg->msg_controllen = space;
 
 		error = copyout_controllen(umsg, controllen);
 		if (error != 0)
