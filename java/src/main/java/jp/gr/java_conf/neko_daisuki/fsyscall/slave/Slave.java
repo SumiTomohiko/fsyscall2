@@ -19,8 +19,6 @@ import java.util.Queue;
 import java.util.TimeZone;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 /*
  * Android 3.2.1 does not have UnixSystem.
@@ -736,7 +734,7 @@ public class Slave implements Runnable {
 
                 public void write(Control control) throws InterruptedException {
                     synchronized (mQueue) {
-                        mQueue.put(control);
+                        mQueue.offer(control);
                     }
                 }
             }
@@ -745,17 +743,17 @@ public class Slave implements Runnable {
 
                 public Control read() throws InterruptedException {
                     synchronized (mQueue) {
-                        return mQueue.take();
+                        return mQueue.poll();
                     }
                 }
             }
 
-            private BlockingQueue<Control> mQueue;
+            private Queue<Control> mQueue;
             private Reader mReader = new Reader();
             private Writer mWriter = new Writer();
 
             public ControlBuffer() {
-                mQueue = new LinkedBlockingQueue<Control>();
+                mQueue = new LinkedList<Control>();
             }
 
             public Reader getReader() {
@@ -1090,22 +1088,28 @@ public class Slave implements Runnable {
                 catch (InterruptedException e) {
                     throw new UnixException(Errno.EINTR, e);
                 }
-                Unix.Cmsghdr cmsghdr = cntl.getCmsghdr();
-                switch (cmsghdr.cmsg_level) {
-                case Unix.Constants.SOL_SOCKET:
-                    switch (cmsghdr.cmsg_type) {
-                    case Unix.Constants.SCM_CREDS:
-                        break;
-                    case Unix.Constants.SCM_RIGHTS:
-                        int[] fds = mProcess.registerFiles(cntl.getFiles());
-                        cmsghdr.cmsg_data = new Unix.Cmsgfds(fds);
+                Unix.Cmsghdr cmsghdr;
+                if (cntl != null) {
+                    cmsghdr = cntl.getCmsghdr();
+                    switch (cmsghdr.cmsg_level) {
+                    case Unix.Constants.SOL_SOCKET:
+                        switch (cmsghdr.cmsg_type) {
+                        case Unix.Constants.SCM_CREDS:
+                            break;
+                        case Unix.Constants.SCM_RIGHTS:
+                            int[] fds = mProcess.registerFiles(cntl.getFiles());
+                            cmsghdr.cmsg_data = new Unix.Cmsgfds(fds);
+                            break;
+                        default:
+                            break;
+                        }
                         break;
                     default:
                         break;
                     }
-                    break;
-                default:
-                    break;
+                }
+                else {
+                    cmsghdr = null;
                 }
                 control[0] = cmsghdr;
             }

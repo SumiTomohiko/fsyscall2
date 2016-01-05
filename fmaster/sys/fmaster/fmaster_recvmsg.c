@@ -66,6 +66,9 @@ execute_call(struct thread *td, int lfd, const struct msghdr *kmsg, int flags)
 	 * But if this does not exist, the slave can not know what the master
 	 * wants. I expect that this information works as a hint.
 	 */
+	fmaster_log(td, LOG_DEBUG,
+		    "%s: kmsg->msg_controllen=%ld",
+		    sysname, kmsg->msg_controllen);
 	error = fsyscall_payload_add_socklen(payload, kmsg->msg_controllen);
 	if (error != 0)
 		goto exit;
@@ -334,6 +337,9 @@ execute_return(struct thread *td, struct msghdr *umsg, struct msghdr *kmsg)
 		if (error != 0)
 			return (error);
 		actual_payload_size += ncmsghdrs_len;
+		fmaster_log(td, LOG_DEBUG,
+			    "%s: ncmsghdrs=%d",
+			    sysname, ncmsghdrs);
 
 		error = read_cmsgspecs(td, ncmsghdrs, &cmsgspecs,
 				       &cmsgspecs_len);
@@ -342,6 +348,7 @@ execute_return(struct thread *td, struct msghdr *umsg, struct msghdr *kmsg)
 		actual_payload_size += cmsgspecs_len;
 
 		space = compute_space(ncmsghdrs, cmsgspecs);
+		fmaster_log(td, LOG_DEBUG, "%s: space=%d", sysname, space);
 		kcontrol = (struct cmsghdr *)fmaster_malloc(td, space);
 		if (kcontrol == NULL)
 			return (ENOMEM);
@@ -403,6 +410,8 @@ execute_return(struct thread *td, struct msghdr *umsg, struct msghdr *kmsg)
 		}
 		else
 			controllen = 0;
+		/* This assignment is only for logging */
+		kmsg->msg_controllen = space;
 
 		error = copyout_controllen(umsg, controllen);
 		if (error != 0)

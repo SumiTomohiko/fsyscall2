@@ -334,6 +334,7 @@ tests/amd64/print_stat_member/name.inc
 tests/amd64/print_stat_member/print.inc
 tests/amd64/print_stat_member/print_stat_layout
 tests/amd64/readlink/readlink
+tests/amd64/recvmsg_controllen_for_nothing/recvmsg_controllen_for_nothing
 tests/amd64/recvmsg_master/recvmsg_master
 tests/amd64/recvmsg_not_socket_slave/recvmsg_not_socket_slave
 tests/amd64/recvmsg_slave/recvmsg_slave
