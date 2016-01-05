@@ -857,6 +857,15 @@ class SlaveHelper {
         writePayload(command, payload);
     }
 
+    private int countCmsghdrs(Unix.Cmsghdr[] control) {
+        int n = 0;
+        int len = control.length;
+        for (int i = 0; (i < len) && (control[i] != null); i++) {
+            n++;
+        }
+        return n;
+    }
+
     private void writeResult(Command command,
                              SyscallResult.Recvmsg result) throws IOException {
         String logHead = "result (recvmsg)";
@@ -875,7 +884,7 @@ class SlaveHelper {
 
         Unix.Cmsghdr[] control = result.control;
         if (control != null) {
-            int ncmsghdrs = control.length;
+            int ncmsghdrs = countCmsghdrs(control);
             payload.add(ncmsghdrs);
             for (int i = 0; i < ncmsghdrs; i++) {
                 Unix.Cmsghdr cmsghdr = control[i];
