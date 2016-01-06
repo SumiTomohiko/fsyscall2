@@ -101,6 +101,7 @@ defsyscall	nanosleep
 defsyscall	fstat
 defsyscall	sendmsg
 defsyscall	recvmsg
+defsyscall	umask
 
 global _start
 _start:

@@ -231,6 +231,7 @@ fslave/fslave_readlink.c
 fslave/fslave_rmdir.c
 fslave/fslave_socket.c
 fslave/fslave_stat.c
+fslave/fslave_umask.c
 fslave/fslave_unlink.c
 fslave/fslave_wait4.c
 fslave/fslave_write.c
@@ -352,6 +353,7 @@ tests/amd64/socket/socket
 tests/amd64/socketpair/socketpair
 tests/amd64/stat/stat
 tests/amd64/thr_new/thr_new
+tests/amd64/umask/umask
 tests/amd64/unixsock_creds/unixsock_creds
 tests/amd64/unlink/unlink
 tests/amd64/wait4_rusage/wait4_rusage

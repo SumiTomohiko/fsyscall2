@@ -32,6 +32,7 @@
 %define	sys.ioctl		54
 %define	sys.readlink		58
 %define	sys.execve		59
+%define	sys.umask		60
 %define	sys.dup2		90
 %define	sys.fcntl		92
 %define	sys.select		93
