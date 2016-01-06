@@ -114,6 +114,12 @@ public class Logging {
             }
         }
 
+        public void trace(String tag) {
+            StackTraceElement[] stack = new Throwable().getStackTrace();
+            String message = 0 < stack.length ? stack[1].toString() : "unknown";
+            verbose("%s: %s", tag, message);
+        }
+
         private String formatMessage(String fmt, Object[] args) {
             String name = Thread.currentThread().getName();
             String message = String.format(fmt, args);
