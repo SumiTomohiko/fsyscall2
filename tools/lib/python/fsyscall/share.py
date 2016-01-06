@@ -212,6 +212,7 @@ SYSCALLS = {
         "fmaster_chdir": {},
         "fmaster_chmod": {},
         "fmaster_mkdir": {},
+        "fmaster_umask": {},
         "fmaster_unlink": {},
         "fmaster_rmdir": {}
         }
