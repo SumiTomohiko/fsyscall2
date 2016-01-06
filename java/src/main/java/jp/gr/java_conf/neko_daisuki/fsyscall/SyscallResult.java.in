@@ -23,6 +23,10 @@ public interface SyscallResult {
         public Generic32() {
         }
 
+        public Generic32(int retval) {
+            this.retval = retval;
+        }
+
         public Generic32(Errno errno) {
             super(errno);
             this.retval = -1;
