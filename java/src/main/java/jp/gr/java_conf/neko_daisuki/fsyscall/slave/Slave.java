@@ -2744,6 +2744,11 @@ public class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Generic32 doUmask(int newmask) throws IOException {
+        mLogger.info("umask(newmask=0o%o)", newmask);
+        return new SyscallResult.Generic32(022);
+    }
+
     /**
      * Fake implementation of getpid(2). Java does not have any compatible ways
      * to getpid(2). So this method returns the dummy value.
