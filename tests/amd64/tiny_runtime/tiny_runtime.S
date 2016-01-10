@@ -102,6 +102,7 @@ defsyscall	fstat
 defsyscall	sendmsg
 defsyscall	recvmsg
 defsyscall	umask
+defsyscall	utimes
 
 global _start
 _start:

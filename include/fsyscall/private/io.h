@@ -15,6 +15,7 @@ payload_size_t	read_payload_size(int);
 pair_id_t	read_pair_id(int);
 void		read_sigset(int, sigset_t *, int *);
 char *		read_string(int, uint64_t *);
+void		read_timeval(int, struct timeval *, int *);
 #define		read_uint8(fd, len)	((uint8_t)read_int8((fd), (len)))
 #define		read_uint16(fd, len)	((uint16_t)read_int16((fd), (len)))
 #define		read_uint32(fd, len)	((uint32_t)read_int32((fd), (len)))
@@ -27,6 +28,8 @@ char *		read_string(int, uint64_t *);
 #define		read_ulong		read_uint64
 #define		read_socklen		read_uint32
 #define		read_pid		read_int32
+#define		read_time		read_int64
+#define		read_susecond		read_int64
 void		read_or_die(int, const void *, size_t);
 int		read_numeric_sequence(int, char *, int);
 

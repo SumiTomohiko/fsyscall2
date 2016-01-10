@@ -2,6 +2,7 @@
 #include <sys/event.h>
 #include <sys/select.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/un.h>
 #include <assert.h>
@@ -510,8 +511,7 @@ read_select_parameters(struct slave_thread *slave_thread, int *nfds,
 {
 	payload_size_t actual_payload_size, exceptfds_len, payload_size;
 	payload_size_t readfds_len, writefds_len;
-	int maxfd, rfd, timeout_status, timeout_status_len, tv_sec_len;
-	int tv_usec_len;
+	int maxfd, rfd, timeout_len, timeout_status, timeout_status_len;
 
 	rfd = slave_thread->fsth_rfd;
 	actual_payload_size = 0;
@@ -532,12 +532,8 @@ read_select_parameters(struct slave_thread *slave_thread, int *nfds,
 		*ptimeout = NULL;
 	else {
 		assert(timeout_status == 1);
-
-		timeout->tv_sec = read_int64(rfd, &tv_sec_len);
-		actual_payload_size += tv_sec_len;
-		timeout->tv_usec = read_int64(rfd, &tv_usec_len);
-		actual_payload_size += tv_usec_len;
-
+		read_timeval(rfd, timeout, &timeout_len);
+		actual_payload_size += timeout_len;
 		*ptimeout = timeout;
 	}
 
@@ -1948,6 +1944,54 @@ process_exit(struct slave_thread *slave_thread)
 	return (status);
 }
 
+static void
+process_utimes(struct slave_thread *slave_thread)
+{
+	sigset_t oset;
+	struct timeval *ptimes, times[2];
+	payload_size_t actual_payload_size, payload_size;
+	uint64_t path_len;
+	int e, i, ntimes, retval, rfd, times_code_len, times_len;
+	const char *path;
+	uint8_t times_code;
+
+	rfd = slave_thread->fsth_rfd;
+	actual_payload_size = 0;
+	payload_size = read_payload_size(rfd);
+
+	path = read_string(rfd, &path_len);
+	actual_payload_size += path_len;
+
+	times_code = read_uint8(rfd, &times_code_len);
+	actual_payload_size += times_code_len;
+
+	switch (times_code) {
+	case UTIMES_TIMES_NOT_NULL:
+		ntimes = array_sizeof(times);
+		for (i = 0; i < ntimes; i++) {
+			read_timeval(rfd, &times[i], &times_len);
+			actual_payload_size += times_len;
+		}
+		ptimes = times;
+		break;
+	case UTIMES_TIMES_NULL:
+		ptimes = NULL;
+		break;
+	default:
+		die(1, "invalid utimes(2) times code: %d", times_code);
+		break;
+	}
+
+	die_if_payload_size_mismatched(payload_size, actual_payload_size);
+
+	suspend_signal(slave_thread, &oset);
+	retval = utimes(path, ptimes);
+	e = errno;
+	resume_signal(slave_thread, &oset);
+
+	return_int(slave_thread, UTIMES_RETURN, retval, e);
+}
+
 static int
 mainloop(struct slave_thread *slave_thread)
 {
@@ -2048,6 +2092,9 @@ mainloop(struct slave_thread *slave_thread)
 				break;
 			case THR_NEW_CALL:
 				process_thr_new(slave_thread);
+				break;
+			case UTIMES_CALL:
+				process_utimes(slave_thread);
 				break;
 			case EXIT_CALL:
 				return process_exit(slave_thread);

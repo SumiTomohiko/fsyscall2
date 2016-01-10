@@ -272,6 +272,21 @@ fsyscall_payload_add_kevent(struct payload *payload, struct kevent *kev)
 	return (0);
 }
 
+int
+fsyscall_payload_add_timeval(struct payload *payload, const struct timeval *t)
+{
+	int error;
+
+	error = fsyscall_payload_add_time(payload, t->tv_sec);
+	if (error != 0)
+		return (error);
+	error = fsyscall_payload_add_suseconds(payload, t->tv_usec);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
 #if !defined(KLD_MODULE)
 struct payload *
 payload_create()

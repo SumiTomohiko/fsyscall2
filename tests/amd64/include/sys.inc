@@ -47,6 +47,7 @@
 %define	sys.socketpair		135
 %define	sys.mkdir		136
 %define	sys.rmdir		137
+%define	sys.utimes		138
 %define	sys.stat		188
 %define	sys.fstat		189
 %define	sys.lstat		190

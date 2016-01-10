@@ -321,6 +321,7 @@ process_mhub(struct shub *shub)
 	case SIGPROCMASK_CALL:
 	case SENDMSG_CALL:
 	case RECVMSG_CALL:
+	case UTIMES_CALL:
 #include "dispatch_call.inc"
 		transfer_payload_to_slave(shub, cmd);
 		break;
@@ -411,6 +412,7 @@ process_slave(struct shub *shub, struct slave *slave)
 	case SENDMSG_RETURN:
 	case RECVMSG_RETURN:
 	case THR_NEW_RETURN:
+	case UTIMES_RETURN:
 #include "dispatch_ret.inc"
 		transfer_payload_from_slave(shub, slave, cmd);
 		break;

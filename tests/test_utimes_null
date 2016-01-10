@@ -1,0 +1,15 @@
+
+cmd="utimes_null/utimes_null"
+file="${tmp_dir}/$$.utimes_null"
+args="${file}"
+expected_status="0"
+
+precmd() {
+	touch "${file}"
+}
+
+postcmd() {
+	rm -f "${file}"
+}
+
+# vim: filetype=sh

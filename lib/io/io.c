@@ -218,3 +218,14 @@ read_sigset(int rfd, sigset_t *set, int *len)
 		*len += n;
 	}
 }
+
+void
+read_timeval(int rfd, struct timeval *t, int *len)
+{
+	int usec_len, sec_len;
+
+	t->tv_sec = read_time(rfd, &sec_len);
+	t->tv_usec = read_susecond(rfd, &usec_len);
+
+	*len = sec_len + usec_len;
+}

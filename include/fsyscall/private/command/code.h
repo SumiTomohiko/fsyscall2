@@ -398,6 +398,10 @@
 #define	KEVENT_TIMEOUT_NULL		0
 #define	KEVENT_TIMEOUT_NOT_NULL		1
 
+/* codes for utimes(2) */
+#define	UTIMES_TIMES_NULL		0
+#define	UTIMES_TIMES_NOT_NULL		1
+
 /* codes for struct kevent */
 #define	KEVENT_UDATA_NULL		0
 #define	KEVENT_UDATA_NOT_NULL		1

@@ -17,9 +17,9 @@ SRCS=		elf_machdep.c fmaster_accept.c fmaster_bind.c \
 		fmaster_sendmsg.c fmaster_sendto.c fmaster_setsockopt.c \
 		fmaster_sigprocmask.c fmaster_socketpair.c fmaster_syscalls.c \
 		fmaster_sysent.c fmaster_subr.c fmaster_thr_exit.c \
-		fmaster_thr_new.c fsyscall_encode.c fsyscall_payload.c \
-		fsyscall_read_sockaddr.c fsyscall_select.c imgact_elf32.c \
-		imgact_elf64.c kern_exec.c syscall.c
+		fmaster_thr_new.c fmaster_utimes.c fsyscall_encode.c \
+		fsyscall_payload.c fsyscall_read_sockaddr.c fsyscall_select.c \
+		imgact_elf32.c imgact_elf64.c kern_exec.c syscall.c
 KERNBUILDDIR=	/usr/obj/usr/src/sys/GENERIC
 CFLAGS=		-Isys -I${TOP_DIR}/include -I/usr/src/sys -Werror
 

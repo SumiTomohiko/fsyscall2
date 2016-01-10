@@ -25,6 +25,8 @@ int		fsyscall_payload_add_sockaddr(struct payload *,
 					      struct sockaddr *);
 int		fsyscall_payload_add_string(struct payload *, const char *);
 int		fsyscall_payload_add_sigset(struct payload *, sigset_t *);
+int		fsyscall_payload_add_timeval(struct payload *,
+					     const struct timeval *);
 char 		*fsyscall_payload_get(struct payload *);
 payload_size_t	fsyscall_payload_get_size(struct payload *);
 #define	fsyscall_payload_add_int	fsyscall_payload_add_int32
@@ -35,6 +37,7 @@ payload_size_t	fsyscall_payload_get_size(struct payload *);
 #define	fsyscall_payload_add_ushort	fsyscall_payload_add_uint16
 #define	fsyscall_payload_add_socklen	fsyscall_payload_add_uint32
 #define	fsyscall_payload_add_time	fsyscall_payload_add_int64
+#define	fsyscall_payload_add_suseconds	fsyscall_payload_add_long
 
 #if !defined(KLD_MODULE)
 struct payload	*payload_create();
