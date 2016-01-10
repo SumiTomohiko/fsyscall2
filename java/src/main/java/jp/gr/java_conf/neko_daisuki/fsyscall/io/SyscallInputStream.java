@@ -14,6 +14,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Sigaction;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.IoVec;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.TimeVal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 
 public class SyscallInputStream {
@@ -173,6 +174,13 @@ public class SyscallInputStream {
         act.sa_mask = readSignalSet();
 
         return act;
+    }
+
+    public TimeVal readTimeVal() throws IOException {
+        TimeVal tv = new TimeVal();
+        tv.tv_sec = readLong();
+        tv.tv_usec = readLong();
+        return tv;
     }
 
     static {

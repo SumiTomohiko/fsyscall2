@@ -287,16 +287,9 @@ class SlaveHelper {
             Unix.Fdset ou = readFds();
             Unix.Fdset ex = readFds();
             int flag = mIn.readInteger();
-            Unix.TimeVal timeout = flag == 0 ? null : readTimeVal();
+            Unix.TimeVal timeout = flag == 0 ? null : mIn.readTimeVal();
             SyscallResult.Select result = mSlave.doSelect(in, ou, ex, timeout);
             writeResult(Command.SELECT_RETURN, result);
-        }
-
-        private Unix.TimeVal readTimeVal() throws IOException {
-            Unix.TimeVal tv = new Unix.TimeVal();
-            tv.tv_sec = mIn.readLong();
-            tv.tv_usec = mIn.readLong();
-            return tv;
         }
 
         private Unix.Fdset readFds() throws IOException {
@@ -763,6 +756,37 @@ class SlaveHelper {
         }
     }
 
+    private class UtimesProc extends CommandDispatcher.Proc {
+
+        private static final short UTIMES_TIMES_NULL = 0;
+        private static final short UTIMES_TIMES_NOT_NULL = 1;
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            String path = mIn.readString();
+            Unix.TimeVal[] times;
+            short timesCode = mIn.readShort();
+            switch (timesCode) {
+            case UTIMES_TIMES_NOT_NULL:
+                times = new Unix.TimeVal[2];
+                for (int i = 0; i < times.length; i++) {
+                    times[i] = mIn.readTimeVal();
+                }
+                break;
+            case UTIMES_TIMES_NULL:
+                times = null;
+                break;
+            default:
+                String fmt = "unsupported times code to utimes(2): %d";
+                throw new ProtocolError(String.format(fmt, timesCode));
+            }
+
+            SyscallResult.Generic32 result = mSlave.doUtimes(path, times);
+
+            writeResult(Command.UTIMES_RETURN, result);
+        }
+    }
+
     private class ThrExitProc extends CommandDispatcher.Proc {
 
         public void call(Command command) throws IOException {
@@ -827,6 +851,7 @@ class SlaveHelper {
         dispatcher.addEntry(Command.RECVMSG_CALL, new RecvmsgProc());
         dispatcher.addEntry(Command.THR_NEW_CALL, new ThrNewProc());
         dispatcher.addEntry(Command.THR_EXIT_CALL, new ThrExitProc());
+        dispatcher.addEntry(Command.UTIMES_CALL, new UtimesProc());
         @DISPATCHES@;
         return dispatcher;
     }

@@ -2744,6 +2744,12 @@ public class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Generic32 doUtimes(String path, Unix.TimeVal[] times) throws IOException {
+        mLogger.info("utimes(path=%s, times=%s)", path, times);
+        // does nothing.
+        return new SyscallResult.Generic32();
+    }
+
     public SyscallResult.Generic32 doUmask(int newmask) throws IOException {
         mLogger.info("umask(newmask=0o%o)", newmask);
         return new SyscallResult.Generic32(022);
