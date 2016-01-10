@@ -1966,6 +1966,9 @@ process_utimes(struct slave_thread *slave_thread)
 	actual_payload_size += times_code_len;
 
 	switch (times_code) {
+	case UTIMES_TIMES_NULL:
+		ptimes = NULL;
+		break;
 	case UTIMES_TIMES_NOT_NULL:
 		ntimes = array_sizeof(times);
 		for (i = 0; i < ntimes; i++) {
@@ -1973,9 +1976,6 @@ process_utimes(struct slave_thread *slave_thread)
 			actual_payload_size += times_len;
 		}
 		ptimes = times;
-		break;
-	case UTIMES_TIMES_NULL:
-		ptimes = NULL;
 		break;
 	default:
 		die(1, "invalid utimes(2) times code: %d", times_code);
