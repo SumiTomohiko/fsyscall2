@@ -352,6 +352,8 @@ tests/amd64/sigprocmask/sigprocmask
 tests/amd64/socket/socket
 tests/amd64/socketpair/socketpair
 tests/amd64/stat/stat
+tests/amd64/stat_ENOENT/stat_ENOENT
+tests/amd64/stat_dir/stat_dir
 tests/amd64/thr_new/thr_new
 tests/amd64/umask/umask
 tests/amd64/unixsock_creds/unixsock_creds

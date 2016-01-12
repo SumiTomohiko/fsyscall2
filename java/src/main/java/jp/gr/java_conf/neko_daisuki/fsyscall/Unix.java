@@ -65,6 +65,13 @@ public class Unix {
         public int st_flags;
         public int st_gen;
         public int st_lspare;
+
+        public Stat(int uid, int gid) {
+            st_dev = -1;
+            st_uid = uid;
+            st_gid = gid;
+            st_blksize = 8192;
+        }
     }
 
     public static class TimeZone {

@@ -19,8 +19,8 @@ SUBDIR=	${LIBDIR} accept access ancillary_from_client bind chdir chdir_access \
 	readlink recvmsg_controllen_for_nothing recvmsg_master \
 	recvmsg_not_socket_slave recvmsg_slave rmdir select select2 \
 	select_master sendmsg_master sendmsg_not_socket_slave sendmsg_slave \
-	setsockopt sigprocmask socket socketpair stat thr_new umask \
-	unixsock_creds unlink utimes utimes_null wait4_rusage wait4_status \
-	wait4_successful write writev
+	setsockopt sigprocmask socket socketpair stat stat_ENOENT stat_dir \
+	thr_new umask unixsock_creds unlink utimes utimes_null wait4_rusage \
+	wait4_status wait4_successful write writev
 
 .include <bsd.subdir.mk>

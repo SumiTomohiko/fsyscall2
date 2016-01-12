@@ -919,8 +919,7 @@ public class Slave implements Runnable {
         }
 
         public Unix.Stat fstat() throws UnixException {
-            Unix.Stat st = new Unix.Stat();
-            st.st_dev = -1;
+            Unix.Stat st = new Unix.Stat(UID, GID);
             st.st_mode = Unix.Constants.S_IRUSR
                        | Unix.Constants.S_IWUSR
                        | Unix.Constants.S_IRGRP
@@ -933,10 +932,6 @@ public class Slave implements Runnable {
                        | Unix.Constants.S_IFLNK
                        | Unix.Constants.S_IFSOCK
                        | Unix.Constants.S_IFWHT;
-            st.st_uid = UID;
-            st.st_gid = GID;
-            st.st_blksize = 8192;
-
             return st;
         }
 
@@ -1280,7 +1275,7 @@ public class Slave implements Runnable {
         }
 
         public Unix.Stat fstat() throws UnixException {
-            Unix.Stat st = new Unix.Stat();
+            Unix.Stat st = new Unix.Stat(UID, GID);
 
             try {
                 st.st_size = mFile.length();
@@ -3156,24 +3151,32 @@ public class Slave implements Runnable {
         }
 
         File file = new File(absPath.toString());
-        long size;
+        if (!file.exists()) {
+            result.setError(Errno.ENOENT);
+            return result;
+        }
+
+        Unix.Stat stat = new Unix.Stat(UID, GID);
+        stat.st_mode = Unix.Constants.S_IRUSR
+                     | Unix.Constants.S_IWUSR
+                     | Unix.Constants.S_IRGRP
+                     | Unix.Constants.S_IROTH
+                     | (file.isFile() ? Unix.Constants.S_IFREG
+                                      : Unix.Constants.S_IXUSR |
+                                        Unix.Constants.S_IXGRP |
+                                        Unix.Constants.S_IXOTH |
+                                        Unix.Constants.S_IFDIR);
         try {
-            size = file.length();
+            stat.st_size = file.length();
         }
         catch (SecurityException e) {
             result.retval = -1;
             result.errno = Errno.EPERM;
             return result;
         }
-        if ((size == 0L) && !file.isFile()) {
-            result.setError(Errno.ENOENT);
-            return result;
-        }
-        Unix.Stat stat = new Unix.Stat();
-        stat.st_size = size;
 
-        result.retval = 0;
         result.ub = stat;
+
         return result;
     }
 
