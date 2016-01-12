@@ -13,14 +13,14 @@ SUBDIR=	${LIBDIR} accept access ancillary_from_client bind chdir chdir_access \
 	getresuid_euid getresuid_suid getsockname_family getsockname_server \
 	getsockopt gettimeofday_dsttime gettimeofday_minuteswest \
 	gettimeofday_sec gettimeofday_usec getuid ioctl issetugid kill listen \
-	lseek lstat mkdir open open_pwddb pipe poll_bind poll_in poll_master \
-	poll_master_slave_blocking poll_master_slave_blocking2 \
-	poll_master_slave_nonblocking poll_out poll_timeout pread read \
-	readlink recvmsg_controllen_for_nothing recvmsg_master \
-	recvmsg_not_socket_slave recvmsg_slave rmdir select select2 \
-	select_master sendmsg_master sendmsg_not_socket_slave sendmsg_slave \
-	setsockopt sigprocmask socket socketpair stat stat_ENOENT stat_dir \
-	thr_new umask unixsock_creds unlink utimes utimes_null wait4_rusage \
-	wait4_status wait4_successful write writev
+	lseek lstat mkdir open open_O_DIRECTORY open_pwddb pipe poll_bind \
+	poll_in poll_master poll_master_slave_blocking \
+	poll_master_slave_blocking2 poll_master_slave_nonblocking poll_out \
+	poll_timeout pread read readlink recvmsg_controllen_for_nothing \
+	recvmsg_master recvmsg_not_socket_slave recvmsg_slave rmdir select \
+	select2 select_master sendmsg_master sendmsg_not_socket_slave \
+	sendmsg_slave setsockopt sigprocmask socket socketpair stat \
+	stat_ENOENT stat_dir thr_new umask unixsock_creds unlink utimes \
+	utimes_null wait4_rusage wait4_status wait4_successful write writev
 
 .include <bsd.subdir.mk>

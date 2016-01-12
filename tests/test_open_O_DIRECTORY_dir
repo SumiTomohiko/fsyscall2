@@ -1,0 +1,15 @@
+
+cmd="open_O_DIRECTORY/open_O_DIRECTORY"
+dir="${tmp_dir}/$$"
+args="${dir}"
+expected_status="0"
+
+precmd() {
+	mkdir -p "${dir}"
+}
+
+postcmd() {
+	rm -rf "${dir}"
+}
+
+# vim: filetype=sh
