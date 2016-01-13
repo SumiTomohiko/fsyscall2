@@ -1,0 +1,5 @@
+
+cmd="open_EISDIR/open_EISDIR"
+expected_status="0"
+
+# vim: filetype=sh
