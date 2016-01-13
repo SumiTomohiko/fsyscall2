@@ -528,8 +528,26 @@ public class Slave implements Runnable {
         }
 
         public UnixFile call() throws UnixException {
-            UnixFile file;
+            return new File(mPath.toString()).isFile() ? openRegularFile()
+                                                       : openDirectory();
+        }
 
+        private UnixFile openDirectory() throws UnixException {
+            int disallowedFlags = Unix.Constants.O_WRONLY
+                                | Unix.Constants.O_RDWR;
+            if ((mFlags & disallowedFlags) != 0) {
+                throw new UnixException(Errno.EISDIR);
+            }
+
+            return new DirectoryFile(mAlarm, mPath);
+        }
+
+        private UnixFile openRegularFile() throws UnixException {
+            if ((mFlags & Unix.Constants.O_DIRECTORY) != 0) {
+                throw new UnixException(Errno.ENOTDIR);
+            }
+
+            UnixFile file;
             switch (mFlags & Unix.Constants.O_ACCMODE) {
             case Unix.Constants.O_RDONLY:
                 boolean create = (mFlags & Unix.Constants.O_CREAT) != 0;
@@ -1332,6 +1350,65 @@ public class Slave implements Runnable {
             catch (IOException e) {
                 throw new UnixException(Errno.EBADF, e);
             }
+        }
+    }
+
+    private class DirectoryFile extends UnixFile {
+
+        private File mFile;
+
+        public DirectoryFile(Alarm alarm, NormalizedPath path) {
+            super(alarm);
+            mFile = new File(path.toString());
+        }
+
+        public boolean isReadyToRead() throws UnixException {
+            throw new UnixException(Errno.EISDIR);
+        }
+
+        public boolean isReadyToWrite() throws UnixException {
+            throw new UnixException(Errno.EBADF);
+        }
+
+        public int read(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.EISDIR);
+        }
+
+        public long pread(byte[] buffer, long offset) throws UnixException {
+            throw new UnixException(Errno.EISDIR);
+        }
+
+        public long lseek(long offset, int whence) throws UnixException {
+            // nothing?
+            return 0L;
+        }
+
+        public Unix.Stat fstat() throws UnixException {
+            Unix.Stat st = new Unix.Stat(UID, GID);
+            st.st_mode = Unix.Constants.S_IRWXU
+                       | Unix.Constants.S_IRGRP
+                       | Unix.Constants.S_IXGRP
+                       | Unix.Constants.S_IROTH
+                       | Unix.Constants.S_IXOTH
+                       | Unix.Constants.S_IFDIR;
+            return st;
+        }
+
+        public long getFilterFlags() {
+            // TODO?
+            return 0L;
+        }
+
+        public void clearFilterFlags() {
+            // nothing?
+        }
+
+        protected void doClose() throws UnixException {
+            // nothing
+        }
+
+        protected int doWrite(byte[] buffer) throws UnixException {
+            throw new UnixException(Errno.EBADF);
         }
     }
 
@@ -3123,6 +3200,10 @@ public class Slave implements Runnable {
             URL url = getClass().getResource("pwd.db");
             if (url == null) {
                 result.setError(Errno.ENOENT);
+                return result;
+            }
+            if ((flags & Unix.Constants.O_DIRECTORY) != 0) {
+                result.setError(Errno.ENOTDIR);
                 return result;
             }
             registerFile(new OpenResourceCallback(url), result);

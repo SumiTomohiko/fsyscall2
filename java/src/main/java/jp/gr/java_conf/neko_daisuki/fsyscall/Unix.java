@@ -237,11 +237,24 @@ public class Unix {
         public static class Open {
 
             private static final Flag[] FLAGS = {
-                new Flag(O_CREAT, "O_CREAT"),
                 new Flag(O_NONBLOCK, "O_NONBLOCK"),
                 new Flag(O_APPEND, "O_APPEND"),
+                new Flag(O_SHLOCK, "O_SHLOCK"),
+                new Flag(O_EXLOCK, "O_EXLOCK"),
                 new Flag(O_ASYNC, "O_ASYNC"),
-                new Flag(O_DIRECT, "O_DIRECT")
+                new Flag(O_FSYNC, "O_FSYNC"),
+                new Flag(O_SYNC, "O_SYNC"),
+                new Flag(O_NOFOLLOW, "O_NOFOLLOW"),
+                new Flag(O_CREAT, "O_CREAT"),
+                new Flag(O_TRUNC, "O_TRUNC"),
+                new Flag(O_EXCL, "O_EXCL"),
+                new Flag(FHASLOCK, "FHASLOCK"),
+                new Flag(O_NOCTTY, "O_NOCTTY"),
+                new Flag(O_DIRECT, "O_DIRECT"),
+                new Flag(O_DIRECTORY, "O_DIRECTORY"),
+                new Flag(O_EXEC, "O_EXEC"),
+                new Flag(O_TTY_INIT, "O_TTY_INIT"),
+                new Flag(O_CLOEXEC, "O_CLOEXEC")
             };
 
             private static final String[] MODE = {
@@ -293,12 +306,25 @@ public class Unix {
         public static final int O_WRONLY = 0x0001;
         public static final int O_RDWR = 0x0002;
         public static final int O_ACCMODE = 0x0003;
-        public static final int O_CREAT = 0x200;
 
         public static final int O_NONBLOCK = 0x0004;
         public static final int O_APPEND = 0x0008;
+        public static final int O_SHLOCK = 0x0010;
+        public static final int O_EXLOCK = 0x0020;
         public static final int O_ASYNC = 0x0040;
+        public static final int O_FSYNC = 0x0080;
+        public static final int O_SYNC = 0x0080;
+        public static final int O_NOFOLLOW = 0x0100;
+        public static final int O_CREAT = 0x0200;
+        public static final int O_TRUNC = 0x0400;
+        public static final int O_EXCL = 0x0800;
+        public static final int FHASLOCK = 0x4000;
+        public static final int O_NOCTTY = 0x8000;
         public static final int O_DIRECT = 0x00010000;
+        public static final int O_DIRECTORY = 0x00020000;
+        public static final int O_EXEC = 0x00040000;
+        public static final int O_TTY_INIT = 0x00080000;
+        public static final int O_CLOEXEC = 0x00100000;
 
         public static final int SEEK_SET = 0;
         public static final int SEEK_CUR = 1;
