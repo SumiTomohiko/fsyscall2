@@ -1,6 +1,6 @@
 
 cmd="getdirentries/getdirentries"
 args="${tmp_dir}"
-expected_status="0"
+expected_stdout=""
 
 # vim: filetype=sh

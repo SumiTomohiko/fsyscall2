@@ -1,0 +1,14 @@
+
+cmd="getdirentries/getdirentries"
+args="${tmp_dir}"
+expected_stdout="foo.dat"
+
+precmd() {
+	touch foo.dat
+}
+
+postcmd() {
+	rm -f foo.dat
+}
+
+# vim: filetype=sh

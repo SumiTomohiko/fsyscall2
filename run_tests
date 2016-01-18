@@ -193,6 +193,9 @@ do
 			else
 				result="NG"
 			fi
+		elif [ "$(typename test_stdout)" = "shell function" ]; then
+			test_stdout < "${stdout_log}"
+			result=$(test_result "${?}")
 		elif [ "$(typename test_status)" = "shell function" ]; then
 			test_status "${status}"
 			result=$(test_result "${?}")

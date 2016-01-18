@@ -1,0 +1,23 @@
+
+cmd="getdirentries/getdirentries"
+args="${tmp_dir}"
+
+test_stdout() {
+	local expected
+
+	expected="bar.dat
+foo.dat"
+	actual=$(sort)
+
+	test "${expected}" = "${actual}"
+}
+
+precmd() {
+	touch foo.dat bar.dat
+}
+
+postcmd() {
+	rm -f foo.dat bar.dat
+}
+
+# vim: filetype=sh

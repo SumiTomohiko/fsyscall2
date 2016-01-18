@@ -1,0 +1,21 @@
+
+cmd="getdirentries/getdirentries"
+args="${tmp_dir}"
+nfiles="8192"
+
+test_stdout() {
+	test "$(wc -l)" -eq "${nfiles}"
+}
+
+precmd() {
+	for _ in $(jot ${nfiles})
+	do
+		TMPDIR="${tmp_dir}" mktemp -t $$ > /dev/null 2>&1
+	done
+}
+
+postcmd() {
+	rm -f "${tmp_dir}/*"
+}
+
+# vim: filetype=sh
