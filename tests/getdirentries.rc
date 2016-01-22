@@ -1,0 +1,6 @@
+
+dir="${tmp_dir}/$$"
+
+mkdir -p "${dir}"
+
+# vim: filetype=sh

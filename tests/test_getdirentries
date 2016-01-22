@@ -1,6 +1,8 @@
 
+. "${tests_dir}/getdirentries.rc"
+
 cmd="getdirentries/getdirentries"
-args="${tmp_dir}"
+args="${dir}"
 expected_status="0"
 
 # vim: filetype=sh

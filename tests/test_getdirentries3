@@ -1,14 +1,16 @@
 
+. "${tests_dir}/getdirentries.rc"
+
 cmd="getdirentries/getdirentries"
-args="${tmp_dir}"
+args="${dir}"
 expected_stdout="foo.dat"
 
 precmd() {
-	touch foo.dat
+	touch "${dir}/foo.dat"
 }
 
 postcmd() {
-	rm -f foo.dat
+	rm -f "${dir}/foo.dat"
 }
 
 # vim: filetype=sh

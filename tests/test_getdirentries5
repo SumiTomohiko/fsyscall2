@@ -1,7 +1,9 @@
 
+. "${tests_dir}/getdirentries.rc"
+
 cmd="getdirentries/getdirentries"
-args="${tmp_dir}"
-nfiles="8192"
+args="${dir}"
+nfiles="128"
 
 test_stdout() {
 	test "$(wc -l)" -eq "${nfiles}"
@@ -10,12 +12,12 @@ test_stdout() {
 precmd() {
 	for _ in $(jot ${nfiles})
 	do
-		TMPDIR="${tmp_dir}" mktemp -t $$ > /dev/null 2>&1
+		TMPDIR="${dir}" mktemp -t $$ > /dev/null 2>&1
 	done
 }
 
 postcmd() {
-	rm -f "${tmp_dir}/*"
+	rm -f "${dir}/*"
 }
 
 # vim: filetype=sh
