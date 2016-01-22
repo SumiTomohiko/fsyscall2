@@ -287,6 +287,25 @@ fsyscall_payload_add_timeval(struct payload *payload, const struct timeval *t)
 	return (0);
 }
 
+int
+fsyscall_payload_add_dirent(struct payload *payload,
+			    const struct dirent *dirent)
+{
+	int error;
+
+	error = fsyscall_payload_add_uint32(payload, dirent->d_fileno);
+	if (error != 0)
+		return (error);
+	error = fsyscall_payload_add_uint8(payload, dirent->d_type);
+	if (error != 0)
+		return (error);
+	error = fsyscall_payload_add_string(payload, dirent->d_name);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
 #if !defined(KLD_MODULE)
 struct payload *
 payload_create()
@@ -316,6 +335,7 @@ IMPLEMENT_ADD_X(payload_add_int64, int64_t)
 IMPLEMENT_ADD_X(payload_add_uint8, uint8_t)
 IMPLEMENT_ADD_X(payload_add_uint32, uint32_t)
 IMPLEMENT_ADD_X(payload_add_uint64, uint64_t)
+IMPLEMENT_ADD_X(payload_add_dirent, const struct dirent*);
 IMPLEMENT_ADD_X(payload_add_kevent, struct kevent *);
 IMPLEMENT_ADD_X(payload_add_sockaddr, struct sockaddr *);
 #undef IMPLEMENT_ADD_X

@@ -1,5 +1,6 @@
 #include <sys/param.h>
 #include <sys/cdefs.h>
+#include <sys/dirent.h>
 #include <sys/errno.h>
 #include <sys/event.h>
 #include <sys/fcntl.h>
@@ -1320,6 +1321,8 @@ fmaster_execute_return_optional32(struct thread *td, command_t expected_cmd,
 		return (errnum);
 	}
 
+	td->td_retval[0] = retval;
+
 	error = callback(td, retval, &optional_payload_size, bonus);
 	if (error != 0)
 		return (error);
@@ -1331,8 +1334,6 @@ fmaster_execute_return_optional32(struct thread *td, command_t expected_cmd,
 			    payload_size, actual_payload_size);
 		return (EPROTO);
 	}
-
-	td->td_retval[0] = retval;
 
 	return (0);
 }
@@ -2798,4 +2799,163 @@ fmaster_log_buf(struct thread *td, const char *tag, const char *buf,
 	free(s, mt);
 
 	return (0);
+}
+
+static int
+execute_getdirentries_call(struct thread *td, int fd, int nentmax)
+{
+	struct payload *payload;
+	int error;
+
+	payload = fsyscall_payload_create();
+	if (payload == NULL)
+		return (ENOMEM);
+	error = fsyscall_payload_add_int(payload, fd);
+	if (error != 0)
+		goto exit;
+	error = fsyscall_payload_add_int(payload, nentmax);
+	if (error != 0)
+		goto exit;
+
+	error = fmaster_write_payloaded_command(td, GETDIRENTRIES_CALL,
+						payload);
+	if (error != 0)
+		goto exit;
+
+	error = 0;
+exit:
+	fsyscall_payload_dispose(payload);
+
+	return (error);
+}
+
+struct getdirentries_bonus {
+	char		*kbuf;
+	unsigned int	bufsize;
+	long		*kbasep;
+};
+
+static int
+getdirentries_callback(struct thread *td, int retval,
+		       payload_size_t *optional_payload_size, void *bonus)
+{
+	struct dirent *dirent;
+	struct getdirentries_bonus *p;
+	payload_size_t payload_size;
+	uint64_t namelen;
+	uint32_t fileno;
+	int base_len, error, fileno_len, i, namelen_len, nent, nent_len, rfd;
+	int type_len;
+	uint8_t type;
+	char name[MAXPATHLEN + 1], *q;
+
+	p = (struct getdirentries_bonus *)bonus;
+
+	error = fmaster_read_int(td, &nent, &nent_len);
+	if (error != 0)
+		return (error);
+	if (p->bufsize < sizeof(struct dirent) * nent)
+		return (ENOMEM);
+	payload_size = nent_len;
+
+	rfd = fmaster_rfd_of_thread(td);
+	for (i = 0, q = p->kbuf; i < nent; i++, q += dirent->d_reclen) {
+		error = fmaster_read_uint32(td, &fileno, &fileno_len);
+		if (error != 0)
+			return (error);
+		payload_size += fileno_len;
+
+		error = fmaster_read_uint8(td, &type, &type_len);
+		if (error != 0)
+			return (error);
+		payload_size += type_len;
+
+		error = fmaster_read_uint64(td, &namelen, &namelen_len);
+		if (error != 0)
+			return (error);
+		if (MAXPATHLEN < namelen)
+			return (ENOMEM);
+		payload_size += namelen_len;
+
+		error = fmaster_read(td, rfd, name, namelen);
+		if (error != 0)
+			return (error);
+		payload_size += namelen;
+		name[namelen] = '\0';
+
+		dirent = (struct dirent *)q;
+		dirent->d_fileno = fileno;
+		dirent->d_reclen = sizeof(*dirent);
+		dirent->d_type = type;
+		dirent->d_namlen = namelen;
+		strcpy(dirent->d_name, name);
+	}
+
+	error = fmaster_read_long(td, p->kbasep, &base_len);
+	if (error != 0)
+		return (error);
+	payload_size += base_len;
+
+	*optional_payload_size = payload_size;
+	td->td_retval[0] = sizeof(struct dirent) * nent;
+
+	return (0);
+}
+
+static int
+execute_getdirentries_return(struct thread *td, char *kbuf,
+			     unsigned int bufsize, long *kbasep)
+{
+	struct getdirentries_bonus bonus;
+	int error;
+
+	bonus.kbuf = kbuf;
+	bonus.bufsize = bufsize;
+	bonus.kbasep = kbasep;
+	error = fmaster_execute_return_optional32(td, GETDIRENTRIES_RETURN,
+						  getdirentries_callback,
+						  &bonus);
+
+	return (error);
+}
+
+int
+fmaster_execute_getdirentries(struct thread *td, int fd, char *ubuf,
+			      unsigned int count, long *kbasep)
+{
+	enum fmaster_file_place place;
+	int error, lfd, nentmax;
+	char *kbuf;
+
+	error = fmaster_get_vnode_info(td, fd, &place, &lfd);
+	if (error != 0)
+		return (error);
+	switch (place) {
+	case FFP_MASTER:
+		return (kern_getdirentries(td, lfd, ubuf, count, kbasep));
+	case FFP_SLAVE:
+		break;
+	default:
+		return (EINVAL);
+	}
+
+	nentmax = count / sizeof(struct dirent);
+	error = execute_getdirentries_call(td, lfd, nentmax);
+	if (error != 0)
+		return (error);
+	kbuf = fmaster_malloc(td, count);
+	if (kbuf == NULL)
+		return (ENOMEM);
+	error = execute_getdirentries_return(td, kbuf, count, kbasep);
+	if (error != 0)
+		goto exit;
+	error = copyout(kbuf, ubuf, td->td_retval[0]);
+	if (error != 0)
+		goto exit;
+
+	error = 0;
+exit:
+	fmaster_freeall(td);
+
+	return (error);
 }

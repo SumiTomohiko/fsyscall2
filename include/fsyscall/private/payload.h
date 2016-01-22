@@ -2,6 +2,7 @@
 #define	FSYSCALL_PRIVATE_PAYLOAD_H_INCLUDED
 
 #include <sys/types.h>
+#include <sys/dirent.h>
 #include <sys/event.h>
 #include <sys/socket.h>
 
@@ -20,6 +21,8 @@ int		fsyscall_payload_add_uint8(struct payload *, uint8_t);
 int		fsyscall_payload_add_uint16(struct payload *, uint16_t);
 int		fsyscall_payload_add_uint32(struct payload *, uint32_t);
 int		fsyscall_payload_add_uint64(struct payload *, uint64_t);
+int		fsyscall_payload_add_dirent(struct payload *,
+					    const struct dirent *);
 int		fsyscall_payload_add_kevent(struct payload *, struct kevent *);
 int		fsyscall_payload_add_sockaddr(struct payload *,
 					      struct sockaddr *);
@@ -48,9 +51,11 @@ void		payload_add_int64(struct payload *, int64_t);
 void		payload_add_uint8(struct payload *, uint8_t);
 void		payload_add_uint32(struct payload *, uint32_t);
 void		payload_add_uint64(struct payload *, uint64_t);
+void		payload_add_dirent(struct payload *, const struct dirent *);
 void		payload_add_kevent(struct payload *, struct kevent *);
 void		payload_add_sockaddr(struct payload *, struct sockaddr *);
 void		payload_dump(const struct payload *);
+#define	payload_add_long	payload_add_int64
 #define	payload_add_int		payload_add_int32
 #define	payload_add_short	payload_add_int16
 #define	payload_add_socklen	payload_add_uint32

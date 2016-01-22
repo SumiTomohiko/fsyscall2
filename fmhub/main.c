@@ -420,6 +420,7 @@ process_shub(struct mhub *mhub)
 	case SENDMSG_RETURN:
 	case RECVMSG_RETURN:
 	case UTIMES_RETURN:
+	case GETDIRENTRIES_RETURN:
 #include "dispatch_ret.inc"
 		transfer_payload_to_master(mhub, cmd);
 		break;
@@ -597,6 +598,7 @@ process_master(struct mhub *mhub, struct master *master)
 	case SENDMSG_CALL:
 	case RECVMSG_CALL:
 	case UTIMES_CALL:
+	case GETDIRENTRIES_CALL:
 #include "dispatch_call.inc"
 		transfer_payload_from_master(mhub, master, cmd);
 		break;

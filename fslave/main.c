@@ -6,6 +6,7 @@
 #include <sys/uio.h>
 #include <sys/un.h>
 #include <assert.h>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -1992,6 +1993,124 @@ process_utimes(struct slave_thread *slave_thread)
 	return_int(slave_thread, UTIMES_RETURN, retval, e);
 }
 
+struct getdirentries_args {
+	int fd;
+	int nentmax;
+};
+
+static void
+read_getdirentries_args(struct slave_thread *slave_thread,
+			struct getdirentries_args *args)
+{
+	payload_size_t actual_payload_size, payload_size;
+	int fd_len, nentmax_len, rfd;
+
+	rfd = slave_thread->fsth_rfd;
+	payload_size = read_payload_size(rfd);
+
+	args->fd = read_int(rfd, &fd_len);
+	actual_payload_size = fd_len;
+
+	args->nentmax = read_int(rfd, &nentmax_len);
+	actual_payload_size += nentmax_len;
+
+	die_if_payload_size_mismatched(payload_size, actual_payload_size);
+}
+
+static int
+count_dirent(const char *buf, int bufsize, int nentmax)
+{
+	const struct dirent *dirent;
+	int nent;
+	const char *bufend, *p;
+
+	bufend = buf + bufsize;
+	for (p = buf, nent = 0;
+	     (p < bufend) && (nent < nentmax);
+	     p += dirent->d_reclen, nent++)
+		dirent = (const struct dirent *)p;
+
+	return (nent);
+}
+
+static void
+write_getdirentries_result(struct slave_thread *slave_thread, int retval, int e,
+			   int nentmax, const char *buf, long base)
+{
+	struct payload *payload;
+	const struct dirent *dirent;
+	command_t return_command;
+	int i, nent;
+	const char *p;
+
+	return_command = GETDIRENTRIES_RETURN;
+	if (retval == -1) {
+		return_int(slave_thread, return_command, retval, e);
+		return;
+	}
+
+	nent = count_dirent(buf, retval, nentmax);
+
+	payload = payload_create();
+	payload_add_int(payload, retval);
+	payload_add_int(payload, nent);
+	for (i = 0, p = buf; i < nent; i++, p += dirent->d_reclen) {
+		dirent = (const struct dirent *)p;
+		payload_add_dirent(payload, dirent);
+	}
+	payload_add_long(payload, base);
+
+	write_payloaded_command(slave_thread, return_command, payload);
+
+	payload_dispose(payload);
+}
+
+static void
+rewind_dirent(int fd, int nentmax, const char *buf, int bufsize)
+{
+	const struct dirent *dirent;
+	off_t offset;
+	int i;
+	const char *p, *pend;
+
+	pend = buf + bufsize;
+	for (i = 0, p = buf;
+	     (i < nentmax) && (p < pend);
+	     i++, p += dirent->d_reclen)
+		dirent = (const struct dirent *)p;
+
+	offset = (uintptr_t)pend - (uintptr_t)p;
+	if (lseek(fd, - offset, SEEK_CUR) == -1)
+		die(1, "cannot rewind dirent position: %d", offset);
+}
+
+static void
+process_getdirentries(struct slave_thread *slave_thread)
+{
+	struct getdirentries_args args;
+	sigset_t oset;
+	long base;
+	int e, fd, nbytes, nentmax, retval;
+	char *buf;
+
+	read_getdirentries_args(slave_thread, &args);
+
+	nentmax = args.nentmax;
+	nbytes = sizeof(struct dirent) * nentmax;
+	buf = mem_alloc(slave_thread, nbytes);
+
+	base = 0;
+	fd = args.fd;
+	suspend_signal(slave_thread, &oset);
+	retval = getdirentries(fd, buf, nbytes, &base);
+	e = errno;
+	resume_signal(slave_thread, &oset);
+
+	write_getdirentries_result(slave_thread, retval, e, nentmax, buf, base);
+
+	rewind_dirent(fd, nentmax, buf, retval);
+}
+
 static int
 mainloop(struct slave_thread *slave_thread)
 {
@@ -2095,6 +2214,9 @@ mainloop(struct slave_thread *slave_thread)
 				break;
 			case UTIMES_CALL:
 				process_utimes(slave_thread);
+				break;
+			case GETDIRENTRIES_CALL:
+				process_getdirentries(slave_thread);
 				break;
 			case EXIT_CALL:
 				return process_exit(slave_thread);
