@@ -1,9 +1,11 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
 
@@ -197,29 +199,25 @@ public class Unix {
 
         public static class DirEnt {
 
+            private static Map<Integer, String> mTypes;
+
             public static String toString(int type) {
-                switch (type) {
-                case DT_UNKNOWN:
-                    return "DT_UNKNOWN";
-                case DT_FIFO:
-                    return "DT_FIFO";
-                case DT_CHR:
-                    return "DT_CHR";
-                case DT_DIR:
-                    return "DT_DIR";
-                case DT_BLK:
-                    return "DT_BLK";
-                case DT_REG:
-                    return "DT_REG";
-                case DT_LNK:
-                    return "DT_LNK";
-                case DT_SOCK:
-                    return "DT_SOCK";
-                case DT_WHT:
-                    return "DT_WHT";
-                default:
-                    return "invalid";
+                if (mTypes == null) {
+                    mTypes = new HashMap<Integer, String>();
+                    mTypes.put(Integer.valueOf(DT_UNKNOWN), "DT_UNKNOWN");
+                    mTypes.put(Integer.valueOf(DT_FIFO), "DT_FIFO");
+                    mTypes.put(Integer.valueOf(DT_CHR), "DT_CHR");
+                    mTypes.put(Integer.valueOf(DT_DIR), "DT_DIR");
+                    mTypes.put(Integer.valueOf(DT_BLK), "DT_BLK");
+                    mTypes.put(Integer.valueOf(DT_REG), "DT_REG");
+                    mTypes.put(Integer.valueOf(DT_LNK), "DT_LNK");
+                    mTypes.put(Integer.valueOf(DT_SOCK), "DT_SOCK");
+                    mTypes.put(Integer.valueOf(DT_WHT), "DT_WHT");
                 }
+
+                String name = mTypes.get(Integer.valueOf(type));
+
+                return name != null ? name : "invalid";
             }
         }
 
