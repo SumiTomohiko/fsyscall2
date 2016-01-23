@@ -78,6 +78,11 @@ public interface SyscallResult {
         public Unix.Cmsghdr[] control;
     }
 
+    public static class Getdirentries extends Generic32 {
+
+        public DirEntries dirEntries;
+    }
+
     @RESULTS@
 }
 

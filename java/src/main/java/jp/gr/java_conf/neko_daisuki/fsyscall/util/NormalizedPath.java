@@ -1,5 +1,6 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.util;
 
+import java.io.File;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -59,6 +60,10 @@ public class NormalizedPath {
     @Override
     public String toString() {
         return mPath;
+    }
+
+    public File toFile() {
+        return new File(mPath);
     }
 
     private String chainElements(List<String> l) {

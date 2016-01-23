@@ -3,6 +3,8 @@ package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.DirEntries;
+import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 
@@ -58,6 +60,10 @@ abstract class UnixFile implements EventScannee {
         int nBytes = doWrite(buffer);
         mAlarm.alarm();
         return nBytes;
+    }
+
+    public DirEntries getdirentries(int nMax) throws UnixException {
+        throw new UnixException(Errno.EBADF);
     }
 
     public abstract boolean isReadyToRead() throws UnixException;

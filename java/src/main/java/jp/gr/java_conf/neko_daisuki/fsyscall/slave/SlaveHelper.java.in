@@ -11,6 +11,7 @@ import java.util.Map;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
+import jp.gr.java_conf.neko_daisuki.fsyscall.DirEntries;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.KEvent;
@@ -756,6 +757,20 @@ class SlaveHelper {
         }
     }
 
+    private class GetdirentriesProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int fd = mIn.readInteger();
+            int nMax = mIn.readInteger();
+
+            SyscallResult.Getdirentries result = mSlave.doGetdirentries(fd,
+                                                                        nMax);
+
+            writeResult(Command.GETDIRENTRIES_RETURN, result);
+        }
+    }
+
     private class UtimesProc extends CommandDispatcher.Proc {
 
         private static final short UTIMES_TIMES_NULL = 0;
@@ -852,6 +867,8 @@ class SlaveHelper {
         dispatcher.addEntry(Command.THR_NEW_CALL, new ThrNewProc());
         dispatcher.addEntry(Command.THR_EXIT_CALL, new ThrExitProc());
         dispatcher.addEntry(Command.UTIMES_CALL, new UtimesProc());
+        dispatcher.addEntry(Command.GETDIRENTRIES_CALL,
+                            new GetdirentriesProc());
         @DISPATCHES@;
         return dispatcher;
     }
@@ -1155,6 +1172,33 @@ class SlaveHelper {
         payload.add(retval);
         payload.add(result.addrlen);
         payload.add(addr);
+
+        writePayload(command, payload);
+    }
+
+    private void writeResult(Command command, SyscallResult.Getdirentries result) throws IOException {
+        String logHead = "result (getdirentries)";
+
+        int retval = result.retval;
+        if (retval == -1) {
+            String fmt = "%s: retval=%d, errno=%s";
+            mLogger.info(fmt, logHead, retval, result.errno);
+            writeError(command, result);
+            return;
+        }
+
+        DirEntries entries = result.dirEntries;
+        mLogger.info("%s: retval=%d, entries=%s", logHead, retval, entries);
+
+        Payload payload = new Payload();
+        payload.add(retval);
+        payload.add(entries.size());
+        for (Unix.DirEnt entry: entries) {
+            payload.add(entry.d_fileno);
+            payload.add(entry.d_type);
+            payload.add(entry.d_name);
+        }
+        payload.add(entries.getBase());
 
         writePayload(command, payload);
     }

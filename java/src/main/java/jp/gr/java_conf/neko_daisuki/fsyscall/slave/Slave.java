@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -14,6 +15,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.TimeZone;
@@ -26,6 +28,7 @@ import java.util.TimerTask;
 //import com.sun.security.auth.module.UnixSystem;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
+import jp.gr.java_conf.neko_daisuki.fsyscall.DirEntries;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.KEvent;
@@ -1355,11 +1358,24 @@ public class Slave implements Runnable {
 
     private class DirectoryFile extends UnixFile {
 
-        private File mFile;
+        private List<Unix.DirEnt> mEntries;
+        private int mPosition;
 
         public DirectoryFile(Alarm alarm, NormalizedPath path) {
             super(alarm);
-            mFile = new File(path.toString());
+
+            mEntries = new ArrayList<Unix.DirEnt>();
+            mEntries.add(new Unix.DirEnt(0, Unix.Constants.DT_DIR, "."));
+            mEntries.add(new Unix.DirEnt(0, Unix.Constants.DT_DIR, ".."));
+
+            File[] files = path.toFile().listFiles();
+            int nFiles = files.length;
+            for (int i = 0; i < nFiles; i++) {
+                File file = files[i];
+                int type = file.isFile() ? Unix.Constants.DT_REG
+                                         : Unix.Constants.DT_DIR;
+                mEntries.add(new Unix.DirEnt(0, type, file.getName()));
+            }
         }
 
         public boolean isReadyToRead() throws UnixException {
@@ -1368,6 +1384,18 @@ public class Slave implements Runnable {
 
         public boolean isReadyToWrite() throws UnixException {
             throw new UnixException(Errno.EBADF);
+        }
+
+        public DirEntries getdirentries(int nMax) throws UnixException {
+            List<Unix.DirEnt> l = new ArrayList<Unix.DirEnt>();
+
+            int n = Math.min(mEntries.size() - mPosition, nMax);
+            for (int i = 0; i < n; i++) {
+                l.add(mEntries.get(mPosition + i));
+            }
+            mPosition += n;
+
+            return new DirEntries(l);
         }
 
         public int read(byte[] buffer) throws UnixException {
@@ -2812,6 +2840,34 @@ public class Slave implements Runnable {
         catch (UnixException e) {
             result.setError(e.getErrno());
         }
+
+        return result;
+    }
+
+    public SyscallResult.Getdirentries doGetdirentries(int fd, int nMax) throws IOException {
+        mLogger.info("getdirentries(fd=%d, nMax=%d)", fd, nMax);
+        SyscallResult.Getdirentries result = new SyscallResult.Getdirentries();
+
+        UnixFile file;
+        try {
+            file = mProcess.getLockedFile(fd);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+        try {
+            result.dirEntries = file.getdirentries(nMax);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+        finally {
+            file.unlock();
+        }
+
+        result.retval = 1;
 
         return result;
     }

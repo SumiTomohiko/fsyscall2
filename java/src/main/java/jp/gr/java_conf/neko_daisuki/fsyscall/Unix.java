@@ -5,7 +5,31 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
+
 public class Unix {
+
+    public static class DirEnt {
+
+        public int d_fileno;
+        //public int d_reclen;
+        public int d_type;
+        //public int d_namelen;
+        public String d_name;
+
+        public DirEnt(int fileno, int type, String name) {
+            d_fileno = fileno;
+            d_type = type;
+            d_name = name;
+        }
+
+        public String toString() {
+            String fmt = "DirEnt(d_fileno=%d, d_type=%d (%s), d_name=%s)";
+            String type = Constants.DirEnt.toString(d_type);
+            String name = StringUtil.quote(d_name);
+            return String.format(fmt, d_fileno, d_type, type, name);
+        }
+    }
 
     public static class Fdset implements Iterable<Integer> {
 
@@ -170,6 +194,34 @@ public class Unix {
     }
 
     public interface Constants {
+
+        public static class DirEnt {
+
+            public static String toString(int type) {
+                switch (type) {
+                case DT_UNKNOWN:
+                    return "DT_UNKNOWN";
+                case DT_FIFO:
+                    return "DT_FIFO";
+                case DT_CHR:
+                    return "DT_CHR";
+                case DT_DIR:
+                    return "DT_DIR";
+                case DT_BLK:
+                    return "DT_BLK";
+                case DT_REG:
+                    return "DT_REG";
+                case DT_LNK:
+                    return "DT_LNK";
+                case DT_SOCK:
+                    return "DT_SOCK";
+                case DT_WHT:
+                    return "DT_WHT";
+                default:
+                    return "invalid";
+                }
+            }
+        }
 
         public static class Flag {
 
@@ -419,6 +471,16 @@ public class Unix {
         public static final int SCM_TIMESTAMP = 0x02;
         public static final int SCM_CREDS = 0x03;
         public static final int SCM_BINTIME = 0x04;
+
+        public static final int DT_UNKNOWN = 0;
+        public static final int DT_FIFO = 1;
+        public static final int DT_CHR = 2;
+        public static final int DT_DIR = 4;
+        public static final int DT_BLK = 6;
+        public static final int DT_REG = 8;
+        public static final int DT_LNK = 10;
+        public static final int DT_SOCK = 12;
+        public static final int DT_WHT = 14;
     }
 
     public abstract static class Cmsgdata {
