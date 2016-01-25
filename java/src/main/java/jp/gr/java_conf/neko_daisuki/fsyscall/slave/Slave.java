@@ -1361,7 +1361,8 @@ public class Slave implements Runnable {
         private List<Unix.DirEnt> mEntries;
         private int mPosition;
 
-        public DirectoryFile(Alarm alarm, NormalizedPath path) {
+        public DirectoryFile(Alarm alarm,
+                             NormalizedPath path) throws UnixException {
             super(alarm);
 
             mEntries = new ArrayList<Unix.DirEnt>();
@@ -1369,6 +1370,9 @@ public class Slave implements Runnable {
             mEntries.add(new Unix.DirEnt(0, Unix.Constants.DT_DIR, ".."));
 
             File[] files = path.toFile().listFiles();
+            if (files == null) {
+                throw new UnixException(Errno.ENOENT);
+            }
             int nFiles = files.length;
             for (int i = 0; i < nFiles; i++) {
                 File file = files[i];

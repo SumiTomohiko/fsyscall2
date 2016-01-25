@@ -1,0 +1,6 @@
+
+cmd="open_ENOENT/open_ENOENT"
+args="${tmp_dir}/foobarbazquux"
+expected_status="0"
+
+# vim: filetype=sh
