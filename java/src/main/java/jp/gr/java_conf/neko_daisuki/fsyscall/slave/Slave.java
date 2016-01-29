@@ -1366,8 +1366,8 @@ public class Slave implements Runnable {
             super(alarm);
 
             mEntries = new ArrayList<Unix.DirEnt>();
-            mEntries.add(new Unix.DirEnt(0, Unix.Constants.DT_DIR, "."));
-            mEntries.add(new Unix.DirEnt(0, Unix.Constants.DT_DIR, ".."));
+            mEntries.add(new Unix.DirEnt(Unix.Constants.DT_DIR, "."));
+            mEntries.add(new Unix.DirEnt(Unix.Constants.DT_DIR, ".."));
 
             File[] files = path.toFile().listFiles();
             if (files == null) {
@@ -1378,7 +1378,7 @@ public class Slave implements Runnable {
                 File file = files[i];
                 int type = file.isFile() ? Unix.Constants.DT_REG
                                          : Unix.Constants.DT_DIR;
-                mEntries.add(new Unix.DirEnt(0, type, file.getName()));
+                mEntries.add(new Unix.DirEnt(type, file.getName()));
             }
         }
 

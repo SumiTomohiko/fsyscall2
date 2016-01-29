@@ -25,6 +25,10 @@ public class Unix {
             d_name = name;
         }
 
+        public DirEnt(int type, String name) {
+            this(42, type, name);
+        }
+
         public String toString() {
             String fmt = "DirEnt(d_fileno=%d, d_type=%d (%s), d_name=%s)";
             String type = Constants.DirEnt.toString(d_type);
