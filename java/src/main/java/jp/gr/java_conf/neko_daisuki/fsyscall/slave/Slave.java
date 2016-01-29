@@ -50,6 +50,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.ArrayUtil;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.ByteUtil;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
@@ -2877,7 +2878,8 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doUtimes(String path, Unix.TimeVal[] times) throws IOException {
-        mLogger.info("utimes(path=%s, times=%s)", path, times);
+        String fmt = "utimes(path=%s, times=%s)";
+        mLogger.info(fmt, StringUtil.quote(path), ArrayUtil.toString(times));
         // does nothing.
         return new SyscallResult.Generic32();
     }
