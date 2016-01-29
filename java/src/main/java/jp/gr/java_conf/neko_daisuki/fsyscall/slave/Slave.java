@@ -3300,12 +3300,12 @@ public class Slave implements Runnable {
         Unix.Stat stat = new Unix.Stat(UID, GID);
         stat.st_mode = Unix.Constants.S_IRUSR
                      | Unix.Constants.S_IWUSR
-                     | Unix.Constants.S_IRGRP
-                     | Unix.Constants.S_IROTH
+                     /*| Unix.Constants.S_IRGRP
+                     | Unix.Constants.S_IROTH*/
                      | (file.isFile() ? Unix.Constants.S_IFREG
                                       : Unix.Constants.S_IXUSR |
-                                        Unix.Constants.S_IXGRP |
-                                        Unix.Constants.S_IXOTH |
+                                        /*Unix.Constants.S_IXGRP |
+                                        Unix.Constants.S_IXOTH |*/
                                         Unix.Constants.S_IFDIR);
         try {
             stat.st_size = file.length();
