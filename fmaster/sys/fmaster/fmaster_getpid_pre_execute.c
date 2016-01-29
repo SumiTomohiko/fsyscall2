@@ -15,6 +15,7 @@ fmaster_getpid_pre_execute(struct thread *td, struct fmaster_getpid_args *uap,
 		return (PRE_EXEC_CONT);
 
 	td->td_retval[0] = slave_pid;
+	*error = 0;
 
 	return (PRE_EXEC_END);
 }
