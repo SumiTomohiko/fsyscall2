@@ -1,0 +1,5 @@
+
+cmd="wait4_WNOHANG/wait4_WNOHANG"
+expected_status="0"
+
+# vim: filetype=sh
