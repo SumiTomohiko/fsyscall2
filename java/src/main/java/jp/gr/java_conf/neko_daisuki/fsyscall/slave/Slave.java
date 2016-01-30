@@ -890,8 +890,7 @@ public class Slave implements Runnable {
                 }
             }
 
-            ensureCoreOrThrow();
-            InputStream in = mCore.getInputStream();
+            InputStream in = getCore().getInputStream();
             if (in == null) {
                 throw new UnixException(Errno.ENOTCONN);
             }
@@ -911,8 +910,7 @@ public class Slave implements Runnable {
             if (isNonBlocking() && !isReadyToRead()) {
                 throw new UnixException(Errno.EAGAIN);
             }
-            ensureCoreOrThrow();
-            InputStream in = mCore.getInputStream();
+            InputStream in = getCore().getInputStream();
             if (in == null) {
                 throw new UnixException(Errno.ENOTCONN);
             }
@@ -925,9 +923,8 @@ public class Slave implements Runnable {
         }
 
         public long pread(byte[] buffer, long offset) throws UnixException {
-            ensureCoreOrThrow();
             int len = buffer.length;
-            InputStream in = mCore.getInputStream();
+            InputStream in = getCore().getInputStream();
             if (in == null) {
                 throw new UnixException(Errno.ENOTCONN);
             }
@@ -1207,8 +1204,7 @@ public class Slave implements Runnable {
         }
 
         protected int doWrite(byte[] buffer) throws UnixException {
-            ensureCoreOrThrow();
-            OutputStream out = mCore.getOutputStream();
+            OutputStream out = getCore().getOutputStream();
             if (out == null) {
                 throw new UnixException(Errno.ENOTCONN);
             }
@@ -1222,6 +1218,7 @@ public class Slave implements Runnable {
         }
 
         protected void doClose() throws UnixException {
+            // Closing a disconnected socket is valid.
             if (mCore == null) {
                 return;
             }
@@ -1275,10 +1272,11 @@ public class Slave implements Runnable {
             }
         }
 
-        private void ensureCoreOrThrow() throws UnixException {
+        private SocketCore getCore() throws UnixException {
             if (mCore == null) {
                 throw new UnixException(Errno.ENOTCONN);
             }
+            return mCore;
         }
     }
 
