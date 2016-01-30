@@ -1,0 +1,5 @@
+
+cmd="wait4_ECHILD/wait4_ECHILD"
+expected_status="0"
+
+# vim: filetype=sh
