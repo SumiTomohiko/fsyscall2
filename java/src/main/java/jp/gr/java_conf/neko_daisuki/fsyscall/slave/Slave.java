@@ -890,6 +890,7 @@ public class Slave implements Runnable {
                 }
             }
 
+            ensureCoreOrThrow();
             InputStream in = mCore.getInputStream();
             if (in == null) {
                 throw new UnixException(Errno.ENOTCONN);
@@ -910,6 +911,7 @@ public class Slave implements Runnable {
             if (isNonBlocking() && !isReadyToRead()) {
                 throw new UnixException(Errno.EAGAIN);
             }
+            ensureCoreOrThrow();
             InputStream in = mCore.getInputStream();
             if (in == null) {
                 throw new UnixException(Errno.ENOTCONN);
@@ -923,6 +925,7 @@ public class Slave implements Runnable {
         }
 
         public long pread(byte[] buffer, long offset) throws UnixException {
+            ensureCoreOrThrow();
             int len = buffer.length;
             InputStream in = mCore.getInputStream();
             if (in == null) {
@@ -1204,6 +1207,7 @@ public class Slave implements Runnable {
         }
 
         protected int doWrite(byte[] buffer) throws UnixException {
+            ensureCoreOrThrow();
             OutputStream out = mCore.getOutputStream();
             if (out == null) {
                 throw new UnixException(Errno.ENOTCONN);
@@ -1218,6 +1222,9 @@ public class Slave implements Runnable {
         }
 
         protected void doClose() throws UnixException {
+            if (mCore == null) {
+                return;
+            }
             try {
                 mCore.close();
             }
@@ -1265,6 +1272,12 @@ public class Slave implements Runnable {
             }
             catch (InterruptedException e) {
                 throw new UnixException(Errno.EINTR, e);
+            }
+        }
+
+        private void ensureCoreOrThrow() throws UnixException {
+            if (mCore == null) {
+                throw new UnixException(Errno.ENOTCONN);
             }
         }
     }
