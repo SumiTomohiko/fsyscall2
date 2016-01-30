@@ -114,10 +114,17 @@ public class Logging {
             }
         }
 
-        public void trace(String tag) {
+        public void trace(String fmt, Object... args) {
+            verbose("%s: %s", getCallerPosition(), String.format(fmt, args));
+        }
+
+        public void trace() {
+            verbose("%s", getCallerPosition());
+        }
+
+        private String getCallerPosition() {
             StackTraceElement[] stack = new Throwable().getStackTrace();
-            String message = 0 < stack.length ? stack[1].toString() : "unknown";
-            verbose("%s: %s", tag, message);
+            return 0 < stack.length ? stack[2].toString() : "unknown";
         }
 
         private String formatMessage(String fmt, Object[] args) {
