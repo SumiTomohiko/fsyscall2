@@ -3138,7 +3138,8 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Wait4 doWait4(int pid, int options) throws IOException {
-        mLogger.info("wait4(pid=%d, options=%d)", pid, options);
+        String fmt = "wait4(pid=%d, options=%d (%s))";
+        mLogger.info(fmt, pid, options, Unix.Constants.Wait4.toString(options));
         SyscallResult.Wait4 result = new SyscallResult.Wait4();
 
         Process process;

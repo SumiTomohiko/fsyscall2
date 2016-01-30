@@ -256,6 +256,20 @@ public class Unix {
             }
         }
 
+        public static class Wait4 {
+
+            private static final Flag[] FLAGS = {
+                new Flag(WNOHANG, "WNOHANG"),
+                new Flag(WUNTRACED, "WUNTRACED"),
+                new Flag(WCONTINUED, "WCONTINUED"),
+                new Flag(WNOWAIT, "WNOWAIT")
+            };
+
+            public static String toString(int options) {
+                return Flag.toString(FLAGS, options);
+            }
+        }
+
         public static class Poll {
 
             private static final Flag[] FLAGS = {
@@ -483,6 +497,12 @@ public class Unix {
         public static final int DT_LNK = 10;
         public static final int DT_SOCK = 12;
         public static final int DT_WHT = 14;
+
+        public static final int WNOHANG = 1;
+        public static final int WUNTRACED = 2;
+        public static final int WSTOPPED = WUNTRACED;
+        public static final int WCONTINUED = 4;
+        public static final int WNOWAIT = 8;
     }
 
     public abstract static class Cmsgdata {
