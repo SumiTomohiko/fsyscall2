@@ -22,6 +22,7 @@ SUBDIR=	${LIBDIR} accept access ancillary_from_client bind chdir chdir_access \
 	select_master sendmsg_master sendmsg_not_socket_slave sendmsg_slave \
 	setsockopt sigprocmask socket socketpair stat stat_ENOENT stat_dir \
 	thr_new umask unixsock_creds unlink utimes utimes_null wait4_ECHILD \
-	wait4_WNOHANG wait4_rusage wait4_status wait4_successful write writev
+	wait4_WNOHANG wait4_multithread wait4_rusage wait4_status \
+	wait4_successful write writev
 
 .include <bsd.subdir.mk>

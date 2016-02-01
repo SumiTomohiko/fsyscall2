@@ -1,6 +1,8 @@
 
 SRCS=		${PROG}.c
-CFLAGS+=	-include pthread.h
+CFLAGS+=	-include sys/types.h -include sys/resource.h \
+		-include sys/time.h -include sys/wait.h -include errno.h \
+		-include pthread.h -include time.h -include unistd.h
 LDADD+=		-lpthread
 WITHOUT_MAN=	yes
 

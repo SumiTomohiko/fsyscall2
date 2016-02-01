@@ -365,6 +365,7 @@ tests/amd64/utimes/utimes
 tests/amd64/utimes_null/utimes_null
 tests/amd64/wait4_ECHILD/wait4_ECHILD
 tests/amd64/wait4_WNOHANG/wait4_WNOHANG
+tests/amd64/wait4_multithread/wait4_multithread
 tests/amd64/wait4_rusage/wait4_rusage
 tests/amd64/wait4_status/wait4_status
 tests/amd64/wait4_successful/wait4_successful
