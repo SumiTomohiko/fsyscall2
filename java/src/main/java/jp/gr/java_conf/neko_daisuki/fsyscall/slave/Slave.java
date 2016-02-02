@@ -3137,29 +3137,17 @@ public class Slave implements Runnable {
         return result;
     }
 
-    public SyscallResult.Wait4 doWait4(int pid, int options) throws IOException {
+    public SyscallResult.Wait4 doWait4(int pid, int options) {
         String fmt = "wait4(pid=%d, options=%d (%s))";
         mLogger.info(fmt, pid, options, Unix.Constants.Wait4.toString(options));
-        SyscallResult.Wait4 result = new SyscallResult.Wait4();
 
-        Process process;
-        try {
-            process = mApplication.waitChildTerminating(new Pid(pid));
-        }
-        catch (InterruptedException unused) {
-            result.setError(Errno.EINTR);
-            return result;
-        }
+        Process process = mProcess.findChild(new Pid(pid));
         if (process == null) {
-            result.setError(Errno.EINVAL);
-            return result;
+            return new SyscallResult.Wait4(Errno.ECHILD);
         }
 
-        result.retval = process.getPid().toInteger();
-        result.status = Unix.W_EXITCODE(process.getExitStatus().intValue(), 0);
-        result.rusage = new Unix.Rusage();
-
-        return result;
+        return ((options & Unix.Constants.WNOHANG) == 0) ? doWait4(process)
+                                                         : doWait4NoHang(process);
     }
 
     public SyscallResult.Kevent doKevent(int kq, KEventArray changelist,
@@ -3205,6 +3193,50 @@ public class Slave implements Runnable {
         }
 
         return retval;
+    }
+
+    private SyscallResult.Wait4 doWait4NoHang(Process process) {
+        SyscallResult.Wait4 result = new SyscallResult.Wait4();
+
+        Pid pid = process.getPid();
+        try {
+            if (mApplication.pollChildTermination(pid)) {
+                int code = process.getExitStatus().intValue();
+                result.retval = pid.toInteger();
+                result.status = Unix.W_EXITCODE(code, 0);
+            }
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+
+        result.rusage = new Unix.Rusage();
+
+        return result;
+    }
+
+    private SyscallResult.Wait4 doWait4(Process process) {
+        SyscallResult.Wait4 result = new SyscallResult.Wait4();
+
+        Pid pid = process.getPid();
+        try {
+            mApplication.waitChildTermination(pid);
+        }
+        catch (InterruptedException unused) {
+            result.setError(Errno.EINTR);
+            return result;
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+
+        result.retval = pid.toInteger();
+        result.status = Unix.W_EXITCODE(process.getExitStatus().intValue(), 0);
+        result.rusage = new Unix.Rusage();
+
+        return result;
     }
 
     private void startSlave(Slave slave, String desc, PairId newPairId) {

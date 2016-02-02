@@ -13,7 +13,6 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
@@ -26,59 +25,6 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
 
 public class Application {
 
-    private static class Processes implements Iterable<Process> {
-
-        private static class ProcessIterator implements Iterator<Process> {
-
-            private Process[] mProcesses;
-            private int mPosition;
-
-            public ProcessIterator(Process[] processes) {
-                mProcesses = processes;
-            }
-
-            @Override
-            public boolean hasNext() {
-                return mPosition < mProcesses.length;
-            }
-
-            @Override
-            public Process next() {
-                Process slave = mProcesses[mPosition];
-                mPosition++;
-                return slave;
-            }
-
-            @Override
-            public void remove() {
-            }
-        }
-
-        private Map<Pid, Process> mProcesses = new HashMap<Pid, Process>();
-
-        public synchronized void add(Process process) {
-            mProcesses.put(process.getPid(), process);
-        }
-
-        public Process get(Pid pid) {
-            return mProcesses.get(pid);
-        }
-
-        public synchronized void remove(Pid pid) {
-            mProcesses.remove(pid);
-        }
-
-        public synchronized Collection<Pid> pids() {
-            return new HashSet<Pid>(mProcesses.keySet());
-        }
-
-        @Override
-        public synchronized Iterator<Process> iterator() {
-            Collection<Process> processes = mProcesses.values();
-            return new ProcessIterator(processes.toArray(new Process[0]));
-        }
-    }
-
     private static class PidGenerator {
 
         private static final int MIN = 1000000;
@@ -86,6 +32,10 @@ public class Application {
 
         private int mNext = MIN;
         private Collection<Integer> mUsed = new HashSet<Integer>();
+
+        public synchronized void use(Pid pid) {
+            mUsed.add(pid.toInteger());
+        }
 
         public synchronized Pid next() {
             int pid = mNext;
@@ -186,11 +136,13 @@ public class Application {
     private static Logging.Logger mLogger;
 
     private Processes mProcesses = new Processes();
+    private Processes mZombies = new Processes();
+    private Process mInit;
     private SlaveHub mSlaveHub;
     private Integer mExitStatus;
     private PidGenerator mPidGenerator = new PidGenerator();
 
-    private Object mTerminatingMonitor = new Object();
+    private Object mTerminationMonitor = new Object();
     private boolean mCancelled = false;
     private LocalBoundSockets mLocalBoundSockets = new LocalBoundSockets();
     private String mResourceDirectory;
@@ -229,7 +181,9 @@ public class Application {
                             Permissions permissions, Links links,
                             Slave.Listener listener,
                             Alarm alarm) throws IOException {
-        Process process = new Process(mPidGenerator.next(), parent);
+        Pid pid = mPidGenerator.next();
+        Process process = new Process(pid, parent, parent.dupFileTable());
+        parent.addChild(process);
         addProcess(process);
         return newSlave(pairId, process, currentDirectory, permissions, links,
                         listener, alarm);
@@ -245,7 +199,12 @@ public class Application {
 
         mResourceDirectory = resourceDirectory;
 
-        Process process = new Process(mPidGenerator.next());
+        initializeInitProcess();
+
+        Process process = new Process(mPidGenerator.next(), mInit);
+        mInit.addChild(process);
+        addProcess(process);
+
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
         Slave slave = new Slave(
@@ -253,8 +212,8 @@ public class Application {
                 hub2slave.getInputStream(), slave2hub.getOutputStream(),
                 currentDirectory, stdin, stdout, stderr,
                 permissions, links, listener);
-        addProcess(process);
         process.add(slave);
+
         mSlaveHub = new SlaveHub(
                 this,
                 in, out,
@@ -262,9 +221,9 @@ public class Application {
 
         new Thread(slave).start();
         mSlaveHub.work();
-        synchronized (mTerminatingMonitor) {
-            for (Pid pid: mProcesses.pids()) {
-                waitChildTerminating(pid);
+        synchronized (mTerminationMonitor) {
+            while (!mProcesses.isEmpty()) {
+                mTerminationMonitor.wait();
             }
         }
 
@@ -299,22 +258,27 @@ public class Application {
         mLocalBoundSockets.unlink(path);
     }
 
-    public Process waitChildTerminating(Pid pid) throws InterruptedException {
-        String tag = "wait child terminating";
-        Process child = mProcesses.get(pid);
-        if (child == null) {
-            mLogger.warn("%s: the process of pid %s not found", tag, pid);
-            return null;
+    public boolean pollChildTermination(Pid pid) throws UnixException {
+        Process process;
+        synchronized (mTerminationMonitor) {
+            process = findZombie(pid);
         }
-        synchronized (mTerminatingMonitor) {
-            while (!child.isZombie()) {
-                mTerminatingMonitor.wait();
+        if (process == null) {
+            return false;
+        }
+        releaseProcess(process);
+        return true;
+    }
+
+    public void waitChildTermination(Pid pid) throws InterruptedException,
+                                                     UnixException {
+        Process process;
+        synchronized (mTerminationMonitor) {
+            while ((process = findZombie(pid)) == null) {
+                mTerminationMonitor.wait();
             }
-            mLogger.info("%s: released the process of pid %s", tag, pid);
-            mProcesses.remove(pid);
-            mPidGenerator.release(pid);
         }
-        return child;
+        releaseProcess(process);
     }
 
     public void kill(Pid pid, Signal sig) throws UnixException {
@@ -330,17 +294,49 @@ public class Application {
     }
 
     public void onSlaveTerminated(Process process) {
-        synchronized (mTerminatingMonitor) {
+        synchronized (mTerminationMonitor) {
             mExitStatus = mExitStatus != null ? mExitStatus
                                               : process.getExitStatus();
-            if (process.isZombie()) {
-                mTerminatingMonitor.notifyAll();
+            if (!process.isRunning()) {
+                mProcesses.remove(process);
+                mZombies.add(process);
+                mTerminationMonitor.notifyAll();
             }
         }
     }
 
+    private void releaseProcess(Process process) {
+        process.getParent().removeChild(process);
+        for (Process child: process.getChildren()) {
+            mInit.addChild(child);
+            child.setParent(mInit);
+        }
+
+        Pid pid = process.getPid();
+        mPidGenerator.release(pid);
+        mLogger.info("released the process of pid %s", pid);
+    }
+
     private void addProcess(Process process) {
         mProcesses.add(process);
+    }
+
+    private void initializeInitProcess() {
+        Pid pid = new Pid(1);
+        mPidGenerator.use(pid);
+        mInit = new Process(pid);
+    }
+
+    private Process findZombie(Pid pid) throws UnixException {
+        Process process = mZombies.remove(pid);
+        if (process != null) {
+            return process;
+        }
+        if (!mProcesses.contains(pid)) {
+            // Another thread got the zombie.
+            throw new UnixException(Errno.ECHILD);
+        }
+        return null;
     }
 
     private static void usage(PrintStream out) {

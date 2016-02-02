@@ -32,20 +32,50 @@ class Process {
     private Pid mPid;
     private UnixFile[] mFiles;
     private Integer mExitStatus;
+    private Process mParent;
+    private Processes mChildren = new Processes();
 
     private Collection<Slave> mSlaves = new HashSet<Slave>();
 
-    public Process(Pid pid) {
-        initialize(pid, new UnixFile[UNIX_FILE_NUM]);
+    public Process(Pid pid, Process parent, UnixFile[] files) {
+        mPid = pid;
+        mParent = parent;
+        mFiles = files;
     }
 
     public Process(Pid pid, Process parent) {
-        UnixFile[] files = parent.mFiles;
-        int len = files.length;
-        UnixFile[] a = new UnixFile[len];
-        System.arraycopy(files, 0, a, 0, len);
+        this(pid, parent, new UnixFile[UNIX_FILE_NUM]);
+    }
 
-        initialize(pid, a);
+    /**
+     * The constructor only for the init process.
+     */
+    public Process(Pid pid) {
+        this(pid, null, null);
+    }
+
+    public Process getParent() {
+        return mParent;
+    }
+
+    /**
+     * When the parent dies, this method will be called to replace the parent
+     * with the init process.
+     */
+    public void setParent(Process newParent) {
+        mParent = newParent;
+    }
+
+    public void addChild(Process process) {
+        mChildren.add(process);
+    }
+
+    public void removeChild(Pid pid) {
+        mChildren.remove(pid);
+    }
+
+    public void removeChild(Process process) {
+        removeChild(process.getPid());
     }
 
     public SelectFiles getFiles(Unix.Fdset in, Unix.Fdset ou,
@@ -83,6 +113,14 @@ class Process {
 
     public void setExitStatus(int val) {
         mExitStatus = Integer.valueOf(val);
+    }
+
+    public Process findChild(Pid pid) {
+        return mChildren.get(pid);
+    }
+
+    public Processes getChildren() {
+        return mChildren;
     }
 
     public Pid getPid() {
@@ -124,8 +162,8 @@ class Process {
         }
     }
 
-    public boolean isZombie() {
-        return size() == 0;
+    public boolean isRunning() {
+        return 0 < size();
     }
 
     public void closeFile(int fd) throws UnixException {
@@ -170,6 +208,13 @@ class Process {
         return fds;
     }
 
+    public UnixFile[] dupFileTable() {
+        int len = mFiles.length;
+        UnixFile[] files = new UnixFile[len];
+        System.arraycopy(mFiles, 0, files, 0, len);
+        return files;
+    }
+
     public void registerFileAt(UnixFile file, int at) {
         mFiles[at] = file;
         mLogger.info("new file registered: file=%s, fd=%d", file, at);
@@ -185,11 +230,6 @@ class Process {
             registerFileAt(callback.call(), fd);
         }
         return fd;
-    }
-
-    private void initialize(Pid pid, UnixFile[] files) {
-        mPid = pid;
-        mFiles = files;
     }
 
     private UnixFile[] getFiles(Unix.Fdset fds) throws UnixException {
