@@ -3143,7 +3143,9 @@ public class Slave implements Runnable {
 
         Process process = mProcess.findChild(new Pid(pid));
         if (process == null) {
-            return new SyscallResult.Wait4(Errno.ECHILD);
+            SyscallResult.Wait4 result = new SyscallResult.Wait4();
+            result.setError(Errno.ECHILD);
+            return result;
         }
 
         return ((options & Unix.Constants.WNOHANG) == 0) ? doWait4(process)
