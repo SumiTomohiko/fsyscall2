@@ -532,8 +532,8 @@ public class Slave implements Runnable {
         }
 
         public UnixFile call() throws UnixException {
-            return new File(mPath.toString()).isFile() ? openRegularFile()
-                                                       : openDirectory();
+            return new File(mPath.toString()).isDirectory() ? openDirectory()
+                                                            : openRegularFile();
         }
 
         private UnixFile openDirectory() throws UnixException {
