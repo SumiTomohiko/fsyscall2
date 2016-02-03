@@ -112,7 +112,7 @@ int	fmaster_execute_close(struct thread *, int);
 int	fmaster_execute_getdirentries(struct thread *, int, char *,
 				      unsigned int, long *);
 int	fmaster_execute_return_optional32(struct thread *, command_t,
-					  int (*)(struct thread *, int,
+					  int (*)(struct thread *, int *,
 						  payload_size_t *, void *),
 					  void *);
 int	fmaster_execute_return_generic32(struct thread *, command_t);

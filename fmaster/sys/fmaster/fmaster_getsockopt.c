@@ -53,7 +53,7 @@ struct reuseaddr_bonus {
 };
 
 static int
-reuseaddr_callback(struct thread *td, int retval,
+reuseaddr_callback(struct thread *td, int *retval,
 		   payload_size_t *optional_payload_size, void *bonus)
 {
 	struct reuseaddr_bonus *p;

@@ -1282,7 +1282,7 @@ IMPLEMENT_WRITE_X(
 
 int
 fmaster_execute_return_optional32(struct thread *td, command_t expected_cmd,
-				  int (*callback)(struct thread *, int,
+				  int (*callback)(struct thread *, int *,
 						  payload_size_t *, void *),
 				  void *bonus)
 {
@@ -1321,11 +1321,11 @@ fmaster_execute_return_optional32(struct thread *td, command_t expected_cmd,
 		return (errnum);
 	}
 
-	td->td_retval[0] = retval;
-
-	error = callback(td, retval, &optional_payload_size, bonus);
+	error = callback(td, &retval, &optional_payload_size, bonus);
 	if (error != 0)
 		return (error);
+
+	td->td_retval[0] = retval;
 
 	actual_payload_size = retval_len + optional_payload_size;
 	if (payload_size != actual_payload_size) {
@@ -2836,7 +2836,7 @@ struct getdirentries_bonus {
 };
 
 static int
-getdirentries_callback(struct thread *td, int retval,
+getdirentries_callback(struct thread *td, int *retval,
 		       payload_size_t *optional_payload_size, void *bonus)
 {
 	struct dirent *dirent;
@@ -2897,7 +2897,7 @@ getdirentries_callback(struct thread *td, int retval,
 	payload_size += base_len;
 
 	*optional_payload_size = payload_size;
-	td->td_retval[0] = sizeof(struct dirent) * nent;
+	*retval = sizeof(struct dirent) * nent;
 
 	return (0);
 }
