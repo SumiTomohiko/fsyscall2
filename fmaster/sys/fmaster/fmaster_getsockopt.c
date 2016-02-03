@@ -149,6 +149,7 @@ sys_fmaster_getsockopt(struct thread *td, struct fmaster_getsockopt_args *uap)
 		    "ize=%p (%d)",
 		    sysname, s, level, name, fmaster_get_sockopt_name(name),
 		    val, avalsize, optlen);
+	microtime(&time_start);
 
 	error = fmaster_getsockopt_main(td, s, level, name, val, &optlen);
 	if (error != 0)
