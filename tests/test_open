@@ -1,5 +1,5 @@
 
-filename="foo"
+filename="${tmp_dir}/foo"
 cmd="open/open"
 args="${filename} 601 644"
 
