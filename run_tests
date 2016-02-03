@@ -150,7 +150,7 @@ do
 
 		unset actual_stdout args cmd expected_status expected_stdout
 		unset status unexpected_status
-		unset -f postcmd precmd test_status
+		unset -f postcmd precmd test_status test_stdout
 		. "${t}"
 
 		if [ "$(typename precmd)" = "shell function" ]; then
