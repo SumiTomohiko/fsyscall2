@@ -20,6 +20,8 @@
  * shared code
  */
 
+static const char *sysname = "poll";
+
 #define	EVENTS_FOR_EVFILT_READ	(POLLIN | POLLRDNORM)
 #define	EVENTS_FOR_EVFILT_WRITE	(POLLOUT | POLLWRNORM)
 
@@ -447,8 +449,8 @@ dump_fds(struct thread *td, const char *name, struct pollfd *fds, nfds_t nfds)
 	for (i = 0; i < nfds; i++) {
 		pfd = &fds[i];
 		fmaster_log(td, LOG_DEBUG,
-			    "poll: %s: fds[%d]: fd=%d, events=%d, revents=%d",
-			    name, i, pfd->fd, pfd->events, pfd->revents);
+			    "%s: %s: fds[%d]: fd=%d, events=%d, revents=%d",
+			    sysname, name, i, fd, pfd->events, pfd->revents);
 	}
 }
 #endif
@@ -521,8 +523,10 @@ master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
 	if (error != 0)
 		goto exit2;
 #if ENABLE_DEBUG
-	fmaster_log(td, LOG_DEBUG, "poll: master_retval=%d", master_retval);
-	fmaster_log(td, LOG_DEBUG, "poll: slave_retval=%d", slave_retval);
+	fmaster_log(td, LOG_DEBUG,
+		    "%s: master_retval=%d", sysname, master_retval);
+	fmaster_log(td, LOG_DEBUG,
+		    "%s: slave_retval=%d", sysname, slave_retval);
 #endif
 	td->td_retval[0] = master_retval + slave_retval;
 
@@ -585,9 +589,9 @@ log_args(struct thread *td, const char *tag, struct pollfd *fds, nfds_t nfds)
 		revents = pfd->revents;
 		events_to_string(srevents, sizeof(srevents), revents);
 		fmaster_log(td, LOG_DEBUG,
-			    "poll: %s: fds[%d]: fd=%d (%s), events=%d (%s), rev"
-			    "ents=%d (%s)",
-			    tag, i, fd, desc, events, sevents, revents,
+			    "%s: %s: fds[%d]: fd=%d (%s), events=%d (%s), reven"
+			    "ts=%d (%s)",
+			    sysname, tag, i, fd, desc, events, sevents, revents,
 			    srevents);
 	}
 
@@ -692,16 +696,15 @@ sys_fmaster_poll(struct thread *td, struct fmaster_poll_args *uap)
 {
 	struct timeval time_start;
 	int error;
-	const char *name = "poll";
 
 	fmaster_log(td, LOG_DEBUG,
 		    "%s: started: fds=%p, nfds=%d, timeout=%d",
-		    name, uap->fds, uap->nfds, uap->timeout);
+		    sysname, uap->fds, uap->nfds, uap->timeout);
 	microtime(&time_start);
 
 	error = fmaster_poll_main(td, uap);
 
-	fmaster_log_syscall_end(td, name, &time_start, error);
+	fmaster_log_syscall_end(td, sysname, &time_start, error);
 
 	return (error);
 }
