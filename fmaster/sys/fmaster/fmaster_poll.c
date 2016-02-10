@@ -445,9 +445,11 @@ dump_fds(struct thread *td, const char *name, struct pollfd *fds, nfds_t nfds)
 {
 	struct pollfd *pfd;
 	nfds_t i;
+	int fd;
 
 	for (i = 0; i < nfds; i++) {
 		pfd = &fds[i];
+		fd = pfd->fd;
 		fmaster_log(td, LOG_DEBUG,
 			    "%s: %s: fds[%d]: fd=%d, events=%d, revents=%d",
 			    sysname, name, i, fd, pfd->events, pfd->revents);
