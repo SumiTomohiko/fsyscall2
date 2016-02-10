@@ -91,6 +91,8 @@ void	fmaster_lock_file_table(struct thread *);
 void	fmaster_unlock_file_table(struct thread *);
 int	fmaster_get_vnode_info(struct thread *, int, enum fmaster_file_place *,
 			       int *);
+int	fmaster_get_vnode_info2(struct thread *, int, enum fmaster_file_place *,
+				int *, const char **);
 
 /* file operations */
 int	fmaster_register_file(struct thread *, enum fmaster_file_place, int,

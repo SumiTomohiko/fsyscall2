@@ -1670,6 +1670,29 @@ fmaster_get_vnode_info(struct thread *td, int fd,
 	return (0);
 }
 
+int
+fmaster_get_vnode_info2(struct thread *td, int fd,
+			enum fmaster_file_place *place, int *lfd,
+			const char **desc)
+{
+	struct fmaster_vnode *vnode;
+
+	vnode = fmaster_get_locked_vnode_of_fd(td, fd);
+	if (vnode == NULL)
+		return (EBADF);
+
+	if (place != NULL)
+		*place = vnode->fv_place;
+	if (lfd != NULL)
+		*lfd = vnode->fv_local;
+	if (desc != NULL)
+		*desc = vnode->fv_desc;
+
+	fmaster_unlock_vnode(td, vnode);
+
+	return (0);
+}
+
 static int
 accept_main(struct thread *td, command_t call_command, command_t return_command,
 	    int s, struct sockaddr *name, socklen_t *namelen)

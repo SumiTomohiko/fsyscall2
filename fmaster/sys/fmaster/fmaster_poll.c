@@ -573,17 +573,19 @@ log_args(struct thread *td, const char *tag, struct pollfd *fds, nfds_t nfds)
 	enum fmaster_file_place place;
 	int error, fd, lfd;
 	short events, revents;
+	const char *filedesc;
 	char desc[256], sevents[256], srevents[256];
 
 	pid = td->td_proc->p_pid;
 	for (i = 0; i < nfds; i++) {
 		pfd = &fds[i];
 		fd = pfd->fd;
-		error = fmaster_get_vnode_info(td, fd, &place, &lfd);
+		error = fmaster_get_vnode_info2(td, fd, &place, &lfd,
+						&filedesc);
 		if (error == 0)
 			snprintf(desc, sizeof(desc),
-				 "%s: %d",
-				 fmaster_str_of_place(place), lfd);
+				 "%s: %d, %s",
+				 fmaster_str_of_place(place), lfd, filedesc);
 		else
 			strcpy(desc, "invalid");
 		events = pfd->events;
