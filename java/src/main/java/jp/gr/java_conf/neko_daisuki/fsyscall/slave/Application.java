@@ -147,6 +147,7 @@ public class Application {
     private LocalBoundSockets mLocalBoundSockets = new LocalBoundSockets();
     private String mResourceDirectory;
     private ResourceFiles mResourceFiles = new ResourceFiles();
+    private Alarm mAlarm = new Alarm();
 
     /**
      * This is for thr_new(2) (fork(2) also uses this internally).
@@ -154,16 +155,14 @@ public class Application {
     public Slave newSlave(PairId newPairId, Process process,
                           NormalizedPath currentDirectory,
                           Permissions permissions, Links links,
-                          Slave.Listener listener,
-                          Alarm alarm) throws IOException {
+                          Slave.Listener listener) throws IOException {
         Pipe slave2hub = new Pipe();
         Pipe hub2slave = new Pipe();
 
         InputStream slaveIn = hub2slave.getInputStream();
         OutputStream slaveOut = slave2hub.getOutputStream();
         Slave slave = new Slave(this, process, slaveIn, slaveOut,
-                                currentDirectory, permissions, links, listener,
-                                alarm);
+                                currentDirectory, permissions, links, listener);
         process.add(slave);
 
         InputStream hubIn = slave2hub.getInputStream();
@@ -179,14 +178,13 @@ public class Application {
     public Slave newProcess(PairId pairId, Process parent,
                             NormalizedPath currentDirectory,
                             Permissions permissions, Links links,
-                            Slave.Listener listener,
-                            Alarm alarm) throws IOException {
+                            Slave.Listener listener) throws IOException {
         Pid pid = mPidGenerator.next();
         Process process = new Process(pid, parent, parent.dupFileTable());
         parent.addChild(process);
         addProcess(process);
         return newSlave(pairId, process, currentDirectory, permissions, links,
-                        listener, alarm);
+                        listener);
     }
 
     public int run(InputStream in, OutputStream out,
@@ -236,6 +234,10 @@ public class Application {
         for (Process process: mProcesses) {
             process.terminate();
         }
+    }
+
+    public Alarm getAlarm() {
+        return mAlarm;
     }
 
     /**

@@ -2039,14 +2039,12 @@ public class Slave implements Runnable {
                  Permissions permissions, Links links, Listener listener) throws IOException {
         mLogger.info("a slave is starting.");
 
-        Alarm alarm = new Alarm();
-
-        process.registerFileAt(new UnixInputStream(alarm, stdin), 0);
-        process.registerFileAt(new UnixOutputStream(alarm, stdout), 1);
-        process.registerFileAt(new UnixOutputStream(alarm, stderr), 2);
-
         initialize(application, process, hubIn, hubOut, currentDirectory,
-                   permissions, links, listener, alarm);
+                   permissions, links, listener);
+
+        mProcess.registerFileAt(new UnixInputStream(mAlarm, stdin), 0);
+        mProcess.registerFileAt(new UnixOutputStream(mAlarm, stdout), 1);
+        mProcess.registerFileAt(new UnixOutputStream(mAlarm, stderr), 2);
 
         writeOpenedFileDescriptors();
         mLogger.verbose("file descripters were transfered from the slave.");
@@ -2057,10 +2055,9 @@ public class Slave implements Runnable {
      */
     public Slave(Application application, Process process, InputStream hubIn,
                  OutputStream hubOut, NormalizedPath currentDirectory,
-                 Permissions permissions, Links links, Listener listener,
-                 Alarm alarm) {
+                 Permissions permissions, Links links, Listener listener) {
         initialize(application, process, hubIn, hubOut, currentDirectory,
-                   permissions, links, listener, alarm);
+                   permissions, links, listener);
     }
 
     public void kill(Signal sig) throws UnixException {
@@ -2992,7 +2989,7 @@ public class Slave implements Runnable {
 
         Slave slave = mApplication.newSlave(newPairId, mProcess,
                                             mCurrentDirectory, mPermissions,
-                                            mLinks, mListener, mAlarm);
+                                            mLinks, mListener);
         startSlave(slave, "thr_new(2)'ed", newPairId);
 
         return new SyscallResult.Generic32();
@@ -3003,7 +3000,7 @@ public class Slave implements Runnable {
 
         Slave slave = mApplication.newProcess(pairId, mProcess,
                                               mCurrentDirectory, mPermissions,
-                                              mLinks, mListener, mAlarm);
+                                              mLinks, mListener);
         startSlave(slave, "forked", pairId);
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
@@ -3579,7 +3576,7 @@ public class Slave implements Runnable {
                             InputStream hubIn, OutputStream hubOut,
                             NormalizedPath currentDirectory,
                             Permissions permissions, Links links,
-                            Listener listener, Alarm alarm) {
+                            Listener listener) {
         mApplication = application;
         mProcess = process;
         mIn = new SyscallInputStream(hubIn);
@@ -3589,7 +3586,7 @@ public class Slave implements Runnable {
         setListener(listener);
         mCurrentDirectory = currentDirectory;
 
-        mAlarm = alarm;
+        mAlarm = mApplication.getAlarm();
 
         mHelper = new SlaveHelper(this, mIn, mOut);
         mFcntlProcs = new FcntlProcs();

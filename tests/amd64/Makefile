@@ -16,13 +16,13 @@ SUBDIR=	${LIBDIR} accept access ancillary_from_client bind chdir chdir_access \
 	lseek lstat mkdir open open_EISDIR open_ENOENT open_O_DIRECTORY \
 	open_pwddb pipe poll_bind poll_in poll_master \
 	poll_master_slave_blocking poll_master_slave_blocking2 \
-	poll_master_slave_nonblocking poll_out poll_timeout pread read \
-	readlink recvmsg_controllen_for_nothing recvmsg_master \
-	recvmsg_not_socket_slave recvmsg_slave rmdir select select2 \
-	select_master sendmsg_master sendmsg_not_socket_slave sendmsg_slave \
-	setsockopt sigprocmask socket socketpair stat stat_ENOENT stat_dir \
-	thr_new umask unixsock_creds unlink utimes utimes_null wait4_ECHILD \
-	wait4_WNOHANG wait4_multithread wait4_rusage wait4_status \
-	wait4_successful write writev
+	poll_master_slave_nonblocking poll_master_slave_nonblocking2 poll_out \
+	poll_timeout pread read readlink recvmsg_controllen_for_nothing \
+	recvmsg_master recvmsg_not_socket_slave recvmsg_slave rmdir select \
+	select2 select_master sendmsg_master sendmsg_not_socket_slave \
+	sendmsg_slave setsockopt sigprocmask socket socketpair stat \
+	stat_ENOENT stat_dir thr_new umask unixsock_creds unlink utimes \
+	utimes_null wait4_ECHILD wait4_WNOHANG wait4_multithread wait4_rusage \
+	wait4_status wait4_successful write writev
 
 .include <bsd.subdir.mk>

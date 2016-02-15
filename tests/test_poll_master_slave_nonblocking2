@@ -1,0 +1,7 @@
+
+cmd="poll_master_slave_nonblocking2/poll_master_slave_nonblocking2"
+file="${tmp_dir}/poll_master_slave_nonblocking2.$$"
+args="${file}"
+expected_status="0"
+
+# vim: filetype=sh

@@ -64,8 +64,12 @@ class SlaveHub {
     private Map<PairId, SlavePeer> mSlaves;
     private Map<PairId, SlavePeer> mNewSlaves;
 
+    private Alarm mAlarm;
+
     public SlaveHub(Application application, InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) throws IOException {
         mLogger.info("a slave hub is starting.");
+
+        mAlarm = application.getAlarm();
 
         mMhub = new Peer(
                 new SyscallInputStream(mhubIn),
@@ -209,7 +213,11 @@ class SlaveHub {
             removeSlave(pairId);
             return;
         case POLL_END:
+            mLogger.verbose("executing %s", command);
             out.write(command);
+            synchronized (mAlarm) {
+                mAlarm.alarm();
+            }
             return;
         default:
             break;

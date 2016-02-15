@@ -935,7 +935,7 @@ process_poll_start(struct slave_thread *slave_thread)
 	shubfd->revents = 0;
 
 	suspend_signal(slave_thread, &oset);
-	retval = poll(fds, nfds, INFTIM);
+	retval = poll(fds, nfds + 1, INFTIM);
 	e = errno;
 	resume_signal(slave_thread, &oset);
 
