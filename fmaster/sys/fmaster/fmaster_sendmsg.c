@@ -1,4 +1,5 @@
 #include <sys/param.h>
+#include <sys/limits.h>
 #include <sys/proc.h>
 #include <sys/syslog.h>
 #include <sys/sysproto.h>
@@ -391,7 +392,7 @@ fmaster_sendmsg_main(struct thread *td, struct fmaster_sendmsg_args *uap)
 	if (error != 0)
 		goto exit1;
 
-	error = fmaster_log_msghdr(td, sysname, &kmsg);
+	error = fmaster_log_msghdr(td, sysname, &kmsg, SIZE_MAX);
 	if (error != 0)
 		goto exit2;
 

@@ -2449,11 +2449,13 @@ log_cmsgdata_creds(struct thread *td, const char *tag, struct cmsghdr *cmsghdr)
 }
 
 int
-fmaster_log_msghdr(struct thread *td, const char *tag, const struct msghdr *msg)
+fmaster_log_msghdr(struct thread *td, const char *tag, const struct msghdr *msg,
+		   size_t size)
 {
 	struct cmsghdr *cmsghdr, *control;
 	struct iovec *iov, *p;
 	socklen_t len;
+	size_t bufsize, rest;
 	int controllen, i, iovlen, level, namelen, *pend, *pfd, *pfds, type;
 	const char *levelstr, *typestr;
 	char buf[256];
@@ -2467,11 +2469,13 @@ fmaster_log_msghdr(struct thread *td, const char *tag, const struct msghdr *msg)
 	LOG("msg->msg_namelen=%d", namelen);
 	iovlen = msg->msg_iovlen;
 	iov = msg->msg_iov;
-	for (i = 0; i < iovlen; i++) {
+	for (i = 0, rest = size; (i < iovlen) && (0 < rest); i++) {
 		p = &iov[i];
+		bufsize = MIN(rest, p->iov_len);
 		LOG("msg->msg_iov[%d].iov_base=%s",
-		    i, DUMP(p->iov_base, p->iov_len));
+		    i, DUMP(p->iov_base, bufsize));
 		LOG("msg->msg_iov[%d].iov_len=%d", i, p->iov_len);
+		rest -= bufsize;
 	}
 	LOG("msg->msg_iovlen=%d", iovlen);
 	control = msg->msg_control;

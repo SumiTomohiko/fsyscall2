@@ -485,7 +485,7 @@ fmaster_recvmsg_main(struct thread *td, struct fmaster_recvmsg_args *uap)
 		goto exit;
 	}
 
-	error = fmaster_log_msghdr(td, sysname, &kmsg);
+	error = fmaster_log_msghdr(td, sysname, &kmsg, td->td_retval[0]);
 	if (error != 0)
 		goto exit;
 
