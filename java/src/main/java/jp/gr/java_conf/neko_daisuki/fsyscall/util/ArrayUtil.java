@@ -12,7 +12,8 @@ public class ArrayUtil {
         String sep = "";
         for (int i = 0; i < len; i++) {
             buf.append(sep);
-            buf.append(a[i].toString());
+            Object o = a[i];
+            buf.append(o != null ? o.toString() : "null");
             sep = ", ";
         }
         buf.append("]");

@@ -33,6 +33,8 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.ArrayUtil;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.ByteUtil;
 
 class SlaveHelper {
 
@@ -919,6 +921,11 @@ class SlaveHelper {
             writeError(command, result);
             return;
         }
+
+        mLogger.info("%s: retval=%d, buf=%s, control=%s",
+                     logHead, retval,
+                     ByteUtil.toString(result.buf, (int)retval),
+                     ArrayUtil.toString(result.control));
 
         Payload payload = new Payload();
         payload.add(result.retval);
