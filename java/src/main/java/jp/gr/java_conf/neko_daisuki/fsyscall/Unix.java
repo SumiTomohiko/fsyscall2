@@ -333,9 +333,11 @@ public class Unix {
 
             public static String toString(int flags) {
                 String s = MODE[flags & O_ACCMODE];
-                String t = Flag.toString(FLAGS, flags);
-                String sep = 0 < t.length() ? "|" : "";
-                return s + sep + t;
+                int opts = flags & ~O_ACCMODE;
+                String t = opts != 0 ? String.format("|%s",
+                                                     Flag.toString(FLAGS, opts))
+                                     : "";
+                return s + t;
             }
         }
 
