@@ -920,8 +920,12 @@ fmaster_is_master_file(struct thread *td, const char *path)
 		"/usr/local/etc/fonts/conf.d/",
 		"/usr/local/etc/pango/",
 		"/usr/local/lib/",
-		"/usr/local/share/fonts/",
 		"/usr/local/share/dbus-1/services/",
+		"/usr/local/share/fonts/",
+		"/usr/local/share/gedit-2/",
+		"/usr/local/share/gtksourceview-2.0/",
+		"/usr/local/share/icons/",
+		"/usr/local/share/mime/",
 		"/var/db/fontconfig/",
 	};
 	const char *files[] = {
