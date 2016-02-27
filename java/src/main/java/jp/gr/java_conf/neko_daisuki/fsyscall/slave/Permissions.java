@@ -86,12 +86,9 @@ public class Permissions {
         for (Permission p: mPermissions) {
             if (p.isMatched(path)) {
                 boolean allowed = p.isAllowed();
-                String fmt = "matched: %s: %s %s";
-                String s = allowed ? "accepted" : "rejected";
-                String msg = String.format(fmt, p.represent(),
-                                           StringUtil.quote(path.toString()),
-                                           s);
-                mLogger.info(msg);
+                mLogger.info("matched: %s: %s %s",
+                             p.represent(), StringUtil.quote(path.toString()),
+                             allowed ? "accepted" : "rejected");
                 return allowed;
             }
         }
