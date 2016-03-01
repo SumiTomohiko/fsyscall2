@@ -1,0 +1,15 @@
+
+cmd="poll_POLLHUP2/poll_POLLHUP2"
+sock="${tmp_dir}/$$.sock"
+args="${sock}"
+expected_status="0"
+
+precmd() {
+	rm -f "${sock}"
+}
+
+postcmd() {
+	rm -f "${sock}"
+}
+
+# vim: filetype=sh
