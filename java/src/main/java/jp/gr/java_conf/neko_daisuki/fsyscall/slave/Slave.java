@@ -1508,12 +1508,20 @@ public class Slave implements Runnable {
             }
         }
 
+        /**
+         * In my investigation, poll(2) for a directory returns POLLIN/POLLOUT
+         * always.
+         */
         public boolean isReadyToRead() throws IOException {
-            throw new UnixException(Errno.EISDIR);
+            return true;
         }
 
+        /**
+         * In my investigation, poll(2) for a directory returns POLLIN/POLLOUT
+         * always.
+         */
         public boolean isReadyToWrite() throws IOException {
-            throw new UnixException(Errno.EBADF);
+            return true;
         }
 
         public DirEntries getdirentries(int nMax) throws UnixException {
