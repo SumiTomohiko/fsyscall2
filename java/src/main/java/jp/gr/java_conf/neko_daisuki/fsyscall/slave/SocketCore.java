@@ -9,6 +9,11 @@ public interface SocketCore {
     public InputStream getInputStream();
     public OutputStream getOutputStream();
     public void close() throws IOException;
+
+    /**
+     * Returns true if the peer has disconnected.
+     */
+    public boolean isDisconnected();
 }
 
 /**

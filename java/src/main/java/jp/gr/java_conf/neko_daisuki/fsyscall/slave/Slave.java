@@ -414,11 +414,11 @@ public class Slave implements Runnable {
             super(alarm);
         }
 
-        public boolean isReadyToRead() throws UnixException {
+        public boolean isReadyToRead() throws IOException {
             return false;
         }
 
-        public boolean isReadyToWrite() throws UnixException {
+        public boolean isReadyToWrite() throws IOException {
             return false;
         }
 
@@ -609,14 +609,24 @@ public class Slave implements Runnable {
     private static class WriteSelectPred implements SelectPred {
 
         public boolean isReady(UnixFile file) throws UnixException {
-            return file.isReadyToWrite();
+            try {
+                return file.isReadyToWrite();
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
         }
     }
 
     private static class ReadSelectPred implements SelectPred {
 
         public boolean isReady(UnixFile file) throws UnixException {
-            return file.isReadyToRead();
+            try {
+                return file.isReadyToRead();
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
         }
     }
 
@@ -706,10 +716,25 @@ public class Slave implements Runnable {
 
         private class PipeCore implements SocketCore {
 
+            private class Connection {
+
+                private boolean mClosed = false;
+
+                public boolean isClosed() {
+                    return mClosed;
+                }
+
+                public void close() {
+                    mClosed = true;
+                }
+            }
+
+            private Connection mConnection;
             private InputStream mIn;
             private OutputStream mOut;
 
-            public PipeCore(Pair pair) {
+            public PipeCore(Connection connection, Pair pair) {
+                mConnection = connection;
                 mIn = pair.getInputStream();
                 mOut = pair.getOutputStream();
             }
@@ -726,8 +751,14 @@ public class Slave implements Runnable {
 
             @Override
             public void close() throws IOException {
+                mConnection.close();
                 mIn.close();
                 mOut.close();
+            }
+
+            @Override
+            public boolean isDisconnected() {
+                return mConnection.isClosed();
             }
         }
 
@@ -747,6 +778,11 @@ public class Slave implements Runnable {
             public void close() throws IOException {
                 mConnectingRequests = null;
                 setCore(null);
+            }
+
+            @Override
+            public boolean isDisconnected() {
+                return false;
             }
         }
 
@@ -789,31 +825,102 @@ public class Slave implements Runnable {
 
         private class ConnectingRequest {
 
+            private class Connection {
+
+                private boolean mClosed = false;
+
+                public boolean isClosed() {
+                    return mClosed;
+                }
+
+                public void close() {
+                    mClosed = true;
+                }
+            }
+
+            private class PipeCore implements SocketCore {
+
+                private Connection mConnection;
+                private InputStream mIn;
+                private OutputStream mOut;
+
+                public PipeCore(Connection connection, InputStream in,
+                                OutputStream out) {
+                    mConnection = connection;
+                    mIn = in;
+                    mOut = out;
+                }
+
+                @Override
+                public InputStream getInputStream() {
+                    return mIn;
+                }
+
+                @Override
+                public OutputStream getOutputStream() {
+                    return mOut;
+                }
+
+                @Override
+                public void close() throws IOException {
+                    mConnection.close();
+                    mIn.close();
+                    mOut.close();
+                }
+
+                @Override
+                public boolean isDisconnected() {
+                    return mConnection.isClosed();
+                }
+            }
+
+            private boolean mAccepted = false;
             private Socket mPeer;
-            private Pair mPair;
+            private SocketCore mClientCore;
+            private SocketCore mServerCore;
             private ControlBuffer mControlBufferFromClient;
             private ControlBuffer mControlBufferFromServer;
 
-            public ConnectingRequest(Socket peer) {
+            public ConnectingRequest(Socket peer) throws UnixException {
                 mPeer = peer;
+
+                Connection connection = new Connection();
+                Pipe s2c;
+                Pipe c2s;
+                try {
+                    s2c = new Pipe();
+                    c2s = new Pipe();
+                }
+                catch (IOException e) {
+                    throw new UnixException(Errno.EIO, e);
+                }
+                mClientCore = new PipeCore(connection, s2c.getInputStream(),
+                                           c2s.getOutputStream());
+                mServerCore = new PipeCore(connection, c2s.getInputStream(),
+                                           s2c.getOutputStream());
+
                 mControlBufferFromClient = new ControlBuffer();
                 mControlBufferFromServer = new ControlBuffer();
+            }
+
+            public SocketCore getClientCore() {
+                return mClientCore;
+            }
+
+            public SocketCore getServerCore() {
+                return mServerCore;
             }
 
             public Socket getPeer() {
                 return mPeer;
             }
 
-            public void setPair(Pair pair) {
-                mPair = pair;
-            }
-
-            public Pair getPair() {
-                return mPair;
+            public void accept() {
+                mAccepted = true;
             }
 
             public boolean isAccepted() {
-                return mPair != null;
+                return mAccepted;
             }
 
             public ControlBuffer getControlBufferFromServer() {
@@ -883,32 +990,52 @@ public class Slave implements Runnable {
             mCore = core;
         }
 
-        public boolean isReadyToRead() throws UnixException {
+        public boolean isReadyToRead() throws IOException {
             if (mConnectingRequests != null) {
                 synchronized (mConnectingRequests) {
                     return !mConnectingRequests.isEmpty();
                 }
             }
 
-            InputStream in = getCore().getInputStream();
+            SocketCore core;
+            try {
+                core = getCore();
+            }
+            catch (UnixException unused) {
+                /*
+                 * poll(2) for a socket which has not been connected yet returns
+                 * nothing (It does not return POLLERR nor EIO).
+                 */
+                return false;
+            }
+            InputStream in = core.getInputStream();
             if (in == null) {
-                throw new UnixException(Errno.ENOTCONN);
+                return false;
             }
             try {
                 return 0 < in.available();
             }
-            catch (IOException e) {
-                throw new UnixException(Errno.EIO, e);
+            catch (IOException unused) {
+                return false;
             }
         }
 
-        public boolean isReadyToWrite() throws UnixException {
+        public boolean isReadyToWrite() throws IOException {
             return true;
         }
 
+        public boolean isDisconnected() {
+            return mCore != null ? mCore.isDisconnected() : false;
+        }
+
         public int read(byte[] buffer) throws UnixException {
-            if (isNonBlocking() && !isReadyToRead()) {
-                throw new UnixException(Errno.EAGAIN);
+            try {
+                if (isNonBlocking() && !isReadyToRead()) {
+                    throw new UnixException(Errno.EAGAIN);
+                }
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
             }
             InputStream in = getCore().getInputStream();
             if (in == null) {
@@ -996,7 +1123,7 @@ public class Slave implements Runnable {
                     }
                 }
             }
-            setCore(new PipeCore(request.getPair()));
+            setCore(request.getClientCore());
             mControlReader = request.getControlBufferFromServer().getReader();
             mControlWriter = request.getControlBufferFromClient().getWriter();
 
@@ -1038,31 +1165,18 @@ public class Slave implements Runnable {
                 request = mConnectingRequests.remove();
             }
 
-            Pipe s2c;
-            Pipe c2s;
-            try {
-                s2c = new Pipe();
-                c2s = new Pipe();
-            }
-            catch (IOException e) {
-                throw new UnixException(Errno.EIO, e);
-            }
-            InputStream in = s2c.getInputStream();
-            OutputStream out = c2s.getOutputStream();
-            Pair clientPair = new Pair(in, out);
-            request.setPair(clientPair);
             Socket peer = request.getPeer();
             peer.setPeer(this);
+            request.accept();
             synchronized (request) {
                 request.notifyAll();
             }
 
             Socket socket = new Socket(getAlarm(), mDomain, mType, mProtocol,
                                        mName, peer);
-            Pair pair = new Pair(c2s.getInputStream(), s2c.getOutputStream());
+            socket.setCore(request.getServerCore());
             socket.mControlReader = request.getControlBufferFromClient().getReader();
             socket.mControlWriter = request.getControlBufferFromServer().getWriter();
-            socket.setCore(new PipeCore(pair));
 
             return socket;
         }
@@ -1394,11 +1508,11 @@ public class Slave implements Runnable {
             }
         }
 
-        public boolean isReadyToRead() throws UnixException {
+        public boolean isReadyToRead() throws IOException {
             throw new UnixException(Errno.EISDIR);
         }
 
-        public boolean isReadyToWrite() throws UnixException {
+        public boolean isReadyToWrite() throws IOException {
             throw new UnixException(Errno.EBADF);
         }
 
@@ -1463,16 +1577,11 @@ public class Slave implements Runnable {
             super(alarm, path, create ? "rw" : "r");
         }
 
-        public boolean isReadyToRead() throws UnixException {
-            try {
-                return mFile.getFilePointer() < mFile.length();
-            }
-            catch (IOException e) {
-                throw new UnixException(Errno.EIO, e);
-            }
+        public boolean isReadyToRead() throws IOException {
+            return mFile.getFilePointer() < mFile.length();
         }
 
-        public boolean isReadyToWrite() throws UnixException {
+        public boolean isReadyToWrite() throws IOException {
             return false;
         }
 
@@ -1528,11 +1637,11 @@ public class Slave implements Runnable {
             super(alarm, path, "rw");
         }
 
-        public boolean isReadyToRead() throws UnixException {
+        public boolean isReadyToRead() throws IOException {
             return false;
         }
 
-        public boolean isReadyToWrite() throws UnixException {
+        public boolean isReadyToWrite() throws IOException {
             return true;
         }
 
@@ -1590,16 +1699,16 @@ public class Slave implements Runnable {
             mIn = in;
         }
 
-        public boolean isReadyToRead() throws UnixException {
+        public boolean isReadyToRead() throws IOException {
             try {
                 return 0 < mIn.available();
             }
-            catch (IOException e) {
-                throw new UnixException(Errno.EIO, e);
+            catch (IOException unused) {
+                return false;
             }
         }
 
-        public boolean isReadyToWrite() throws UnixException {
+        public boolean isReadyToWrite() throws IOException {
             return false;
         }
 
@@ -1652,11 +1761,11 @@ public class Slave implements Runnable {
             mOut = out;
         }
 
-        public boolean isReadyToRead() throws UnixException {
+        public boolean isReadyToRead() throws IOException {
             return false;
         }
 
-        public boolean isReadyToWrite() throws UnixException {
+        public boolean isReadyToWrite() throws IOException {
             return true;
         }
 
@@ -1869,6 +1978,12 @@ public class Slave implements Runnable {
                             fd.addRevents(Unix.Constants.POLLOUT);
                         }
                     }
+                    if (file.isDisconnected()) {
+                        fd.addRevents(Unix.Constants.POLLHUP);
+                    }
+                }
+                catch (IOException unused) {
+                    fd.addRevents(Unix.Constants.POLLERR);
                 }
                 finally {
                     file.unlock();

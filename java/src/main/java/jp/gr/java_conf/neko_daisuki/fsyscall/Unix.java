@@ -280,7 +280,10 @@ public class Unix {
                 //new Flag(POLLWRNORM, "POLLWRNORM"),
                 new Flag(POLLRDBAND, "POLLRDBAND"),
                 new Flag(POLLWRBAND, "POLLWRBAND"),
-                new Flag(POLLINIGNEOF, "POLLINIGNEOF")
+                new Flag(POLLINIGNEOF, "POLLINIGNEOF"),
+                new Flag(POLLERR, "POLLERR"),
+                new Flag(POLLHUP, "POLLHUP"),
+                new Flag(POLLNVAL, "POLLNVAL")
             };
 
             public static String toString(int events) {
@@ -451,6 +454,9 @@ public class Unix {
         public static final int POLLRDBAND = 0x0080;
         public static final int POLLWRBAND = 0x0100;
         public static final int POLLINIGNEOF = 0x2000;
+        public static final int POLLERR = 0x0008;
+        public static final int POLLHUP = 0x0010;
+        public static final int POLLNVAL = 0x0020;
 
         public static final int S_ISUID = 0004000;
         public static final int S_ISGID = 0002000;

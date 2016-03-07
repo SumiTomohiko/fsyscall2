@@ -1,5 +1,6 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
+import java.io.IOException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -52,6 +53,13 @@ abstract class UnixFile implements EventScannee {
         }
     }
 
+    /**
+     * Returns true when the peer has disconnected.
+     */
+    public boolean isDisconnected() {
+        return false;
+    }
+
     public void enableNonBlocking(boolean nonBlocking) {
         mNonBlocking = nonBlocking;
     }
@@ -66,8 +74,8 @@ abstract class UnixFile implements EventScannee {
         throw new UnixException(Errno.EBADF);
     }
 
-    public abstract boolean isReadyToRead() throws UnixException;
-    public abstract boolean isReadyToWrite() throws UnixException;
+    public abstract boolean isReadyToRead() throws IOException;
+    public abstract boolean isReadyToWrite() throws IOException;
     public abstract int read(byte[] buffer) throws UnixException;
     public abstract long pread(byte[] buffer, long offset) throws UnixException;
     public abstract long lseek(long offset, int whence) throws UnixException;
