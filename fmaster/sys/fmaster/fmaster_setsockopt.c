@@ -52,7 +52,8 @@ setsockopt_master(struct thread *td, int lfd, int level, int name, void *val,
  */
 
 static int
-fmaster_setsockopt_main(struct thread *td, int s, int level, int name, void *val, int valsize)
+fmaster_setsockopt_main(struct thread *td, int s, int level, int name,
+			void *val, int valsize)
 {
 	enum fmaster_file_place place;
 	int error, lfd;

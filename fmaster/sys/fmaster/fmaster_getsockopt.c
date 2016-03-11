@@ -14,7 +14,8 @@
  */
 
 static int
-reuseaddr_write_call(struct thread *td, int lfd, int level, int name, socklen_t optlen)
+reuseaddr_write_call(struct thread *td, int lfd, int level, int name,
+		     socklen_t optlen)
 {
 	struct payload *payload;
 	int error;
@@ -93,7 +94,8 @@ reuseaddr_read_return(struct thread *td, void *val, socklen_t *avalsize)
 }
 
 static int
-reuseaddr_main(struct thread *td, int lfd, int level, int name, void *val, socklen_t *avalsize)
+reuseaddr_main(struct thread *td, int lfd, int level, int name, void *val,
+	       socklen_t *avalsize)
 {
 	int error;
 
@@ -189,7 +191,8 @@ getsockopt_pending_sock(struct thread *td, int s, int level, int name,
  */
 
 static int
-fmaster_getsockopt_main(struct thread *td, int s, int level, int name, void *val, socklen_t *avalsize)
+fmaster_getsockopt_main(struct thread *td, int s, int level, int name,
+			void *val, socklen_t *avalsize)
 {
 	enum fmaster_file_place place;
 	int error, fd;
