@@ -267,6 +267,7 @@ tests/amd64/chdir_readlink/chdir_readlink
 tests/amd64/chdir_stat/chdir_stat
 tests/amd64/chmod/chmod
 tests/amd64/chmod_error/chmod_error
+tests/amd64/close_pending_sock/close_pending_sock
 tests/amd64/close_twice/close_twice
 tests/amd64/connect/connect
 tests/amd64/dup/dup
@@ -280,6 +281,7 @@ tests/amd64/dup2_nothing/dup2_nothing
 tests/amd64/dup2_slave2closed/dup2_slave2closed
 tests/amd64/dup2_slave2master/dup2_slave2master
 tests/amd64/dup2_slave2slave/dup2_slave2slave
+tests/amd64/dup2_to_pending_sock/dup2_to_pending_sock
 tests/amd64/dup_and_close/dup_and_close
 tests/amd64/execve/execve
 tests/amd64/fcntl/fcntl
@@ -290,7 +292,9 @@ tests/amd64/fork/fork
 tests/amd64/fstat/fstat
 tests/amd64/fstat_bind/fstat_bind
 tests/amd64/fstatfs/fstatfs
+tests/amd64/fstatfs_pending_sock/fstatfs_pending_sock
 tests/amd64/getdirentries/getdirentries
+tests/amd64/getdirentries_pending_sock/getdirentries_pending_sock
 tests/amd64/getegid/getegid
 tests/amd64/geteuid/geteuid
 tests/amd64/getgid/getgid
@@ -307,7 +311,8 @@ tests/amd64/getresuid_ruid/getresuid_ruid
 tests/amd64/getresuid_suid/getresuid_suid
 tests/amd64/getsockname_family/getsockname_family
 tests/amd64/getsockname_server/getsockname_server
-tests/amd64/getsockopt/getsockopt
+tests/amd64/getsockopt_pending_sock/getsockopt_pending_sock
+tests/amd64/getsockopt_slave/getsockopt_slave
 tests/amd64/gettimeofday_dsttime/gettimeofday_dsttime
 tests/amd64/gettimeofday_minuteswest/gettimeofday_minuteswest
 tests/amd64/gettimeofday_sec/gettimeofday_sec
@@ -335,6 +340,7 @@ tests/amd64/poll_master_slave_blocking2/poll_master_slave_blocking2
 tests/amd64/poll_master_slave_nonblocking/poll_master_slave_nonblocking
 tests/amd64/poll_master_slave_nonblocking2/poll_master_slave_nonblocking2
 tests/amd64/poll_out/poll_out
+tests/amd64/poll_pending_sock/poll_pending_sock
 tests/amd64/poll_timeout/poll_timeout
 tests/amd64/pread/pread
 tests/amd64/print_stat_member/name.inc
@@ -344,6 +350,7 @@ tests/amd64/readlink/readlink
 tests/amd64/recvmsg_controllen_for_nothing/recvmsg_controllen_for_nothing
 tests/amd64/recvmsg_master/recvmsg_master
 tests/amd64/recvmsg_not_socket_slave/recvmsg_not_socket_slave
+tests/amd64/recvmsg_pending_sock/recvmsg_pending_sock
 tests/amd64/recvmsg_slave/recvmsg_slave
 tests/amd64/rmdir/rmdir
 tests/amd64/select/select
@@ -351,6 +358,7 @@ tests/amd64/select2/select2
 tests/amd64/select_master/select_master
 tests/amd64/sendmsg_master/sendmsg_master
 tests/amd64/sendmsg_not_socket_slave/sendmsg_not_socket_slave
+tests/amd64/sendmsg_pending_sock/sendmsg_pending_sock
 tests/amd64/sendmsg_slave/sendmsg_slave
 tests/amd64/setsockopt/setsockopt
 tests/amd64/sigaction/sigaction

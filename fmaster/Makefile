@@ -21,7 +21,7 @@ SRCS=		elf_machdep.c fmaster_accept.c fmaster_bind.c \
 		fsyscall_payload.c fsyscall_read_sockaddr.c fsyscall_select.c \
 		imgact_elf32.c imgact_elf64.c kern_exec.c syscall.c
 KERNBUILDDIR=	/usr/obj/usr/src/sys/GENERIC
-CFLAGS=		-Isys -I${TOP_DIR}/include -I/usr/src/sys -Werror
+CFLAGS=		-Isys -I${TOP_DIR}/include -I/usr/src/sys -Werror -Wswitch-enum
 
 .include "Makefile.makesyscalls"
 .include <bsd.kmod.mk>

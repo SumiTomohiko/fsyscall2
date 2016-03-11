@@ -1,0 +1,5 @@
+
+cmd="getdirentries_pending_sock/getdirentries_pending_sock"
+expected_status="0"
+
+# vim: filetype=sh

@@ -406,6 +406,9 @@ fmaster_sendmsg_main(struct thread *td, struct fmaster_sendmsg_args *uap)
 	case FFP_SLAVE:
 		error = sendmsg_slave(td, umsg, lfd, &kmsg, uap->flags);
 		break;
+	case FFP_PENDING_SOCKET:
+		error = ENOTCONN;
+		break;
 	default:
 		error = EBADF;
 		break;

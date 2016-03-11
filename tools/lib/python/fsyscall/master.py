@@ -238,7 +238,8 @@ def print_master_call(p, print_newline, syscall):
 \terror = fmaster_get_vnode_info(td, uap->{a}, &place, &lfd);
 \tif (error != 0)
 \t\treturn (error);
-\tif (place == FFP_MASTER) {{
+\tswitch (place) {{
+\tcase FFP_MASTER: {{
 \t\tstruct {name}_args a;
 \t\tmemcpy(&a, uap, sizeof(a));
 \t\ta.{a} = lfd;
@@ -254,6 +255,14 @@ def print_master_call(p, print_newline, syscall):
 """.format(**locals()))
     p("""\
 \t\treturn (0);
+\t\t}}
+\tcase FFP_SLAVE:
+\t\tbreak;
+\tcase FFP_PENDING_SOCKET:
+\t\tfmaster_log(td, LOG_INFO, "{name}: called for a pending socket: fd=%d, lfd=%d", uap->{a}, lfd);
+\t\treturn (ENOTCONN);
+\tdefault:
+\t\treturn (EBADF);
 \t}}
 """.format(**locals()))
     print_newline()

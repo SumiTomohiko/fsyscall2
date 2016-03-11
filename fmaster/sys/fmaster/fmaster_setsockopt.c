@@ -1,5 +1,6 @@
 #include <sys/param.h>
 #include <sys/proc.h>
+#include <sys/syscallsubr.h>
 #include <sys/syslog.h>
 #include <sys/systm.h>
 
@@ -7,80 +8,70 @@
 #include <fsyscall/private/payload.h>
 #include <sys/fmaster/fmaster_proto.h>
 
-static int
-reuseaddr_write_call(struct thread *td, int s, int level, int optname,
-		     int optval, int optlen)
-{
-	struct payload *payload;
-	int error;
-
-	payload = fsyscall_payload_create();
-	if (payload == NULL)
-		return (ENOMEM);
-	error = fsyscall_payload_add_int(payload, s);
-	if (error != 0)
-		goto exit;
-	error = fsyscall_payload_add_int(payload, level);
-	if (error != 0)
-		goto exit;
-	error = fsyscall_payload_add_int(payload, optname);
-	if (error != 0)
-		goto exit;
-	error = fsyscall_payload_add_int(payload, optlen);
-	if (error != 0)
-		goto exit;
-	error = fsyscall_payload_add_int(payload, optval);
-	if (error != 0)
-		goto exit;
-
-	error = fmaster_write_payloaded_command(td, SETSOCKOPT_CALL, payload);
-	if (error != 0)
-		goto exit;
-
-exit:
-	fsyscall_payload_dispose(payload);
-
-	return (error);
-}
+/*******************************************************************************
+ * code for slave
+ */
 
 static int
-reuseaddr_main(struct thread *td, int s, int level, int optname, void *val,
-	       int valsize)
+setsockopt_slave(struct thread *td, int lfd, int level, int name, void *val,
+		 int valsize)
 {
-	int d, error, optval;
+	int error, optval;
 
-	error = fmaster_get_vnode_info(td, s, NULL, &d);
-	if (error != 0)
-		return (error);
-
-	if (valsize != sizeof(int))
+	if (valsize != sizeof(optval))
 		return (EFAULT);
 	error = copyin(val, &optval, valsize);
 	if (error != 0)
 		return (error);
 
-	error = reuseaddr_write_call(td, d, level, optname, optval, valsize);
-	if (error != 0)
-		return (error);
-	error = fmaster_execute_return_generic32(td, SETSOCKOPT_RETURN);
+	error = fmaster_execute_setsockopt(td, lfd, level, name, &optval,
+					   valsize);
 	if (error != 0)
 		return (error);
 
 	return (0);
 }
 
+/*******************************************************************************
+ * code for master
+ */
+static int
+setsockopt_master(struct thread *td, int lfd, int level, int name, void *val,
+		  int valsize)
+{
+	int error;
+
+	error = kern_setsockopt(td, lfd, level, name, val, UIO_USERSPACE,
+				valsize);
+
+	return (error);
+}
+
+/*******************************************************************************
+ * shared
+ */
+
 static int
 fmaster_setsockopt_main(struct thread *td, int s, int level, int name, void *val, int valsize)
 {
+	enum fmaster_file_place place;
+	int error, lfd;
 
-	switch (name) {
-	case SO_REUSEADDR:
-		return reuseaddr_main(td, s, level, name, val, valsize);
+	error = fmaster_get_vnode_info(td, s, &place, &lfd);
+	if (error != 0)
+		return (error);
+	switch (place) {
+	case FFP_MASTER:
+		return (setsockopt_master(td, lfd, level, name, val, valsize));
+	case FFP_SLAVE:
+		return (setsockopt_slave(td, lfd, level, name, val, valsize));
+	case FFP_PENDING_SOCKET:
+		error = fmaster_setsockopt_pending_sock(td, s, level, name, val,
+							valsize);
+		return (error);
 	default:
-		break;
+		return (EINVAL);
 	}
-
-	return (ENOPROTOOPT);
 }
 
 int

@@ -217,7 +217,9 @@ SYSCALLS = {
         "fmaster_rmdir": {}
         }
 
-FMASTER_SYSCALLS = SYSCALLS
+FMASTER_SYSCALLS = SYSCALLS.copy()
+del FMASTER_SYSCALLS["fmaster_socket"]
+
 FSLAVE_SYSCALLS = SYSCALLS
 DUMMY_SYSCALLS = [
         "fmaster_fchdir", "fmaster_mknod", "fmaster_chown", "fmaster_mount",

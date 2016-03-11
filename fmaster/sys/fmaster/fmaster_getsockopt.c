@@ -1,6 +1,7 @@
 #include <sys/param.h>
 #include <sys/proc.h>
 #include <sys/socket.h>
+#include <sys/syscallsubr.h>
 #include <sys/syslog.h>
 #include <sys/systm.h>
 
@@ -8,18 +9,15 @@
 #include <fsyscall/private/payload.h>
 #include <sys/fmaster/fmaster_proto.h>
 
+/*******************************************************************************
+ * code for slave
+ */
+
 static int
-reuseaddr_write_call(struct thread *td, int s, int level, int name, socklen_t optlen)
+reuseaddr_write_call(struct thread *td, int lfd, int level, int name, socklen_t optlen)
 {
 	struct payload *payload;
-	enum fmaster_file_place place;
-	int error, lfd;
-
-	error = fmaster_get_vnode_info(td, s, &place, &lfd);
-	if (error != 0)
-		return (error);
-	if (place != FFP_SLAVE)
-		return (EPERM);
+	int error;
 
 	payload = fsyscall_payload_create();
 	if (payload == NULL)
@@ -95,11 +93,11 @@ reuseaddr_read_return(struct thread *td, void *val, socklen_t *avalsize)
 }
 
 static int
-reuseaddr_main(struct thread *td, int s, int level, int name, void *val, socklen_t *avalsize)
+reuseaddr_main(struct thread *td, int lfd, int level, int name, void *val, socklen_t *avalsize)
 {
 	int error;
 
-	error = reuseaddr_write_call(td, s, level, name, *avalsize);
+	error = reuseaddr_write_call(td, lfd, level, name, *avalsize);
 	if (error != 0)
 		return (error);
 	error = reuseaddr_read_return(td, val, avalsize);
@@ -110,7 +108,8 @@ reuseaddr_main(struct thread *td, int s, int level, int name, void *val, socklen
 }
 
 static int
-fmaster_getsockopt_main(struct thread *td, int s, int level, int name, void *val, socklen_t *avalsize)
+getsockopt_slave(struct thread *td, int lfd, int level, int name, void *val,
+		 socklen_t *avalsize)
 {
 
 	if (level != SOL_SOCKET)
@@ -118,12 +117,98 @@ fmaster_getsockopt_main(struct thread *td, int s, int level, int name, void *val
 
 	switch (name) {
 	case SO_REUSEADDR:
-		return (reuseaddr_main(td, s, level, name, val, avalsize));
+		return (reuseaddr_main(td, lfd, level, name, val, avalsize));
 	default:
 		break;
 	}
 
 	return (ENOPROTOOPT);
+}
+
+/*******************************************************************************
+ * code for master
+ */
+
+static int
+getsockopt_master(struct thread *td, int lfd, int level, int name, void *val,
+		  socklen_t *avalsize)
+{
+	int error;
+
+	error = kern_getsockopt(td, lfd, level, name, val, UIO_USERSPACE,
+				avalsize);
+
+	return (error);
+}
+
+/*******************************************************************************
+ * code for pending sockets
+ */
+
+static int
+getsockopt_pending_sock(struct thread *td, int s, int level, int name,
+			void *val, socklen_t *avalsize)
+{
+	struct fmaster_pending_sock pending_sock;
+	socklen_t optlen;
+	int error, optval;
+	const void *src;
+
+	error = fmaster_get_pending_socket(td, s, &pending_sock);
+	if (error != 0)
+		return (error);
+
+	switch (level) {
+	case SOL_SOCKET:
+		switch (name) {
+		case SO_REUSEADDR:
+			optval = pending_sock.fps_reuseaddr ? name : 0;
+			src = &optval;
+			optlen = sizeof(optval);
+			break;
+		default:
+			return (ENOPROTOOPT);
+		}
+		break;
+	default:
+		return (ENOPROTOOPT);
+	}
+
+	if (*avalsize < optlen)
+		return (EINVAL);
+	error = copyout(src, val, optlen);
+	if (error != 0)
+		return (error);
+	*avalsize = optlen;
+
+	return (0);
+}
+
+/*******************************************************************************
+ * shared code
+ */
+
+static int
+fmaster_getsockopt_main(struct thread *td, int s, int level, int name, void *val, socklen_t *avalsize)
+{
+	enum fmaster_file_place place;
+	int error, fd;
+
+	error = fmaster_get_vnode_info(td, s, &place, &fd);
+	if (error != 0)
+		return (error);
+	switch (place) {
+	case FFP_MASTER:
+		return (getsockopt_master(td, fd, level, name, val, avalsize));
+	case FFP_SLAVE:
+		return (getsockopt_slave(td, fd, level, name, val, avalsize));
+	case FFP_PENDING_SOCKET:
+		error = getsockopt_pending_sock(td, s, level, name, val,
+						avalsize);
+		return (error);
+	default:
+		return (EINVAL);
+	}
 }
 
 int

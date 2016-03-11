@@ -480,6 +480,9 @@ fmaster_recvmsg_main(struct thread *td, struct fmaster_recvmsg_args *uap)
 		if (error != 0)
 			goto exit;
 		break;
+	case FFP_PENDING_SOCKET:
+		error = ENOTCONN;
+		goto exit;
 	default:
 		error = EINVAL;
 		goto exit;

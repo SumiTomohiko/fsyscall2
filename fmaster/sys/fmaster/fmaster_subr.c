@@ -78,11 +78,13 @@ struct fmaster_threads {
 };
 
 struct fmaster_vnode {
-	struct mtx		fv_lock;
-	enum fmaster_file_place	fv_place;
-	int			fv_local;
-	int			fv_refcount;
-	char			fv_desc[VNODE_DESC_LEN];
+	struct mtx			fv_lock;
+	enum fmaster_file_place		fv_place;
+	int				fv_local;
+	int				fv_refcount;
+	char				fv_desc[VNODE_DESC_LEN];
+
+	struct fmaster_pending_sock	fv_pending_sock;
 };
 
 struct fmaster_file {
@@ -1495,6 +1497,8 @@ fmaster_str_of_place(enum fmaster_file_place place)
 		return "master";
 	case FFP_SLAVE:
 		return "slave";
+	case FFP_PENDING_SOCKET:
+		return "pending socket";
 	default:
 		return "invalid";
 	}
@@ -1815,10 +1819,10 @@ exit:
 	return (error);
 }
 
-static int
-connect_main(struct thread *td, command_t call_command,
-	     command_t return_command, int s, struct sockaddr *name,
-	     socklen_t namelen)
+int
+fmaster_execute_connect_protocol(struct thread *td, command_t call_command,
+				 command_t return_command, int s,
+				 struct sockaddr *name, socklen_t namelen)
 {
 	int error;
 
@@ -1832,36 +1836,15 @@ connect_main(struct thread *td, command_t call_command,
 	return (0);
 }
 
-int
-fmaster_execute_connect_protocol(struct thread *td, const char *command,
-				 command_t call_command,
-				 command_t return_command, int s,
-				 struct sockaddr *name, socklen_t namelen)
-{
-	struct timeval time_start;
-	int error;
-	const char *fmt = "%s: started: s=%d, name=%p, namelen=%d";
-
-	fmaster_log(td, LOG_DEBUG, fmt, command, s, name, namelen);
-	microtime(&time_start);
-
-	error = connect_main(td, call_command, return_command, s, name,
-			     namelen);
-
-	fmaster_log_syscall_end(td, command, &time_start, error);
-
-	return (error);
-}
-
 static int
-socket(struct thread *td, int *sock)
+socket(struct thread *td, int domain, int type, int protocol, int *sock)
 {
 	struct socket_args args;
 	int error;
 
-	args.domain = PF_LOCAL;
-	args.type = SOCK_STREAM;
-	args.protocol = 0;
+	args.domain = domain;
+	args.type = type;
+	args.protocol = protocol;
 	error = sys_socket(td, &args);
 	if (error != 0)
 		return (error);
@@ -1906,7 +1889,7 @@ connect_to_mhub(struct thread *td)
 	int error, pidlen, sock;
 	char buf[FSYSCALL_BUFSIZE_PID];
 
-	error = socket(td, &sock);
+	error = socket(td, PF_LOCAL, SOCK_STREAM, 0, &sock);
 	if (error != 0)
 		return (error);
 	error = connect(td, sock);
@@ -2251,6 +2234,7 @@ _fmaster_dump_file_table(struct thread *td, const char *filename,
 			RESTORE_RETVAL(td, retval);
 			break;
 		case FFP_SLAVE:
+		case FFP_PENDING_SOCKET:
 		default:
 			dead_or_alive[0] = '\0';
 			break;
@@ -2297,6 +2281,12 @@ fmaster_close_on_exec(struct thread *td)
 				error = fmaster_execute_close(td, lfd);
 				if (error != 0)
 					goto exit;
+				break;
+			case FFP_PENDING_SOCKET:
+				fmaster_log(td, LOG_INFO,
+					    "closed a pending socket for close-"
+					    "on-exec: fd=%d",
+					    i);
 				break;
 			default:
 				error = EINVAL;
@@ -2966,6 +2956,7 @@ fmaster_execute_getdirentries(struct thread *td, int fd, char *ubuf,
 		return (kern_getdirentries(td, lfd, ubuf, count, kbasep));
 	case FFP_SLAVE:
 		break;
+	case FFP_PENDING_SOCKET:
 	default:
 		return (EINVAL);
 	}
@@ -2989,4 +2980,319 @@ exit:
 	fmaster_freeall(td);
 
 	return (error);
+}
+
+static int
+execute_socket_call(struct thread *td, int domain, int type, int protocol)
+{
+	payload_size_t payload_size;
+	int domain_len, error, protocol_len, type_len, wfd;
+	char domain_buf[FSYSCALL_BUFSIZE_INT32];
+	char protocol_buf[FSYSCALL_BUFSIZE_INT32];
+	char type_buf[FSYSCALL_BUFSIZE_INT32];
+
+	domain_len = fsyscall_encode_int32(
+		domain,
+		domain_buf,
+		array_sizeof(domain_buf));
+	if (domain_len < 0)
+		return (EMSGSIZE);
+	type_len = fsyscall_encode_int32(
+		type,
+		type_buf,
+		array_sizeof(type_buf));
+	if (type_len < 0)
+		return (EMSGSIZE);
+	protocol_len = fsyscall_encode_int32(
+		protocol,
+		protocol_buf,
+		array_sizeof(protocol_buf));
+	if (protocol_len < 0)
+		return (EMSGSIZE);
+
+	error = fmaster_write_command(td, SOCKET_CALL);
+	if (error != 0)
+		return (error);
+	payload_size = domain_len + type_len + protocol_len;
+	error = fmaster_write_payload_size(td, payload_size);
+	if (error != 0)
+		return (error);
+	wfd = fmaster_wfd_of_thread(td);
+	error = fmaster_write(td, wfd, domain_buf, domain_len);
+	if (error != 0)
+		return (error);
+	error = fmaster_write(td, wfd, type_buf, type_len);
+	if (error != 0)
+		return (error);
+	error = fmaster_write(td, wfd, protocol_buf, protocol_len);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+static int
+fmaster_execute_socket(struct thread *td, int domain, int type, int protocol)
+{
+	int error;
+
+	error = execute_socket_call(td, domain, type, protocol);
+	if (error != 0)
+		return (error);
+	error = fmaster_execute_return_generic32(td, SOCKET_RETURN);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+static int
+socket_slave(struct thread *td, int domain, int type, int protocol, int *sock)
+{
+	int error;
+
+	error = fmaster_execute_socket(td, domain, type, protocol);
+	if (error != 0)
+		return (error);
+	*sock = td->td_retval[0];
+
+	return (0);
+}
+
+static int
+reuseaddr_write_call(struct thread *td, int s, int level, int optname,
+		     int optval, int optlen)
+{
+	struct payload *payload;
+	int error;
+
+	payload = fsyscall_payload_create();
+	if (payload == NULL)
+		return (ENOMEM);
+	error = fsyscall_payload_add_int(payload, s);
+	if (error != 0)
+		goto exit;
+	error = fsyscall_payload_add_int(payload, level);
+	if (error != 0)
+		goto exit;
+	error = fsyscall_payload_add_int(payload, optname);
+	if (error != 0)
+		goto exit;
+	error = fsyscall_payload_add_int(payload, optlen);
+	if (error != 0)
+		goto exit;
+	error = fsyscall_payload_add_int(payload, optval);
+	if (error != 0)
+		goto exit;
+
+	error = fmaster_write_payloaded_command(td, SETSOCKOPT_CALL, payload);
+	if (error != 0)
+		goto exit;
+
+exit:
+	fsyscall_payload_dispose(payload);
+
+	return (error);
+}
+
+static int
+reuseaddr_main(struct thread *td, int lfd, int level, int optname, void *kval,
+	       int valsize)
+{
+	int error, optval;
+
+	if (valsize != sizeof(int))
+		return (EFAULT);
+	memcpy(&optval, kval, valsize);
+
+	error = reuseaddr_write_call(td, lfd, level, optname, optval, valsize);
+	if (error != 0)
+		return (error);
+	error = fmaster_execute_return_generic32(td, SETSOCKOPT_RETURN);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+fmaster_execute_setsockopt(struct thread *td, int lfd, int level, int name,
+			   void *kval, int valsize)
+{
+
+	switch (name) {
+	case SO_REUSEADDR:
+		return reuseaddr_main(td, lfd, level, name, kval, valsize);
+	default:
+		break;
+	}
+
+	return (ENOPROTOOPT);
+}
+
+int
+fmaster_fix_pending_socket_to_slave(struct thread *td, int fd, const char *desc)
+{
+	struct fmaster_pending_sock *pending_sock;
+	struct fmaster_vnode *vnode;
+	int error, optval, sock;
+
+	vnode = fmaster_get_locked_vnode_of_fd(td, fd);
+	if (vnode == NULL)
+		return (EBADF);
+	if (vnode->fv_place != FFP_PENDING_SOCKET) {
+		error = EINVAL;
+		goto exit;
+	}
+
+	pending_sock = &vnode->fv_pending_sock;
+	error = socket_slave(td, pending_sock->fps_domain,
+			     pending_sock->fps_type, pending_sock->fps_protocol,
+			     &sock);
+	if (error != 0)
+		goto exit;
+	vnode->fv_local = sock;
+	vnode->fv_place = FFP_SLAVE;
+	snprintf(vnode->fv_desc, sizeof(vnode->fv_desc), "socket (%s)", desc);
+
+	if (pending_sock->fps_reuseaddr) {
+		optval = 1;
+		error = fmaster_execute_setsockopt(td, sock, SOL_SOCKET,
+						   SO_REUSEADDR, &optval,
+						   sizeof(optval));
+		if (error != 0)
+			goto exit;
+	}
+
+	error = 0;
+exit:
+	fmaster_unlock_vnode(td, vnode);
+
+	return (error);
+}
+
+int
+fmaster_fix_pending_socket_to_master(struct thread *td, int fd,
+				     const char *desc)
+{
+	struct fmaster_vnode *vnode;
+	struct fmaster_pending_sock *pending_sock;
+	int error, optval, sock;
+
+	vnode = fmaster_get_locked_vnode_of_fd(td, fd);
+	if (vnode == NULL)
+		return (EBADF);
+	if (vnode->fv_place != FFP_PENDING_SOCKET) {
+		error = EINVAL;
+		goto exit;
+	}
+
+	pending_sock = &vnode->fv_pending_sock;
+	error = socket(td, pending_sock->fps_domain, pending_sock->fps_type,
+		       pending_sock->fps_protocol, &sock);
+	if (error != 0)
+		goto exit;
+	vnode->fv_local = sock;
+	vnode->fv_place = FFP_MASTER;
+	snprintf(vnode->fv_desc, sizeof(vnode->fv_desc), "socket (%s)", desc);
+
+	if (pending_sock->fps_reuseaddr) {
+		optval = 1;
+		error = kern_setsockopt(td, sock, SOL_SOCKET, SO_REUSEADDR,
+					&optval, UIO_SYSSPACE, sizeof(optval));
+		if (error != 0)
+			goto exit;
+	}
+
+	error = 0;
+exit:
+	fmaster_unlock_vnode(td, vnode);
+
+	return (error);
+}
+
+int
+fmaster_register_pending_socket(struct thread *td, int domain, int type,
+				int protocol)
+{
+	struct fmaster_vnode *vnode;
+	struct fmaster_pending_sock *sock;
+	int error;
+
+	error = fmaster_return_fd(td, FFP_PENDING_SOCKET, -1, "pending socket");
+	if (error != 0)
+		return (error);
+	vnode = fmaster_get_locked_vnode_of_fd(td, td->td_retval[0]);
+	if (vnode == NULL)
+		return (EBADF);
+
+	sock = &vnode->fv_pending_sock;
+	sock->fps_domain = domain;
+	sock->fps_type = type;
+	sock->fps_protocol = protocol;
+	sock->fps_reuseaddr = false;
+
+	fmaster_unlock_vnode(td, vnode);
+
+	return (0);
+}
+
+int
+fmaster_setsockopt_pending_sock(struct thread *td, int s, int level, int name,
+				void *val, int valsize)
+{
+	struct fmaster_vnode *vnode;
+	int error, optval;
+	bool reuseaddr;
+
+	vnode = fmaster_get_locked_vnode_of_fd(td, s);
+	if (vnode == NULL)
+		return (EBADF);
+
+	switch (level) {
+	case SOL_SOCKET:
+		switch (name) {
+		case SO_REUSEADDR:
+			if (valsize != sizeof(int)) {
+				error = EFAULT;
+				goto exit;
+			}
+			error = copyin(val, &optval, valsize);
+			if (error != 0)
+				goto exit;
+			reuseaddr = optval != 0 ? true : false;
+			vnode->fv_pending_sock.fps_reuseaddr = reuseaddr;
+			break;
+		default:
+			error = ENOPROTOOPT;
+			goto exit;
+		}
+		break;
+	default:
+		error = ENOPROTOOPT;
+		goto exit;
+	}
+
+	error = 0;
+exit:
+	fmaster_unlock_vnode(td, vnode);
+
+	return (error);
+}
+
+int
+fmaster_get_pending_socket(struct thread *td, int fd,
+			   struct fmaster_pending_sock *pending_sock)
+{
+	struct fmaster_vnode *vnode;
+
+	vnode = fmaster_get_locked_vnode_of_fd(td, fd);
+	if (vnode == NULL)
+		return (EBADF);
+
+	memcpy(pending_sock, &vnode->fv_pending_sock, sizeof(*pending_sock));
+
+	fmaster_unlock_vnode(td, vnode);
+
+	return (0);
 }

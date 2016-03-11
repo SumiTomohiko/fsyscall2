@@ -1,0 +1,5 @@
+
+cmd="dup2_to_pending_sock/dup2_to_pending_sock"
+expected_status="0"
+
+# vim: filetype=sh
