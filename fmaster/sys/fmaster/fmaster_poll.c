@@ -430,10 +430,13 @@ merge_results(struct thread *td, struct pollfd *fds, nfds_t nfds,
 			p = &slavefds[slavefdspos];
 			slavefdspos++;
 			break;
+		case FFP_PENDING_SOCKET:
+			p = NULL;
+			break;
 		default:
 			return (EBADF);
 		}
-		pfd->revents = p->revents;
+		pfd->revents = p != NULL ? p->revents : 0;
 	}
 
 	return (0);
@@ -602,6 +605,13 @@ log_args(struct thread *td, const char *tag, struct pollfd *fds, nfds_t nfds)
 	return (0);
 }
 
+enum fmaster_side {
+	SIDE_NOTHING = 0,
+	SIDE_MASTER = 0x01,
+	SIDE_SLAVE = 0x02,
+	SIDE_BOTH = SIDE_MASTER | SIDE_SLAVE
+};
+
 static int
 detect_side(struct thread *td, struct pollfd *fds, nfds_t nfds,
 	    enum fmaster_side *side)
@@ -610,7 +620,7 @@ detect_side(struct thread *td, struct pollfd *fds, nfds_t nfds,
 	enum fmaster_file_place place;
 	int error;
 
-	*side = 0;
+	*side = SIDE_NOTHING;
 	for (i = 0; i < nfds; i++) {
 		error = fmaster_get_vnode_info(td, fds[i].fd, &place, NULL);
 		if (error != 0)
@@ -621,6 +631,8 @@ detect_side(struct thread *td, struct pollfd *fds, nfds_t nfds,
 			break;
 		case FFP_SLAVE:
 			*side |= SIDE_SLAVE;
+			break;
+		case FFP_PENDING_SOCKET:
 			break;
 		default:
 			return (EBADF);
@@ -659,6 +671,9 @@ fmaster_poll_main(struct thread *td, struct fmaster_poll_args *uap)
 	if (error != 0)
 		goto exit;
 	switch (side) {
+	case SIDE_NOTHING:
+		td->td_retval[0] = 0;
+		break;
 	case SIDE_MASTER:
 		error = master_poll(td, fds, nfds, uap->timeout);
 		break;

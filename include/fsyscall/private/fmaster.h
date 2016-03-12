@@ -18,11 +18,19 @@
 
 enum fmaster_file_place {
 	FFP_MASTER,
-	FFP_SLAVE
+	FFP_SLAVE,
+	FFP_PENDING_SOCKET
 };
 
 #define	VNODE_DESC_LEN	256
 #define	FILES_NUM	256
+
+struct fmaster_pending_sock {
+	int	fps_domain;
+	int	fps_type;
+	int	fps_protocol;
+	bool	fps_reuseaddr;
+};
 
 struct fmaster_data;
 
@@ -107,6 +115,16 @@ int	fmaster_set_close_on_exec(struct thread *, int, bool);
 int	fmaster_fd_of_master_fd(struct thread *, int, int *);
 int	fmaster_fd_of_slave_fd(struct thread *, int, int *);
 
+/* sockets */
+int	fmaster_fix_pending_socket_to_master(struct thread *, int,
+					     const char *);
+int	fmaster_fix_pending_socket_to_slave(struct thread *, int, const char *);
+int	fmaster_get_pending_socket(struct thread *, int,
+				   struct fmaster_pending_sock *);
+int	fmaster_register_pending_socket(struct thread *, int, int, int);
+int	fmaster_setsockopt_pending_sock(struct thread *, int, int, int, void *,
+					int);
+
 /* protocols */
 int	fmaster_connect_to_mhub(struct thread *, const char *, uint64_t, pid_t,
 				int *);
@@ -121,7 +139,8 @@ int	fmaster_execute_return_generic32(struct thread *, command_t);
 int	fmaster_execute_return_generic64(struct thread *, command_t);
 int	fmaster_execute_return_int32_with_token(struct thread *, command_t,
 						char **, uint64_t *);
-int	fmaster_execute_connect_protocol(struct thread *td, const char *command,
+int	fmaster_execute_setsockopt(struct thread *, int, int, int, void *, int);
+int	fmaster_execute_connect_protocol(struct thread *td,
 					 command_t call_command,
 					 command_t return_command, int s,
 					 struct sockaddr *name,
@@ -178,12 +197,6 @@ int	fmaster_do_kevent(struct thread *, const struct kevent *, int,
 			  struct kevent *, int *, const struct timespec *);
 
 /* misc */
-enum fmaster_side {
-	SIDE_MASTER = 0x01,
-	SIDE_SLAVE = 0x02,
-	SIDE_BOTH = SIDE_MASTER | SIDE_SLAVE
-};
-
 enum fmaster_pre_execute_result {
 	PRE_EXEC_END,
 	PRE_EXEC_CONT

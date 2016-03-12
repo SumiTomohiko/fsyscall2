@@ -22,6 +22,8 @@ fstatfs_main(struct thread *td, int fd, struct statfs *ubuf)
 		return (kern_fstatfs(td, lfd, ubuf));
 	case FFP_SLAVE:
 		break;
+	case FFP_PENDING_SOCKET:
+		return (EINVAL);
 	default:
 		return (EBADF);
 	}

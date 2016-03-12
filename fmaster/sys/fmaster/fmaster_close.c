@@ -7,6 +7,13 @@
 static const char *name = "close";
 
 static int
+nop(struct thread *td, int fd)
+{
+
+	return (0);
+}
+
+static int
 fmaster_close_main(struct thread *td, struct fmaster_close_args *uap)
 {
 	int (*closef)(struct thread *, int);
@@ -27,8 +34,22 @@ fmaster_close_main(struct thread *td, struct fmaster_close_args *uap)
 		fmaster_log(td, LOG_DEBUG,
 			    "%s: closing fd %d (%s %d)",
 			    name, fd, placestr, lfd);
-		closef = place == FFP_MASTER ? kern_close
-					     : fmaster_execute_close;
+		switch (place) {
+		case FFP_MASTER:
+			closef = kern_close;
+			break;
+		case FFP_SLAVE:
+			closef = fmaster_execute_close;
+			break;
+		case FFP_PENDING_SOCKET:
+			fmaster_log(td, LOG_INFO,
+				    "%s: closed a pending socket: fd=%d",
+				    name, fd);
+			closef = nop;
+			break;
+		default:
+			return (EINVAL);
+		}
 		error = closef(td, lfd);
 		if (error != 0)
 			return (error);

@@ -5,6 +5,8 @@
 #include <fsyscall/private/fmaster.h>
 #include <sys/fmaster/fmaster_proto.h>
 
+static const char *sysname = "dup2";
+
 static int
 fmaster_dup2_main(struct thread *td, int from, int to)
 {
@@ -35,6 +37,12 @@ fmaster_dup2_main(struct thread *td, int from, int to)
 				if (error != 0)
 					return (error);
 				break;
+			case FFP_PENDING_SOCKET:
+				fmaster_log(td, LOG_INFO,
+					    "%s: closed a pending socket for du"
+					    "p2(2) destination: fd=%d",
+					    sysname, to);
+				break;
 			default:
 				return (EBADF);
 			}
@@ -52,18 +60,17 @@ sys_fmaster_dup2(struct thread *td, struct fmaster_dup2_args *uap)
 {
 	struct timeval time_start;
 	int error, from, to;
-	const char *name = "dup2";
 
 	from = uap->from;
 	to = uap->to;
 	fmaster_log(td, LOG_DEBUG,
 		    "%s: started: from=%u, to=%u",
-		    name, from, to);
+		    sysname, from, to);
 	microtime(&time_start);
 
 	error = fmaster_dup2_main(td, from, to);
 
-	fmaster_log_syscall_end(td, name, &time_start, error);
+	fmaster_log_syscall_end(td, sysname, &time_start, error);
 
 	return (error);
 }

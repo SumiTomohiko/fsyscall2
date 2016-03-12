@@ -1,0 +1,5 @@
+
+cmd="getsockopt_pending_sock/getsockopt_pending_sock"
+expected_status="0"
+
+# vim: filetype=sh
