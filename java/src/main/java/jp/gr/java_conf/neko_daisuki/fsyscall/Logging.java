@@ -79,6 +79,28 @@ public class Logging {
 
     public static class Logger {
 
+        private interface LoggingProc {
+
+            public void log(String fmt, Object... args);
+        }
+
+        private class VerboseProc implements LoggingProc {
+
+            public void log(String fmt, Object... args) {
+                verbose(fmt, args);
+            }
+        }
+
+        private class ErrProc implements LoggingProc {
+
+            public void log(String fmt, Object... args) {
+                err(fmt, args);
+            }
+        }
+
+        private final LoggingProc VERBOSE_PROC = new VerboseProc();
+        private final LoggingProc ERR_PROC = new ErrProc();
+
         private String mTag;
 
         public Logger(String tag) {
@@ -87,6 +109,10 @@ public class Logging {
 
         public void verbose(String fmt, Object... args) {
             mDestination.verbose(formatMessage(fmt, args));
+        }
+
+        public void verbose(Throwable e, String fmt, Object... args) {
+            log(VERBOSE_PROC, e, fmt, args);
         }
 
         public void debug(String fmt, Object... args) {
@@ -106,12 +132,7 @@ public class Logging {
         }
 
         public void err(Throwable e, String fmt, Object... args) {
-            String message = String.format(fmt, args);
-            err(String.format("%s: %s", message, e.getMessage()));
-            StackTraceElement[] elements = e.getStackTrace();
-            for (int i = 0; i < elements.length; i++) {
-                err(elements[i].toString());
-            }
+            log(ERR_PROC, e, fmt, args);
         }
 
         public void trace(String fmt, Object... args) {
@@ -120,6 +141,11 @@ public class Logging {
 
         public void trace() {
             verbose("%s", getCallerPosition());
+        }
+
+        public void stacktrace(String fmt, Object... args) {
+            verbose(fmt, args);
+            logStacktrace(VERBOSE_PROC, new Throwable().getStackTrace());
         }
 
         private String getCallerPosition() {
@@ -131,6 +157,20 @@ public class Logging {
             String name = Thread.currentThread().getName();
             String message = String.format(fmt, args);
             return String.format("%s: %s: %s", name, mTag, message);
+        }
+
+        private void log(LoggingProc proc, Throwable e, String fmt,
+                         Object... args) {
+            proc.log("%s: %s", String.format(fmt, args), e.getMessage());
+            logStacktrace(proc, e.getStackTrace());
+        }
+
+        private void logStacktrace(LoggingProc proc,
+                                   StackTraceElement[] elements) {
+            int len = elements.length;
+            for (int i = 0; i < len; i++) {
+                proc.log(elements[i].toString());
+            }
         }
     }
 
