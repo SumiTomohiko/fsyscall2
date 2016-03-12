@@ -54,6 +54,10 @@ class Process {
         this(pid, null, null);
     }
 
+    public String toString() {
+        return String.format("Process(pid=%s)", mPid);
+    }
+
     public Process getParent() {
         return mParent;
     }
