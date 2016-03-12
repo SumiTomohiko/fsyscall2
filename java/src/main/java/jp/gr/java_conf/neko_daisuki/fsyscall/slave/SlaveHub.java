@@ -151,18 +151,20 @@ class SlaveHub {
 
     private void processSignaled(SlavePeer slave) throws IOException {
         byte signum = slave.getInputStream().readByte();
+        PairId pairId = slave.getPairId();
 
-        String fmt = "processing SIGNALED: signal=%d (%s)";
-        mLogger.debug(fmt, signum, Signal.toString(signum));
+        String fmt = "processing SIGNALED: pairId=%s, signal=%d (%s)";
+        mLogger.debug(fmt, pairId, signum, Signal.toString(signum));
 
         SyscallOutputStream out = mMhub.getOutputStream();
         out.write(Command.SIGNALED);
-        out.write(slave.getPairId());
+        out.write(pairId);
         out.write(signum);
     }
 
     private void processSlave(SlavePeer slave) throws IOException {
         //mLogger.verbose("the work for the slave is being processed.");
+        PairId pairId = slave.getPairId();
 
         SyscallInputStream in = slave.getInputStream();
         Command command = in.readCommand();
@@ -172,12 +174,12 @@ class SlaveHub {
         }
         PayloadSize payloadSize = in.readPayloadSize();
 
-        //String fmt = "from the slave to the master: command=%s, payloadSize=%s";
-        //mLogger.debug(String.format(fmt, command, payloadSize));
+        //String fmt = "from the slave to the master: pairId=%s, command=%s, payloadSize=%s";
+        //mLogger.debug(String.format(fmt, pairId, command, payloadSize));
 
         SyscallOutputStream out = mMhub.getOutputStream();
         out.write(command);
-        out.write(slave.getPairId());
+        out.write(pairId);
         out.write(payloadSize);
         out.copyInputStream(in, payloadSize);
 
@@ -190,8 +192,8 @@ class SlaveHub {
         SyscallInputStream in = mMhub.getInputStream();
         Command command = in.readCommand();
         PairId pairId = in.readPairId();
-        //String fmt = "command received: command=%s, pairId=%s";
-        //mLogger.debug(String.format(fmt, command, pairId));
+        //String fmt = "command received: pairId=%s, command=%s";
+        //mLogger.debug(String.format(fmt, pairId, command));
 
         SyscallOutputStream out = mSlaves.get(pairId).getOutputStream();
 
