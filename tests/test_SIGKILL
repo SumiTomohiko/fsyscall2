@@ -1,0 +1,5 @@
+
+cmd="SIGKILL/SIGKILL"
+expected_status="0"
+
+# vim: filetype=sh

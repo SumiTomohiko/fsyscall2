@@ -6,32 +6,43 @@
 #include <fsyscall/private.h>
 #include <fsyscall/private/command.h>
 
-command_t	read_command(int);
-int8_t		read_int8(int, int *);
-int16_t		read_int16(int, int *);
-int32_t		read_int32(int, int *);
-int64_t		read_int64(int, int *);
-payload_size_t	read_payload_size(int);
-pair_id_t	read_pair_id(int);
-void		read_sigset(int, sigset_t *, int *);
-char *		read_string(int, uint64_t *);
-void		read_timeval(int, struct timeval *, int *);
-#define		read_uint8(fd, len)	((uint8_t)read_int8((fd), (len)))
-#define		read_uint16(fd, len)	((uint16_t)read_int16((fd), (len)))
-#define		read_uint32(fd, len)	((uint32_t)read_int32((fd), (len)))
-#define		read_uint64(fd, len)	((uint64_t)read_int64((fd), (len)))
-#define		read_short		read_int16
-#define		read_int		read_int32
-#define		read_long		read_int64
-#define		read_ushort		read_uint16
-#define		read_uint		read_uint32
-#define		read_ulong		read_uint64
-#define		read_socklen		read_uint32
-#define		read_pid		read_int32
-#define		read_time		read_int64
-#define		read_susecond		read_int64
-void		read_or_die(int, const void *, size_t);
-int		read_numeric_sequence(int, char *, int);
+struct io {
+	int	io_fd;
+	int	io_error;
+};
+
+void	io_init(struct io *, int);
+
+int	io_read_command(struct io *, command_t *);
+int	io_read_int8(struct io *, int8_t *, payload_size_t *);
+int	io_read_int16(struct io *, int16_t *, payload_size_t *);
+int	io_read_int32(struct io *, int32_t *, payload_size_t *);
+int	io_read_int64(struct io *, int64_t *, payload_size_t *);
+int	io_read_payload_size(struct io *, payload_size_t *);
+int	io_read_pair_id(struct io *, pair_id_t *);
+int	io_read_sigset(struct io *, sigset_t *, payload_size_t *);
+int	io_read_string(struct io *, char **, payload_size_t *);
+int	io_read_timeval(struct io *, struct timeval *, payload_size_t *);
+#define	io_read_uint8(io, n, len)	io_read_int8((io),	\
+						     (int8_t *)(n), (len))
+#define	io_read_uint16(io, n, len)	io_read_int16((io),	\
+						      (int16_t *)(n), (len))
+#define	io_read_uint32(io, n, len)	io_read_int32((io),	\
+						      (int32_t *)(n), (len))
+#define	io_read_uint64(io, n, len)	io_read_int64((io),	\
+						      (int64_t *)(n), (len))
+#define	io_read_short		io_read_int16
+#define	io_read_int		io_read_int32
+#define	io_read_long		io_read_int64
+#define	io_read_ushort		io_read_uint16
+#define	io_read_uint		io_read_uint32
+#define	io_read_ulong		io_read_uint64
+#define	io_read_socklen		io_read_uint32
+#define	io_read_pid		io_read_int32
+#define	io_read_time		io_read_int64
+#define	io_read_susecond	io_read_int64
+int	io_read_all(struct io *, void *, payload_size_t);
+int	io_read_numeric_sequence(struct io *, char *, payload_size_t);
 
 void		write_command(int, command_t);
 void		write_int32(int, int32_t);
@@ -42,6 +53,6 @@ void		write_payload_size(int, payload_size_t);
 #define		write_pid(fd, pid)	write_int32((fd), (pid))
 void		write_or_die(int, const void *, size_t);
 
-void		transfer(int, int, uint32_t);
+int	io_transfer(struct io *, int, uint32_t);
 
 #endif

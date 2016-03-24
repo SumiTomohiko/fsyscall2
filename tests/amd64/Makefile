@@ -1,9 +1,9 @@
 
 LIBDIR=	do_stat_test print_stat_member lib tiny_runtime
-SUBDIR=	${LIBDIR} accept access ancillary_from_client bind chdir chdir_access \
-	chdir_error chdir_lstat chdir_open chdir_readlink chdir_stat chmod \
-	chmod_error close close_pending_sock close_twice connect dup \
-	dup2_closed2closed dup2_closed2master dup2_closed2slave \
+SUBDIR=	${LIBDIR} SIGKILL accept access ancillary_from_client bind chdir \
+	chdir_access chdir_error chdir_lstat chdir_open chdir_readlink \
+	chdir_stat chmod chmod_error close close_pending_sock close_twice \
+	connect dup dup2_closed2closed dup2_closed2master dup2_closed2slave \
 	dup2_master2closed dup2_master2master dup2_master2slave dup2_nothing \
 	dup2_slave2closed dup2_slave2master dup2_slave2slave \
 	dup2_to_pending_sock dup_and_close execve exit fcntl fdpassing \

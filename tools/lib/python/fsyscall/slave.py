@@ -44,6 +44,7 @@ def print_fslave_head(p, syscall):
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fslave.h>
 #include <fsyscall/private/io.h>
+#include <fsyscall/private/io_or_die.h>
 
 static void
 execute_call({args})

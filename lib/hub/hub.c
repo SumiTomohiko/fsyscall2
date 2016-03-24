@@ -11,6 +11,7 @@
 #include <fsyscall/private/close_or_die.h>
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/io.h>
+#include <fsyscall/private/io_or_die.h>
 
 void
 transport_fds(int rfd, int wfd)
