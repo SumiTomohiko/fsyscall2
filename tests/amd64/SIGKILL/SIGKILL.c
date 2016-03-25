@@ -22,18 +22,21 @@ static int
 parent_main(pid_t pid)
 {
 	struct timespec t;
-	int status;
+	int sig, status;
 
 	t.tv_sec = 1;
 	t.tv_nsec = 0;
 	if (nanosleep(&t, NULL) == -1)
 		return (1);
-	if (kill(pid, SIGKILL) == -1)
+	sig = SIGKILL;
+	if (kill(pid, sig) == -1)
 		return (2);
 	if (wait4(pid, &status, 0, NULL) == -1)
 		return (3);
 	if (!WIFSIGNALED(status))
 		return (4);
+	if (WTERMSIG(status) != sig)
+		return (5);
 
 	return (0);
 }
