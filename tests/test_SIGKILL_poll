@@ -1,5 +1,5 @@
 
-cmd="SIGKILL/SIGKILL"
+cmd="SIGKILL_poll/SIGKILL_poll"
 expected_status="0"
 
 # vim: filetype=sh

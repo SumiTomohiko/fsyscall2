@@ -1,0 +1,5 @@
+
+cmd="SIGKILL_wait4/SIGKILL_wait4"
+expected_status="0"
+
+# vim: filetype=sh
