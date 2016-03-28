@@ -126,6 +126,10 @@ public class SyscallInputStream {
         return buffer;
     }
 
+    public byte[] read(PayloadSize len) throws IOException {
+        return read(len.toInteger());
+    }
+
     public String readString() throws IOException {
         int len = readInteger();
         byte[] bytes = read(len);

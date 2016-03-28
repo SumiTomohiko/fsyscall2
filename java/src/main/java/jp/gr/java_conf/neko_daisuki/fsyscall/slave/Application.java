@@ -139,15 +139,14 @@ public class Application {
     private Processes mZombies = new Processes();
     private Process mInit;
     private SlaveHub mSlaveHub;
-    private Integer mExitStatus;
+    private int mExitStatus;
     private PidGenerator mPidGenerator = new PidGenerator();
 
-    private Object mTerminationMonitor = new Object();
     private boolean mCancelled = false;
     private LocalBoundSockets mLocalBoundSockets = new LocalBoundSockets();
     private String mResourceDirectory;
     private ResourceFiles mResourceFiles = new ResourceFiles();
-    private Alarm mAlarm = new Alarm();
+    private Alarm mAlarm = new Alarm();     // kind of giant lock
 
     /**
      * This is for thr_new(2) (fork(2) also uses this internally).
@@ -219,14 +218,13 @@ public class Application {
 
         new Thread(slave).start();
         mSlaveHub.work();
-        synchronized (mTerminationMonitor) {
+        synchronized (mAlarm) {
             while (!mProcesses.isEmpty()) {
-                mTerminationMonitor.wait();
+                mAlarm.wait();
             }
         }
 
-        return (!mCancelled && mExitStatus != null) ? mExitStatus.intValue()
-                                                    : 255;
+        return !mCancelled ? mExitStatus : 255;
     }
 
     public void cancel() {
@@ -262,7 +260,7 @@ public class Application {
 
     public boolean pollChildTermination(Pid pid) throws UnixException {
         Process process;
-        synchronized (mTerminationMonitor) {
+        synchronized (mAlarm) {
             process = findZombie(pid);
         }
         if (process == null) {
@@ -270,17 +268,6 @@ public class Application {
         }
         releaseProcess(process);
         return true;
-    }
-
-    public void waitChildTermination(Pid pid) throws InterruptedException,
-                                                     UnixException {
-        Process process;
-        synchronized (mTerminationMonitor) {
-            while ((process = findZombie(pid)) == null) {
-                mTerminationMonitor.wait();
-            }
-        }
-        releaseProcess(process);
     }
 
     public void kill(Pid pid, Signal sig) throws UnixException {
@@ -296,13 +283,12 @@ public class Application {
     }
 
     public void onSlaveTerminated(Process process) {
-        synchronized (mTerminationMonitor) {
-            mExitStatus = mExitStatus != null ? mExitStatus
-                                              : process.getExitStatus();
+        synchronized (mAlarm) {
+            mExitStatus = process.getExitStatus();
             if (!process.isRunning()) {
                 mProcesses.remove(process);
                 mZombies.add(process);
-                mTerminationMonitor.notifyAll();
+                mAlarm.alarm();
             }
         }
     }

@@ -20,6 +20,7 @@
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/hub.h>
 #include <fsyscall/private/io.h>
+#include <fsyscall/private/io_or_die.h>
 #include <fsyscall/private/list.h>
 #include <fsyscall/private/log.h>
 #include <fsyscall/private/malloc_or_die.h>
@@ -29,6 +30,7 @@ struct slave {
 	int rfd;
 	int wfd;
 	pair_id_t pair_id;
+	bool exited;
 };
 
 #define	TOKEN_SIZE	64
@@ -186,7 +188,7 @@ process_thr_exit(struct shub *shub)
 
 	write_command(slave->wfd, THR_EXIT_CALL);
 
-	dispose_slave(slave);
+	slave->exited = true;
 }
 
 static void
@@ -206,7 +208,7 @@ process_exit(struct shub *shub)
 	write_command(wfd, EXIT_CALL);
 	write_int32(wfd, status);
 
-	dispose_slave(slave);
+	slave->exited = true;
 }
 
 static bool
@@ -230,6 +232,17 @@ find_fork_info_or_die(struct shub *shub, const char *token)
 	return (struct fork_info *)item;
 }
 
+static struct slave *
+alloc_slave()
+{
+	struct slave *slave;
+
+	slave = (struct slave *)malloc_or_die(sizeof(*slave));
+	slave->exited = false;
+
+	return (slave);
+}
+
 static void
 process_fork_socket(struct shub *shub)
 {
@@ -249,7 +262,7 @@ process_fork_socket(struct shub *shub)
 	fi = find_fork_info_or_die(shub, token);
 	syslog(LOG_INFO, "A trusted slave has been connected.");
 
-	slave = (struct slave *)malloc_or_die(sizeof(*slave));
+	slave = alloc_slave();
 	slave->rfd = slave->wfd = fd;
 	pair_id = slave->pair_id = fi->pair_id;
 	PREPEND_ITEM(&shub->slaves, slave);
@@ -290,13 +303,16 @@ transfer_token(struct shub *shub, command_t cmd)
 	process_fork_socket(shub);
 }
 
-static void
+static int
 process_mhub(struct shub *shub)
 {
+	struct io io;
 	command_t cmd;
 	const char *fmt = "processing %s from the master";
 
-	cmd = read_command(shub->mhub.rfd);
+	io_init(&io, shub->mhub.rfd);
+	if (io_read_command(&io, &cmd) == -1)
+		return (-1);
 	syslog(LOG_DEBUG, fmt, get_command_name(cmd));
 	switch (cmd) {
 	case EXIT_CALL:
@@ -336,34 +352,49 @@ process_mhub(struct shub *shub)
 		diex(-1, "unknown command (%d) from the master hub", cmd);
 		/* NOTREACHED */
 	}
+
+	return (0);
 }
 
 static void
-process_signaled(struct shub *shub, struct slave *slave, command_t cmd)
+write_signaled(struct shub *shub, struct slave *slave, char sig)
 {
 	int wfd;
+
+	wfd = shub->mhub.wfd;
+	write_command(wfd, SIGNALED);
+	write_pair_id(wfd, slave->pair_id);
+	write_or_die(wfd, &sig, sizeof(sig));
+}
+
+static int
+process_signaled(struct shub *shub, struct slave *slave)
+{
 	char sig;
 
 	read_or_die(slave->rfd, &sig, sizeof(sig));
 	syslog(LOG_DEBUG, "signal: %d (SIG%s)", sig, sys_signame[(int)sig]);
 
-	wfd = shub->mhub.wfd;
-	write_command(wfd, cmd);
-	write_pair_id(wfd, slave->pair_id);
-	write_or_die(wfd, &sig, sizeof(sig));
+	write_signaled(shub, slave, sig);
+
+	return (0);
 }
 
-static void
+static int
 transfer_payload_from_slave(struct shub *shub, struct slave *slave,
 			    command_t cmd)
 {
+	struct io io;
 	uint32_t payload_size;
-	int len, rfd, wfd;
+	int len, wfd;
 	char buf[FSYSCALL_BUFSIZE_UINT32];
 	const char *name;
 
-	rfd = slave->rfd;
-	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
+	io_init(&io, slave->rfd);
+
+	len = io_read_numeric_sequence(&io, buf, array_sizeof(buf));
+	if (len == -1)
+		return (-1);
 	payload_size = decode_uint32(buf, len);
 
 	name = get_command_name(cmd);
@@ -373,12 +404,16 @@ transfer_payload_from_slave(struct shub *shub, struct slave *slave,
 	write_command(wfd, cmd);
 	write_pair_id(wfd, slave->pair_id);
 	write_or_die(wfd, buf, len);
-	transfer(rfd, wfd, payload_size);
+	if (io_transfer(&io, wfd, payload_size) == -1)
+		return (-1);
+
+	return (0);
 }
 
-static void
+static int
 process_slave(struct shub *shub, struct slave *slave)
 {
+	struct io io;
 	pair_id_t pair_id;
 	command_t cmd;
 	int rfd;
@@ -390,12 +425,13 @@ process_slave(struct shub *shub, struct slave *slave)
 	rfd = slave->rfd;
 	syslog(LOG_DEBUG, fmt, pair_id, rfd);
 
-	cmd = read_command(slave->rfd);
+	io_init(&io, rfd);
+	if (io_read_command(&io, &cmd) == -1)
+		return (-1);
 	syslog(LOG_DEBUG, fmt2, get_command_name(cmd), pair_id);
 	switch (cmd) {
 	case SIGNALED:
-		process_signaled(shub, slave, cmd);
-		break;
+		return (process_signaled(shub, slave));
 	case FORK_RETURN:
 	case CLOSE_RETURN:
 	case POLL_RETURN:
@@ -416,14 +452,16 @@ process_slave(struct shub *shub, struct slave *slave)
 	case UTIMES_RETURN:
 	case GETDIRENTRIES_RETURN:
 #include "dispatch_ret.inc"
-		transfer_payload_from_slave(shub, slave, cmd);
-		break;
+		return (transfer_payload_from_slave(shub, slave, cmd));
 	default:
 		diex(-1, errfmt, cmd, slave->pair_id);
 	}
+
+	/* NOTREACHED */
+	return (-1);
 }
 
-static void
+static int
 process_fd(struct shub *shub, int fd, fd_set *fds)
 {
 	/*
@@ -433,17 +471,25 @@ process_fd(struct shub *shub, int fd, fd_set *fds)
 	struct slave *slave;
 
 	if (!FD_ISSET(fd, fds))
-		return;
-	if (shub->mhub.rfd == fd) {
-		process_mhub(shub);
-		return;
-	}
+		return (0);
+	if (shub->mhub.rfd == fd)
+		return (process_mhub(shub));
 
 	slave = find_slave_of_rfd(shub, fd);
-	process_slave(shub, slave);
+	if (process_slave(shub, slave) == -1) {
+		/*
+		 * If a slave died without exit(2) calling, here assumes that
+		 * the slave was killed by SIGKILL.
+		 */
+		if (!slave->exited)
+			write_signaled(shub, slave, SIGKILL);
+		dispose_slave(slave);
+	}
+
+	return (0);
 }
 
-static void
+static int
 process_fds(struct shub *shub)
 {
 	/*
@@ -475,14 +521,18 @@ process_fds(struct shub *shub)
 	if (n == -1)
 		die(-1, "select failed");
 	for (i = 0; i < nfds; i++)
-		process_fd(shub, i, pfds);
+		if (process_fd(shub, i, pfds) == -1)
+			return (-1);
+
+	return (0);
 }
 
 static void
 mainloop(struct shub *shub)
 {
 	while (!IS_EMPTY(&shub->slaves) || !IS_EMPTY(&shub->fork_info))
-		process_fds(shub);
+		if (process_fds(shub) == -1)
+			break;
 }
 
 static int
@@ -561,7 +611,7 @@ main(int argc, char *argv[])
 	log_fds("mhub", pshub->mhub.rfd, pshub->mhub.wfd);
 
 	initialize_list(&pshub->slaves);
-	struct slave *slave = (struct slave *)malloc_or_die(sizeof(*slave));
+	struct slave *slave = alloc_slave();
 	slave->rfd = atoi_or_die(args[2], "slave_rfd");
 	slave->wfd = atoi_or_die(args[3], "slave_wfd");
 	PREPEND_ITEM(&pshub->slaves, slave);

@@ -2604,7 +2604,13 @@ fmaster_release_thread(struct thread *td)
 	struct fmaster_thread_data *tdata;
 	struct fmaster_threads *threads;
 	struct rmlock *lock;
-	int nthreads;
+	int nthreads, rfd, wfd;
+
+	rfd = fmaster_rfd_of_thread(td);
+	wfd = fmaster_wfd_of_thread(td);
+	kern_close(td, rfd);
+	if (rfd != wfd)
+		kern_close(td, wfd);
 
 	tdata = fmaster_thread_data_of_thread(td);
 	data = fmaster_proc_data_of_thread(td);

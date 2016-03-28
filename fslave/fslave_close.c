@@ -17,6 +17,7 @@
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fslave.h>
 #include <fsyscall/private/io.h>
+#include <fsyscall/private/io_or_die.h>
 
 static void
 execute_call(struct slave_thread *slave_thread, int *retval, int *errnum)

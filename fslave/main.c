@@ -32,6 +32,7 @@
 #include <fsyscall/private/fslave.h>
 #include <fsyscall/private/fslave/proto.h>
 #include <fsyscall/private/io.h>
+#include <fsyscall/private/io_or_die.h>
 #include <fsyscall/private/log.h>
 #include <fsyscall/private/malloc_or_die.h>
 #include <fsyscall/private/payload.h>

@@ -698,7 +698,48 @@ public class Unix {
         }
     }
 
+    public static final int WCOREFLAG = 0200;
     public static final int _WSTOPPED = 0177;
+
+    public static int _W_INT(int i) {
+        return i;
+    }
+
+    public static int _WSTATUS(int x) {
+        return _W_INT(x) & 0177;
+    }
+
+    public static boolean WIFSTOPPED(int x) {
+        return _WSTATUS(x) == _WSTOPPED;
+    }
+
+    public static int WSTOPSIG(int x) {
+        return _W_INT(x) >> 8;
+    }
+
+    public static boolean WIFSIGNALED(int x) {
+        return (_WSTATUS(x) != _WSTOPPED) && (_WSTATUS(x) != 0);
+    }
+
+    public static int WTERMSIG(int x) {
+        return _WSTATUS(x);
+    }
+
+    public static boolean WIFEXITED(int x) {
+        return _WSTATUS(x) == 0;
+    }
+
+    public static int WEXITSTATUS(int x) {
+        return _W_INT(x) >> 8;
+    }
+
+    public static boolean WIFCONTINUED(int x) {
+        return x == 0x13;
+    }
+
+    public static int WCOREDUMP(int x) {
+        return _W_INT(x) & WCOREFLAG;
+    }
 
     public static int W_EXITCODE(int ret, int sig) {
         return (ret << 8) | sig;

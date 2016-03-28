@@ -15,6 +15,13 @@
 #include <fsyscall/private/malloc_or_die.h>
 
 void
+io_init(struct io *io, int fd)
+{
+
+	io->io_fd = fd;
+}
+
+void
 write_or_die(int fd, const void *buf, size_t nbytes)
 {
 	size_t n = 0;
@@ -47,18 +54,19 @@ write_or_die(int fd, const void *buf, size_t nbytes)
 	}
 }
 
-void
-read_or_die(int fd, const void *buf, size_t nbytes)
+int
+io_read_all(struct io *io, void *buf, payload_size_t nbytes)
 {
 	fd_set fds;
 	struct timeval timeout;
 	size_t n = 0;
 	ssize_t m;
-	int l;
+	int fd, l;
 
 	timeout.tv_sec = 8;	/* Caller must give this. */
 	timeout.tv_usec = 0;
 
+	fd = io->io_fd;
 	while (n < nbytes) {
 		FD_ZERO(&fds);
 		FD_SET(fd, &fds);
@@ -72,12 +80,16 @@ read_or_die(int fd, const void *buf, size_t nbytes)
 			die_with_message(1, "select(2) timeout");
 
 		m = read(fd, (char *)buf + n, nbytes - n);
-		if (m == 0)
-			diex(-1, "end-of-file in reading fd of %d", fd);
+		if (m == 0) {
+			io->io_error = EPIPE;
+			return (-1);
+		}
 		if (m < 0)
 			die(-1, "cannot read fd %d", fd);
 		n += m;
 	}
+
+	return (0);
 }
 
 #define	IMPLEMENT_WRITE_X(type, name, bufsize, encode)	\
@@ -110,56 +122,68 @@ IMPLEMENT_WRITE_X(
 		encode_uint64)
 
 int
-read_numeric_sequence(int fd, char *buf, int bufsize)
+io_read_numeric_sequence(struct io *io, char *buf, payload_size_t bufsize)
 {
 	int nbytes, pos;
 
 	pos = 0;
 	nbytes = sizeof(buf[0]);
-	read_or_die(fd, &buf[pos], nbytes);
+	if (io_read_all(io, &buf[pos], nbytes) == -1)
+		return (-1);
 	while ((buf[pos] & 0x80) != 0) {
 		pos++;
 		assert(pos < bufsize);
-		read_or_die(fd, &buf[pos], nbytes);
+		if (io_read_all(io, &buf[pos], nbytes) == -1)
+			return (-1);
 	}
 
 	return (pos + 1);
 }
 
 #define	IMPLEMENT_READ_X(type, name, bufsize, decode)			\
-type									\
-name(int fd, int *len)							\
+int									\
+name(struct io *io, type *n, payload_size_t *len)			\
 {									\
+	payload_size_t size;						\
 	char buf[bufsize];						\
 									\
-	*len = read_numeric_sequence(fd, buf, array_sizeof(buf));	\
-	return (decode(buf, *len));					\
+	size = io_read_numeric_sequence(io, buf, array_sizeof(buf));	\
+	if (size == -1)							\
+		return (-1);						\
+	*n = decode(buf, size);						\
+	*len = size;							\
+									\
+	return (0);							\
 }
 
-IMPLEMENT_READ_X(int8_t, read_int8, FSYSCALL_BUFSIZE_INT8, decode_int8)
-IMPLEMENT_READ_X(int16_t, read_int16, FSYSCALL_BUFSIZE_INT16, decode_int16)
-IMPLEMENT_READ_X(int32_t, read_int32, FSYSCALL_BUFSIZE_INT32, decode_int32)
-IMPLEMENT_READ_X(int64_t, read_int64, FSYSCALL_BUFSIZE_INT64, decode_int64)
+IMPLEMENT_READ_X(int8_t, io_read_int8, FSYSCALL_BUFSIZE_INT8, decode_int8)
+IMPLEMENT_READ_X(int16_t, io_read_int16, FSYSCALL_BUFSIZE_INT16, decode_int16)
+IMPLEMENT_READ_X(int32_t, io_read_int32, FSYSCALL_BUFSIZE_INT32, decode_int32)
+IMPLEMENT_READ_X(int64_t, io_read_int64, FSYSCALL_BUFSIZE_INT64, decode_int64)
 
 #define	IMPLEMENT_READ_WITHOUT_LEN_X(type, name, bufsize, decode)	\
-type									\
-name(int fd)								\
+int									\
+name(struct io *io, type *n)						\
 {									\
 	int len;							\
 	char buf[bufsize];						\
 									\
-	len = read_numeric_sequence(fd, buf, array_sizeof(buf));	\
-	return (decode(buf, len));					\
+	len = io_read_numeric_sequence(io, buf, array_sizeof(buf));	\
+	if (len == -1)							\
+		return (-1);						\
+	*n = decode(buf, len);						\
+									\
+	return (0);							\
 }
 
 IMPLEMENT_READ_WITHOUT_LEN_X(
 		command_t,
-		read_command,
+		io_read_command,
 		FSYSCALL_BUFSIZE_COMMAND,
 		decode_command)
 IMPLEMENT_READ_WITHOUT_LEN_X(
 		payload_size_t,
-		read_payload_size,
+		io_read_payload_size,
 		FSYSCALL_BUFSIZE_PAYLOAD_SIZE,
 		decode_payload_size)
 
@@ -169,15 +193,16 @@ write_pair_id(int fd, pair_id_t pair_id)
 	write_uint64(fd, pair_id);
 }
 
-pair_id_t
-read_pair_id(int fd)
+int
+io_read_pair_id(struct io *io, pair_id_t *pair_id)
 {
-	int _;
-	return (read_uint64(fd, &_));
+	payload_size_t _;
+
+	return (io_read_uint64(io, pair_id, &_));
 }
 
-void
-transfer(int rfd, int wfd, uint32_t len)
+int
+io_transfer(struct io *io, int wfd, uint32_t len)
 {
 	uint32_t nbytes, rest;
 	char buf[1024];
@@ -185,47 +210,63 @@ transfer(int rfd, int wfd, uint32_t len)
 	rest = len;
 	while (0 < rest) {
 		nbytes = MIN(array_sizeof(buf), rest);
-		read_or_die(rfd, buf, nbytes);
+		if (io_read_all(io, buf, nbytes) == -1)
+			return (-1);
 		write_or_die(wfd, buf, nbytes);
 		rest -= nbytes;
 	}
+
+	return (0);
 }
 
-char *
-read_string(int rfd, uint64_t *total_len)
+int
+io_read_string(struct io *io, char **s, payload_size_t *total_len)
 {
 	uint64_t len;
-	int len_len;
+	payload_size_t len_len;
 	char *ptr;
 
-	len = read_uint64(rfd, &len_len);
+	if (io_read_uint64(io, &len, &len_len) == -1)
+		return (-1);
+
 	ptr = malloc_or_die(len + 1);
-	read_or_die(rfd, ptr, len);
+	if (io_read_all(io, ptr, len) == -1)
+		return (-1);
 	ptr[len] = '\0';
+
+	*s = ptr;
 	*total_len = len_len + len;
 
-	return (ptr);
+	return (0);
 }
 
-void
-read_sigset(int rfd, sigset_t *set, int *len)
+int
+io_read_sigset(struct io *io, sigset_t *set, payload_size_t *len)
 {
-	int i, n;
+	payload_size_t n;
+	int i;
 
 	*len = 0;
 	for (i = 0; i < _SIG_WORDS; i++) {
-		set->__bits[i] = read_uint32(rfd, &n);
+		if (io_read_uint32(io, &set->__bits[i], &n) == -1)
+			return (-1);
 		*len += n;
 	}
+
+	return (0);
 }
 
-void
-read_timeval(int rfd, struct timeval *t, int *len)
+int
+io_read_timeval(struct io *io, struct timeval *t, payload_size_t *len)
 {
-	int usec_len, sec_len;
+	payload_size_t usec_len, sec_len;
 
-	t->tv_sec = read_time(rfd, &sec_len);
-	t->tv_usec = read_susecond(rfd, &usec_len);
+	if (io_read_time(io, &t->tv_sec, &sec_len) == -1)
+		return (-1);
+	if (io_read_susecond(io, &t->tv_usec, &usec_len) == -1)
+		return (-1);
 
 	*len = sec_len + usec_len;
+
+	return (0);
 }

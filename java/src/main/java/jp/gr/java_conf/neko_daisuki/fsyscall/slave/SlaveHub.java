@@ -5,7 +5,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
@@ -14,6 +16,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
+import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
 
@@ -63,6 +66,7 @@ class SlaveHub {
     private Peer mMhub;
     private Map<PairId, SlavePeer> mSlaves;
     private Map<PairId, SlavePeer> mNewSlaves;
+    private Set<PairId> mDeadSlaves;
 
     private Alarm mAlarm;
 
@@ -83,6 +87,7 @@ class SlaveHub {
 
         mSlaves = new HashMap<PairId, SlavePeer>();
         mNewSlaves = Collections.synchronizedMap(new HashMap<PairId, SlavePeer>());
+        mDeadSlaves = new HashSet<PairId>();
         SlavePeer slave = addSlave(slaveIn, slaveOut, firstPairId);
 
         transportFileDescriptors(slave);
@@ -111,6 +116,7 @@ class SlaveHub {
                     break;
                 }
 
+                removeDeadSlaves();
                 addNewSlaves();
             }
         }
@@ -160,6 +166,17 @@ class SlaveHub {
         out.write(Command.SIGNALED);
         out.write(pairId);
         out.write(signum);
+
+        Signal sig;
+        try {
+            sig = Signal.valueOf(signum);
+        }
+        catch (UnixException unused) {
+            return;
+        }
+        if (Signal.SIGKILL.equals(sig)) {
+            removeSlave(pairId);
+        }
     }
 
     private void processSlave(SlavePeer slave) throws IOException {
@@ -186,6 +203,21 @@ class SlaveHub {
         //mLogger.verbose("the work for the slave was finished.");
     }
 
+    private void disposeCommand(SyscallInputStream in,
+                                Command command) throws IOException {
+        switch (command) {
+            case EXIT_CALL:
+                in.readInteger();
+                break;
+            case THR_EXIT_CALL:
+            case POLL_END:
+                break;
+            default:
+                in.read(in.readPayloadSize());
+                break;
+        }
+    }
+
     private void processMasterHub() throws IOException {
         //mLogger.verbose("the work for the master hub is being processed.");
 
@@ -195,7 +227,13 @@ class SlaveHub {
         //String fmt = "command received: pairId=%s, command=%s";
         //mLogger.debug(String.format(fmt, pairId, command));
 
-        SyscallOutputStream out = mSlaves.get(pairId).getOutputStream();
+        SlavePeer slave = mSlaves.get(pairId);
+        if (slave == null) {
+            disposeCommand(in, command);
+            return;
+        }
+
+        SyscallOutputStream out = slave.getOutputStream();
 
         switch (command) {
         case EXIT_CALL:
@@ -245,8 +283,15 @@ class SlaveHub {
         }
     }
 
-    private void removeSlave(PairId pairId) throws IOException {
-        mSlaves.remove(pairId).close();
+    private void removeDeadSlaves() throws IOException {
+        for (PairId pairId: mDeadSlaves) {
+            mSlaves.remove(pairId).close();
+        }
+        mDeadSlaves.clear();
+    }
+
+    private void removeSlave(PairId pairId) {
+        mDeadSlaves.add(pairId);
     }
 
     private void transportFileDescriptors(Peer slave) throws IOException {

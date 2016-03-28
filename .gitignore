@@ -255,6 +255,8 @@ tests/*/exit/exit
 tests/*/open/open
 tests/*/read/read
 tests/*/write/write
+tests/amd64/SIGKILL_poll/SIGKILL_poll
+tests/amd64/SIGKILL_wait4/SIGKILL_wait4
 tests/amd64/accept/accept
 tests/amd64/ancillary_from_client/ancillary_from_client
 tests/amd64/bind/bind

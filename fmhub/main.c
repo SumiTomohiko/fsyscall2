@@ -23,6 +23,7 @@
 #include <fsyscall/private/fork_or_die.h>
 #include <fsyscall/private/hub.h>
 #include <fsyscall/private/io.h>
+#include <fsyscall/private/io_or_die.h>
 #include <fsyscall/private/list.h>
 #include <fsyscall/private/log.h>
 #include <fsyscall/private/malloc_or_die.h>
@@ -388,13 +389,16 @@ transfer_token(struct mhub *mhub, command_t cmd)
 	process_fork_socket(mhub);
 }
 
-static void
+static int
 process_shub(struct mhub *mhub)
 {
+	struct io io;
 	command_t cmd;
 	const char *fmt = "processing %s from the slave hub.";
 
-	cmd = read_command(mhub->shub.rfd);
+	io_init(&io, mhub->shub.rfd);
+	if (io_read_command(&io, &cmd) == -1)
+		return (-1);
 	syslog(LOG_DEBUG, fmt, get_command_name(cmd));
 	switch (cmd) {
 	case SIGNALED:
@@ -427,6 +431,8 @@ process_shub(struct mhub *mhub)
 	default:
 		diex(-1, "unknown command (%d) from the slave hub.", cmd);
 	}
+
+	return (0);
 }
 
 static void
@@ -438,23 +444,7 @@ dispose_master(struct master *master)
 	free(master);
 }
 
-static void
-process_thr_exit(struct mhub *mhub, struct master *master)
-{
-	pair_id_t pair_id;
-	int wfd;
-
-	pair_id = master->pair_id;
-	syslog(LOG_DEBUG, "THR_EXIT_CALL: pair_id=%ld", pair_id);
-
-	wfd = mhub->shub.wfd;
-	write_command(wfd, THR_EXIT_CALL);
-	write_pair_id(wfd, pair_id);
-
-	dispose_master(master);
-}
-
-static void
+static int
 process_exit(struct mhub *mhub, struct master *master)
 {
 	pair_id_t pair_id;
@@ -469,10 +459,10 @@ process_exit(struct mhub *mhub, struct master *master)
 	write_pair_id(wfd, pair_id);
 	write_int32(wfd, status);
 
-	dispose_master(master);
+	return (0);
 }
 
-static void
+static int
 transfer_simple_command_from_master(struct mhub *mhub, struct master *master,
 				    command_t cmd)
 {
@@ -485,19 +475,25 @@ transfer_simple_command_from_master(struct mhub *mhub, struct master *master,
 	wfd = mhub->shub.wfd;
 	write_command(wfd, cmd);
 	write_pair_id(wfd, pair_id);
+
+	return (0);
 }
 
-static void
+static int
 transfer_payload_from_master(struct mhub *mhub, struct master *master,
 			     command_t cmd)
 {
+	struct io io;
 	pair_id_t pair_id;
-	int len, payload_size, rfd, wfd;
+	int len, payload_size, wfd;
 	char buf[FSYSCALL_BUFSIZE_INT32];
 	const char *fmt = "%s: pair_id=%ld, payload_size=%d", *name;
 
-	rfd = master->rfd;
-	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
+	io_init(&io, master->rfd);
+
+	len = io_read_numeric_sequence(&io, buf, array_sizeof(buf));
+	if (len == -1)
+		return (-1);
 	payload_size = decode_int32(buf, len);
 
 	name = get_command_name(cmd);
@@ -508,22 +504,31 @@ transfer_payload_from_master(struct mhub *mhub, struct master *master,
 	write_command(wfd, cmd);
 	write_pair_id(wfd, pair_id);
 	write_or_die(wfd, buf, len);
-	transfer(rfd, wfd, payload_size);
+	if (io_transfer(&io, wfd, payload_size) == -1)
+		return (-1);
+
+	return (0);
 }
 
-static void
+static int
 read_fork_kind_call(struct mhub *mhub, struct master *master, command_t cmd)
 {
+	struct io io;
 	int len, payload_size;
 	char buf[FSYSCALL_BUFSIZE_PAYLOAD_SIZE];
 	const char *fmt = "%s: pair_id=%ld, payload_size=%d", *name;
 
-	len = read_numeric_sequence(master->rfd, buf, array_sizeof(buf));
+	io_init(&io, master->rfd);
+	len = io_read_numeric_sequence(&io, buf, array_sizeof(buf));
+	if (len == -1)
+		return (-1);
 	payload_size = decode_int32(buf, len);
 	assert(payload_size == 0);
 
 	name = get_command_name(cmd);
 	syslog(LOG_DEBUG, fmt, name, master->pair_id, payload_size);
+
+	return (0);
 }
 
 static void
@@ -543,12 +548,13 @@ write_fork_kind_call(struct mhub *mhub, struct master *master, command_t cmd,
 	write_or_die(wfd, buf, payload_size);
 }
 
-static void
+static int
 process_fork_kind_call(struct mhub *mhub, struct master *master, command_t cmd)
 {
 	struct fork_info *fi;
 
-	read_fork_kind_call(mhub, master, cmd);
+	if (read_fork_kind_call(mhub, master, cmd) == -1)
+		return (-1);
 
 	fi = (struct fork_info *)malloc_or_die(sizeof(*fi));
 	fi->parent_pair_id = master->pair_id;
@@ -561,27 +567,31 @@ process_fork_kind_call(struct mhub *mhub, struct master *master, command_t cmd)
 	PREPEND_ITEM(&mhub->fork_info, fi);
 
 	write_fork_kind_call(mhub, master, cmd, fi);
+
+	return (0);
 }
 
-static void
+static int
 process_master(struct mhub *mhub, struct master *master)
 {
+	struct io io;
 	command_t cmd;
 	pair_id_t pair_id;
 	const char *fmt = "unknown command (%d) from master (%ld)", *name;
 
-	cmd = read_command(master->rfd);
+	io_init(&io, master->rfd);
+
+	if (io_read_command(&io, &cmd) == -1)
+		return (-1);
 	name = get_command_name(cmd);
 	pair_id = master->pair_id;
 	syslog(LOG_DEBUG, "processing %s from the master %ld.", name, pair_id);
 	switch (cmd) {
 	case EXIT_CALL:
-		process_exit(mhub, master);
-		break;
+		return (process_exit(mhub, master));
 	case FORK_CALL:
 	case THR_NEW_CALL:
-		process_fork_kind_call(mhub, master, cmd);
-		break;
+		return (process_fork_kind_call(mhub, master, cmd));
 	case CLOSE_CALL:
 	case POLL_CALL:
 	case SELECT_CALL:
@@ -600,18 +610,16 @@ process_master(struct mhub *mhub, struct master *master)
 	case UTIMES_CALL:
 	case GETDIRENTRIES_CALL:
 #include "dispatch_call.inc"
-		transfer_payload_from_master(mhub, master, cmd);
-		break;
+		return (transfer_payload_from_master(mhub, master, cmd));
 	case POLL_END:
-		transfer_simple_command_from_master(mhub, master, cmd);
-		break;
 	case THR_EXIT_CALL:
-		process_thr_exit(mhub, master);
-		break;
+		return (transfer_simple_command_from_master(mhub, master, cmd));
 	default:
 		diex(-1, fmt, cmd, master->pair_id);
-		/* NOTREACHED */
 	}
+
+	/* NOTREACHED */
+	return (-1);
 }
 
 static bool
@@ -637,23 +645,24 @@ find_master_of_rfd(struct mhub *mhub, int rfd)
 	return ((struct master *)item);
 }
 
-static void
+static int
 process_fd(struct mhub *mhub, int fd, fd_set *fds)
 {
 	struct master *master;
 
 	if (!FD_ISSET(fd, fds))
-		return;
-	if (fd == mhub->shub.rfd) {
-		process_shub(mhub);
-		return;
-	}
+		return (0);
+	if (fd == mhub->shub.rfd)
+		return (process_shub(mhub));
 
 	master = find_master_of_rfd(mhub, fd);
-	process_master(mhub, master);
+	if (process_master(mhub, master) == -1)
+		dispose_master(master);
+
+	return (0);
 }
 
-static void
+static int
 process_fds(struct mhub *mhub)
 {
 	struct master *master;
@@ -678,14 +687,18 @@ process_fds(struct mhub *mhub)
 	if (n == -1)
 		die(-1, "select failed");
 	for (i = 0; i < nfds; i++)
-		process_fd(mhub, i, pfds);
+		if (process_fd(mhub, i, pfds) == -1)
+			return (-1);
+
+	return (0);
 }
 
 static void
 mainloop(struct mhub *mhub)
 {
 	while (!IS_EMPTY(&mhub->masters))
-		process_fds(mhub);
+		if (process_fds(mhub) == -1)
+			break;
 }
 
 static int
