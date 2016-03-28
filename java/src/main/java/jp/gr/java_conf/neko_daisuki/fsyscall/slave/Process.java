@@ -31,7 +31,7 @@ class Process {
 
     private Pid mPid;
     private UnixFile[] mFiles;
-    private Integer mExitStatus;
+    private int mExitCode;
     private Process mParent;
     private Processes mChildren = new Processes();
 
@@ -111,12 +111,20 @@ class Process {
         return files;
     }
 
-    public Integer getExitStatus() {
-        return mExitStatus;
+    public int getExitStatus() {
+        return Unix.WEXITSTATUS(mExitCode);
     }
 
-    public void setExitStatus(int val) {
-        mExitStatus = Integer.valueOf(val);
+    public void setExitCode(int ret) {
+        mExitCode = Unix.W_EXITCODE(ret, 0);
+    }
+
+    public void setExitCode(Signal sig) {
+        mExitCode = Unix.W_EXITCODE(0, sig.getNumber());
+    }
+
+    public int getExitCode() {
+        return mExitCode;
     }
 
     public Process findChild(Pid pid) {

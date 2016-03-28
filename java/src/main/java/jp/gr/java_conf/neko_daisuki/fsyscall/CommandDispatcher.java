@@ -8,7 +8,8 @@ public class CommandDispatcher {
 
     public abstract static class Proc implements Unix.Constants {
 
-        public abstract void call(Command command) throws IOException;
+        public abstract void call(Command command) throws IOException,
+                                                          SigkillException;
     }
 
     private Map<Command, Proc> mTable;

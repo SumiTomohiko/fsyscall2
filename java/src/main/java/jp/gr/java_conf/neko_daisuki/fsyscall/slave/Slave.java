@@ -35,6 +35,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFds;
+import jp.gr.java_conf.neko_daisuki.fsyscall.SigkillException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SocketAddress;
@@ -1891,7 +1892,7 @@ public class Slave implements Runnable {
         private Unix.TimeSpec mTimeout;
 
         public AlarmReactor(AlarmReaction reaction, long timeout /* msec */) {
-            setReaction(reaction);
+            this(reaction);
 
             if (timeout != Unix.Constants.INFTIM) {
                 int sec = (int)(timeout / 1000);
@@ -1901,7 +1902,7 @@ public class Slave implements Runnable {
         }
 
         public AlarmReactor(AlarmReaction reaction, Unix.TimeVal timeout) {
-            setReaction(reaction);
+            this(reaction);
 
             if (timeout != null) {
                 int sec = (int)timeout.tv_sec;
@@ -1910,7 +1911,11 @@ public class Slave implements Runnable {
             }
         }
 
-        public void run() throws IOException, UnixException {
+        public AlarmReactor(AlarmReaction reaction) {
+            mReaction = reaction;
+        }
+
+        public void run() throws IOException, SigkillException, UnixException {
             long t0 = System.nanoTime();
             long nanoTimeout = mTimeout != null ? mTimeout.toNanoTime() : 0;
             synchronized (mAlarm) {
@@ -1930,6 +1935,9 @@ public class Slave implements Runnable {
                     if ((mTimeout != null) && (nanoTimeout <= t)) {
                         return;
                     }
+                    if (mPendingSignals.contains(Signal.SIGKILL)) {
+                        throw new SigkillException();
+                    }
                     if (mTerminated) {
                         throw new UnixException(Errno.EINTR);
                     }
@@ -1943,9 +1951,20 @@ public class Slave implements Runnable {
                 }
             }
         }
+    }
 
-        private void setReaction(AlarmReaction reaction) {
-            mReaction = reaction;
+    private class Wait4Reaction implements AlarmReaction {
+
+        private Pid mPid;
+
+        public Wait4Reaction(Pid pid) {
+            mPid = pid;
+        }
+
+        public int run() throws UnixException {
+            boolean terminated = mApplication.pollChildTermination(mPid);
+            return terminated ? AlarmReactor.ACTION_BREAK
+                              : AlarmReactor.ACTION_CONTINUE;
         }
     }
 
@@ -2185,6 +2204,7 @@ public class Slave implements Runnable {
             throw new UnixException(Errno.EINVAL);
         }
         mPendingSignals.add(sig);
+        mAlarm.alarm();
     }
 
     @Override
@@ -2195,17 +2215,28 @@ public class Slave implements Runnable {
             try {
                 try {
                     while (!mTerminated) {
-                        for (Signal sig: mPendingSignals.toCollection()) {
-                            writeSignaled(sig);
-                        }
-                        if (mIn.isReady()) {
-                            mHelper.runSlave();
-                        }
-
                         try {
-                            Thread.sleep(10 /* msec */);
+                            if (mPendingSignals.contains(Signal.SIGKILL)) {
+                                throw new SigkillException();
+                            }
+                            for (Signal sig: mPendingSignals.toCollection()) {
+                                writeSignaled(sig);
+                            }
+                            if (mIn.isReady()) {
+                                mHelper.runSlave();
+                            }
+
+                            try {
+                                Thread.sleep(10 /* msec */);
+                            }
+                            catch (InterruptedException unused) {
+                                terminate();
+                            }
                         }
-                        catch (InterruptedException unused) {
+                        catch (SigkillException e) {
+                            Signal sig = Signal.SIGKILL;
+                            writeSignaled(sig);
+                            mProcess.setExitCode(sig);
                             terminate();
                         }
                     }
@@ -2750,7 +2781,7 @@ public class Slave implements Runnable {
         return result;
     }
 
-    public SyscallResult.Generic32 doPollStart(PollFds fds, int nfds, int timeout) throws IOException {
+    public SyscallResult.Generic32 doPollStart(PollFds fds, int nfds, int timeout) throws IOException, SigkillException {
         String fmt = "interruptable poll(fds=%s, nfds=%d, timeout=%d)";
         mLogger.info(fmt, fds, nfds, timeout);
 
@@ -2765,7 +2796,7 @@ public class Slave implements Runnable {
         return runPoll(new InterruptablePollReaction(fds, files), timeout);
     }
 
-    public SyscallResult.Generic32 doPoll(PollFds fds, int nfds, int timeout) throws IOException {
+    public SyscallResult.Generic32 doPoll(PollFds fds, int nfds, int timeout) throws IOException, SigkillException {
         mLogger.info("poll(fds=%s, nfds=%d, timeout=%d)", fds, nfds, timeout);
 
         UnixFile[] files;
@@ -2780,7 +2811,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Select doSelect(Unix.Fdset in, Unix.Fdset ou,
-                                         Unix.Fdset ex, Unix.TimeVal timeout) throws IOException {
+                                         Unix.Fdset ex, Unix.TimeVal timeout) throws IOException, SigkillException {
         String fmt = "select(in=%s, ou=%s, ex=%s, timeout=%s)";
         mLogger.info(fmt, in, ou, ex, timeout);
         SyscallResult.Select result = new SyscallResult.Select();
@@ -3141,7 +3172,7 @@ public class Slave implements Runnable {
 
     public void doExit(int rval) throws IOException {
         mLogger.info("exit(rval=%d)", rval);
-        mProcess.setExitStatus(rval);
+        mProcess.setExitCode(rval);
         terminate();
     }
 
@@ -3254,7 +3285,9 @@ public class Slave implements Runnable {
         return result;
     }
 
-    public SyscallResult.Wait4 doWait4(int pid, int options) {
+    public SyscallResult.Wait4 doWait4(int pid,
+                                       int options) throws IOException,
+                                                           SigkillException {
         String fmt = "wait4(pid=%d, options=%d (%s))";
         mLogger.info(fmt, pid, options, Unix.Constants.Wait4.toString(options));
 
@@ -3320,9 +3353,8 @@ public class Slave implements Runnable {
         Pid pid = process.getPid();
         try {
             if (mApplication.pollChildTermination(pid)) {
-                int code = process.getExitStatus().intValue();
                 result.retval = pid.toInteger();
-                result.status = Unix.W_EXITCODE(code, 0);
+                result.status = process.getExitCode();
             }
         }
         catch (UnixException e) {
@@ -3335,16 +3367,13 @@ public class Slave implements Runnable {
         return result;
     }
 
-    private SyscallResult.Wait4 doWait4(Process process) {
+    private SyscallResult.Wait4 doWait4(Process process) throws IOException,
+                                                                SigkillException {
         SyscallResult.Wait4 result = new SyscallResult.Wait4();
 
         Pid pid = process.getPid();
         try {
-            mApplication.waitChildTermination(pid);
-        }
-        catch (InterruptedException unused) {
-            result.setError(Errno.EINTR);
-            return result;
+            new AlarmReactor(new Wait4Reaction(pid)).run();
         }
         catch (UnixException e) {
             result.setError(e.getErrno());
@@ -3352,7 +3381,7 @@ public class Slave implements Runnable {
         }
 
         result.retval = pid.toInteger();
-        result.status = Unix.W_EXITCODE(process.getExitStatus().intValue(), 0);
+        result.status = process.getExitCode();
         result.rusage = new Unix.Rusage();
 
         return result;
@@ -3369,7 +3398,8 @@ public class Slave implements Runnable {
     }
 
     private SyscallResult.Generic32 runPoll(PollReaction reaction,
-                                            int timeout) throws IOException {
+                                            int timeout) throws IOException,
+                                                                SigkillException {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         try {

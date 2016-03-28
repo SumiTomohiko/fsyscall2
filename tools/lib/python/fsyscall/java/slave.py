@@ -144,7 +144,7 @@ def build_proc_of_protocol(g, syscalls):
 
         fmt = """private class {proc} extends CommandDispatcher.Proc {{
 
-        public void call(Command command) throws IOException {{
+        public void call(Command command) throws IOException, SigkillException {{
             PayloadSize payloadSize = mIn.readPayloadSize();
             {decls};
             {params}

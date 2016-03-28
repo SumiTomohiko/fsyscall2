@@ -23,6 +23,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFd;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PollFds;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
+import jp.gr.java_conf.neko_daisuki.fsyscall.SigkillException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SignalSet;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SocketAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.SocketOption;
@@ -284,7 +285,7 @@ class SlaveHelper {
 
     private class SelectProc extends CommandDispatcher.Proc {
 
-        public void call(Command command) throws IOException {
+        public void call(Command command) throws IOException, SigkillException {
             PayloadSize payloadSize = mIn.readPayloadSize();
             Unix.Fdset in = readFds();
             Unix.Fdset ou = readFds();
@@ -358,7 +359,7 @@ class SlaveHelper {
 
     private class PollStartProc extends PollProcBase {
 
-        public void call(Command command) throws IOException {
+        public void call(Command command) throws IOException, SigkillException {
             PayloadSize payloadSize = mIn.readPayloadSize();
             PollArgs args = readArgs();
             PollFds fds = args.fds;
@@ -381,7 +382,7 @@ class SlaveHelper {
 
     private class PollProc extends PollProcBase {
 
-        public void call(Command command) throws IOException {
+        public void call(Command command) throws IOException, SigkillException {
             PayloadSize payloadSize = mIn.readPayloadSize();
             PollArgs args = readArgs();
             int nfds = args.nfds;
@@ -834,7 +835,7 @@ class SlaveHelper {
         mDispatcher = buildDispatcher();
     }
 
-    public void runSlave() throws IOException {
+    public void runSlave() throws IOException, SigkillException {
         Command command = mIn.readCommand();
         mLogger.debug("read command: %s", command.toString());
 
