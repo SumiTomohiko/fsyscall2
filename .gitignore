@@ -165,7 +165,6 @@ fmaster/sys/fmaster/fmaster_settimeofday.c
 fmaster/sys/fmaster/fmaster_setuid.c
 fmaster/sys/fmaster/fmaster_shmsys.c
 fmaster/sys/fmaster/fmaster_shutdown.c
-fmaster/sys/fmaster/fmaster_socket.c
 fmaster/sys/fmaster/fmaster_stat.c
 fmaster/sys/fmaster/fmaster_statfs.c
 fmaster/sys/fmaster/fmaster_swapcontext.c
