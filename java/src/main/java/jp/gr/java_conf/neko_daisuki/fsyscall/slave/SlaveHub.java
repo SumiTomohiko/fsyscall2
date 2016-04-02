@@ -285,6 +285,7 @@ class SlaveHub {
 
     private void removeDeadSlaves() throws IOException {
         for (PairId pairId: mDeadSlaves) {
+            mLogger.info("remove slave: pairId=%s", pairId);
             mSlaves.remove(pairId).close();
         }
         mDeadSlaves.clear();
