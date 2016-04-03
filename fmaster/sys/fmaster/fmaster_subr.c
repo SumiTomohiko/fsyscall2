@@ -2600,6 +2600,19 @@ exit:
 	return (error);
 }
 
+static void
+close_conn(struct thread *td)
+{
+	int rfd, wfd;
+
+	rfd = fmaster_rfd_of_thread(td);
+	kern_close(td, rfd);
+
+	wfd = fmaster_wfd_of_thread(td);
+	if (rfd != wfd)
+		kern_close(td, wfd);
+}
+
 int
 fmaster_release_thread(struct thread *td)
 {
@@ -2608,13 +2621,9 @@ fmaster_release_thread(struct thread *td)
 	struct fmaster_thread_data *tdata;
 	struct fmaster_threads *threads;
 	struct rmlock *lock;
-	int nthreads, rfd, wfd;
+	int nthreads;
 
-	rfd = fmaster_rfd_of_thread(td);
-	wfd = fmaster_wfd_of_thread(td);
-	kern_close(td, rfd);
-	if (rfd != wfd)
-		kern_close(td, wfd);
+	close_conn(td);
 
 	tdata = fmaster_thread_data_of_thread(td);
 	data = fmaster_proc_data_of_thread(td);
