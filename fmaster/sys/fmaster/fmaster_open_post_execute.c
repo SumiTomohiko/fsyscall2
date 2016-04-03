@@ -18,5 +18,5 @@ fmaster_open_post_execute(struct thread *td, struct fmaster_open_args *uap)
 	snprintf(desc, sizeof(desc), "open in slave (\"%s\")", path);
 
 	type = DTYPE_VNODE;
-	return fmaster_return_fd(td, type, FFP_SLAVE, td->td_retval[0], desc);
+	return (fmaster_return_fd(td, type, FFP_SLAVE, td->td_retval[0], desc));
 }
