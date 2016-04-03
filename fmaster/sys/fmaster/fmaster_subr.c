@@ -82,6 +82,7 @@ struct fmaster_vnode {
 	enum fmaster_file_place		fv_place;
 	int				fv_local;
 	int				fv_refcount;
+	short				fv_type;
 	char				fv_desc[VNODE_DESC_LEN];
 
 	struct fmaster_pending_sock	fv_pending_sock;
@@ -481,7 +482,7 @@ fmaster_copy_data(struct thread *td, struct fmaster_data *dest)
 	zone = dest->fdata_vnodes;
 	for (i = 0; i < FILES_NUM; i++) {
 		vnode =	data->fdata_files[i].ff_vnode;
-		if (vnode == NULL) {
+		if ((vnode == NULL) || (vnode->fv_type == DTYPE_KQUEUE)) {
 			dest->fdata_files[i].ff_vnode = NULL;
 			continue;
 		}
@@ -1505,8 +1506,9 @@ fmaster_str_of_place(enum fmaster_file_place place)
 }
 
 static int
-fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
-		       int lfd, int vfd, const char *desc)
+fmaster_register_fd_at(struct thread *td, short type,
+		       enum fmaster_file_place place, int lfd, int vfd,
+		       const char *desc)
 {
 	struct fmaster_vnode *vnode;
 	struct fmaster_file *file;
@@ -1524,6 +1526,7 @@ fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
 	vnode = fmaster_alloc_vnode(td);
 	if (vnode == NULL)
 		return (ENOMEM);
+	vnode->fv_type = type;
 	vnode->fv_place = place;
 	vnode->fv_local = lfd;
 	strlcpy(vnode->fv_desc, desc, sizeof(vnode->fv_desc));
@@ -1536,8 +1539,9 @@ fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
 }
 
 int
-fmaster_register_file(struct thread *td, enum fmaster_file_place place,
-		      int lfd, int *vfd, const char *desc)
+fmaster_register_file(struct thread *td, short type,
+		      enum fmaster_file_place place, int lfd, int *vfd,
+		      const char *desc)
 {
 	int error;
 
@@ -1546,7 +1550,7 @@ fmaster_register_file(struct thread *td, enum fmaster_file_place place,
 	error = find_unused_fd(td, vfd);
 	if (error != 0)
 		goto exit;
-	error = fmaster_register_fd_at(td, place, lfd, *vfd, desc);
+	error = fmaster_register_fd_at(td, type, place, lfd, *vfd, desc);
 	if (error != 0)
 		goto exit;
 
@@ -1557,12 +1561,12 @@ exit:
 }
 
 int
-fmaster_return_fd(struct thread *td, enum fmaster_file_place place, int lfd,
-		  const char *desc)
+fmaster_return_fd(struct thread *td, short type, enum fmaster_file_place place,
+		  int lfd, const char *desc)
 {
 	int error, virtual_fd;
 
-	error = fmaster_register_file(td, place, lfd, &virtual_fd, desc);
+	error = fmaster_register_file(td, type, place, lfd, &virtual_fd, desc);
 	if (error != 0)
 		return (error);
 
@@ -3225,7 +3229,8 @@ fmaster_register_pending_socket(struct thread *td, int domain, int type,
 	struct fmaster_pending_sock *sock;
 	int error;
 
-	error = fmaster_return_fd(td, FFP_PENDING_SOCKET, -1, "pending socket");
+	error = fmaster_return_fd(td, DTYPE_SOCKET, FFP_PENDING_SOCKET, -1,
+				  "pending socket");
 	if (error != 0)
 		return (error);
 	vnode = fmaster_get_locked_vnode_of_fd(td, td->td_retval[0]);

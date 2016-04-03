@@ -1,6 +1,7 @@
 #include <sys/param.h>
 #include <sys/errno.h>
 #include <sys/fcntl.h>
+#include <sys/file.h>
 #include <sys/libkern.h>
 #include <sys/proc.h>
 #include <sys/stat.h>
@@ -27,7 +28,9 @@ sys_fmaster_pipe(struct thread *td, struct fmaster_pipe_args *uap)
 {
 #define	SYSCALL_NAME	"pipe"
 	struct timeval time_start;
+	enum fmaster_file_place place;
 	int error, fds[2], fildes[2], rfd, wfd;
+	short type;
 	const char *fmt = "pipe to %s (local %d to local %d)";
 	char desc[VNODE_DESC_LEN], desc2[VNODE_DESC_LEN];
 
@@ -41,11 +44,13 @@ sys_fmaster_pipe(struct thread *td, struct fmaster_pipe_args *uap)
 	rfd = fildes[R];
 	wfd = fildes[W];
 	snprintf(desc, sizeof(desc), fmt, "read", wfd, rfd);
-	error = fmaster_register_file(td, FFP_MASTER, rfd, &fds[0], desc);
+	type = DTYPE_PIPE;
+	place = FFP_MASTER;
+	error = fmaster_register_file(td, type, place, rfd, &fds[0], desc);
 	if (error != 0)
 		return (error);
 	snprintf(desc2, sizeof(desc2), fmt, "write", wfd, rfd);
-	error = fmaster_register_file(td, FFP_MASTER, wfd, &fds[1], desc2);
+	error = fmaster_register_file(td, type, place, wfd, &fds[1], desc2);
 	if (error != 0)
 		return (error);
 	td->td_retval[0] = fds[0];
