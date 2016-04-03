@@ -32,7 +32,6 @@ fmaster/sys/fmaster/fmaster_acct.c
 fmaster/sys/fmaster/fmaster_adjtime.c
 fmaster/sys/fmaster/fmaster_aio_read.c
 fmaster/sys/fmaster/fmaster_aio_write.c
-fmaster/sys/fmaster/fmaster_bind.c
 fmaster/sys/fmaster/fmaster_chdir.c
 fmaster/sys/fmaster/fmaster_chflags.c
 fmaster/sys/fmaster/fmaster_chmod.c
