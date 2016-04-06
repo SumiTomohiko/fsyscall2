@@ -78,7 +78,6 @@ fmaster/sys/fmaster/fmaster_getresuid.c
 fmaster/sys/fmaster/fmaster_getrlimit.c
 fmaster/sys/fmaster/fmaster_getrusage.c
 fmaster/sys/fmaster/fmaster_getsid.c
-fmaster/sys/fmaster/fmaster_getsockname.c
 fmaster/sys/fmaster/fmaster_gettimeofday.c
 fmaster/sys/fmaster/fmaster_getuid.c
 fmaster/sys/fmaster/fmaster_issetugid.c
