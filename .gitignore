@@ -205,6 +205,7 @@ fslave/fslave_chdir.c
 fslave/fslave_chmod.c
 fslave/fslave_fcntl.c
 fslave/fslave_fstat.c
+fslave/fslave_fsync.c
 fslave/fslave_getegid.c
 fslave/fslave_geteuid.c
 fslave/fslave_getgid.c
@@ -292,6 +293,7 @@ tests/amd64/fstat/fstat
 tests/amd64/fstat_bind/fstat_bind
 tests/amd64/fstatfs/fstatfs
 tests/amd64/fstatfs_pending_sock/fstatfs_pending_sock
+tests/amd64/fsync/fsync
 tests/amd64/getdirentries/getdirentries
 tests/amd64/getdirentries_pending_sock/getdirentries_pending_sock
 tests/amd64/getegid/getegid

@@ -2563,6 +2563,12 @@ public class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Generic32 doFsync(int fd) {
+        mLogger.info("fsync(fd=%d)", fd);
+        // does nothing.
+        return new SyscallResult.Generic32();
+    }
+
     /**
      * System call handler for issetugid(2). This always returns zero.
      */
