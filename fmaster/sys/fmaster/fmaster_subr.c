@@ -2469,7 +2469,7 @@ fmaster_log_msghdr(struct thread *td, const char *tag, const struct msghdr *msg,
 	LOG("msg->msg_control=%s", DUMP(msg->msg_control, controllen));
 	LOG("msg->msg_controllen=%d", controllen);
 	for (cmsghdr = CMSG_FIRSTHDR(msg);
-	     cmsghdr != NULL;
+	     (cmsghdr != NULL) && (0 < cmsghdr->cmsg_len);
 	     cmsghdr = CMSG_NXTHDR(msg, cmsghdr)) {
 		level = cmsghdr->cmsg_level;
 		type = cmsghdr->cmsg_type;
