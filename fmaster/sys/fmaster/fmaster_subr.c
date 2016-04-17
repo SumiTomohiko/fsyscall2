@@ -82,6 +82,7 @@ struct fmaster_vnode {
 	enum fmaster_file_place		fv_place;
 	int				fv_local;
 	int				fv_refcount;
+	short				fv_type;
 	char				fv_desc[VNODE_DESC_LEN];
 
 	struct fmaster_pending_sock	fv_pending_sock;
@@ -481,7 +482,7 @@ fmaster_copy_data(struct thread *td, struct fmaster_data *dest)
 	zone = dest->fdata_vnodes;
 	for (i = 0; i < FILES_NUM; i++) {
 		vnode =	data->fdata_files[i].ff_vnode;
-		if (vnode == NULL) {
+		if ((vnode == NULL) || (vnode->fv_type == DTYPE_KQUEUE)) {
 			dest->fdata_files[i].ff_vnode = NULL;
 			continue;
 		}
@@ -1505,8 +1506,9 @@ fmaster_str_of_place(enum fmaster_file_place place)
 }
 
 static int
-fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
-		       int lfd, int vfd, const char *desc)
+fmaster_register_fd_at(struct thread *td, short type,
+		       enum fmaster_file_place place, int lfd, int vfd,
+		       const char *desc)
 {
 	struct fmaster_vnode *vnode;
 	struct fmaster_file *file;
@@ -1524,6 +1526,7 @@ fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
 	vnode = fmaster_alloc_vnode(td);
 	if (vnode == NULL)
 		return (ENOMEM);
+	vnode->fv_type = type;
 	vnode->fv_place = place;
 	vnode->fv_local = lfd;
 	strlcpy(vnode->fv_desc, desc, sizeof(vnode->fv_desc));
@@ -1536,8 +1539,9 @@ fmaster_register_fd_at(struct thread *td, enum fmaster_file_place place,
 }
 
 int
-fmaster_register_file(struct thread *td, enum fmaster_file_place place,
-		      int lfd, int *vfd, const char *desc)
+fmaster_register_file(struct thread *td, short type,
+		      enum fmaster_file_place place, int lfd, int *vfd,
+		      const char *desc)
 {
 	int error;
 
@@ -1546,7 +1550,7 @@ fmaster_register_file(struct thread *td, enum fmaster_file_place place,
 	error = find_unused_fd(td, vfd);
 	if (error != 0)
 		goto exit;
-	error = fmaster_register_fd_at(td, place, lfd, *vfd, desc);
+	error = fmaster_register_fd_at(td, type, place, lfd, *vfd, desc);
 	if (error != 0)
 		goto exit;
 
@@ -1557,12 +1561,12 @@ exit:
 }
 
 int
-fmaster_return_fd(struct thread *td, enum fmaster_file_place place, int lfd,
-		  const char *desc)
+fmaster_return_fd(struct thread *td, short type, enum fmaster_file_place place,
+		  int lfd, const char *desc)
 {
 	int error, virtual_fd;
 
-	error = fmaster_register_file(td, place, lfd, &virtual_fd, desc);
+	error = fmaster_register_file(td, type, place, lfd, &virtual_fd, desc);
 	if (error != 0)
 		return (error);
 
@@ -1701,62 +1705,50 @@ fmaster_get_vnode_info2(struct thread *td, int fd,
 	return (0);
 }
 
-static int
-accept_main(struct thread *td, command_t call_command, command_t return_command,
-	    int s, struct sockaddr *name, socklen_t *namelen)
+int
+fmaster_copyout_sockaddr(const struct sockaddr *kname, socklen_t knamelen,
+			 struct sockaddr *uname, socklen_t *unamelen)
 {
-	struct sockaddr_storage addr;
-	socklen_t actual_namelen, knamelen, len;
-	enum fmaster_file_place place;
-	int error, fd;
+	socklen_t len;
+	int error;
 
-	error = fmaster_get_vnode_info(td, s, &place, &fd);
+	if ((uname == NULL) || (unamelen == NULL))
+		return (0);
+
+	error = copyin(unamelen, &len, sizeof(len));
 	if (error != 0)
 		return (error);
-	if (place != FFP_SLAVE)
-		return (EPERM);
-	knamelen = sizeof(addr);
-	error = execute_accept_call(td, call_command, fd, knamelen);
+	error = copyout(kname, uname, MIN(len, knamelen));
 	if (error != 0)
 		return (error);
-	error = execute_accept_return(td, return_command, &addr,
-				      &actual_namelen);
+	error = copyout(&knamelen, unamelen, sizeof(knamelen));
 	if (error != 0)
 		return (error);
-	if ((name != NULL) && (namelen != NULL)) {
-		error = copyin(namelen, &len, sizeof(len));
-		if (error != 0)
-			return (error);
-		error = copyout(&addr, name, MIN(len, actual_namelen));
-		if (error != 0)
-			return (error);
-		error = copyout(&actual_namelen, namelen,
-				sizeof(actual_namelen));
-		if (error != 0)
-			return (error);
-	}
 
 	return (0);
 }
 
 int
-fmaster_execute_accept_protocol(struct thread *td, const char *command,
-				command_t call_command,
-				command_t return_command, int s,
+fmaster_execute_accept_protocol(struct thread *td, command_t call_command,
+				command_t return_command, int s /* local */,
 				struct sockaddr *name, socklen_t *namelen)
 {
-	struct timeval time_start;
+	struct sockaddr_storage addr;
+	socklen_t knamelen;
 	int error;
-	const char *fmt = "%s: started: s=%d, name=%p, namelen=%p";
 
-	fmaster_log(td, LOG_DEBUG, fmt, command, s, name, namelen);
-	microtime(&time_start);
+	error = execute_accept_call(td, call_command, s, sizeof(addr));
+	if (error != 0)
+		return (error);
+	error = execute_accept_return(td, return_command, &addr, &knamelen);
+	if (error != 0)
+		return (error);
+	error = fmaster_copyout_sockaddr((struct sockaddr *)&addr, knamelen,
+					 name, namelen);
+	if (error != 0)
+		return (error);
 
-	error = accept_main(td, call_command, return_command, s, name, namelen);
-
-	fmaster_log_syscall_end(td, command, &time_start, error);
-
-	return (error);
+	return (0);
 }
 
 static int
@@ -2477,7 +2469,7 @@ fmaster_log_msghdr(struct thread *td, const char *tag, const struct msghdr *msg,
 	LOG("msg->msg_control=%s", DUMP(msg->msg_control, controllen));
 	LOG("msg->msg_controllen=%d", controllen);
 	for (cmsghdr = CMSG_FIRSTHDR(msg);
-	     cmsghdr != NULL;
+	     (cmsghdr != NULL) && (0 < cmsghdr->cmsg_len);
 	     cmsghdr = CMSG_NXTHDR(msg, cmsghdr)) {
 		level = cmsghdr->cmsg_level;
 		type = cmsghdr->cmsg_type;
@@ -2596,6 +2588,19 @@ exit:
 	return (error);
 }
 
+static void
+close_conn(struct thread *td)
+{
+	int rfd, wfd;
+
+	rfd = fmaster_rfd_of_thread(td);
+	kern_close(td, rfd);
+
+	wfd = fmaster_wfd_of_thread(td);
+	if (rfd != wfd)
+		kern_close(td, wfd);
+}
+
 int
 fmaster_release_thread(struct thread *td)
 {
@@ -2604,13 +2609,9 @@ fmaster_release_thread(struct thread *td)
 	struct fmaster_thread_data *tdata;
 	struct fmaster_threads *threads;
 	struct rmlock *lock;
-	int nthreads, rfd, wfd;
+	int nthreads;
 
-	rfd = fmaster_rfd_of_thread(td);
-	wfd = fmaster_wfd_of_thread(td);
-	kern_close(td, rfd);
-	if (rfd != wfd)
-		kern_close(td, wfd);
+	close_conn(td);
 
 	tdata = fmaster_thread_data_of_thread(td);
 	data = fmaster_proc_data_of_thread(td);
@@ -3225,7 +3226,8 @@ fmaster_register_pending_socket(struct thread *td, int domain, int type,
 	struct fmaster_pending_sock *sock;
 	int error;
 
-	error = fmaster_return_fd(td, FFP_PENDING_SOCKET, -1, "pending socket");
+	error = fmaster_return_fd(td, DTYPE_SOCKET, FFP_PENDING_SOCKET, -1,
+				  "pending socket");
 	if (error != 0)
 		return (error);
 	vnode = fmaster_get_locked_vnode_of_fd(td, td->td_retval[0]);

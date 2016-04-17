@@ -1,4 +1,5 @@
 #include <sys/param.h>
+#include <sys/file.h>
 #include <sys/types.h>
 #include <sys/libkern.h>
 #include <sys/sysproto.h>
@@ -11,7 +12,9 @@
 static int
 open_master(struct thread *td, struct fmaster_open_args *uap)
 {
+	enum fmaster_file_place place;
 	int error;
+	short type;
 	char desc[VNODE_DESC_LEN], path[VNODE_DESC_LEN];
 
 	error = sys_open(td, (struct open_args *)uap);
@@ -23,7 +26,10 @@ open_master(struct thread *td, struct fmaster_open_args *uap)
 		return (error);
 	snprintf(desc, sizeof(desc), "open in master (\"%s\")", path);
 
-	return (fmaster_return_fd(td, FFP_MASTER, td->td_retval[0], desc));
+	type = DTYPE_VNODE;
+	place = FFP_MASTER;
+
+	return (fmaster_return_fd(td, type, place, td->td_retval[0], desc));
 }
 
 enum fmaster_pre_execute_result

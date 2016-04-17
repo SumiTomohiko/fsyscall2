@@ -1,4 +1,5 @@
 #include <sys/param.h>
+#include <sys/file.h>
 #include <sys/proc.h>
 #include <sys/syslog.h>
 #include <sys/sysproto.h>
@@ -194,7 +195,11 @@ read_passed_fds(struct thread *td, struct cmsgspec *cmsgspec, void *cmsgdata,
 		payload_size += lfd_len;
 
 		snprintf(desc, sizeof(desc), fmt, lfd);
-		error = fmaster_register_file(td, FFP_SLAVE, lfd, pfd, desc);
+		/*
+		 * TODO: Which type is best in this case?
+		 */
+		error = fmaster_register_file(td, DTYPE_VNODE, FFP_SLAVE, lfd,
+					      pfd, desc);
 		if (error != 0)
 			return (error);
 	}

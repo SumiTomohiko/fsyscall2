@@ -103,8 +103,8 @@ int	fmaster_get_vnode_info2(struct thread *, int, enum fmaster_file_place *,
 				int *, const char **);
 
 /* file operations */
-int	fmaster_register_file(struct thread *, enum fmaster_file_place, int,
-			      int *, const char *);
+int	fmaster_register_file(struct thread *, short, enum fmaster_file_place,
+			      int, int *, const char *);
 int	fmaster_unref_fd(struct thread *, int, enum fmaster_file_place *, int *,
 			 int *);
 int	fmaster_dup(struct thread *, int, int *);
@@ -145,10 +145,9 @@ int	fmaster_execute_connect_protocol(struct thread *td,
 					 command_t return_command, int s,
 					 struct sockaddr *name,
 					 socklen_t namelen);
-int	fmaster_execute_accept_protocol(struct thread *, const char *,
-					command_t, command_t, int,
-					struct sockaddr *, socklen_t *);
-int	fmaster_return_fd(struct thread *, enum fmaster_file_place, int,
+int	fmaster_execute_accept_protocol(struct thread *, command_t, command_t,
+					int, struct sockaddr *, socklen_t *);
+int	fmaster_return_fd(struct thread *, short, enum fmaster_file_place, int,
 			  const char *);
 int	fmaster_write_command_with_empty_payload(struct thread *, command_t);
 
@@ -197,6 +196,9 @@ int	fmaster_do_kevent(struct thread *, const struct kevent *, int,
 			  struct kevent *, int *, const struct timespec *);
 
 /* misc */
+int	fmaster_copyout_sockaddr(const struct sockaddr *, socklen_t,
+				 struct sockaddr *, socklen_t *);
+
 enum fmaster_pre_execute_result {
 	PRE_EXEC_END,
 	PRE_EXEC_CONT

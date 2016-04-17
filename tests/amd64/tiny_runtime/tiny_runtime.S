@@ -103,6 +103,7 @@ defsyscall	sendmsg
 defsyscall	recvmsg
 defsyscall	umask
 defsyscall	utimes
+defsyscall	fsync
 
 global _start
 _start:

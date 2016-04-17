@@ -32,7 +32,6 @@ fmaster/sys/fmaster/fmaster_acct.c
 fmaster/sys/fmaster/fmaster_adjtime.c
 fmaster/sys/fmaster/fmaster_aio_read.c
 fmaster/sys/fmaster/fmaster_aio_write.c
-fmaster/sys/fmaster/fmaster_bind.c
 fmaster/sys/fmaster/fmaster_chdir.c
 fmaster/sys/fmaster/fmaster_chflags.c
 fmaster/sys/fmaster/fmaster_chmod.c
@@ -79,7 +78,6 @@ fmaster/sys/fmaster/fmaster_getresuid.c
 fmaster/sys/fmaster/fmaster_getrlimit.c
 fmaster/sys/fmaster/fmaster_getrusage.c
 fmaster/sys/fmaster/fmaster_getsid.c
-fmaster/sys/fmaster/fmaster_getsockname.c
 fmaster/sys/fmaster/fmaster_gettimeofday.c
 fmaster/sys/fmaster/fmaster_getuid.c
 fmaster/sys/fmaster/fmaster_issetugid.c
@@ -165,7 +163,6 @@ fmaster/sys/fmaster/fmaster_settimeofday.c
 fmaster/sys/fmaster/fmaster_setuid.c
 fmaster/sys/fmaster/fmaster_shmsys.c
 fmaster/sys/fmaster/fmaster_shutdown.c
-fmaster/sys/fmaster/fmaster_socket.c
 fmaster/sys/fmaster/fmaster_stat.c
 fmaster/sys/fmaster/fmaster_statfs.c
 fmaster/sys/fmaster/fmaster_swapcontext.c
@@ -208,6 +205,7 @@ fslave/fslave_chdir.c
 fslave/fslave_chmod.c
 fslave/fslave_fcntl.c
 fslave/fslave_fstat.c
+fslave/fslave_fsync.c
 fslave/fslave_getegid.c
 fslave/fslave_geteuid.c
 fslave/fslave_getgid.c
@@ -295,6 +293,7 @@ tests/amd64/fstat/fstat
 tests/amd64/fstat_bind/fstat_bind
 tests/amd64/fstatfs/fstatfs
 tests/amd64/fstatfs_pending_sock/fstatfs_pending_sock
+tests/amd64/fsync/fsync
 tests/amd64/getdirentries/getdirentries
 tests/amd64/getdirentries_pending_sock/getdirentries_pending_sock
 tests/amd64/getegid/getegid

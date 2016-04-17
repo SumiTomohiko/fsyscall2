@@ -36,6 +36,7 @@
 %define	sys.dup2		90
 %define	sys.fcntl		92
 %define	sys.select		93
+%define	sys.fsync		95
 %define	sys.socket		97
 %define	sys.connect		98
 %define	sys.bind		104

@@ -8,7 +8,7 @@ SUBDIR=	${LIBDIR} SIGKILL_poll SIGKILL_wait4 accept access \
 	dup2_master2master dup2_master2slave dup2_nothing dup2_slave2closed \
 	dup2_slave2master dup2_slave2slave dup2_to_pending_sock dup_and_close \
 	execve exit fcntl fdpassing fdpassing2 fdpassing_EBADF fork fstat \
-	fstat_bind fstatfs fstatfs_pending_sock getdirentries \
+	fstat_bind fstatfs fstatfs_pending_sock fsync getdirentries \
 	getdirentries_pending_sock getegid geteuid getgid getpeername_error \
 	getpeername_family getpeername_path getpeername_server getpid \
 	getresgid_egid getresgid_rgid getresgid_sgid getresuid_ruid \

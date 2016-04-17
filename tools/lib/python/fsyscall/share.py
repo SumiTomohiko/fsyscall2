@@ -214,7 +214,10 @@ SYSCALLS = {
         "fmaster_mkdir": {},
         "fmaster_umask": {},
         "fmaster_unlink": {},
-        "fmaster_rmdir": {}
+        "fmaster_rmdir": {},
+        "fmaster_fsync": {
+            "fd": Argument(fd=True)
+            }
         }
 
 FMASTER_SYSCALLS = SYSCALLS.copy()
@@ -231,18 +234,17 @@ DUMMY_SYSCALLS = [
         "fmaster_msync", "fmaster_vfork", "fmaster_ovadvise",
         "fmaster_getgroups", "fmaster_setgroups", "fmaster_getpgrp",
         "fmaster_setpgid", "fmaster_setitimer", "fmaster_getitimer",
-        "fmaster_fsync", "fmaster_setpriority", "fmaster_getpriority",
-        "fmaster_getrusage", "fmaster_readv", "fmaster_settimeofday",
-        "fmaster_fchown", "fmaster_fchmod", "fmaster_setreuid",
-        "fmaster_setregid", "fmaster_rename", "fmaster_flock", "fmaster_mkfifo",
-        "fmaster_shutdown", "fmaster_adjtime", "fmaster_quotactl",
-        "fmaster_nlm_syscall", "fmaster_nfssvc", "fmaster_lgetfh",
-        "fmaster_getfh", "fmaster_rtprio", "fmaster_semsys", "fmaster_msgsys",
-        "fmaster_shmsys", "fmaster_setfib", "fmaster_ntp_adjtime",
-        "fmaster_setgid", "fmaster_setegid", "fmaster_seteuid",
-        "fmaster_pathconf", "fmaster_fpathconf", "fmaster_setrlimit",
-        "fmaster_undelete", "fmaster_futimes", "fmaster_getpgid",
-        "fmaster_clock_settime", "fmaster_clock_getres",
+        "fmaster_setpriority", "fmaster_getpriority", "fmaster_getrusage",
+        "fmaster_readv", "fmaster_settimeofday", "fmaster_fchown",
+        "fmaster_fchmod", "fmaster_setreuid", "fmaster_setregid",
+        "fmaster_rename", "fmaster_flock", "fmaster_mkfifo", "fmaster_shutdown",
+        "fmaster_adjtime", "fmaster_quotactl", "fmaster_nlm_syscall",
+        "fmaster_nfssvc", "fmaster_lgetfh", "fmaster_getfh", "fmaster_rtprio",
+        "fmaster_semsys", "fmaster_msgsys", "fmaster_shmsys", "fmaster_setfib",
+        "fmaster_ntp_adjtime", "fmaster_setgid", "fmaster_setegid",
+        "fmaster_seteuid", "fmaster_pathconf", "fmaster_fpathconf",
+        "fmaster_setrlimit", "fmaster_undelete", "fmaster_futimes",
+        "fmaster_getpgid", "fmaster_clock_settime", "fmaster_clock_getres",
         "fmaster_ktimer_create", "fmaster_ktimer_delete",
         "fmaster_ktimer_settime", "fmaster_ktimer_gettime",
         "fmaster_ktimer_getoverrun", "fmaster_rfork", "fmaster_lchown",

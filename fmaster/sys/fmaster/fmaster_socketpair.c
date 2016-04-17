@@ -1,4 +1,5 @@
 #include <sys/param.h>
+#include <sys/file.h>
 #include <sys/proc.h>
 #include <sys/syscallsubr.h>
 #include <sys/syslog.h>
@@ -17,8 +18,8 @@ fmaster_socketpair_main(struct thread *td, struct fmaster_socketpair_args *uap)
 		return (error);
 	snprintf(desc, sizeof(desc), "socketpair (%d, %d)", rsv[0], rsv[1]);
 	for (i = 0; i < sizeof(rsv) / sizeof(rsv[0]); i++) {
-		error = fmaster_register_file(td, FFP_MASTER, rsv[i], &vfd,
-					      desc);
+		error = fmaster_register_file(td, DTYPE_SOCKET, FFP_MASTER,
+					      rsv[i], &vfd, desc);
 		if (error != 0)
 			return (error);
 		sv[i] = vfd;

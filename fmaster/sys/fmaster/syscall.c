@@ -1,6 +1,7 @@
 #include <sys/param.h>
 #include <sys/errno.h>
 #include <sys/eventhandler.h>
+#include <sys/file.h>
 #include <sys/kernel.h>
 #include <sys/lock.h>
 #include <sys/malloc.h>
@@ -92,7 +93,11 @@ read_fds(struct thread *td, struct fmaster_data *data)
 		error = fmaster_read_int32(td, &d, &m);
 		if (error != 0)
 			goto exit;
-		error = fmaster_register_file(td, FFP_SLAVE, d, &_, "default");
+		/*
+		 * TODO: Which type is best in this case?
+		 */
+		error = fmaster_register_file(td, DTYPE_PIPE, FFP_SLAVE, d, &_,
+					      "default");
 		if (error != 0)
 			goto exit;
 		pos += m;
