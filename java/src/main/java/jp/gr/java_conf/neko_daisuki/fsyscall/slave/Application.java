@@ -28,7 +28,7 @@ public class Application {
     private static class PidGenerator {
 
         private static final int MIN = 1000000;
-        private static final int MAX = 1000010;
+        private static final int MAX = 2000000;
 
         private int mNext = MIN;
         private Collection<Integer> mUsed = new HashSet<Integer>();
