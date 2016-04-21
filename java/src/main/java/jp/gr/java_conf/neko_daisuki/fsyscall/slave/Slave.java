@@ -2569,6 +2569,18 @@ public class Slave implements Runnable {
         return new SyscallResult.Generic32();
     }
 
+    public SyscallResult.Generic32 doRename(String from, String to) {
+        mLogger.info("rename(from=%s, to=%s)",
+                     StringUtil.quote(from), StringUtil.quote(to));
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        if (!new File(from).renameTo(new File(to))) {
+            result.setError(Errno.EPERM);
+        }
+
+        return result;
+    }
+
     /**
      * System call handler for issetugid(2). This always returns zero.
      */

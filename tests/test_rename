@@ -1,0 +1,27 @@
+
+cmd="rename/rename"
+from="${tmp_dir}/$$.from"
+to="${tmp_dir}/$$.to"
+args="${from} ${to}"
+
+getino() {
+	local path
+	path="$1"
+
+	ls -i "${path}" | awk '{ print $1 }'
+}
+
+precmd() {
+	touch "${from}"
+	ino="$(getino "${from}")"
+}
+
+testcmd() {
+	test "${ino}" = "$(getino "${to}")"
+}
+
+postcmd() {
+	rm -f "${from}" "${to}"
+}
+
+# vim: filetype=sh

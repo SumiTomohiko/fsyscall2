@@ -45,6 +45,7 @@
 %define	sys.gettimeofday	116
 %define	sys.getsockopt		118
 %define	sys.writev		121
+%define	sys.rename		128
 %define	sys.socketpair		135
 %define	sys.mkdir		136
 %define	sys.rmdir		137

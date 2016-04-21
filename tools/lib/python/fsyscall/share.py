@@ -217,7 +217,8 @@ SYSCALLS = {
         "fmaster_rmdir": {},
         "fmaster_fsync": {
             "fd": Argument(fd=True)
-            }
+            },
+        "fmaster_rename": {}
         }
 
 FMASTER_SYSCALLS = SYSCALLS.copy()
@@ -237,7 +238,7 @@ DUMMY_SYSCALLS = [
         "fmaster_setpriority", "fmaster_getpriority", "fmaster_getrusage",
         "fmaster_readv", "fmaster_settimeofday", "fmaster_fchown",
         "fmaster_fchmod", "fmaster_setreuid", "fmaster_setregid",
-        "fmaster_rename", "fmaster_flock", "fmaster_mkfifo", "fmaster_shutdown",
+        "fmaster_flock", "fmaster_mkfifo", "fmaster_shutdown",
         "fmaster_adjtime", "fmaster_quotactl", "fmaster_nlm_syscall",
         "fmaster_nfssvc", "fmaster_lgetfh", "fmaster_getfh", "fmaster_rtprio",
         "fmaster_semsys", "fmaster_msgsys", "fmaster_shmsys", "fmaster_setfib",

@@ -226,6 +226,7 @@ fslave/fslave_open.c
 fslave/fslave_pread.c
 fslave/fslave_read.c
 fslave/fslave_readlink.c
+fslave/fslave_rename.c
 fslave/fslave_rmdir.c
 fslave/fslave_socket.c
 fslave/fslave_stat.c
@@ -353,6 +354,7 @@ tests/amd64/recvmsg_master/recvmsg_master
 tests/amd64/recvmsg_not_socket_slave/recvmsg_not_socket_slave
 tests/amd64/recvmsg_pending_sock/recvmsg_pending_sock
 tests/amd64/recvmsg_slave/recvmsg_slave
+tests/amd64/rename/rename
 tests/amd64/rmdir/rmdir
 tests/amd64/select/select
 tests/amd64/select2/select2

@@ -21,11 +21,12 @@ SUBDIR=	${LIBDIR} SIGKILL_poll SIGKILL_wait4 accept access \
 	poll_master_slave_blocking2 poll_master_slave_nonblocking \
 	poll_master_slave_nonblocking2 poll_out poll_pending_sock poll_timeout \
 	pread read readlink recvmsg_controllen_for_nothing recvmsg_master \
-	recvmsg_not_socket_slave recvmsg_pending_sock recvmsg_slave rmdir \
-	select select2 select_master sendmsg_master sendmsg_not_socket_slave \
-	sendmsg_pending_sock sendmsg_slave setsockopt sigprocmask socket \
-	socketpair stat stat_ENOENT stat_dir thr_new umask unixsock_creds \
-	unlink utimes utimes_null wait4_ECHILD wait4_WNOHANG wait4_multithread \
-	wait4_rusage wait4_status wait4_successful write writev
+	recvmsg_not_socket_slave recvmsg_pending_sock recvmsg_slave rename \
+	rmdir select select2 select_master sendmsg_master \
+	sendmsg_not_socket_slave sendmsg_pending_sock sendmsg_slave setsockopt \
+	sigprocmask socket socketpair stat stat_ENOENT stat_dir thr_new umask \
+	unixsock_creds unlink utimes utimes_null wait4_ECHILD wait4_WNOHANG \
+	wait4_multithread wait4_rusage wait4_status wait4_successful write \
+	writev
 
 .include <bsd.subdir.mk>

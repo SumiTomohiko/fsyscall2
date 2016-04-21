@@ -104,6 +104,7 @@ defsyscall	recvmsg
 defsyscall	umask
 defsyscall	utimes
 defsyscall	fsync
+defsyscall	rename
 
 global _start
 _start:
