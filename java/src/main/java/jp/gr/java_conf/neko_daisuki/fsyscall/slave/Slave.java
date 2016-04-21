@@ -2569,16 +2569,11 @@ public class Slave implements Runnable {
         return new SyscallResult.Generic32();
     }
 
-    public SyscallResult.Generic32 doRename(String from, String to) {
+    public SyscallResult.Generic32 doRename(String from,
+                                            String to) throws IOException {
         mLogger.info("rename(from=%s, to=%s)",
                      StringUtil.quote(from), StringUtil.quote(to));
-        SyscallResult.Generic32 result = new SyscallResult.Generic32();
-
-        if (!new File(from).renameTo(new File(to))) {
-            result.setError(Errno.EPERM);
-        }
-
-        return result;
+        return renameActualFile(getActualPath(from), getActualPath(to));
     }
 
     /**
@@ -3462,6 +3457,27 @@ public class Slave implements Runnable {
         }
 
         result.retval = fd;
+    }
+
+    private SyscallResult.Generic32 renameActualFile(NormalizedPath from,
+                                                     NormalizedPath to) {
+        mLogger.info("rename actual file: from=%s, to=%s", from, to);
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        if (!mPermissions.isAllowed(from)) {
+            result.setError(Errno.ENOENT);
+            return result;
+        }
+        if (!mPermissions.isAllowed(to)) {
+            result.setError(Errno.EPERM);
+            return result;
+        }
+        if (!new File(from.toString()).renameTo(new File(to.toString()))) {
+            result.setError(Errno.ENOENT);
+            return result;
+        }
+
+        return result;
     }
 
     private SyscallResult.Generic32 openActualFile(NormalizedPath absPath, int flags, int mode) throws IOException {
