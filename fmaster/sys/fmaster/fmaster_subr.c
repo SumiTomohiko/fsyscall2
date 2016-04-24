@@ -2320,6 +2320,40 @@ exit:
 }
 
 int
+fmaster_get_file_status_flags(struct thread *td, int fd, int *flags)
+{
+	struct fmaster_vnode *vnode;
+
+	vnode = fmaster_get_locked_vnode_of_fd(td, fd);
+	if (vnode == NULL)
+		return (EBADF);
+
+	*flags = vnode->fv_pending_sock.fps_nonblocking ? O_NONBLOCK : 0;
+
+	fmaster_unlock_vnode(td, vnode);
+
+	return (0);
+}
+
+int
+fmaster_set_file_status_flags(struct thread *td, int fd, int flags)
+{
+	struct fmaster_vnode *vnode;
+	struct fmaster_pending_sock *sock;
+
+	vnode = fmaster_get_locked_vnode_of_fd(td, fd);
+	if (vnode == NULL)
+		return (EBADF);
+
+	sock = &vnode->fv_pending_sock;
+	sock->fps_nonblocking = (flags & O_NONBLOCK) != 0 ? true : false;
+
+	fmaster_unlock_vnode(td, vnode);
+
+	return (0);
+}
+
+int
 fmaster_copyin_msghdr(struct thread *td, const struct msghdr *umsg,
 		      struct msghdr *kmsg)
 {
@@ -3123,6 +3157,50 @@ reuseaddr_main(struct thread *td, int lfd, int level, int optname, void *kval,
 }
 
 int
+fmaster_execute_fcntl(struct thread *td, int lfd, int cmd, long arg)
+{
+	struct payload *payload;
+	int error;
+
+	payload = fsyscall_payload_create();
+	if (payload == NULL)
+		return (ENOMEM);
+	error = fsyscall_payload_add_int(payload, lfd);
+	if (error != 0)
+		goto exit;
+	error = fsyscall_payload_add_int(payload, cmd);
+	if (error != 0)
+		goto exit;
+	switch (cmd) {
+	case F_GETFD:
+	case F_GETFL:
+		break;
+	case F_SETFD:
+	case F_SETFL:
+		error = fsyscall_payload_add_long(payload, arg);
+		if (error != 0)
+			goto exit;
+		break;
+	default:
+		error = EOPNOTSUPP;
+		goto exit;
+	}
+
+	error = fmaster_write_payloaded_command(td, FCNTL_CALL, payload);
+	if (error != 0)
+		goto exit;
+	error = fmaster_execute_return_generic32(td, FCNTL_RETURN);
+	if (error != 0)
+		goto exit;
+
+	error = 0;
+exit:
+	fsyscall_payload_dispose(payload);
+
+	return (error);
+}
+
+int
 fmaster_execute_setsockopt(struct thread *td, int lfd, int level, int name,
 			   void *kval, int valsize)
 {
@@ -3170,6 +3248,11 @@ fmaster_fix_pending_socket_to_slave(struct thread *td, int fd, const char *desc)
 		if (error != 0)
 			goto exit;
 	}
+	if (pending_sock->fps_nonblocking) {
+		error = fmaster_execute_fcntl(td, sock, F_SETFL, O_NONBLOCK);
+		if (error != 0)
+			goto exit;
+	}
 
 	error = 0;
 exit:
@@ -3210,6 +3293,11 @@ fmaster_fix_pending_socket_to_master(struct thread *td, int fd,
 		if (error != 0)
 			goto exit;
 	}
+	if (pending_sock->fps_nonblocking) {
+		error = kern_fcntl(td, sock, F_SETFL, O_NONBLOCK);
+		if (error != 0)
+			goto exit;
+	}
 
 	error = 0;
 exit:
@@ -3239,6 +3327,7 @@ fmaster_register_pending_socket(struct thread *td, int domain, int type,
 	sock->fps_type = type;
 	sock->fps_protocol = protocol;
 	sock->fps_reuseaddr = false;
+	sock->fps_nonblocking = false;
 
 	fmaster_unlock_vnode(td, vnode);
 

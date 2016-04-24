@@ -178,9 +178,6 @@ SYSCALLS = {
             "fd": Argument(fd=True),
             "iovp": Argument(size="iovcnt")
             },
-        "fmaster_fcntl": {
-            "fd": Argument(fd=True)
-            },
         "fmaster_getpid": {},
         "fmaster_getuid": {},
         "fmaster_geteuid": {},

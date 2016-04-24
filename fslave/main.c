@@ -2112,6 +2112,43 @@ process_getdirentries(struct slave_thread *slave_thread)
 	rewind_dirent(fd, nentmax, buf, retval);
 }
 
+static void
+process_fcntl(struct slave_thread *slave_thread)
+{
+	sigset_t oset;
+	payload_size_t actual_payload_size, payload_size;
+	long arg;
+	int arg_len, cmd, cmd_len, e, fd, fd_len, retval, rfd;
+
+	rfd = slave_thread->fsth_rfd;
+	payload_size = read_payload_size(rfd);
+
+	fd = read_int(rfd, &fd_len);
+	actual_payload_size = fd_len;
+
+	cmd = read_int(rfd, &cmd_len);
+	actual_payload_size += cmd_len;
+
+	switch (cmd) {
+	case F_GETFD:
+	case F_GETFL:
+		break;
+	case F_SETFD:
+	case F_SETFL:
+	default:
+		arg = read_long(rfd, &arg_len);
+		actual_payload_size += arg_len;
+		break;
+	}
+
+	suspend_signal(slave_thread, &oset);
+	retval = fcntl(fd, cmd, arg);
+	e = errno;
+	resume_signal(slave_thread, &oset);
+
+	return_int(slave_thread, FCNTL_RETURN, retval, e);
+}
+
 static int
 mainloop(struct slave_thread *slave_thread)
 {
@@ -2218,6 +2255,9 @@ mainloop(struct slave_thread *slave_thread)
 				break;
 			case GETDIRENTRIES_CALL:
 				process_getdirentries(slave_thread);
+				break;
+			case FCNTL_CALL:
+				process_fcntl(slave_thread);
 				break;
 			case EXIT_CALL:
 				return process_exit(slave_thread);

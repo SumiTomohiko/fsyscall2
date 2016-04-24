@@ -30,6 +30,7 @@ struct fmaster_pending_sock {
 	int	fps_type;
 	int	fps_protocol;
 	bool	fps_reuseaddr;
+	bool	fps_nonblocking;
 };
 
 struct fmaster_data;
@@ -111,6 +112,8 @@ int	fmaster_dup(struct thread *, int, int *);
 int	fmaster_dup2(struct thread *, int, int);
 int	fmaster_close_on_exec(struct thread *);
 int	fmaster_set_close_on_exec(struct thread *, int, bool);
+int	fmaster_get_file_status_flags(struct thread *, int, int *);
+int	fmaster_set_file_status_flags(struct thread *, int, int);
 
 int	fmaster_fd_of_master_fd(struct thread *, int, int *);
 int	fmaster_fd_of_slave_fd(struct thread *, int, int *);
@@ -139,6 +142,7 @@ int	fmaster_execute_return_generic32(struct thread *, command_t);
 int	fmaster_execute_return_generic64(struct thread *, command_t);
 int	fmaster_execute_return_int32_with_token(struct thread *, command_t,
 						char **, uint64_t *);
+int	fmaster_execute_fcntl(struct thread *, int, int, long);
 int	fmaster_execute_setsockopt(struct thread *, int, int, int, void *, int);
 int	fmaster_execute_connect_protocol(struct thread *td,
 					 command_t call_command,

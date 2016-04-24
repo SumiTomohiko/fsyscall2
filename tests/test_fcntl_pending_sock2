@@ -1,0 +1,15 @@
+
+cmd="fcntl_pending_sock2/fcntl_pending_sock2"
+sock="${tmp_dir}/$$.sock"
+args="${sock}"
+expected_status="0"
+
+postcmd() {
+	rm -f "${sock}"
+}
+
+precmd() {
+	rm -f "${sock}"
+}
+
+# vim: filetype=sh

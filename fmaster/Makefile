@@ -8,7 +8,7 @@ TOP_DIR=	..
 KMOD=		fmaster
 SRCS=		elf_machdep.c fmaster_accept.c fmaster_bind.c \
 		fmaster_close.c fmaster_connect.c fmaster_dup.c fmaster_dup2.c \
-		fmaster_execve.c fmaster_exit.c fmaster_fork.c \
+		fmaster_execve.c fmaster_exit.c fmaster_fcntl.c fmaster_fork.c \
 		fmaster_fstatfs.c fmaster_getdirentries.c \
 		fmaster_getpeername.c fmaster_getsockname.c \
 		fmaster_getsockopt.c fmaster_ioctl.c fmaster_kevent.c \
