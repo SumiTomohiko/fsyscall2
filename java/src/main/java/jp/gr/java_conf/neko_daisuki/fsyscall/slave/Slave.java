@@ -1850,6 +1850,15 @@ public class Slave implements Runnable {
         }
     }
 
+    private class FGetFlProc implements FcntlProc {
+
+        public void run(SyscallResult.Generic32 result, UnixFile file, int fd,
+                        int cmd, long arg) {
+            result.retval = file.isNonBlocking() ? Unix.Constants.O_NONBLOCK
+                                                 : 0;
+        }
+    }
+
     private class FSetFlProc implements FcntlProc {
 
         public void run(SyscallResult.Generic32 result, UnixFile file, int fd,
@@ -3776,6 +3785,7 @@ public class Slave implements Runnable {
         mFcntlProcs = new FcntlProcs();
         mFcntlProcs.put(Unix.Constants.F_GETFD, new FGetFdProc());
         mFcntlProcs.put(Unix.Constants.F_SETFD, new FSetFdProc());
+        mFcntlProcs.put(Unix.Constants.F_GETFL, new FGetFlProc());
         mFcntlProcs.put(Unix.Constants.F_SETFL, new FSetFlProc());
     }
 

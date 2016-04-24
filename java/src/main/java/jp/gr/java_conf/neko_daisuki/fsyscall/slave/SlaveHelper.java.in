@@ -774,6 +774,32 @@ class SlaveHelper {
         }
     }
 
+    private class FcntlProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            mIn.readPayloadSize();  // unused
+
+            int fd = mIn.readInteger();
+            int cmd = mIn.readInteger();
+            long arg;
+            switch (cmd) {
+            case Unix.Constants.F_GETFD:
+            case Unix.Constants.F_GETFL:
+                arg = 0;    // unused, to make the compiler quiet.
+                break;
+            case Unix.Constants.F_SETFD:
+            case Unix.Constants.F_SETFL:
+            default:
+                arg = mIn.readLong();
+                break;
+            }
+
+            SyscallResult.Generic32 result = mSlave.doFcntl(fd, cmd, arg);
+
+            writeResult(Command.FCNTL_RETURN, result);
+        }
+    }
+
     private class UtimesProc extends CommandDispatcher.Proc {
 
         private static final short UTIMES_TIMES_NULL = 0;
@@ -872,6 +898,7 @@ class SlaveHelper {
         dispatcher.addEntry(Command.UTIMES_CALL, new UtimesProc());
         dispatcher.addEntry(Command.GETDIRENTRIES_CALL,
                             new GetdirentriesProc());
+        dispatcher.addEntry(Command.FCNTL_CALL, new FcntlProc());
         @DISPATCHES@;
         return dispatcher;
     }
