@@ -21,6 +21,7 @@
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fork_or_die.h>
+#include <fsyscall/private/geterrorname.h>
 #include <fsyscall/private/hub.h>
 #include <fsyscall/private/io.h>
 #include <fsyscall/private/io_or_die.h>
@@ -91,19 +92,28 @@ negotiate_version_with_shub(struct mhub *mhub)
 	syslog(LOG_INFO, "protocol version for shub is %d.", ver);
 }
 
+static const char *
+dump_master(char *buf, size_t bufsize, const struct master *master)
+{
+
+	snprintf(buf, bufsize,
+		 "pair_id=%ld, pid=%d, rfd=%d, wfd=%d",
+		 master->pair_id, master->pid, master->rfd, master->wfd);
+
+	return (buf);
+}
+
 #if 0
 static void
 dump_masters(struct mhub *mhub)
 {
 	struct master *master;
-	int rfd, wfd;
-	const char *fmt = "master (%p): pair_id=%ld, rfd=%d, wfd=%d";
+	char buf[1024];
 
 	master = (struct master *)FIRST_ITEM(&mhub->masters);
 	while (!IS_LAST(master)) {
-		rfd = master->rfd;
-		wfd = master->wfd;
-		syslog(LOG_DEBUG, fmt, master, master->pair_id, rfd, wfd);
+		dump_master(buf, sizeof(buf), master);
+		syslog(LOG_DEBUG, "master: %s", buf);
 		master = (struct master *)ITEM_NEXT(master);
 	}
 }
@@ -439,6 +449,10 @@ process_shub(struct mhub *mhub)
 static void
 dispose_master(struct master *master)
 {
+	char buf[1024];
+
+	dump_master(buf, sizeof(buf), master);
+	syslog(LOG_DEBUG, "dispose master: %s", buf);
 
 	REMOVE_ITEM(master);
 	hub_close_fds_or_die(master->rfd, master->wfd);
@@ -578,12 +592,20 @@ process_master(struct mhub *mhub, struct master *master)
 	struct io io;
 	command_t cmd;
 	pair_id_t pair_id;
+	int e;
 	const char *fmt = "unknown command (%d) from master (%ld)", *name;
+	char buf[1024];
 
 	io_init(&io, master->rfd);
 
-	if (io_read_command(&io, &cmd) == -1)
+	if (io_read_command(&io, &cmd) == -1) {
+		dump_master(buf, sizeof(buf), master);
+		e = io.io_error;
+		syslog(LOG_DEBUG,
+		       "read error: errno=%d (%s): %s",
+		       e, geterrorname(e), buf);
 		return (-1);
+	}
 	name = get_command_name(cmd);
 	pair_id = master->pair_id;
 	syslog(LOG_DEBUG, "processing %s from the master %ld.", name, pair_id);

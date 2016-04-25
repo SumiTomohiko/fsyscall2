@@ -4,7 +4,8 @@ SRCS=		main.c
 TOP_DIR=	..
 CFLAGS=		-I${TOP_DIR}/include
 LIB_DIR=	${TOP_DIR}/lib
-LDADD=		${LIB_DIR}/payload/libpayload.a \
+LDADD=		${LIB_DIR}/geterrorname/libgeterrorname.a \
+		${LIB_DIR}/payload/libpayload.a \
 		${LIB_DIR}/atoi_or_die/libatoi_or_die.a \
 		${LIB_DIR}/hub/libhub.a \
 		${LIB_DIR}/close_or_die/libclose_or_die.a \
