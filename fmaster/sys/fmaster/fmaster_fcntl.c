@@ -32,7 +32,13 @@ fmaster_fcntl_main(struct thread *td, int fd, int cmd, long arg)
 		return (error);
 	switch (place) {
 	case FFP_MASTER:
-		return (kern_fcntl(td, lfd, cmd, arg));
+		switch (cmd) {
+		case F_SETFD:
+			b = (arg & FD_CLOEXEC) != 0 ? true : false;
+			return (fmaster_set_close_on_exec(td, fd, b));
+		default:
+			return (kern_fcntl(td, lfd, cmd, arg));
+		}
 	case FFP_SLAVE:
 		return (fmaster_execute_fcntl(td, lfd, cmd, arg));
 	case FFP_PENDING_SOCKET:
