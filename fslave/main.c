@@ -31,6 +31,7 @@
 #include <fsyscall/private/fork_or_die.h>
 #include <fsyscall/private/fslave.h>
 #include <fsyscall/private/fslave/proto.h>
+#include <fsyscall/private/geterrorname.h>
 #include <fsyscall/private/io.h>
 #include <fsyscall/private/io_or_die.h>
 #include <fsyscall/private/log.h>
@@ -152,111 +153,6 @@ release_slave_thread(struct slave_thread *slave_thread)
 	free(slave_thread);
 	if (empty)
 		destroy_slave(slave);
-}
-
-static const char *
-geterrorname(int e)
-{
-	static const char *errname[] = {
-		"no error",
-		"EPERM",
-		"ENOENT",
-		"ESRCH",
-		"EINTR",
-		"EIO",
-		"ENXIO",
-		"E2BIG",
-		"ENOEXEC",
-		"EBADF",
-		"ECHILD",
-		"EDEADLK",
-		"ENOMEM",
-		"EACCES",
-		"EFAULT",
-		"ENOTBLK",
-		"EBUSY",
-		"EEXIST",
-		"EXDEV",
-		"ENODEV",
-		"ENOTDIR",
-		"EISDIR",
-		"EINVAL",
-		"ENFILE",
-		"EMFILE",
-		"ENOTTY",
-		"ETXTBSY",
-		"EFBIG",
-		"ENOSPC",
-		"ESPIPE",
-		"EROFS",
-		"EMLINK",
-		"EPIPE",
-		"EDOM",
-		"ERANGE",
-		"EAGAIN",
-		"EINPROGRESS",
-		"EALREADY",
-		"ENOTSOCK",
-		"EDESTADDRREQ",
-		"EMSGSIZE",
-		"EPROTOTYPE",
-		"ENOPROTOOPT",
-		"EPROTONOSUPPORT",
-		"ESOCKTNOSUPPORT",
-		"EOPNOTSUPP",
-		"EPFNOSUPPORT",
-		"EAFNOSUPPORT",
-		"EADDRINUSE",
-		"EADDRNOTAVAIL",
-		"ENETDOWN",
-		"ENETUNREACH",
-		"ENETRESET",
-		"ECONNABORTED",
-		"ECONNRESET",
-		"ENOBUFS",
-		"EISCONN",
-		"ENOTCONN",
-		"ESHUTDOWN",
-		"ETOOMANYREFS",
-		"ETIMEDOUT",
-		"ECONNREFUSED",
-		"ELOOP",
-		"ENAMETOOLONG",
-		"EHOSTDOWN",
-		"EHOSTUNREACH",
-		"ENOTEMPTY",
-		"EPROCLIM",
-		"EUSERS",
-		"EDQUOT",
-		"ESTALE",
-		"EREMOTE",
-		"EBADRPC",
-		"ERPCMISMATCH",
-		"EPROGUNAVAIL",
-		"EPROGMISMATCH",
-		"EPROCUNAVAIL",
-		"ENOLCK",
-		"ENOSYS",
-		"EFTYPE",
-		"EAUTH",
-		"ENEEDAUTH",
-		"EIDRM",
-		"ENOMSG",
-		"EOVERFLOW",
-		"ECANCELED",
-		"EILSEQ",
-		"ENOATTR",
-		"EDOOFUS",
-		"EBADMSG",
-		"EMULTIHOP",
-		"ENOLINK",
-		"EPROTO",
-		"ENOTCAPABLE",
-		"ECAPMODE"
-	};
-	static int nerrname = array_sizeof(errname);
-
-	return ((0 <= e) && (e < nerrname) ? errname[e] : "invalid");
 }
 
 static void *
