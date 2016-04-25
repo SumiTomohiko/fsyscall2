@@ -1895,6 +1895,7 @@ connect_to_mhub(struct thread *td)
 	error = connect(td, sock);
 	if (error != 0)
 		return (error);
+	fmaster_log(td, LOG_DEBUG, "connected to the fmhub: sock=%d", sock);
 
 	data = fmaster_proc_data_of_thread(td);
 	lock = &data->fdata_thread_created_mutex;
