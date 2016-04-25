@@ -193,15 +193,21 @@ void	_fmaster_dump_file_table(struct thread *, const char *, unsigned int);
 /* anything else */
 int	fmaster_is_master_file(struct thread *, const char *);
 
-void	fmaster_schedtail(struct thread *);
-int	fmaster_copyin_msghdr(struct thread *, const struct msghdr *,
-			      struct msghdr *);
-int	fmaster_do_kevent(struct thread *, const struct kevent *, int,
-			  struct kevent *, int *, const struct timespec *);
+void		fmaster_schedtail(struct thread *);
+int		fmaster_copyin_msghdr(struct thread *, const struct msghdr *,
+				      struct msghdr *);
+const char	*fmaster_geterrorname(int);
+int		fmaster_do_kevent(struct thread *, const struct kevent *, int,
+				  struct kevent *, int *,
+				  const struct timespec *);
 
 /* misc */
 int	fmaster_copyout_sockaddr(const struct sockaddr *, socklen_t,
 				 struct sockaddr *, socklen_t *);
+#define	fmaster_check_connection(td)	do {			\
+	__fmaster_check_connection__((td), __FILE__, __LINE__);	\
+} while (0)
+void	__fmaster_check_connection__(struct thread *, const char *, int);
 
 enum fmaster_pre_execute_result {
 	PRE_EXEC_END,

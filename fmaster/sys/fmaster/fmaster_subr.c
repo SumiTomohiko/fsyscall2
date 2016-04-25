@@ -798,9 +798,8 @@ fmaster_subtract_timeval(const struct timeval *t1, const struct timeval *t2)
 	return (1000000 * diff + (t2->tv_usec - t1->tv_usec));
 }
 
-void
-fmaster_log_syscall_end(struct thread *td, const char *name,
-			const struct timeval *t1, int error)
+const char *
+fmaster_geterrorname(int error)
 {
 	static const char *strerror[] = {
 		"no error",
@@ -899,6 +898,14 @@ fmaster_log_syscall_end(struct thread *td, const char *name,
 		"ENOTCAPABLE",
 		"ECAPMODE"
 	};
+
+	return ((0 <= error) && (error <= ELAST) ? strerror[error] : "invalid");
+}
+
+void
+fmaster_log_syscall_end(struct thread *td, const char *name,
+			const struct timeval *t1, int error)
+{
 	struct timeval t2;
 	long delta;
 	int retval;
@@ -909,7 +916,7 @@ fmaster_log_syscall_end(struct thread *td, const char *name,
 	microtime(&t2);
 	delta = fmaster_subtract_timeval(t1, &t2);
 	retval = td->td_retval[0];
-	s = (0 <= error) && (error <= ELAST) ? strerror[error] : "invalid";
+	s = fmaster_geterrorname(error);
 	fmaster_log(td, LOG_DEBUG, fmt,
 		    name, td->td_retval[0], td->td_retval[1], error, s, delta);
 }
@@ -3424,4 +3431,38 @@ fmaster_get_pending_socket(struct thread *td, int fd,
 	fmaster_unlock_vnode(td, vnode);
 
 	return (0);
+}
+
+static void
+fmaster_check_file(struct thread *td, const char *filename, int lineno,
+		   const char *name, int fd)
+{
+	struct stat sb;
+	register_t retval[2];
+	int error;
+
+	SAVE_RETVAL(td, retval);
+
+	error = kern_fstat(td, fd, &sb);
+	if (error == 0)
+		goto exit;
+	fmaster_log(td, LOG_DEBUG,
+		    "%s is dead: %s:%u: fd=%d, error=%d (%s)",
+		    name, filename, lineno, fd, error,
+		    fmaster_geterrorname(error));
+
+exit:
+	RESTORE_RETVAL(td, retval);
+}
+
+void
+__fmaster_check_connection__(struct thread *td, const char *filename,
+			     int lineno)
+{
+	int rfd, wfd;
+
+	rfd = fmaster_rfd_of_thread(td);
+	wfd = fmaster_wfd_of_thread(td);
+	fmaster_check_file(td, filename, lineno, "rfd", rfd);
+	fmaster_check_file(td, filename, lineno, "wfd", wfd);
 }
