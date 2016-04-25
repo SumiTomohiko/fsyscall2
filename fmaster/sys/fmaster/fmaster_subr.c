@@ -2185,6 +2185,34 @@ basename(const char *path)
 	return (p);
 }
 
+static const char *
+get_type_string(short type)
+{
+#define	INVALID_TYPE	"invalid"
+	static const char *types[] = {
+		INVALID_TYPE,
+		"DTYPE_VNODE",
+		"DTYPE_SOCKET",
+		"DTYPE_PIPE",
+		"DTYPE_FIFO",
+		"DTYPE_KQUEUE",
+		"DTYPE_CRYPTO",
+		"DTYPE_MQUEUE",
+		"DTYPE_SHM",
+		"DTYPE_SEM",
+		"DTYPE_PTS",
+		"DTYPE_DEV",
+		"DTYPE_CAPABILITY",
+		"DTYPE_PROCDESC"
+	};
+	int ntypes;
+
+	ntypes = array_sizeof(types);
+
+	return ((0 <= type) && (type < ntypes) ? types[type] : INVALID_TYPE);
+#undef	INVALID_TYPE
+}
+
 void
 _fmaster_dump_file_table(struct thread *td, const char *filename,
 			 unsigned int lineno)
@@ -2195,7 +2223,8 @@ _fmaster_dump_file_table(struct thread *td, const char *filename,
 	pid_t pid;
 	enum fmaster_file_place place;
 	int error, i, lfd;
-	const char *bname, *close_on_exec, *placestr;
+	short type;
+	const char *bname, *close_on_exec, *placestr, *typestr;
 	char dead_or_alive[64];
 
 	fmaster_lock_file_table(td);
@@ -2232,11 +2261,13 @@ _fmaster_dump_file_table(struct thread *td, const char *filename,
 			dead_or_alive[0] = '\0';
 			break;
 		}
+		type = vnode->fv_type;
+		typestr = get_type_string(type);
 		fmaster_log(td, LOG_DEBUG,
 			    "%s:%u: file[%d]: place=%s, local=%d%s, refcount=%d"
-			    ", desc=%s",
+			    ", type=%d (%s), desc=%s",
 			    bname, lineno, i, placestr, lfd, dead_or_alive,
-			    vnode->fv_refcount, vnode->fv_desc);
+			    vnode->fv_refcount, type, typestr, vnode->fv_desc);
 	}
 
 	fmaster_unlock_file_table(td);
