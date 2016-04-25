@@ -935,6 +935,7 @@ fmaster_is_master_file(struct thread *td, const char *path)
 		"/usr/local/share/fonts/",
 		"/usr/local/share/gedit-2/",
 		"/usr/local/share/gtksourceview-2.0/",
+		"/usr/local/share/gvfs/remote-volume-monitors/",
 		"/usr/local/share/icons/",
 		"/usr/local/share/mime/",
 		"/var/db/fontconfig/",
