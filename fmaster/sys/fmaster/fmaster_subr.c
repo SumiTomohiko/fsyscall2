@@ -494,6 +494,7 @@ fmaster_copy_data(struct thread *td, struct fmaster_data *dest)
 		newvnode->fv_place = vnode->fv_place;
 		newvnode->fv_local = vnode->fv_local;
 		newvnode->fv_refcount = vnode->fv_refcount;
+		newvnode->fv_type = vnode->fv_type;
 		strcpy(newvnode->fv_desc, vnode->fv_desc);
 		dest->fdata_files[i].ff_vnode = newvnode;
 	}
