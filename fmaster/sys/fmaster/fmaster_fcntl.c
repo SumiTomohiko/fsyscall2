@@ -50,7 +50,7 @@ fmaster_fcntl_main(struct thread *td, int fd, int cmd, long arg)
 			error = fmaster_get_file_status_flags(td, fd, &flags);
 			if (error != 0)
 				return (error);
-			td->td_retval[0] = flags;
+			td->td_retval[0] = O_RDWR | flags;
 			return (0);
 		case F_SETFL:
 			return (fmaster_set_file_status_flags(td, fd, arg));
