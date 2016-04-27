@@ -412,6 +412,10 @@ public class Slave implements Runnable {
             super(alarm);
         }
 
+        public int getAccessMode() {
+            return Unix.Constants.O_RDWR;
+        }
+
         public boolean isReadyToRead() throws IOException {
             return false;
         }
@@ -954,6 +958,10 @@ public class Slave implements Runnable {
             this(alarm, domain, type, protocol);
             setName(name);
             setPeer(peer);
+        }
+
+        public int getAccessMode() {
+            return Unix.Constants.O_RDWR;
         }
 
         public Socket getPeer() {
@@ -1522,6 +1530,10 @@ public class Slave implements Runnable {
             return true;
         }
 
+        public int getAccessMode() {
+            return Unix.Constants.O_RDONLY;
+        }
+
         public DirEntries getdirentries(int nMax) throws UnixException {
             List<Unix.DirEnt> l = new ArrayList<Unix.DirEnt>();
 
@@ -1583,6 +1595,10 @@ public class Slave implements Runnable {
             super(alarm, path, create ? "rw" : "r");
         }
 
+        public int getAccessMode() {
+            return Unix.Constants.O_RDONLY;
+        }
+
         public boolean isReadyToRead() throws IOException {
             return mFile.getFilePointer() < mFile.length();
         }
@@ -1641,6 +1657,10 @@ public class Slave implements Runnable {
 
         public UnixOutputFile(Alarm alarm, String path) throws UnixException {
             super(alarm, path, "rw");
+        }
+
+        public int getAccessMode() {
+            return Unix.Constants.O_WRONLY;
         }
 
         public boolean isReadyToRead() throws IOException {
@@ -1705,6 +1725,10 @@ public class Slave implements Runnable {
             mIn = in;
         }
 
+        public int getAccessMode() {
+            return Unix.Constants.O_RDONLY;
+        }
+
         public boolean isReadyToRead() throws IOException {
             try {
                 return 0 < mIn.available();
@@ -1765,6 +1789,10 @@ public class Slave implements Runnable {
         public UnixOutputStream(Alarm alarm, OutputStream out) {
             super(alarm);
             mOut = out;
+        }
+
+        public int getAccessMode() {
+            return Unix.Constants.O_WRONLY;
         }
 
         public boolean isReadyToRead() throws IOException {
@@ -1854,8 +1882,9 @@ public class Slave implements Runnable {
 
         public void run(SyscallResult.Generic32 result, UnixFile file, int fd,
                         int cmd, long arg) {
-            result.retval = file.isNonBlocking() ? Unix.Constants.O_NONBLOCK
-                                                 : 0;
+            int accMode = file.getAccessMode();
+            accMode |= file.isNonBlocking() ? Unix.Constants.O_NONBLOCK : 0;
+            result.retval = accMode;
         }
     }
 

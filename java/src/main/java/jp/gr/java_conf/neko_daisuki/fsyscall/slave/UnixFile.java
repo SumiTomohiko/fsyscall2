@@ -82,6 +82,7 @@ abstract class UnixFile implements EventScannee {
     public abstract Unix.Stat fstat() throws UnixException;
     public abstract long getFilterFlags();
     public abstract void clearFilterFlags();
+    public abstract int getAccessMode();
 
     protected boolean isNonBlocking() {
         return mNonBlocking;

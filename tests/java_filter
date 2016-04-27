@@ -35,6 +35,7 @@ excludes = [
         StrictPattern("test_egid"),
         StrictPattern("test_connect"),
         StrictPattern("test_chdir_readlink"),
+        StrictPattern("test_fcntl_accmode_readwrite"),
         StrictPattern("test_kqueue"),
         StrictPattern("test_kevent")
         ]
