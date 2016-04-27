@@ -1,0 +1,5 @@
+
+cmd="fcntl_accmode_kqueue/fcntl_accmode_kqueue"
+expected_status="0"
+
+# vim: filetype=sh

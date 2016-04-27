@@ -1,0 +1,5 @@
+
+cmd="fcntl_accmode_pending_sock/fcntl_accmode_pending_sock"
+expected_status="0"
+
+# vim: filetype=sh

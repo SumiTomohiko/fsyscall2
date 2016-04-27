@@ -1,0 +1,15 @@
+
+cmd="fcntl_accmode_read/fcntl_accmode_read"
+file="${tmp_dir}/$$"
+args="${file}"
+expected_status="0"
+
+precmd() {
+	touch "${file}"
+}
+
+postcmd() {
+	rm -f "${file}"
+}
+
+# vim: filetype=sh

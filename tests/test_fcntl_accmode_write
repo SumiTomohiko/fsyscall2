@@ -1,0 +1,11 @@
+
+cmd="fcntl_accmode_write/fcntl_accmode_write"
+file="${tmp_dir}/$$"
+args="${file}"
+expected_status="0"
+
+postcmd() {
+	rm -f "${file}"
+}
+
+# vim: filetype=sh

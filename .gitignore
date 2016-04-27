@@ -285,6 +285,13 @@ tests/amd64/dup2_to_pending_sock/dup2_to_pending_sock
 tests/amd64/dup_and_close/dup_and_close
 tests/amd64/execve/execve
 tests/amd64/fcntl/fcntl
+tests/amd64/fcntl_accmode_dir/fcntl_accmode_dir
+tests/amd64/fcntl_accmode_kqueue/fcntl_accmode_kqueue
+tests/amd64/fcntl_accmode_pending_sock/fcntl_accmode_pending_sock
+tests/amd64/fcntl_accmode_read/fcntl_accmode_read
+tests/amd64/fcntl_accmode_readwrite/fcntl_accmode_readwrite
+tests/amd64/fcntl_accmode_sock/fcntl_accmode_sock
+tests/amd64/fcntl_accmode_write/fcntl_accmode_write
 tests/amd64/fcntl_pending_sock/fcntl_pending_sock
 tests/amd64/fcntl_pending_sock2/fcntl_pending_sock2
 tests/amd64/fdpassing/fdpassing

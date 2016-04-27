@@ -1,0 +1,5 @@
+
+cmd="fcntl_accmode_dir/fcntl_accmode_dir"
+expected_status="0"
+
+# vim: filetype=sh

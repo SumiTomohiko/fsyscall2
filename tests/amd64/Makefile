@@ -7,13 +7,15 @@ SUBDIR=	${LIBDIR} SIGKILL_poll SIGKILL_wait4 accept access \
 	dup2_closed2master dup2_closed2slave dup2_master2closed \
 	dup2_master2master dup2_master2slave dup2_nothing dup2_slave2closed \
 	dup2_slave2master dup2_slave2slave dup2_to_pending_sock dup_and_close \
-	execve exit fcntl fcntl_pending_sock fcntl_pending_sock2 fdpassing \
-	fdpassing2 fdpassing_EBADF fork fstat fstat_bind fstatfs \
-	fstatfs_pending_sock fsync getdirentries getdirentries_pending_sock \
-	getegid geteuid getgid getpeername_error getpeername_family \
-	getpeername_path getpeername_server getpid getresgid_egid \
-	getresgid_rgid getresgid_sgid getresuid_ruid getresuid_euid \
-	getresuid_suid getsockname_family getsockname_server \
+	execve exit fcntl fcntl_accmode_dir fcntl_accmode_kqueue \
+	fcntl_accmode_pending_sock fcntl_accmode_read fcntl_accmode_readwrite \
+	fcntl_accmode_sock fcntl_accmode_write fcntl_pending_sock \
+	fcntl_pending_sock2 fdpassing fdpassing2 fdpassing_EBADF fork fstat \
+	fstat_bind fstatfs fstatfs_pending_sock fsync getdirentries \
+	getdirentries_pending_sock getegid geteuid getgid getpeername_error \
+	getpeername_family getpeername_path getpeername_server getpid \
+	getresgid_egid getresgid_rgid getresgid_sgid getresuid_ruid \
+	getresuid_euid getresuid_suid getsockname_family getsockname_server \
 	getsockopt_pending_sock getsockopt_slave gettimeofday_dsttime \
 	gettimeofday_minuteswest gettimeofday_sec gettimeofday_usec getuid \
 	ioctl issetugid kill listen lseek lstat mkdir open open_EISDIR \
