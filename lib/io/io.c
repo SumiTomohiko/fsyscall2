@@ -72,20 +72,26 @@ io_read_all(struct io *io, void *buf, payload_size_t nbytes)
 		FD_SET(fd, &fds);
 		l = select(fd + 1, &fds, NULL, NULL, &timeout);
 		if (l == -1) {
-			if (errno != EINTR)
-				die(-1, "select(2) failed");
+			if (errno != EINTR) {
+				io->io_error = errno;
+				return (-1);
+			}
 			continue;
 		}
-		if (l == 0)
-			die_with_message(1, "select(2) timeout");
+		if (l == 0) {
+			io->io_error = ETIMEDOUT;
+			return (-1);
+		}
 
 		m = read(fd, (char *)buf + n, nbytes - n);
 		if (m == 0) {
 			io->io_error = EPIPE;
 			return (-1);
 		}
-		if (m < 0)
-			die(-1, "cannot read fd %d", fd);
+		if (m < 0) {
+			io->io_error = errno;
+			return (-1);
+		}
 		n += m;
 	}
 

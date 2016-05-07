@@ -193,6 +193,7 @@ void	_fmaster_dump_file_table(struct thread *, const char *, unsigned int);
 /* anything else */
 int	fmaster_is_master_file(struct thread *, const char *);
 
+void		fmaster_abort(struct thread *, const char *, ...);
 void		fmaster_schedtail(struct thread *);
 int		fmaster_copyin_msghdr(struct thread *, const struct msghdr *,
 				      struct msghdr *);

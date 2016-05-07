@@ -400,14 +400,12 @@ transfer_token(struct mhub *mhub, command_t cmd)
 }
 
 static int
-process_shub(struct mhub *mhub)
+process_shub(struct mhub *mhub, struct io *io)
 {
-	struct io io;
 	command_t cmd;
 	const char *fmt = "processing %s from the slave hub.";
 
-	io_init(&io, mhub->shub.rfd);
-	if (io_read_command(&io, &cmd) == -1)
+	if (io_read_command(io, &cmd) == -1)
 		return (-1);
 	syslog(LOG_DEBUG, fmt, get_command_name(cmd));
 	switch (cmd) {
@@ -669,15 +667,47 @@ find_master_of_rfd(struct mhub *mhub, int rfd)
 	return ((struct master *)item);
 }
 
+static void
+dispose_session(struct mhub *mhub)
+{
+	struct master *master, *next;
+	int e;
+
+	master = (struct master *)FIRST_ITEM(&mhub->masters);
+	while (!IS_LAST(master)) {
+		if (kill(master->pid, SIGKILL) == -1) {
+			e = errno;
+			syslog(LOG_WARNING,
+			       "cannot kill master: pid=%d, errno=%d (%s)",
+			       master->pid, e, geterrorname(e));
+		}
+		next = (struct master *)ITEM_NEXT(master);
+		dispose_master(master);
+		master = next;
+	}
+}
+
 static int
 process_fd(struct mhub *mhub, int fd, fd_set *fds)
 {
 	struct master *master;
+	struct io io;
+	int e;
 
 	if (!FD_ISSET(fd, fds))
 		return (0);
-	if (fd == mhub->shub.rfd)
-		return (process_shub(mhub));
+	if (fd == mhub->shub.rfd) {
+		io_init(&io, fd);
+		if (process_shub(mhub, &io) == -1) {
+			e = io.io_error;
+			syslog(LOG_ERR,
+			       "slave disconnected: errno=%d (%s)",
+			       e, geterrorname(e));
+			dispose_session(mhub);
+			return (-1);
+		}
+		return (0);
+	}
 
 	master = find_master_of_rfd(mhub, fd);
 	if (process_master(mhub, master) == -1)
@@ -690,6 +720,7 @@ static int
 process_fds(struct mhub *mhub)
 {
 	struct master *master;
+	struct timeval timeout;
 	int i, max_fd, n, nfds, rfd;
 	fd_set fds, *pfds;
 
@@ -707,9 +738,21 @@ process_fds(struct mhub *mhub)
 		master = (struct master *)ITEM_NEXT(master);
 	}
 	nfds = max_fd + 1;
-	n = select(nfds, pfds, NULL, NULL, NULL);
-	if (n == -1)
+	timeout.tv_sec = 90;
+	timeout.tv_usec = 0;
+	n = select(nfds, pfds, NULL, NULL, &timeout);
+	switch (n) {
+	case -1:
 		die(-1, "select failed");
+		/* NOTREACHED */
+	case 0:
+		syslog(LOG_ERR, "slave timeouted");
+		dispose_session(mhub);
+		return (-1);
+	default:
+		break;
+	}
+
 	for (i = 0; i < nfds; i++)
 		if (process_fd(mhub, i, pfds) == -1)
 			return (-1);

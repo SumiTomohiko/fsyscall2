@@ -28,6 +28,7 @@
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <machine/stdarg.h>
 
 #include <fsyscall/private.h>
@@ -1926,6 +1927,22 @@ connect_to_mhub(struct thread *td)
 }
 
 void
+fmaster_abort(struct thread *td, const char *fmt, ...)
+{
+	va_list ap;
+	char buf[8192];
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+	fmaster_log(td, LOG_ERR, "aborted: %s", buf);
+
+	fmaster_release_thread(td);
+
+	exit1(td, W_EXITCODE(0, SIGABRT));
+}
+
+void
 fmaster_schedtail(struct thread *td)
 {
 	int error;
@@ -1938,7 +1955,7 @@ fmaster_schedtail(struct thread *td)
 		return;
 	error = connect_to_mhub(td);
 	if (error != 0)
-		fmaster_log(td, LOG_ERR, fmt, error);
+		fmaster_abort(td, fmt, error);
 }
 
 const char *
