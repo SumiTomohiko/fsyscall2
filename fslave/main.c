@@ -894,7 +894,7 @@ read_recvmsg_args(struct slave_thread *slave_thread, int *fd,
 	payload_size = read_payload_size(rfd);
 
 	*fd = read_int(rfd, &fd_len);
-	actual_payload_size += fd_len;
+	actual_payload_size = fd_len;
 
 	namecode = read_int(rfd, &namecode_len);
 	actual_payload_size += namecode_len;
