@@ -1634,6 +1634,7 @@ process_kevent(struct slave_thread *slave_thread)
 		changelist = NULL;
 		break;
 	default:
+		changelist = NULL;	/* for -Wsometimes-uninitialized */
 		die(1, fmt, changelist_code);
 		break;
 	}
@@ -1657,6 +1658,7 @@ process_kevent(struct slave_thread *slave_thread)
 		ptimeout = NULL;
 		break;
 	default:
+		ptimeout = NULL;	/* for -Wsometimes-uninitialized */
 		die(1, fmt2, timeout_code);
 		break;
 	}
@@ -1713,12 +1715,12 @@ process_setsockopt(struct slave_thread *slave_thread)
 	case SO_REUSEADDR:
 		n = read_int(rfd, &optval_len);
 		actual_payload_size += optval_len;
-		optval = &n;
 		break;
 	default:
 		die(1, "Unsupported socket option specified: %s", optname);
 		break;
 	}
+	optval = &n;
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
 
@@ -1876,6 +1878,7 @@ process_utimes(struct slave_thread *slave_thread)
 		ptimes = times;
 		break;
 	default:
+		ptimes = NULL;	/* for -Wsometimes-uninitialized */
 		die(1, "invalid utimes(2) times code: %d", times_code);
 		break;
 	}
@@ -2028,6 +2031,7 @@ process_fcntl(struct slave_thread *slave_thread)
 	switch (cmd) {
 	case F_GETFD:
 	case F_GETFL:
+		arg = 42L;	/* for -Wsometimes-uninitialized. unused */
 		break;
 	case F_SETFD:
 	case F_SETFL:
