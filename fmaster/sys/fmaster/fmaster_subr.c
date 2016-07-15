@@ -3037,7 +3037,9 @@ fmaster_execute_getdirentries(struct thread *td, int fd, char *ubuf,
 		return (error);
 	switch (place) {
 	case FFP_MASTER:
-		return (kern_getdirentries(td, lfd, ubuf, count, kbasep));
+		error = kern_getdirentries(td, lfd, ubuf, count, kbasep, NULL,
+					   UIO_USERSPACE);
+		return (error);
 	case FFP_SLAVE:
 		break;
 	case FFP_PENDING_SOCKET:
