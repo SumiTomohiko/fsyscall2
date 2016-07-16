@@ -1,4 +1,0 @@
-
-cmd="access/access"
-args="/usr/local/lib/libzip.so.3 0"
-expected_status="0"

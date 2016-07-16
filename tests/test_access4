@@ -1,4 +1,0 @@
-
-cmd="access/access"
-args="/usr/lib/libc.so 0"
-expected_status="0"
