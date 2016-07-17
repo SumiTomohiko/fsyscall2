@@ -1492,6 +1492,7 @@ public class Slave implements Runnable {
 
         private List<Unix.DirEnt> mEntries;
         private int mPosition;
+        private NormalizedPath mPath;
 
         public DirectoryFile(Alarm alarm,
                              NormalizedPath path) throws UnixException {
@@ -1512,6 +1513,12 @@ public class Slave implements Runnable {
                                          : Unix.Constants.DT_DIR;
                 mEntries.add(new Unix.DirEnt(type, file.getName()));
             }
+
+            mPath = path;
+        }
+
+        public NormalizedPath getPath() {
+            return mPath;
         }
 
         /**
@@ -2406,6 +2413,44 @@ public class Slave implements Runnable {
                      Unix.Constants.Mode.toString(mode));
 
         return openActualFile(getActualPath(path), flags, mode);
+    }
+
+    public SyscallResult.Generic32 doOpenat(int fd, String path, int flags,
+                                            int mode) throws IOException {
+        mLogger.info("openat(fd=%d, path=%s, flags=0o%o (%s), mode=0o%o (%s))",
+                     fd, StringUtil.quote(path), flags,
+                     Unix.Constants.Open.toString(flags), mode,
+                     Unix.Constants.Mode.toString(mode));
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+
+        if (path.startsWith("/")) {
+            // If the path is absolute, openat(2) ignores the fd.
+            return openActualFile(getActualPath(path), flags, mode);
+        }
+
+        UnixFile file;
+        try {
+            file = mProcess.getLockedFile(fd);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+        try {
+            DirectoryFile dir;
+            try {
+                dir = (DirectoryFile)file;
+            }
+            catch (ClassCastException unused) {
+                result.setError(Errno.EINVAL);
+                return result;
+            }
+            NormalizedPath absPath = new NormalizedPath(dir.getPath(), path);
+            return openActualFile(absPath, flags, mode);
+        }
+        finally {
+            file.unlock();
+        }
     }
 
     public SyscallResult.Read doRead(int fd, long nbytes) throws IOException {

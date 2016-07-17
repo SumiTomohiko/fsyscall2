@@ -37,7 +37,8 @@ excludes = [
         StrictPattern("test_chdir_readlink"),
         StrictPattern("test_fcntl_accmode_readwrite"),
         StrictPattern("test_kqueue"),
-        StrictPattern("test_kevent")
+        StrictPattern("test_kevent"),
+        StrictPattern("test_openat_perm")
         ]
 
 name = basename(argv[1])

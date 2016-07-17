@@ -774,6 +774,24 @@ class SlaveHelper {
         }
     }
 
+    private class OpenatProc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            mIn.readPayloadSize();  // unused
+
+            int fd = mIn.readInteger();
+            String path = mIn.readString();
+            int flags = mIn.readInteger();
+            int mode = (flags & Unix.Constants.O_CREAT) != 0 ? mIn.readInteger()
+                                                             : 0;
+
+            SyscallResult.Generic32 result = mSlave.doOpenat(fd, path, flags,
+                                                             mode);
+
+            writeResult(Command.OPENAT_RETURN, result);
+        }
+    }
+
     private class FcntlProc extends CommandDispatcher.Proc {
 
         public void call(Command command) throws IOException {
@@ -899,6 +917,7 @@ class SlaveHelper {
         dispatcher.addEntry(Command.GETDIRENTRIES_CALL,
                             new GetdirentriesProc());
         dispatcher.addEntry(Command.FCNTL_CALL, new FcntlProc());
+        dispatcher.addEntry(Command.OPENAT_CALL, new OpenatProc());
         @DISPATCHES@;
         return dispatcher;
     }
