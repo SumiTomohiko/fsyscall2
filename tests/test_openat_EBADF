@@ -1,0 +1,5 @@
+
+cmd="openat_EBADF/openat_EBADF"
+expected_status="0"
+
+# vim: filetype=sh

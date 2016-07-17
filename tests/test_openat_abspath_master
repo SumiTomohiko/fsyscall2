@@ -1,0 +1,6 @@
+
+cmd="openat_abspath/openat_abspath"
+args="/lib/libc.so.7"
+expected_status="0"
+
+# vim: filetype=sh

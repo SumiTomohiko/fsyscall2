@@ -14,6 +14,7 @@ int16_t		read_int16(int, int *);
 int32_t		read_int32(int, int *);
 int64_t		read_int64(int, int *);
 uint8_t		read_uint8(int, int *);
+uint16_t	read_uint16(int, int *);
 uint32_t	read_uint32(int, int *);
 uint64_t	read_uint64(int, int *);
 short		read_short(int, int *);
@@ -38,5 +39,7 @@ void		read_sigset(int, sigset_t *, int *);
 void		read_timeval(int, struct timeval *, int *);
 
 void		transfer(int, int, uint32_t);
+
+#define	read_mode	read_uint16
 
 #endif

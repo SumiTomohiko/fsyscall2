@@ -2012,6 +2012,44 @@ process_getdirentries(struct slave_thread *slave_thread)
 }
 
 static void
+process_openat(struct slave_thread *slave_thread)
+{
+	sigset_t oset;
+	uint64_t path_len;
+	payload_size_t actual_payload_size, payload_size;
+	int e, fd, fd_len, flags, flags_len, mode_len, retval, rfd;
+	mode_t mode;
+	char *path;
+
+	rfd = slave_thread->fsth_rfd;
+	payload_size = read_payload_size(rfd);
+
+	fd = read_int(rfd, &fd_len);
+	actual_payload_size = fd_len;
+
+	path = read_string(rfd, &path_len);
+	actual_payload_size += path_len;
+
+	flags = read_int(rfd, &flags_len);
+	actual_payload_size += flags_len;
+
+	if ((flags & O_CREAT) != 0) {
+		mode = read_mode(rfd, &mode_len);
+		actual_payload_size += mode_len;
+	}
+	else
+		mode = 0;
+
+	suspend_signal(slave_thread, &oset);
+	retval = openat(fd, path, flags, mode);
+	e = errno;
+	resume_signal(slave_thread, &oset);
+
+	return_int(slave_thread, OPENAT_RETURN, retval, e);
+	free(path);
+}
+
+static void
 process_fcntl(struct slave_thread *slave_thread)
 {
 	sigset_t oset;
@@ -2158,6 +2196,9 @@ mainloop(struct slave_thread *slave_thread)
 				break;
 			case FCNTL_CALL:
 				process_fcntl(slave_thread);
+				break;
+			case OPENAT_CALL:
+				process_openat(slave_thread);
 				break;
 			case EXIT_CALL:
 				return process_exit(slave_thread);

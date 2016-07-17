@@ -339,6 +339,11 @@ tests/amd64/open_EISDIR/open_EISDIR
 tests/amd64/open_ENOENT/open_ENOENT
 tests/amd64/open_O_DIRECTORY/open_O_DIRECTORY
 tests/amd64/open_pwddb/open_pwddb
+tests/amd64/openat/openat
+tests/amd64/openat_EBADF/openat_EBADF
+tests/amd64/openat_abspath/openat_abspath
+tests/amd64/openat_perm/openat_perm
+tests/amd64/openat_sock/openat_sock
 tests/amd64/pipe/pipe
 tests/amd64/poll_POLLHUP/poll_POLLHUP
 tests/amd64/poll_POLLHUP2/poll_POLLHUP2

@@ -1,0 +1,18 @@
+
+cmd="openat/openat"
+dir="${tmp_dir}"
+file="$$.openat"
+args="${dir} ${file}"
+expected_status="0"
+
+path="${dir}/${file}"
+
+precmd() {
+	touch "${path}"
+}
+
+postcmd() {
+	rm -f "${path}"
+}
+
+# vim: filetype=sh

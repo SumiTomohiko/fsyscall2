@@ -1,0 +1,19 @@
+
+cmd="openat_perm/openat_perm"
+dir="${tmp_dir}"
+file="$$.openat"
+mode="641"
+args="${dir} ${file} ${mode}"
+
+path="${dir}/${file}"
+
+testcmd() {
+	test $(stat -f "%03Op" "${path}" | grep -o '...$') = "${mode}"
+}
+
+postcmd() {
+	chmod u+w "${path}"
+	rm -f "${path}"
+}
+
+# vim: filetype=sh

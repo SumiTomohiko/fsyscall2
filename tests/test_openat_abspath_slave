@@ -1,0 +1,6 @@
+
+cmd="openat_abspath/openat_abspath"
+args="/"
+expected_status="0"
+
+# vim: filetype=sh

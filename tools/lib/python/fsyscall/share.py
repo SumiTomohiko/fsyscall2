@@ -258,10 +258,10 @@ DUMMY_SYSCALLS = [
         "fmaster_thr_kill2", "fmaster_faccessat", "fmaster_fchmodat",
         "fmaster_fchownat", "fmaster_fexecve", "fmaster_fstatat",
         "fmaster_futimesat", "fmaster_linkat", "fmaster_mkdirat",
-        "fmaster_mkfifoat", "fmaster_mknodat", "fmaster_openat",
-        "fmaster_readlinkat", "fmaster_renameat", "fmaster_symlinkat",
-        "fmaster_unlinkat", "fmaster_posix_openpt", "fmaster_msgctl",
-        "fmaster_lpathconf", "fmaster_getloginclass", "fmaster_setloginclass"
+        "fmaster_mkfifoat", "fmaster_mknodat", "fmaster_readlinkat",
+        "fmaster_renameat", "fmaster_symlinkat", "fmaster_unlinkat",
+        "fmaster_posix_openpt", "fmaster_msgctl", "fmaster_lpathconf",
+        "fmaster_getloginclass", "fmaster_setloginclass"
         ]
 
 DEFAULT_ARGUMENT = Argument()

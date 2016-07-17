@@ -41,6 +41,7 @@ payload_size_t	fsyscall_payload_get_size(struct payload *);
 #define	fsyscall_payload_add_socklen	fsyscall_payload_add_uint32
 #define	fsyscall_payload_add_time	fsyscall_payload_add_int64
 #define	fsyscall_payload_add_suseconds	fsyscall_payload_add_long
+#define	fsyscall_payload_add_mode	fsyscall_payload_add_uint16
 
 #if !defined(KLD_MODULE)
 struct payload	*payload_create();
