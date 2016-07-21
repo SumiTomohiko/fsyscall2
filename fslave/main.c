@@ -30,6 +30,7 @@
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fork_or_die.h>
 #include <fsyscall/private/fslave.h>
+#include <fsyscall/private/fslave/dir_entries_cache.h>
 #include <fsyscall/private/fslave/proto.h>
 #include <fsyscall/private/geterrorname.h>
 #include <fsyscall/private/io.h>
@@ -89,6 +90,7 @@ destroy_slave(struct slave *slave)
 	reset_signal_handler();
 	close_or_die(sigw);
 	close_or_die(slave->sigr);
+	dir_entries_cache_dispose(slave->fsla_dir_entries_cache);
 	pthread_rwlock_destroy(&slave->fsla_lock);
 	free(slave);
 }
@@ -1392,19 +1394,17 @@ signal_handler(int sig)
 	write_or_die(sigw, &c, sizeof(c));
 }
 
-static int
+static void
 initialize_signal_handling(struct slave *slave)
 {
 	int fds[2];
 	const char *fmt = "initialized signal handling: sigr=%d, sigw=%d";
 
 	if (pipe(fds) == -1)
-		return (-1);
+		die(1, "cannot pipe(2) in initializing signal handling");
 	slave->sigr = fds[0];
 	sigw = fds[1];
 	syslog(LOG_DEBUG, fmt, slave->sigr, sigw);
-
-	return (0);
 }
 
 static int
@@ -1965,32 +1965,40 @@ write_getdirentries_result(struct slave_thread *slave_thread, int retval, int e,
 	payload_dispose(payload);
 }
 
-static void
-rewind_dirent(int fd, int nentmax, const char *buf, int bufsize)
+static int
+do_getdirentries(struct slave_thread *slave_thread, int fd, char *buf,
+		 int nbytes, int nentmax)
 {
-	const struct dirent *dirent;
-	off_t offset;
-	int i;
-	const char *p, *pend;
+	struct dir_entries_cache *cache;
+	sigset_t oset;
+	long base;
+	int e, retval, status;
 
-	pend = buf + bufsize;
-	for (i = 0, p = buf;
-	     (i < nentmax) && (p < pend);
-	     i++, p += dirent->d_reclen)
-		dirent = (const struct dirent *)p;
+	cache = slave_thread->fsth_slave->fsla_dir_entries_cache;
+	dir_entries_cache_lock(cache, fd);
 
-	offset = (uintptr_t)pend - (uintptr_t)p;
-	if (lseek(fd, - offset, SEEK_CUR) == -1)
-		die(1, "cannot rewind dirent position: %d", offset);
+	status = dir_entries_cache_get(cache, fd, buf, nbytes, nentmax);
+	if (0 < status)
+		goto exit;
+
+	suspend_signal(slave_thread, &oset);
+	retval = getdirentries(fd, buf, nbytes, &base);
+	e = errno;
+	resume_signal(slave_thread, &oset);
+	dir_entries_cache_put(cache, fd, buf, nbytes, nentmax);
+
+	status = retval != -1 ? retval : - e;
+exit:
+	dir_entries_cache_unlock(cache, fd);
+
+	return (status);
 }
 
 static void
 process_getdirentries(struct slave_thread *slave_thread)
 {
 	struct getdirentries_args args;
-	sigset_t oset;
-	long base;
-	int e, fd, nbytes, nentmax, retval;
+	int e, nbytes, nentmax, retval, status;
 	char *buf;
 
 	read_getdirentries_args(slave_thread, &args);
@@ -1999,16 +2007,17 @@ process_getdirentries(struct slave_thread *slave_thread)
 	nbytes = sizeof(struct dirent) * nentmax;
 	buf = mem_alloc(slave_thread, nbytes);
 
-	base = 0;
-	fd = args.fd;
-	suspend_signal(slave_thread, &oset);
-	retval = getdirentries(fd, buf, nbytes, &base);
-	e = errno;
-	resume_signal(slave_thread, &oset);
+	status = do_getdirentries(slave_thread, args.fd, buf, nbytes, nentmax);
+	if (0 <= status) {
+		retval = status;
+		e = 0;	/* clang rejects when this statement does not exist */
+	}
+	else {
+		retval = -1;
+		e = - status;
+	}
 
-	write_getdirentries_result(slave_thread, retval, e, nentmax, buf, base);
-
-	rewind_dirent(fd, nentmax, buf, retval);
+	write_getdirentries_result(slave_thread, retval, e, nentmax, buf, 0L);
 }
 
 static void
@@ -2248,6 +2257,29 @@ initialize_sigaction()
 	return (0);
 }
 
+static void
+initialize_slave(struct slave *slave, const char *fork_sock)
+{
+	int error;
+	char *s;
+
+	error = pthread_rwlock_init(&slave->fsla_lock, NULL);
+	if (error != 0)
+		diex(error, "pthread_rwlock_init(3) failed");
+
+	SLIST_INIT(&slave->fsla_slaves);
+	slave->fsla_dir_entries_cache = dir_entries_cache_create();
+	initialize_signal_handling(slave);
+
+	s = strdup(fork_sock);
+	if (s == NULL)
+		die(1, "cannot strdup(3) the fork socket: %s", fork_sock);
+	slave->fork_sock = s;
+
+	if (sigprocmask(SIG_BLOCK, NULL, &slave->mask) == -1)
+		die(1, "cannot sigprocmask(2) in initializing the slave");
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -2258,8 +2290,8 @@ main(int argc, char* argv[])
 	};
 	struct slave *slave;
 	struct slave_thread *slave_thread;
-	int error, opt, status;
-	char **args, *fork_sock;
+	int opt, status;
+	char **args;
 
 	openlog(argv[0], LOG_PID, LOG_USER);
 	log_start_message(argc, argv);
@@ -2283,18 +2315,7 @@ main(int argc, char* argv[])
 	args = &argv[optind];
 
 	slave = (struct slave *)malloc_or_die(sizeof(*slave));
-	error = pthread_rwlock_init(&slave->fsla_lock, NULL);
-	if (error != 0)
-		diex(error, "pthread_rwlock_init(3) failed");
-	SLIST_INIT(&slave->fsla_slaves);
-	if (initialize_signal_handling(slave) != 0)
-		return (3);
-	fork_sock = strdup(args[2]);
-	if (fork_sock == NULL)
-		die(1, "cannot strdup(3) the fork socket: %s", args[2]);
-	slave->fork_sock = fork_sock;
-	if (sigprocmask(SIG_BLOCK, NULL, &slave->mask) == -1)
-		return (5);
+	initialize_slave(slave, args[2]);
 
 	slave_thread = malloc_slave_thread();
 	slave_thread->fsth_slave = slave;

@@ -9,11 +9,13 @@
 #include <fsyscall/private/command.h>
 
 struct slave_thread;
+struct dir_entries_cache;
 
 struct slave {
 	pthread_rwlock_t		fsla_lock;
 	SLIST_HEAD(, slave_thread)	fsla_slaves;
 
+	struct dir_entries_cache	*fsla_dir_entries_cache;
 	sigset_t mask;	/* signal mask during system call */
 	int sigr;	/* file descriptor for data from signal handler */
 	char *fork_sock;

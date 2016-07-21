@@ -16,12 +16,14 @@
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fslave.h>
+#include <fsyscall/private/fslave/dir_entries_cache.h>
 #include <fsyscall/private/io.h>
 #include <fsyscall/private/io_or_die.h>
 
 static void
 execute_call(struct slave_thread *slave_thread, int *retval, int *errnum)
 {
+	struct slave *slave;
 	sigset_t oset;
 	payload_size_t actual_payload_size, payload_size;
 	int fd, fd_len, rfd;
@@ -38,6 +40,9 @@ execute_call(struct slave_thread *slave_thread, int *retval, int *errnum)
 	*retval = close(fd);
 	*errnum = errno;
 	resume_signal(slave_thread, &oset);
+
+	slave = slave_thread->fsth_slave;
+	dir_entries_cache_close(slave->fsla_dir_entries_cache, fd);
 }
 
 void
