@@ -996,6 +996,13 @@ public class Slave implements Runnable {
             mCore = core;
         }
 
+        public void setExternalCore(SocketCore core) {
+            setCore(core);
+            ControlBuffer buf = new ControlBuffer();
+            mControlReader = buf.getReader();
+            mControlWriter = buf.getWriter();
+        }
+
         public boolean isReadyToRead() throws IOException {
             if (mConnectingRequests != null) {
                 synchronized (mConnectingRequests) {
@@ -2808,7 +2815,7 @@ public class Slave implements Runnable {
                 result.setError(err);
                 return result;
             }
-            sock.setCore(core);
+            sock.setExternalCore(core);
             sock.setName(name);
             Socket peer = new ExternalPeer(mAlarm, domain, type, protocol, name,
                                            sock);
