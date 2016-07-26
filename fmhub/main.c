@@ -39,6 +39,7 @@ struct master {
 	pid_t pid;		/* used to signal */
 	int rfd;
 	int wfd;
+	bool exited;
 };
 
 struct mhub {
@@ -274,6 +275,7 @@ create_master(struct mhub *mhub, pair_id_t pair_id, pid_t pid, int rfd, int wfd)
 	master->pid = pid;
 	master->rfd = rfd;
 	master->wfd = wfd;
+	master->exited = false;
 	log_new_master(master);
 
 	return (master);
@@ -473,6 +475,8 @@ process_exit(struct mhub *mhub, struct master *master)
 	write_pair_id(wfd, pair_id);
 	write_int32(wfd, status);
 
+	master->exited = true;
+
 	return (0);
 }
 
@@ -598,11 +602,13 @@ process_master(struct mhub *mhub, struct master *master)
 	io_init(&io, master->rfd);
 
 	if (io_read_command(&io, &cmd) == -1) {
-		dump_master(buf, sizeof(buf), master);
-		e = io.io_error;
-		syslog(LOG_DEBUG,
-		       "read error: errno=%d (%s): %s",
-		       e, geterrorname(e), buf);
+		if (!master->exited) {
+			dump_master(buf, sizeof(buf), master);
+			e = io.io_error;
+			syslog(LOG_DEBUG,
+			       "read error: errno=%d (%s): %s",
+			       e, geterrorname(e), buf);
+		}
 		return (-1);
 	}
 	name = get_command_name(cmd);
