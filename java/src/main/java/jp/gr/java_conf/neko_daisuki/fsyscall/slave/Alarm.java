@@ -1,6 +1,6 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
-class Alarm {
+public class Alarm {
 
     public void alarm() {
         synchronized (this) {

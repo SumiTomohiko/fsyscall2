@@ -66,7 +66,7 @@ public class Slave implements Runnable {
         public static class NopListener implements Listener {
 
             public SocketCore onConnect(int domain, int type, int protocol,
-                                        SocketAddress addr) {
+                                        SocketAddress addr, Alarm alarm) {
                 return null;
             }
         }
@@ -74,7 +74,7 @@ public class Slave implements Runnable {
         public static final Listener NOP = new NopListener();
 
         public SocketCore onConnect(int domain, int type, int protocol,
-                                    SocketAddress addr);
+                                    SocketAddress addr, Alarm alarm);
     }
 
     private interface TimeoutRunner {
@@ -2810,7 +2810,8 @@ public class Slave implements Runnable {
             int domain = sock.getDomain();
             int type = sock.getType();
             int protocol = sock.getProtocol();
-            SocketCore core = mListener.onConnect(domain, type, protocol, name);
+            SocketCore core = mListener.onConnect(domain, type, protocol, name,
+                                                  mAlarm);
             if (core == null) {
                 result.setError(err);
                 return result;
