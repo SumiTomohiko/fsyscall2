@@ -2829,7 +2829,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doWritev(int fd, Unix.IoVec[] iovec) throws IOException {
-        mLogger.info("writev(fd=%d, iovec)", fd);
+        mLogger.info("writev(fd=%d, iovec=%s)", fd, ArrayUtil.toString(iovec));
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 

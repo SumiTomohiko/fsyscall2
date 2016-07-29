@@ -7,6 +7,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.ByteUtil;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
 
 public class Unix {
@@ -77,6 +78,11 @@ public class Unix {
         }
 
         public IoVec() {
+        }
+
+        public String toString() {
+            String s = ByteUtil.toString(iov_base, (int)iov_len);
+            return String.format("IoVec(iov_base=%s, iov_len=%d)", s, iov_len);
         }
     }
 

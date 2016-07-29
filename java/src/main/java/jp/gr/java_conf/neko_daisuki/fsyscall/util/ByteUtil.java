@@ -72,19 +72,19 @@ public class ByteUtil {
         " ", " ", " ", " ", " ", " ", " ", " "
     };
 
+    public static String toString(byte[] buf, int from, int to) {
+        return buf != null ? buildArrayString(buf, from, to) : "null";
+    }
+
     public static String toString(byte[] buf, int len) {
-        StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < len; i++) {
-            builder.append(toString(buf[i]));
-        }
-        return builder.toString();
+        return toString(buf, 0, len);
     }
 
-    private static int toUnsigned(byte b) {
-        return b < 0 ? b - Byte.MIN_VALUE : b;
+    public static String toString(byte[] buf) {
+        return toString(buf, buf.length);
     }
 
-    private static String toString(byte c) {
+    public static String toString(byte c) {
         if (isPrint(c)) {
             return escape(CHARS[toUnsigned(c)]);
         }
@@ -103,6 +103,18 @@ public class ByteUtil {
         }
 
         return String.format("\\x%02x", c);
+    }
+
+    private static int toUnsigned(byte b) {
+        return b < 0 ? b - Byte.MIN_VALUE : b;
+    }
+
+    private static String buildArrayString(byte[] buf, int from, int to) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = from; i < to; i++) {
+            builder.append(toString(buf[i]));
+        }
+        return builder.toString();
     }
 
     private static String escape(String s) {
