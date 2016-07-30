@@ -21,6 +21,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.Pipe;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
 
 public class Application {
