@@ -31,7 +31,7 @@ SYSCTL_NODE(_security_bsd, OID_AUTO, fmaster, CTLFLAG_RW, NULL, "");
 #define	PADR_(t)	0
 #endif
 
-struct fmaster_execve_args {
+struct fmaster_start_args {
 	char rfd_l[PADL_(int)]; int rfd; char rfd_r[PADR_(int)];
 	char wfd_l[PADL_(int)]; int wfd; char wfd_r[PADR_(int)];
 	char fork_sock_l[PADL_(const char *)]; const char *fork_sock; char fork_sock_r[PADR_(const char *)];
@@ -114,7 +114,7 @@ exit:
  * The function for implementing the syscall.
  */
 static int
-fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
+fmaster_start(struct thread *td, struct fmaster_start_args *uap)
 {
 	struct fmaster_data *data;
 	int error, i, rfd, wfd;
@@ -128,7 +128,7 @@ fmaster_execve(struct thread *td, struct fmaster_execve_args *uap)
 	pid = td->td_proc->p_pid;
 	rfd = uap->rfd;
 	wfd = uap->wfd;
-	snprintf(head, sizeof(head), "fmaster_execve[%d]", pid);
+	snprintf(head, sizeof(head), "fmaster_start[%d]", pid);
 	log(LOG_DEBUG, fmt, head, pid, rfd, wfd, fork_sock, uap->path);
 	for (i = 0; uap->argv[i] != NULL; i++)
 		log(LOG_DEBUG, "%s: argv[%d]=%s\n", head, i, uap->argv[i]);
@@ -162,7 +162,7 @@ fail:
  */
 static struct sysent se = {
 	6,				/* sy_narg */
-	(sy_call_t *)fmaster_execve	/* sy_call */
+	(sy_call_t *)fmaster_start	/* sy_call */
 };
 
 /*
