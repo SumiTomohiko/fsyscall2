@@ -1,7 +1,6 @@
 *.a
 *.core
 *.kld
-*.ko
 *.log
 *.lst
 *.o
@@ -25,6 +24,9 @@ doc/structure.png
 fmaster/@
 fmaster/Makefile.makesyscalls
 fmaster/export_syms
+fmaster/fmaster.ko
+fmaster/fmaster.ko.debug
+fmaster/fmaster.ko.symbols
 fmaster/machine
 fmaster/sys/fmaster/fmaster_abort2.c
 fmaster/sys/fmaster/fmaster_access.c
