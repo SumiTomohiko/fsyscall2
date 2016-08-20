@@ -153,7 +153,7 @@ exec_master(int syscall_num, int rfd, int wfd, const char *fork_sock, int argc,
 	args[i] = NULL;
 
 	syscall(syscall_num, rfd, wfd, fork_sock, args[0], args, envp);
-	die(1, "fmaster_evecve failed");
+	die(1, "fmaster_start failed");
 	/* NOTREACHED */
 }
 
