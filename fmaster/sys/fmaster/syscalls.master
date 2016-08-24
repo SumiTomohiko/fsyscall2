@@ -950,3 +950,42 @@
 530	AUE_NULL	UNIMPL	{ int fmaster_posix_fallocate(int fd, \
 				    off_t offset, off_t len); }
 531	AUE_NULL	UNIMPL	posix_fadvise
+532	AUE_WAIT6	STD	{ int fmaster_wait6(idtype_t idtype, id_t id, \
+				    int *status, int options, \
+				    struct __wrusage *wrusage, \
+				    siginfo_t *info); }
+533	AUE_CAP_RIGHTS_LIMIT	NOPROTO	{ int cap_rights_limit(int fd, \
+					    cap_rights_t *rightsp); }
+534	AUE_CAP_IOCTLS_LIMIT	NOPROTO	{ int cap_ioctls_limit(int fd, \
+					    const u_long *cmds, size_t ncmds); }
+535	AUE_CAP_IOCTLS_GET	NOPROTO	{ ssize_t cap_ioctls_get(int fd, \
+					    u_long *cmds, size_t maxcmds); }
+536	AUE_CAP_FCNTLS_LIMIT	NOPROTO	{ int cap_fcntls_limit(int fd, \
+					    uint32_t fcntlrights); }
+537	AUE_CAP_FCNTLS_GET	NOPROTO	{ int cap_fcntls_get(int fd, \
+					    uint32_t *fcntlrightsp); }
+538	AUE_BINDAT	STD	{ int fmaster_bindat(int fd, int s, \
+				    caddr_t name, int namelen); }
+539	AUE_CONNECTAT	STD	{ int fmaster_connectat(int fd, int s, \
+				    caddr_t name, int namelen); }
+540	AUE_CHFLAGSAT	STD	{ int fmaster_chflagsat(int fd, \
+				    const char *path, u_long flags, \
+				    int atflag); }
+541	AUE_ACCEPT	STD	{ int fmaster_accept4(int s, \
+				    struct sockaddr * __restrict name, \
+				    __socklen_t * __restrict anamelen, \
+				    int flags); }
+542	AUE_PIPE	STD	{ int fmaster_pipe2(int *fildes, int flags); }
+543	AUE_NULL	NOSTD|NOPROTO	{ int aio_mlock(struct aiocb *aiocbp); }
+544	AUE_NULL	NOPROTO	{ int procctl(idtype_t idtype, id_t id, \
+				    int com, void *data); }
+545	AUE_POLL	STD	{ int fmaster_ppoll(struct pollfd *fds, \
+				    u_int nfds, const struct timespec *ts, \
+				    const sigset_t *set); }
+546	AUE_FUTIMES	STD	{ int fmaster_futimens(int fd, \
+				    struct timespec *times); }
+547	AUE_FUTIMESAT	STD	{ int fmaster_utimensat(int fd, \
+				    char *path, \
+				    struct timespec *times, int flag); }
+; Please copy any additions and changes to the following compatability tables:
+; sys/compat/freebsd32/syscalls.master

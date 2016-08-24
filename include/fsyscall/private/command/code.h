@@ -389,6 +389,24 @@
 #define	POLL_ENDED			428
 #define	SIGPROCMASK_CALL		430
 #define	SIGPROCMASK_RETURN		431
+#define	WAIT6_CALL			432
+#define	WAIT6_RETURN			433
+#define	BINDAT_CALL			434
+#define	BINDAT_RETURN			435
+#define	CONNECTAT_CALL			436
+#define	CONNECTAT_RETURN		437
+#define	CHFLAGSAT_CALL			438
+#define	CHFLAGSAT_RETURN		439
+#define	ACCEPT4_CALL			440
+#define	ACCEPT4_RETURN			441
+#define	PIPE2_CALL			442
+#define	PIPE2_RETURN			443
+#define	PPOLL_CALL			444
+#define	PPOLL_RETURN			445
+#define	FUTIMENS_CALL			446
+#define	FUTIMENS_RETURN			447
+#define	UTIMENSAT_CALL			448
+#define	UTIMENSAT_RETURN		449
 
 /* end command (do not remove this comment) */
 
