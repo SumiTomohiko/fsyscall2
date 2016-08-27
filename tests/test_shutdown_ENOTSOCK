@@ -1,0 +1,5 @@
+
+cmd="shutdown_ENOTSOCK/shutdown_ENOTSOCK"
+expected_status="0"
+
+# vim: filetype=sh

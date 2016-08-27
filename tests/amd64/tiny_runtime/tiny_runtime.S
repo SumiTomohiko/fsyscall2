@@ -106,6 +106,7 @@ defsyscall	utimes
 defsyscall	fsync
 defsyscall	rename
 defsyscall	openat
+defsyscall	shutdown
 
 global _start
 _start:

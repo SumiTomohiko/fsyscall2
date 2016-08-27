@@ -1,0 +1,5 @@
+
+cmd="shutdown_EBADF/shutdown_EBADF"
+expected_status="0"
+
+# vim: filetype=sh

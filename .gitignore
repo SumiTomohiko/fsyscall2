@@ -388,6 +388,15 @@ tests/amd64/sendmsg_not_socket_slave/sendmsg_not_socket_slave
 tests/amd64/sendmsg_pending_sock/sendmsg_pending_sock
 tests/amd64/sendmsg_slave/sendmsg_slave
 tests/amd64/setsockopt/setsockopt
+tests/amd64/shutdown_EBADF/shutdown_EBADF
+tests/amd64/shutdown_EINVAL/shutdown_EINVAL
+tests/amd64/shutdown_ENOTCONN/shutdown_ENOTCONN
+tests/amd64/shutdown_ENOTSOCK/shutdown_ENOTSOCK
+tests/amd64/shutdown_SHUT_RD/shutdown_SHUT_RD
+tests/amd64/shutdown_SHUT_RDWR/shutdown_SHUT_RDWR
+tests/amd64/shutdown_SHUT_WR/shutdown_SHUT_WR
+tests/amd64/shutdown_read/shutdown_read
+tests/amd64/shutdown_write/shutdown_write
 tests/amd64/sigaction/sigaction
 tests/amd64/sigprocmask/sigprocmask
 tests/amd64/socket/socket
