@@ -1,19 +1,10 @@
 
-static bool sigpiped = false;
-
-static void
-signal_handler(int sig)
-{
-
-	sigpiped = true;
-}
-
 #define	SIG	SIGUSR1
 
 static int
 server_main(const struct sockaddr *addr, pid_t pid)
 {
-	struct sigaction act;
+	sigset_t set;
 	int d, sock;
 	char c;
 
@@ -32,18 +23,16 @@ server_main(const struct sockaddr *addr, pid_t pid)
 
 	if (shutdown(d, SHUT_WR) == -1)
 		return (8);
-	act.sa_handler = signal_handler;
-	act.sa_flags = 0;
-	if (sigemptyset(&act.sa_mask) == -1)
+	if (sigemptyset(&set) == -1)
 		return (9);
-	if (sigaction(SIGPIPE, &act, NULL) == -1)
+	if (sigaddset(&set, SIGPIPE) == -1)
 		return (10);
+	if (sigprocmask(SIG_BLOCK, &set, NULL) == -1)
+		return (11);
 	c = 42;
 	if (write(d, &c, sizeof(c)) != -1)
-		return (11);
-	if (errno != EPIPE)
 		return (12);
-	if (!sigpiped)
+	if (errno != EPIPE)
 		return (13);
 	if (kill(pid, SIG) == -1)
 		return (14);
