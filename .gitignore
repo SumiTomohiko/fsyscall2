@@ -166,7 +166,6 @@ fmaster/sys/fmaster/fmaster_setregid.c
 fmaster/sys/fmaster/fmaster_setresgid.c
 fmaster/sys/fmaster/fmaster_setresuid.c
 fmaster/sys/fmaster/fmaster_setreuid.c
-fmaster/sys/fmaster/fmaster_setrlimit.c
 fmaster/sys/fmaster/fmaster_settimeofday.c
 fmaster/sys/fmaster/fmaster_setuid.c
 fmaster/sys/fmaster/fmaster_shmsys.c

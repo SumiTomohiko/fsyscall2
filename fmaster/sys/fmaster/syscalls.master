@@ -326,9 +326,9 @@
 194	AUE_GETRLIMIT	NOPROTO	{ int getrlimit(u_int which, \
 				    struct rlimit *rlp); } getrlimit \
 				    __getrlimit_args int
-195	AUE_SETRLIMIT	STD	{ int fmaster_setrlimit(u_int which, \
+195	AUE_SETRLIMIT	NOPROTO	{ int setrlimit(u_int which, \
 				    struct rlimit *rlp); } setrlimit \
-				    fmaster_setrlimit_args int
+				    __setrlimit_args int
 196	AUE_GETDIRENTRIES	STD	{ int fmaster_getdirentries(int fd, \
 				    char *buf, u_int count, long *basep); }
 197	AUE_MMAP	UNIMPL	{ caddr_t fmaster_freebsd6_mmap(caddr_t addr, \
