@@ -238,6 +238,7 @@ fslave/fslave_read.c
 fslave/fslave_readlink.c
 fslave/fslave_rename.c
 fslave/fslave_rmdir.c
+fslave/fslave_shutdown.c
 fslave/fslave_socket.c
 fslave/fslave_stat.c
 fslave/fslave_umask.c
