@@ -381,6 +381,57 @@ public class Unix {
             }
         }
 
+        public static class Shutdown {
+
+            public static class How {
+
+                public static final How SHUT_RD = new How(
+                        Constants.SHUT_RD,
+                        "SHUT_RD");
+                public static final How SHUT_WR = new How(
+                        Constants.SHUT_WR,
+                        "SHUT_WR");
+                public static final How SHUT_RDWR = new How(
+                        Constants.SHUT_RDWR,
+                        "SHUT_RDWR");
+
+                private static final How[] VALUES = new How[] {
+                    SHUT_RD,
+                    SHUT_WR,
+                    SHUT_RDWR
+                };
+
+                private int mValue;
+                private String mName;
+
+                private How(int value, String name) {
+                    mValue = value;
+                    mName = name;
+                }
+
+                @Override
+                public boolean equals(Object o) {
+                    How how;
+                    try {
+                        how = (How)o;
+                    }
+                    catch (ClassCastException unused) {
+                        return false;
+                    }
+                    return mValue == how.mValue;
+                }
+
+                public String toString() {
+                    return mName;
+                }
+
+                public static How valueOf(int how) {
+                    return (0 <= how) && (how < VALUES.length) ? VALUES[how]
+                                                               : null;
+                }
+            }
+        }
+
         public static final int O_RDONLY = 0x0000;
         public static final int O_WRONLY = 0x0001;
         public static final int O_RDWR = 0x0002;
@@ -517,6 +568,10 @@ public class Unix {
         public static final int WSTOPPED = WUNTRACED;
         public static final int WCONTINUED = 4;
         public static final int WNOWAIT = 8;
+
+        public static final int SHUT_RD = 0;
+        public static final int SHUT_WR = 1;
+        public static final int SHUT_RDWR = 2;
     }
 
     public abstract static class Cmsgdata {
