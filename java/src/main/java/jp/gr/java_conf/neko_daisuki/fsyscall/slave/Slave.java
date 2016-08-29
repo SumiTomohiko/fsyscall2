@@ -939,6 +939,8 @@ public class Slave implements Runnable {
         private ControlBuffer.Reader mControlReader;
         private ControlBuffer.Writer mControlWriter;
         private Queue<ConnectingRequest> mConnectingRequests;
+        private boolean mShutdownRead = false;
+        private boolean mShutdownWrite = false;
 
         public Socket(Alarm alarm, int domain, int type, int protocol) {
             super(alarm);
@@ -1036,6 +1038,10 @@ public class Slave implements Runnable {
         }
 
         public int read(byte[] buffer) throws UnixException {
+            if (mShutdownRead) {
+                return 0;
+            }
+
             try {
                 if (isNonBlocking() && !isReadyToRead()) {
                     throw new UnixException(Errno.EAGAIN);
@@ -1057,6 +1063,10 @@ public class Slave implements Runnable {
         }
 
         public long pread(byte[] buffer, long offset) throws UnixException {
+            if (mShutdownRead) {
+                return 0L;
+            }
+
             int len = buffer.length;
             InputStream in = getCore().getInputStream();
             if (in == null) {
@@ -1290,6 +1300,22 @@ public class Slave implements Runnable {
             return nbytes;
         }
 
+        public void shutdown(Unix.Constants.Shutdown.How how) throws UnixException {
+            if (mCore == null) {
+                throw new UnixException(Errno.ENOTCONN);
+            }
+
+            if (Unix.Constants.Shutdown.How.SHUT_RD.equals(how)) {
+                mShutdownRead = true;
+            }
+            else if (Unix.Constants.Shutdown.How.SHUT_WR.equals(how)) {
+                mShutdownWrite = true;
+            }
+            else if (Unix.Constants.Shutdown.How.SHUT_RDWR.equals(how)) {
+                mShutdownRead = mShutdownWrite = true;
+            }
+        }
+
         public String toString() {
             String domain;
             switch (mDomain) {
@@ -1325,6 +1351,10 @@ public class Slave implements Runnable {
         }
 
         protected int doWrite(byte[] buffer) throws UnixException {
+            if (mShutdownWrite) {
+                throw new UnixException(Errno.EPIPE);
+            }
+
             OutputStream out = getCore().getOutputStream();
             if (out == null) {
                 throw new UnixException(Errno.ENOTCONN);
@@ -2776,6 +2806,38 @@ public class Slave implements Runnable {
 
         return runGetsockopt(s, SocketLevel.valueOf(level),
                              SocketOption.valueOf(optname));
+    }
+
+    public SyscallResult.Generic32 doShutdown(int s, int how) {
+        Unix.Constants.Shutdown.How h;
+        h = Unix.Constants.Shutdown.How.valueOf(how);
+        String fmt = "shutdown(s=%d, how=%d (%s))";
+        mLogger.info(fmt, s, how, h != null ? h : "invalid");
+        SyscallResult.Generic32 result = new SyscallResult.Generic32();
+        if (h == null) {
+            result.setError(Errno.EINVAL);
+            return result;
+        }
+
+        Socket sock;
+        try {
+            sock = getLockedSocket(s);
+        }
+        catch (GetSocketException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+        try {
+            sock.shutdown(h);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+        }
+        finally {
+            sock.unlock();
+        }
+
+        return result;
     }
 
     public SyscallResult.Generic32 doConnect(int s, UnixDomainAddress name,
