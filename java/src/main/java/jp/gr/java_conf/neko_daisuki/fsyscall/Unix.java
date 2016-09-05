@@ -432,6 +432,18 @@ public class Unix {
             }
         }
 
+        public static class Socket {
+
+            private static Flag[] FLAGS = {
+                new Flag(SOCK_CLOEXEC, "SOCK_CLOEXEC"),
+                new Flag(SOCK_NONBLOCK, "SOCK_NONBLOCK")
+            };
+
+            public static String toString(int flags) {
+                return Flag.toString(FLAGS, flags);
+            }
+        }
+
         public static final int O_RDONLY = 0x0000;
         public static final int O_WRONLY = 0x0001;
         public static final int O_RDWR = 0x0002;
@@ -469,6 +481,8 @@ public class Unix {
         public static final int PF_UNIX = PF_LOCAL;
 
         public static final int SOCK_STREAM = 1;
+        public static final int SOCK_CLOEXEC = 0x10000000;
+        public static final int SOCK_NONBLOCK = 0x20000000;
 
         public static final int F_DUPFD = 0;
         public static final int F_GETFD = 1;

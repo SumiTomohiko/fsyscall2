@@ -2640,6 +2640,34 @@ public class Slave implements Runnable {
         return result;
     }
 
+    public SyscallResult.Accept doAccept4(int s, int addrlen, int flags) throws IOException {
+        mLogger.info("accept4(s=%d, addrlen=%d, flags=0x%x (%s))",
+                     s, addrlen, flags, Unix.Constants.Socket.toString(flags));
+
+        SyscallResult.Accept result = doAccept(s, addrlen);
+        if ((flags == 0) || (result.retval == -1)) {
+            return result;
+        }
+
+        UnixFile file;
+        try {
+            file = mProcess.getLockedFile(result.retval);
+        }
+        catch (UnixException e) {
+            result.setError(e.getErrno());
+            return result;
+        }
+        try {
+            file.setCloseOnExec((flags & Unix.Constants.SOCK_CLOEXEC) != 0);
+            file.enableNonBlocking((flags & Unix.Constants.SOCK_NONBLOCK) != 0);
+        }
+        finally {
+            file.unlock();
+        }
+
+        return result;
+    }
+
     public SyscallResult.Accept doAccept(int s, int addrlen) throws IOException {
         mLogger.info("accept(s=%d, addrlen=%d)", s, addrlen);
         SyscallResult.Accept result = new SyscallResult.Accept();

@@ -167,6 +167,18 @@ class SlaveHelper {
 
     @PROCS@
 
+    private class Accept4Proc extends CommandDispatcher.Proc {
+
+        public void call(Command command) throws IOException {
+            mIn.readPayloadSize();
+            int s = mIn.readInteger();
+            int addrlen = mIn.readInteger();
+            int flags = mIn.readInteger();
+            SyscallResult.Accept result = mSlave.doAccept4(s, addrlen, flags);
+            writeResult(Command.ACCEPT4_RETURN, result);
+        }
+    }
+
     private abstract class AbstractAcceptProc extends CommandDispatcher.Proc {
 
         private Command mRetCommand;
@@ -918,6 +930,7 @@ class SlaveHelper {
                             new GetdirentriesProc());
         dispatcher.addEntry(Command.FCNTL_CALL, new FcntlProc());
         dispatcher.addEntry(Command.OPENAT_CALL, new OpenatProc());
+        dispatcher.addEntry(Command.ACCEPT4_CALL, new Accept4Proc());
         @DISPATCHES@;
         return dispatcher;
     }
