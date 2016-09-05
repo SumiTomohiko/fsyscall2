@@ -1,0 +1,15 @@
+
+cmd="accept4/accept4"
+sock="${tmp_dir}/$$.accept4"
+args="${sock}"
+expected_status="0"
+
+precmd() {
+	rm -f "${sock}"
+}
+
+postcmd() {
+	rm -f "${sock}"
+}
+
+# vim: filetype=sh

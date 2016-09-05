@@ -107,6 +107,7 @@ defsyscall	fsync
 defsyscall	rename
 defsyscall	openat
 defsyscall	shutdown
+defsyscall	accept4
 
 global _start
 _start:

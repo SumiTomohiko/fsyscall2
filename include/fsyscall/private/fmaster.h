@@ -151,6 +151,8 @@ int	fmaster_execute_connect_protocol(struct thread *td,
 					 socklen_t namelen);
 int	fmaster_execute_accept_protocol(struct thread *, command_t, command_t,
 					int, struct sockaddr *, socklen_t *);
+int	fmaster_execute_accept_return(struct thread *, command_t,
+				      struct sockaddr *, socklen_t *);
 int	fmaster_return_fd(struct thread *, short, enum fmaster_file_place, int,
 			  const char *);
 int	fmaster_write_command_with_empty_payload(struct thread *, command_t);

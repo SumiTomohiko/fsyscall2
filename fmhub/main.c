@@ -437,6 +437,7 @@ process_shub(struct mhub *mhub, struct io *io)
 	case GETDIRENTRIES_RETURN:
 	case FCNTL_RETURN:
 	case OPENAT_RETURN:
+	case ACCEPT4_RETURN:
 #include "dispatch_ret.inc"
 		transfer_payload_to_master(mhub, cmd);
 		break;
@@ -639,6 +640,7 @@ process_master(struct mhub *mhub, struct master *master)
 	case GETDIRENTRIES_CALL:
 	case FCNTL_CALL:
 	case OPENAT_CALL:
+	case ACCEPT4_CALL:
 #include "dispatch_call.inc"
 		return (transfer_payload_from_master(mhub, master, cmd));
 	case POLL_END:

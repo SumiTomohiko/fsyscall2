@@ -29,7 +29,6 @@ fmaster/fmaster.ko.debug
 fmaster/fmaster.ko.symbols
 fmaster/machine
 fmaster/sys/fmaster/fmaster_abort2.c
-fmaster/sys/fmaster/fmaster_accept4.c
 fmaster/sys/fmaster/fmaster_access.c
 fmaster/sys/fmaster/fmaster_acct.c
 fmaster/sys/fmaster/fmaster_adjtime.c
@@ -267,6 +266,9 @@ tests/*/write/write
 tests/amd64/SIGKILL_poll/SIGKILL_poll
 tests/amd64/SIGKILL_wait4/SIGKILL_wait4
 tests/amd64/accept/accept
+tests/amd64/accept4/accept4
+tests/amd64/accept4_SOCK_CLOEXEC/accept4_SOCK_CLOEXEC
+tests/amd64/accept4_SOCK_NONBLOCK/accept4_SOCK_NONBLOCK
 tests/amd64/ancillary_from_client/ancillary_from_client
 tests/amd64/bind/bind
 tests/amd64/chdir/chdir

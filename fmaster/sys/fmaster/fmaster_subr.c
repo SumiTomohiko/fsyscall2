@@ -1739,22 +1739,37 @@ fmaster_copyout_sockaddr(const struct sockaddr *kname, socklen_t knamelen,
 }
 
 int
-fmaster_execute_accept_protocol(struct thread *td, command_t call_command,
-				command_t return_command, int s /* local */,
-				struct sockaddr *name, socklen_t *namelen)
+fmaster_execute_accept_return(struct thread *td, command_t return_command,
+			      struct sockaddr *name, socklen_t *namelen)
 {
 	struct sockaddr_storage addr;
 	socklen_t knamelen;
 	int error;
 
-	error = execute_accept_call(td, call_command, s, sizeof(addr));
-	if (error != 0)
-		return (error);
 	error = execute_accept_return(td, return_command, &addr, &knamelen);
 	if (error != 0)
 		return (error);
 	error = fmaster_copyout_sockaddr((struct sockaddr *)&addr, knamelen,
 					 name, namelen);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+fmaster_execute_accept_protocol(struct thread *td, command_t call_command,
+				command_t return_command, int s /* local */,
+				struct sockaddr *name, socklen_t *namelen)
+{
+	struct sockaddr_storage addr;
+	int error;
+
+	error = execute_accept_call(td, call_command, s, sizeof(addr));
+	if (error != 0)
+		return (error);
+	error = fmaster_execute_accept_return(td, return_command, name,
+					      namelen);
 	if (error != 0)
 		return (error);
 

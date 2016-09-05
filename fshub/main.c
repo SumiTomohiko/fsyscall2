@@ -341,6 +341,7 @@ process_mhub(struct shub *shub)
 	case GETDIRENTRIES_CALL:
 	case FCNTL_CALL:
 	case OPENAT_CALL:
+	case ACCEPT4_CALL:
 #include "dispatch_call.inc"
 		transfer_payload_to_slave(shub, cmd);
 		break;
@@ -455,6 +456,7 @@ process_slave(struct shub *shub, struct slave *slave)
 	case GETDIRENTRIES_RETURN:
 	case FCNTL_RETURN:
 	case OPENAT_RETURN:
+	case ACCEPT4_RETURN:
 #include "dispatch_ret.inc"
 		return (transfer_payload_from_slave(shub, slave, cmd));
 	default:

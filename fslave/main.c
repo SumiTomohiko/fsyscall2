@@ -572,6 +572,49 @@ write_accept_protocol_response(struct slave_thread *slave_thread,
 	payload_dispose(payload);
 }
 
+static void
+read_accept4_args(struct slave_thread *slave_thread, int *s, int *flags)
+{
+	payload_size_t actual_payload_size, payload_size;
+	int flags_len, namelen_len, rfd, s_len;
+
+	rfd = slave_thread->fsth_rfd;
+	payload_size = read_payload_size(rfd);
+	*s = read_int(rfd, &s_len);
+	read_socklen(rfd, &namelen_len);	/* namelen. unused */
+	*flags = read_int(rfd, &flags_len);
+	actual_payload_size = s_len + namelen_len + flags_len;
+	die_if_payload_size_mismatched(payload_size, actual_payload_size);
+}
+
+static void
+process_accept4(struct slave_thread *slave_thread)
+{
+	struct sockaddr_storage addr;
+	struct sockaddr *paddr;
+	sigset_t oset;
+	socklen_t namelen;
+	command_t return_command;
+	int e, flags, retval, s;
+
+	read_accept4_args(slave_thread, &s, &flags);
+
+	paddr = (struct sockaddr *)&addr;
+	namelen = sizeof(addr);
+	suspend_signal(slave_thread, &oset);
+	retval = accept4(s, paddr, &namelen, flags);
+	e = errno;
+	resume_signal(slave_thread, &oset);
+
+	return_command = ACCEPT4_RETURN;
+	if (retval == -1) {
+		return_int(slave_thread, return_command, retval, e);
+		return;
+	}
+	write_accept_protocol_response(slave_thread, return_command, retval,
+				       paddr, namelen);
+}
+
 typedef int (*accept_syscall)(int, struct sockaddr *, socklen_t *);
 
 static void
@@ -2208,6 +2251,9 @@ mainloop(struct slave_thread *slave_thread)
 				break;
 			case OPENAT_CALL:
 				process_openat(slave_thread);
+				break;
+			case ACCEPT4_CALL:
+				process_accept4(slave_thread);
 				break;
 			case EXIT_CALL:
 				return process_exit(slave_thread);
