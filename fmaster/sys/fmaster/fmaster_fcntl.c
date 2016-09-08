@@ -33,6 +33,12 @@ fmaster_fcntl_main(struct thread *td, int fd, int cmd, long arg)
 	switch (place) {
 	case FFP_MASTER:
 		switch (cmd) {
+		case F_GETFD:
+			error = fmaster_get_close_on_exec(td, fd, &b);
+			if (error != 0)
+				return (error);
+			td->td_retval[0] = b ? FD_CLOEXEC : 0;
+			return (0);
 		case F_SETFD:
 			b = (arg & FD_CLOEXEC) != 0 ? true : false;
 			return (fmaster_set_close_on_exec(td, fd, b));

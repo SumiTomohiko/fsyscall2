@@ -2368,6 +2368,31 @@ exit:
 }
 
 int
+fmaster_get_close_on_exec(struct thread *td, int fd, bool *close_on_exec)
+{
+	struct fmaster_file *file;
+	int error;
+
+	if ((fd < 0) || (FILES_NUM <= fd))
+		return (EBADF);
+
+	fmaster_lock_file_table(td);
+
+	file = &fmaster_proc_data_of_thread(td)->fdata_files[fd];
+	if (file->ff_vnode == NULL) {
+		error = EBADF;
+		goto exit;
+	}
+	*close_on_exec = file->ff_close_on_exec;
+
+	error = 0;
+exit:
+	fmaster_unlock_file_table(td);
+
+	return (error);
+}
+
+int
 fmaster_set_close_on_exec(struct thread *td, int fd, bool close_on_exec)
 {
 	struct fmaster_file *file;

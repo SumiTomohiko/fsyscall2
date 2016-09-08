@@ -111,6 +111,7 @@ int	fmaster_unref_fd(struct thread *, int, enum fmaster_file_place *, int *,
 int	fmaster_dup(struct thread *, int, int *);
 int	fmaster_dup2(struct thread *, int, int);
 int	fmaster_close_on_exec(struct thread *);
+int	fmaster_get_close_on_exec(struct thread *, int, bool *);
 int	fmaster_set_close_on_exec(struct thread *, int, bool);
 int	fmaster_get_file_status_flags(struct thread *, int, int *);
 int	fmaster_set_file_status_flags(struct thread *, int, int);
