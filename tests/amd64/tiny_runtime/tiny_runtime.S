@@ -27,18 +27,10 @@ global %1
 	ret
 %endmacro
 
-extern main
-
-global _exit
-_exit:
-	mov rax, sys.exit
-	mov rdi, rdi
-	syscall
-	; NOTREACHED
-
-global pipe
-pipe:
-	mov rax, sys.pipe
+%macro defpipe 1
+global %1
+%1:
+	mov rax, sys.%1
 	syscall
 	jnc .exit
 	mov [error], rax
@@ -49,6 +41,16 @@ pipe:
 	mov [rdi + 4], edx
 	mov rax, 0
 	ret
+%endmacro
+
+extern main
+
+global _exit
+_exit:
+	mov rax, sys.exit
+	mov rdi, rdi
+	syscall
+	; NOTREACHED
 
 defsyscall	write
 defsyscall	select
@@ -108,6 +110,8 @@ defsyscall	rename
 defsyscall	openat
 defsyscall	shutdown
 defsyscall	accept4
+defpipe		pipe
+defpipe		pipe2
 
 global _start
 _start:

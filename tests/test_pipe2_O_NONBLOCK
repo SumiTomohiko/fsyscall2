@@ -1,0 +1,5 @@
+
+cmd="pipe2_O_NONBLOCK/pipe2_O_NONBLOCK"
+expected_status="0"
+
+# vim: filetype=sh

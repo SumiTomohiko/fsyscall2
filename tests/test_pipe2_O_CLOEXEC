@@ -1,0 +1,5 @@
+
+cmd="pipe2_O_CLOEXEC/pipe2_O_CLOEXEC"
+expected_status="0"
+
+# vim: filetype=sh

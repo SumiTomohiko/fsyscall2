@@ -358,6 +358,9 @@ tests/amd64/openat_abspath/openat_abspath
 tests/amd64/openat_perm/openat_perm
 tests/amd64/openat_sock/openat_sock
 tests/amd64/pipe/pipe
+tests/amd64/pipe2/pipe2
+tests/amd64/pipe2_O_CLOEXEC/pipe2_O_CLOEXEC
+tests/amd64/pipe2_O_NONBLOCK/pipe2_O_NONBLOCK
 tests/amd64/poll_POLLHUP/poll_POLLHUP
 tests/amd64/poll_POLLHUP2/poll_POLLHUP2
 tests/amd64/poll_bind/poll_bind

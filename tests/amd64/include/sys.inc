@@ -70,6 +70,7 @@
 %define	sys.lseek		478
 %define	sys.openat		499
 %define	sys.accept4		541
+%define	sys.pipe2		542
 
 %define	sizeof.iov	(2 * 8)
 %define	sizeof.stat	120

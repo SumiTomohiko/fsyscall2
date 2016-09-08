@@ -3512,3 +3512,47 @@ __fmaster_check_connection__(struct thread *td, const char *filename,
 	fmaster_check_file(td, filename, lineno, "rfd", rfd);
 	fmaster_check_file(td, filename, lineno, "wfd", wfd);
 }
+
+#define	R	0
+#define	W	1
+
+int
+fmaster_pipe(struct thread *td, int flags)
+{
+	enum fmaster_file_place place;
+	int error, fds[2], fildes[2], i, rfd, wfd;
+	short type;
+	const char *fmt = "pipe to %s (local %d to local %d)";
+	char desc[VNODE_DESC_LEN], desc2[VNODE_DESC_LEN];
+
+	error = kern_pipe(td, fildes);
+	if (error != 0)
+		return (error);
+
+	rfd = fildes[R];
+	wfd = fildes[W];
+	snprintf(desc, sizeof(desc), fmt, "read", wfd, rfd);
+	type = DTYPE_PIPE;
+	place = FFP_MASTER;
+	error = fmaster_register_file(td, type, place, rfd, &fds[0], desc);
+	if (error != 0)
+		return (error);
+	snprintf(desc2, sizeof(desc2), fmt, "write", wfd, rfd);
+	error = fmaster_register_file(td, type, place, wfd, &fds[1], desc2);
+	if (error != 0)
+		return (error);
+	td->td_retval[0] = fds[0];
+	td->td_retval[1] = fds[1];
+
+	for (i = 0; i < array_sizeof(fildes); i++) {
+		error = fmaster_set_close_on_exec(td, fds[i],
+						  O_CLOEXEC & flags);
+		if (error != 0)
+			return (error);
+		error = kern_fcntl(td, fildes[i], F_SETFL, ~O_CLOEXEC & flags);
+		if (error != 0)
+			return (error);
+	}
+
+	return (error);
+}
