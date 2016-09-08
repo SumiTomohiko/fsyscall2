@@ -397,7 +397,7 @@
 233	AUE_CLOCK_SETTIME	STD	{ int fmaster_clock_settime( \
 				    clockid_t clock_id, \
 				    const struct timespec *tp); }
-234	AUE_NULL	STD	{ int fmaster_clock_getres(clockid_t clock_id, \
+234	AUE_NULL	NOPROTO	{ int clock_getres(clockid_t clock_id, \
 				    struct timespec *tp); }
 235	AUE_NULL	STD	{ int fmaster_ktimer_create(\
 				    clockid_t clock_id, struct sigevent *evp, \
