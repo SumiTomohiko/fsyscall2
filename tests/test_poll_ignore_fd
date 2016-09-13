@@ -1,0 +1,5 @@
+
+cmd="poll_ignore_fd/poll_ignore_fd"
+expected_status="0"
+
+# vim: filetype=sh

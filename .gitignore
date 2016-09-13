@@ -364,6 +364,10 @@ tests/amd64/pipe2_O_NONBLOCK/pipe2_O_NONBLOCK
 tests/amd64/poll_POLLHUP/poll_POLLHUP
 tests/amd64/poll_POLLHUP2/poll_POLLHUP2
 tests/amd64/poll_bind/poll_bind
+tests/amd64/poll_ignore_fd/poll_ignore_fd
+tests/amd64/poll_ignore_fd_master/poll_ignore_fd_master
+tests/amd64/poll_ignore_fd_master_slave/poll_ignore_fd_master_slave
+tests/amd64/poll_ignore_fd_slave/poll_ignore_fd_slave
 tests/amd64/poll_in/poll_in
 tests/amd64/poll_master/poll_master
 tests/amd64/poll_master_slave_blocking/poll_master_slave_blocking

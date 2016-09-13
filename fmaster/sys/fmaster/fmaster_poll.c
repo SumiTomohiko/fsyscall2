@@ -14,6 +14,8 @@
 #include <fsyscall/private/encode.h>
 #include <fsyscall/private/fmaster.h>
 
+#define	IGNORED_FD	(-1)
+
 #define	ENABLE_DEBUG	0
 
 /*******************************************************************************
@@ -237,8 +239,7 @@ write_fds_command(struct thread *td, command_t cmd, struct pollfd *fds,
 		  int nfds, int timeout)
 {
 	payload_size_t payload_size, rest_size;
-	int error, events_len, fd, fd_len, i, nfds_len, sfd, timeout_len, wfd;
-	enum fmaster_file_place place;
+	int error, events_len, fd, fd_len, i, nfds_len, timeout_len, wfd;
 	char *p, payload[256];
 
 	rest_size = sizeof(payload);
@@ -251,12 +252,7 @@ write_fds_command(struct thread *td, command_t cmd, struct pollfd *fds,
 
 	for (i = 0; i < nfds; i++) {
 		fd = fds[i].fd;
-		error = fmaster_get_vnode_info(td, fd, &place, &sfd);
-		if (error != 0)
-			return (error);
-		if (place != FFP_SLAVE)
-			return (EBADF);
-		fd_len = fsyscall_encode_int32(sfd, p, rest_size);
+		fd_len = fsyscall_encode_int32(fd, p, rest_size);
 		if (fd_len == -1)
 			return (ENOMEM);
 		rest_size -= fd_len;
@@ -285,6 +281,79 @@ write_fds_command(struct thread *td, command_t cmd, struct pollfd *fds,
 	error = fmaster_write(td, wfd, payload, payload_size);
 	if (error != 0)
 		return (error);
+
+	return (0);
+}
+
+static int
+pickup_local_fds(struct thread *td, enum fmaster_file_place where,
+		 struct pollfd *srcfds, nfds_t nsrcfds, struct pollfd *destfds,
+		 nfds_t *ndestfds)
+{
+	struct pollfd *p, *pfd;
+	nfds_t i, max, n;
+	enum fmaster_file_place place;
+	int error, fd, lfd;
+
+	max = *ndestfds;
+
+	for (i = 0, n = 0; (i < nsrcfds) && (n < max); i++) {
+		pfd = &srcfds[i];
+		fd = pfd->fd;
+		if (fd == IGNORED_FD)
+			continue;
+		error = fmaster_get_vnode_info(td, fd, &place, &lfd);
+		if (error != 0)
+			return (error);
+		if (place != where)
+			continue;
+		p = &destfds[n];
+		p->fd = lfd;
+		p->events = pfd->events;
+		p->revents = pfd->revents;
+		n++;
+	}
+
+	*ndestfds = n;
+
+	return (0);
+}
+
+static int
+merge_results(struct thread *td, struct pollfd *fds, nfds_t nfds,
+	      struct pollfd *slavefds, nfds_t nslavefds,
+	      struct pollfd *masterfds, nfds_t nmasterfds)
+{
+	struct pollfd *p, *pfd;
+	nfds_t i, masterfdspos, slavefdspos;
+	enum fmaster_file_place place;
+	int error, fd;
+
+	for (i = masterfdspos = slavefdspos = 0; i < nfds; i++) {
+		pfd = &fds[i];
+		fd = pfd->fd;
+		if (fd == -1)
+			continue;
+		error = fmaster_get_vnode_info(td, fd, &place, NULL);
+		if (error != 0)
+			return (error);
+		switch (place) {
+		case FFP_MASTER:
+			p = &masterfds[masterfdspos];
+			masterfdspos++;
+			break;
+		case FFP_SLAVE:
+			p = &slavefds[slavefdspos];
+			slavefdspos++;
+			break;
+		case FFP_PENDING_SOCKET:
+			p = NULL;
+			break;
+		default:
+			return (EBADF);
+		}
+		pfd->revents = p != NULL ? p->revents : 0;
+	}
 
 	return (0);
 }
@@ -320,17 +389,36 @@ do_return(struct thread *td, struct pollfd *fds, int nfds)
 static int
 slave_poll(struct thread *td, struct fmaster_poll_args *uap, struct pollfd *fds)
 {
+	struct malloc_type *mt;
+	struct pollfd *p;
+	nfds_t n;
 	int error, nfds;
 
-	nfds = uap->nfds;
-	error = do_execute(td, fds, nfds, uap->timeout);
-	if (error != 0)
-		return (error);
-	error = do_return(td, fds, nfds);
-	if (error != 0)
-		return (error);
+	n = nfds = uap->nfds;
 
-	return (0);
+	mt = M_TEMP;
+	p = (struct pollfd *)malloc(sizeof(*p) * n, mt, M_WAITOK);
+	if (p == NULL)
+		return (ENOMEM);
+	error = pickup_local_fds(td, FFP_SLAVE, fds, nfds, p, &n);
+	if (error != 0)
+		goto exit;
+
+	error = do_execute(td, p, n, uap->timeout);
+	if (error != 0)
+		goto exit;
+	error = do_return(td, p, n);
+	if (error != 0)
+		goto exit;
+	error = merge_results(td, fds, nfds, p, n, NULL, 0);
+	if (error != 0)
+		goto exit;
+
+	error = 0;
+exit:
+	free(p, M_TEMP);
+
+	return (error);
 }
 
 /*******************************************************************************
@@ -340,107 +428,38 @@ slave_poll(struct thread *td, struct fmaster_poll_args *uap, struct pollfd *fds)
 static int
 master_poll(struct thread *td, struct pollfd *fds, nfds_t nfds, int timeout)
 {
-	int error;
+	struct malloc_type *mt;
+	struct pollfd *p;
+	int error, n;
 
-	error = vfd_to_lfd(td, fds, nfds);
+	n = nfds;
+
+	mt = M_TEMP;
+	p = (struct pollfd *)malloc(sizeof(*p) * n, mt, M_WAITOK);
+	if (p == NULL)
+		return (ENOMEM);
+	error = pickup_local_fds(td, FFP_MASTER, fds, nfds, p, &n);
 	if (error != 0)
-		return (error);
+		goto exit;
 
-	error = kevent_poll(td, fds, nfds, timeout);
+	error = kevent_poll(td, p, n, timeout);
 	if (error != 0)
-		return (error);
-	/*
-	 * File descriptors are still local. Because what will be copyouted are
-	 * only revents.
-	 */
+		goto exit;
 
-	return (0);
+	error = merge_results(td, fds, nfds, NULL, 0, p, n);
+	if (error != 0)
+		goto exit;
+
+	error = 0;
+exit:
+	free(p, mt);
+
+	return (error);
 }
 
 /*******************************************************************************
  * code for both of master and slave
  */
-
-static int
-count_slavefds(struct thread *td, struct pollfd *fds, nfds_t nfds,
-	       nfds_t *nslavefds)
-{
-	nfds_t i;
-	enum fmaster_file_place place;
-	int error, n;
-
-	n = 0;
-	for (i = 0; i < nfds; i++) {
-		error = fmaster_get_vnode_info(td, fds[i].fd, &place, NULL);
-		if (error != 0)
-			return (error);
-		n += place == FFP_SLAVE ? 1 : 0;
-	}
-
-	*nslavefds = n;
-
-	return (0);
-}
-
-static int
-copy_fds(struct thread *td, enum fmaster_file_place place,
-	 struct pollfd *srcfds, nfds_t nsrcfds, struct pollfd *destfds,
-	 nfds_t ndestfds)
-{
-	struct pollfd *pfd;
-	nfds_t i, n;
-	enum fmaster_file_place p;
-	int error;
-
-	for (i = 0, n = 0; (i < nsrcfds) && (n < ndestfds); i++) {
-		pfd = &srcfds[i];
-		error = fmaster_get_vnode_info(td, pfd->fd, &p, NULL);
-		if (error != 0)
-			return (error);
-		if (p != place)
-			continue;
-		memcpy(&destfds[n], pfd, sizeof(*pfd));
-		n++;
-	}
-
-	return (0);
-}
-
-static int
-merge_results(struct thread *td, struct pollfd *fds, nfds_t nfds,
-	      struct pollfd *slavefds, nfds_t nslavefds,
-	      struct pollfd *masterfds, nfds_t nmasterfds)
-{
-	struct pollfd *p, *pfd;
-	nfds_t i, masterfdspos, slavefdspos;
-	enum fmaster_file_place place;
-	int error;
-
-	for (i = masterfdspos = slavefdspos = 0; i < nfds; i++) {
-		pfd = &fds[i];
-		error = fmaster_get_vnode_info(td, pfd->fd, &place, NULL);
-		if (error != 0)
-			return (error);
-		switch (place) {
-		case FFP_MASTER:
-			p = &masterfds[masterfdspos];
-			masterfdspos++;
-			break;
-		case FFP_SLAVE:
-			p = &slavefds[slavefdspos];
-			slavefdspos++;
-			break;
-		case FFP_PENDING_SOCKET:
-			p = NULL;
-			break;
-		default:
-			return (EBADF);
-		}
-		pfd->revents = p != NULL ? p->revents : 0;
-	}
-
-	return (0);
-}
 
 #if ENABLE_DEBUG
 static void
@@ -470,16 +489,14 @@ master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
 	size_t masterfdssize, slavefdssize;
 	int error, master_retval, mhub_retval, slave_retval;
 
-	error = count_slavefds(td, fds, nfds, &nslavefds);
-	if (error != 0)
-		return (error);
-
+	nslavefds = nfds;
 	mt = M_TEMP;
 	slavefdssize = sizeof(slavefds[0]) * nslavefds;
 	slavefds = (struct pollfd *)malloc(slavefdssize, mt, M_WAITOK);
 	if (slavefds == NULL)
 		return (ENOMEM);
-	error = copy_fds(td, FFP_SLAVE, fds, nfds, slavefds, nslavefds);
+	error = pickup_local_fds(td, FFP_SLAVE, fds, nfds, slavefds,
+				 &nslavefds);
 	if (error != 0)
 		goto exit1;
 
@@ -494,10 +511,8 @@ master_slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds,
 		error = ENOMEM;
 		goto exit1;
 	}
-	error = copy_fds(td, FFP_MASTER, fds, nfds, masterfds, nmasterfds);
-	if (error != 0)
-		goto exit2;
-	error = vfd_to_lfd(td, masterfds, nmasterfds);
+	error = pickup_local_fds(td, FFP_MASTER, fds, nfds, masterfds,
+				 &nmasterfds);
 	if (error != 0)
 		goto exit2;
 	mhubfd = &masterfds[nmasterfds];
@@ -583,14 +598,20 @@ log_args(struct thread *td, const char *tag, struct pollfd *fds, nfds_t nfds)
 	for (i = 0; i < nfds; i++) {
 		pfd = &fds[i];
 		fd = pfd->fd;
-		error = fmaster_get_vnode_info2(td, fd, &place, &lfd,
-						&filedesc);
-		if (error == 0)
-			snprintf(desc, sizeof(desc),
-				 "%s: %d, %s",
-				 fmaster_str_of_place(place), lfd, filedesc);
+		if (fd != IGNORED_FD) {
+			error = fmaster_get_vnode_info2(td, fd, &place, &lfd,
+							&filedesc);
+			if (error == 0)
+				snprintf(desc, sizeof(desc),
+					 "%s: %d, %s",
+					 fmaster_str_of_place(place), lfd,
+					 filedesc);
+			else
+				strcpy(desc, "invalid");
+		}
 		else
-			strcpy(desc, "invalid");
+			strcpy(desc, "ignored");
+
 		events = pfd->events;
 		events_to_string(sevents, sizeof(sevents), events);
 		revents = pfd->revents;
@@ -618,11 +639,14 @@ detect_side(struct thread *td, struct pollfd *fds, nfds_t nfds,
 {
 	nfds_t i;
 	enum fmaster_file_place place;
-	int error;
+	int error, fd;
 
 	*side = SIDE_NOTHING;
 	for (i = 0; i < nfds; i++) {
-		error = fmaster_get_vnode_info(td, fds[i].fd, &place, NULL);
+		fd = fds[i].fd;
+		if (fd == IGNORED_FD)
+			continue;
+		error = fmaster_get_vnode_info(td, fd, &place, NULL);
 		if (error != 0)
 			return (error);
 		switch (place) {

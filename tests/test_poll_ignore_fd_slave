@@ -1,0 +1,15 @@
+
+cmd="poll_ignore_fd_slave/poll_ignore_fd_slave"
+file="${tmp_dir}/$$.poll_ignore_fd_slave"
+args="${file}"
+expected_status="0"
+
+precmd() {
+	touch "${file}"
+}
+
+postcmd() {
+	rm -f "${file}"
+}
+
+# vim: filetype=sh
