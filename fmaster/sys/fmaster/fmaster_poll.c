@@ -388,14 +388,14 @@ do_return(struct thread *td, struct pollfd *fds, nfds_t nfds)
 }
 
 static int
-slave_poll(struct thread *td, struct fmaster_poll_args *uap, struct pollfd *fds)
+slave_poll(struct thread *td, struct pollfd *fds, nfds_t nfds, int timeout)
 {
 	struct malloc_type *mt;
 	struct pollfd *p;
-	nfds_t n, nfds;
+	nfds_t n;
 	int error;
 
-	n = nfds = uap->nfds;
+	n = nfds;
 
 	mt = M_TEMP;
 	p = (struct pollfd *)malloc(sizeof(*p) * n, mt, M_WAITOK);
@@ -405,7 +405,7 @@ slave_poll(struct thread *td, struct fmaster_poll_args *uap, struct pollfd *fds)
 	if (error != 0)
 		goto exit;
 
-	error = do_execute(td, p, n, uap->timeout);
+	error = do_execute(td, p, n, timeout);
 	if (error != 0)
 		goto exit;
 	error = do_return(td, p, n);
@@ -677,7 +677,7 @@ fmaster_poll_main(struct thread *td, struct fmaster_poll_args *uap)
 	size_t size;
 	nfds_t i, nfds;
 	enum fmaster_side side;
-	int error;
+	int error, timeout;
 
 	nfds = uap->nfds;
 	size = sizeof(*fds) * nfds;
@@ -695,18 +695,19 @@ fmaster_poll_main(struct thread *td, struct fmaster_poll_args *uap)
 	error = detect_side(td, fds, nfds, &side);
 	if (error != 0)
 		goto exit;
+	timeout = uap->timeout;
 	switch (side) {
 	case SIDE_NOTHING:
 		td->td_retval[0] = 0;
 		break;
 	case SIDE_MASTER:
-		error = master_poll(td, fds, nfds, uap->timeout);
+		error = master_poll(td, fds, nfds, timeout);
 		break;
 	case SIDE_SLAVE:
-		error = slave_poll(td, uap, fds);
+		error = slave_poll(td, fds, nfds, timeout);
 		break;
 	case SIDE_BOTH:
-		error = master_slave_poll(td, fds, nfds, uap->timeout);
+		error = master_slave_poll(td, fds, nfds, timeout);
 		break;
 	default:
 		error = EBADF;
