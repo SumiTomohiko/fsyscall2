@@ -184,12 +184,12 @@ vfd_to_lfd(struct thread *td, struct pollfd *fds, nfds_t nfds)
 
 static int
 read_result(struct thread *td, command_t expected_cmd, struct pollfd *fds,
-	    int nfds)
+	    nfds_t nfds)
 {
 	payload_size_t actual_payload_size, payload_size;
 	command_t cmd;
-	int errnum, errnum_len, error, i, revents, revents_len, retval;
-	int retval_len;
+	nfds_t i;
+	int errnum, errnum_len, error, revents, revents_len, retval, retval_len;
 
 	error = fmaster_read_command(td, &cmd);
 	if (error != 0)
@@ -236,10 +236,11 @@ read_result(struct thread *td, command_t expected_cmd, struct pollfd *fds,
 
 static int
 write_fds_command(struct thread *td, command_t cmd, struct pollfd *fds,
-		  int nfds, int timeout)
+		  nfds_t nfds, int timeout)
 {
 	payload_size_t payload_size, rest_size;
-	int error, events_len, fd, fd_len, i, nfds_len, timeout_len, wfd;
+	nfds_t i;
+	int error, events_len, fd, fd_len, nfds_len, timeout_len, wfd;
 	char *p, payload[256];
 
 	rest_size = sizeof(payload);
@@ -363,7 +364,7 @@ merge_results(struct thread *td, struct pollfd *fds, nfds_t nfds,
  */
 
 static int
-do_execute(struct thread *td, struct pollfd *fds, int nfds, int timeout)
+do_execute(struct thread *td, struct pollfd *fds, nfds_t nfds, int timeout)
 {
 	int error;
 
@@ -375,7 +376,7 @@ do_execute(struct thread *td, struct pollfd *fds, int nfds, int timeout)
 }
 
 static int
-do_return(struct thread *td, struct pollfd *fds, int nfds)
+do_return(struct thread *td, struct pollfd *fds, nfds_t nfds)
 {
 	int error;
 
@@ -391,8 +392,8 @@ slave_poll(struct thread *td, struct fmaster_poll_args *uap, struct pollfd *fds)
 {
 	struct malloc_type *mt;
 	struct pollfd *p;
-	nfds_t n;
-	int error, nfds;
+	nfds_t n, nfds;
+	int error;
 
 	n = nfds = uap->nfds;
 
