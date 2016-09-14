@@ -288,10 +288,11 @@ write_fds_command(struct thread *td, command_t cmd, struct pollfd *fds,
 
 static int
 pickup_local_fds(struct thread *td, enum fmaster_file_place where,
-		 struct pollfd *srcfds, nfds_t nsrcfds, struct pollfd *destfds,
-		 nfds_t *ndestfds)
+		 const struct pollfd *srcfds, nfds_t nsrcfds,
+		 struct pollfd *destfds, nfds_t *ndestfds)
 {
-	struct pollfd *p, *pfd;
+	const struct pollfd *pfd;
+	struct pollfd *p;
 	nfds_t i, max, n;
 	enum fmaster_file_place place;
 	int error, fd, lfd;
@@ -322,10 +323,11 @@ pickup_local_fds(struct thread *td, enum fmaster_file_place where,
 
 static int
 merge_results(struct thread *td, struct pollfd *fds, nfds_t nfds,
-	      struct pollfd *slavefds, nfds_t nslavefds,
-	      struct pollfd *masterfds, nfds_t nmasterfds)
+	      const struct pollfd *slavefds, nfds_t nslavefds,
+	      const struct pollfd *masterfds, nfds_t nmasterfds)
 {
-	struct pollfd *p, *pfd;
+	const struct pollfd *p;
+	struct pollfd *pfd;
 	nfds_t i, masterfdspos, slavefdspos;
 	enum fmaster_file_place place;
 	int error, fd;
