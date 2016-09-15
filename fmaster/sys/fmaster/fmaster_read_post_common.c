@@ -22,8 +22,10 @@ fmaster_read_post_common(struct thread *td, struct fmaster_read_args *uap)
 		goto exit;
 
 	fd = uap->fd;
+#if 0
 	snprintf(tag, sizeof(tag), "read(2) from fd %d", fd);
 	fmaster_log_all(td, tag, buf, nbytes);
+#endif
 	snprintf(tag, sizeof(tag), "read: fd=%d: buf", fd);
 	fmaster_log_buf(td, tag, buf, nbytes);
 
