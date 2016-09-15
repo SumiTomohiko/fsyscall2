@@ -334,6 +334,15 @@ def print_pre_execute(p, print_newline, syscall):
 def build_actual_args(syscall):
     return ", ".join(["td", "uap"] + (["lfd"] if find_file_descriptor_argument(syscall) is not None else []))
 
+def print_post_common(syscall, p):
+    if syscall.post_common:
+        name = syscall.name
+        p("""\
+\terror = {name}_post_common(td, uap);
+\tif (error != 0)
+\t\treturn (error);
+""".format(**locals()))
+
 def print_post_execute(syscall, p):
     if syscall.post_execute:
         name = syscall.name
@@ -532,7 +541,9 @@ static int
 \t\treturn (error);
 """.format(**locals()))
     print_post_execute(syscall, p)
+    print_post_common(syscall, p)
     p("""\
+
 \treturn (0);
 }}
 """.format(**locals()))

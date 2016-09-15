@@ -5,7 +5,7 @@
 #include <sys/fmaster/fmaster_proto.h>
 
 int
-fmaster_read_post_execute(struct thread *td, struct fmaster_read_args *uap)
+fmaster_read_post_common(struct thread *td, struct fmaster_read_args *uap)
 {
 	struct malloc_type *mt;
 	size_t nbytes;
