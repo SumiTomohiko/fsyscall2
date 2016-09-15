@@ -1,5 +1,6 @@
 #include <sys/param.h>
 #include <sys/cdefs.h>
+#include <sys/ctype.h>
 #include <sys/dirent.h>
 #include <sys/errno.h>
 #include <sys/event.h>
@@ -2885,63 +2886,48 @@ fmaster_log_all(struct thread *td, const char *tag, const char *buf,
 	}
 }
 
+static void
+dump_buffer(char *dst, size_t dstsize, const char *src, size_t srcsize)
+{
+	size_t i;
+	unsigned char c;
+	char *dstend, *p;
+
+	dstend = &dst[dstsize - 1];
+	p = dst;
+	for (i = 0; i < srcsize; i++) {
+		c = (unsigned char)src[i];
+		if (c == '\\') {
+			if (dstend - 1 <= p)
+				break;
+			strcpy(p, "\\\\");
+			p += 2;
+		}
+		else if (isprint(c)) {
+			if (dstend == p)
+				break;
+			*p = c;
+			p++;
+		}
+		else {
+			if (dstend - 3 <= p)
+				break;
+			sprintf(p, "\\x%02x", c);
+			p += 4;
+		}
+	}
+
+	*p = '\0';
+}
+
 int
 fmaster_log_buf(struct thread *td, const char *tag, const char *buf,
 		size_t nbytes)
 {
-	static char chars[] = {
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		' ', '!', '"', '#', '$', '%', '&', '\'',
-		'(', ')', '*', '+', ',', '-', '.', '/',
-		'0', '1', '2', '3', '4', '5', '6', '7',
-		'8', '9', ':', ';', '<', '=', '>', '?',
-		'@', 'A', 'B', 'C', 'D', 'E', 'F', 'G',
-		'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',
-		'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W',
-		'X', 'Y', 'Z', '[', '\\', ']', '^', '_',
-		'`', 'a', 'b', 'c', 'd', 'e', 'f', 'g',
-		'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
-		'p', 'q', 'r', 's', 't', 'u', 'v', 'w',
-		'x', 'y', 'z', '{', '|', '}', '~', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.'
-	};
-	struct malloc_type *mt;
-	size_t i, n, size;
-	const char *src;
-	char *dest, *s;
+	char s[256];
 
-	size = MIN(nbytes + 1, 256);
-	mt = M_TEMP;
-	s = (char *)malloc(size, mt, M_WAITOK);
-	if (s == NULL)
-		return (ENOMEM);
-
-	n = size - 1;
-	for (i = 0, src = &buf[0], dest = &s[0]; i < n; i++, src++, dest++)
-		*dest = chars[(unsigned int)(unsigned char)*src];
-	*dest = '\0';
-
+	dump_buffer(s, sizeof(s), buf, nbytes);
 	fmaster_log(td, LOG_DEBUG, "%s: %s", tag, s);
-
-	free(s, mt);
 
 	return (0);
 }
