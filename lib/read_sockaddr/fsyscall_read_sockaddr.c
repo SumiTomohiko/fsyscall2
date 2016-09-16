@@ -21,10 +21,11 @@
 #endif
 
 static int
-read_un(struct rsopts *opts, struct sockaddr_un *addr, int *len)
+read_un(struct rsopts *opts, struct sockaddr_un *addr, payload_size_t *len)
 {
 	uint64_t size;
-	int error, size_len;
+	payload_size_t size_len;
+	int error;
 	char *buf, *path;
 
 	*len = 0;
@@ -56,9 +57,10 @@ exit:
 
 int
 fsyscall_read_sockaddr(struct rsopts *opts, struct sockaddr_storage *addr,
-		       int *len)
+		       payload_size_t *len)
 {
-	int addrlen, error, family_len, len_len;
+	payload_size_t addrlen, family_len, len_len;
+	int error;
 
 	*len = 0;
 

@@ -386,8 +386,8 @@ static void
 read_fds(struct slave_thread *slave_thread, int *maxfd, fd_set *fds,
 	 payload_size_t *len)
 {
-	payload_size_t payload_size;
-	int fd, fd_len, i, nfds, nfds_len, rfd;
+	payload_size_t fd_len, nfds_len, payload_size;
+	int fd, i, nfds, rfd;
 
 	rfd = slave_thread->fsth_rfd;
 
@@ -410,8 +410,9 @@ read_select_parameters(struct slave_thread *slave_thread, int *nfds,
 		       struct timeval *timeout, struct timeval **ptimeout)
 {
 	payload_size_t actual_payload_size, exceptfds_len, payload_size;
-	payload_size_t readfds_len, writefds_len;
-	int maxfd, rfd, timeout_len, timeout_status, timeout_status_len;
+	payload_size_t readfds_len, timeout_len, timeout_status_len;
+	payload_size_t writefds_len;
+	int maxfd, rfd, timeout_status;
 
 	rfd = slave_thread->fsth_rfd;
 	actual_payload_size = 0;
@@ -530,8 +531,8 @@ write_select_ready(struct slave_thread *slave_thread, int retval, int nfds,
 static void
 read_accept_protocol_request(struct slave_thread *slave_thread, int *s)
 {
-	payload_size_t actual_payload_size, payload_size;
-	int namelen_len, rfd, s_len;
+	payload_size_t actual_payload_size, namelen_len, payload_size, s_len;
+	int rfd;
 
 	rfd = slave_thread->fsth_rfd;
 	payload_size = read_payload_size(rfd);
@@ -575,8 +576,9 @@ write_accept_protocol_response(struct slave_thread *slave_thread,
 static void
 read_accept4_args(struct slave_thread *slave_thread, int *s, int *flags)
 {
-	payload_size_t actual_payload_size, payload_size;
-	int flags_len, namelen_len, rfd, s_len;
+	payload_size_t actual_payload_size, flags_len, namelen_len;
+	payload_size_t payload_size, s_len;
+	int rfd;
 
 	rfd = slave_thread->fsth_rfd;
 	payload_size = read_payload_size(rfd);
@@ -644,7 +646,7 @@ process_accept_protocol(struct slave_thread *slave_thread,
 }
 
 static int
-rs_read_socklen(struct rsopts *opts, socklen_t *socklen, int *len)
+rs_read_socklen(struct rsopts *opts, socklen_t *socklen, payload_size_t *len)
 {
 	struct slave_thread *slave_thread;
 
@@ -656,7 +658,7 @@ rs_read_socklen(struct rsopts *opts, socklen_t *socklen, int *len)
 }
 
 static int
-rs_read_uint8(struct rsopts *opts, uint8_t *n, int *len)
+rs_read_uint8(struct rsopts *opts, uint8_t *n, payload_size_t *len)
 {
 	struct slave_thread *slave_thread;
 
@@ -668,7 +670,7 @@ rs_read_uint8(struct rsopts *opts, uint8_t *n, int *len)
 }
 
 static int
-rs_read_uint64(struct rsopts *opts, uint64_t *n, int *len)
+rs_read_uint64(struct rsopts *opts, uint64_t *n, payload_size_t *len)
 {
 	struct slave_thread *slave_thread;
 
@@ -707,7 +709,7 @@ rs_free(struct rsopts *opts, void *ptr)
 
 static void
 read_sockaddr(struct slave_thread *slave_thread, struct sockaddr *addr,
-	      int *addrlen)
+	      payload_size_t *addrlen)
 {
 	struct rsopts opts;
 	int error;
@@ -735,9 +737,10 @@ process_connect_protocol(struct slave_thread *slave_thread,
 {
 	struct sockaddr *name;
 	sigset_t oset;
-	payload_size_t actual_payload_size, payload_size;
+	payload_size_t actual_payload_size, namelen_len, payload_size, s_len;
+	payload_size_t sockaddr_len;
 	socklen_t namelen;
-	int e, namelen_len, retval, rfd, s, s_len, sockaddr_len;
+	int e, retval, rfd, s;
 
 	rfd = slave_thread->fsth_rfd;
 	actual_payload_size = 0;
@@ -774,9 +777,9 @@ read_poll_args(struct slave_thread *slave_thread, struct poll_args *dest,
 	       int nfdsopts)
 {
 	struct pollfd *fds;
-	payload_size_t actual_payload_size, payload_size;
-	int events_len, fd_len, i, nfds, nfds_len;
-	int rfd, timeout, timeout_len;
+	payload_size_t actual_payload_size, events_len, fd_len, nfds_len;
+	payload_size_t payload_size, timeout_len;
+	int i, nfds, rfd, timeout;
 
 	rfd = slave_thread->fsth_rfd;
 	payload_size = read_payload_size(rfd);
@@ -926,12 +929,12 @@ read_recvmsg_args(struct slave_thread *slave_thread, int *fd,
 		  struct msghdr *msg, int *flags)
 {
 	struct iovec *iov, *piov;
-	payload_size_t actual_payload_size, payload_size, rest_size;
+	payload_size_t actual_payload_size, controllen_len, fd_len, flags_len;
+	payload_size_t iovlen_len, len_len, msg_flags_len, namecode_len;
+	payload_size_t payload_size, rest_size;
 	socklen_t controllen;
 	command_t return_command;
-	int controllen_len, fd_len, flags_len, i, iovlen;
-	int iovlen_len, len, len_len, msg_flags_len;
-	int namecode, namecode_len, rfd;
+	int i, iovlen, len, namecode, rfd;
 
 	return_command = RECVMSG_RETURN;
 
@@ -1166,7 +1169,7 @@ process_recvmsg(struct slave_thread *slave_thread)
 
 static int
 read_cmsghdrs(struct slave_thread *slave_thread, struct cmsghdr **control,
-	      socklen_t *controllen, int *actual_payload_size)
+	      socklen_t *controllen, payload_size_t *actual_payload_size)
 {
 	struct cmsgspec {
 		int		cmsgspec_level;
@@ -1178,11 +1181,11 @@ read_cmsghdrs(struct slave_thread *slave_thread, struct cmsghdr **control,
 
 	struct cmsghdr *cmsghdr, *cmsghdrs;
 	struct cmsgspec *spec, *specs;
-	payload_size_t payload_size;
+	payload_size_t fd_len, level_len, ncmsghdr_len, nfds_len, payload_size;
+	payload_size_t type_len;
 	size_t cmsgspace, datasize;
 	socklen_t len;
-	int fd_len, i, j, level, level_len, ncmsghdr, ncmsghdr_len, nfds;
-	int nfds_len, *pfd, rfd, type, type_len;
+	int i, j, level, ncmsghdr, nfds, *pfd, rfd, type;
 	char *p;
 
 	payload_size = 0;
@@ -1280,14 +1283,14 @@ process_sendmsg(struct slave_thread *slave_thread)
 	struct msghdr msg;
 	struct iovec *iov;
 	sigset_t oset;
-	payload_size_t actual_payload_size, payload_size, rest_size;
+	payload_size_t actual_payload_size, cmsghdrs_len, controlcode_len;
+	payload_size_t fd_len, flags_len, iovlen_len, len_len, msg_flags_len;
+	payload_size_t namecode_len, payload_size, rest_size;
 	size_t len;
 	ssize_t retval;
 	socklen_t controllen;
 	command_t return_command;
-	int cmsghdrs_len, controlcode, controlcode_len, e, error, fd, fd_len;
-	int flags, flags_len, i, iovlen, iovlen_len, len_len, msg_flags_len;
-	int namecode, namecode_len, rfd;
+	int controlcode, e, error, fd, flags, i, iovlen, namecode, rfd;
 	const char *fmt, *sysname = "sendmsg";
 	void *base, *control;
 
@@ -1391,8 +1394,8 @@ process_sigprocmask(struct slave_thread *slave_thread)
 {
 	struct slave *slave;
 	sigset_t *pset, set;
-	payload_size_t actual_payload_size, payload_size;
-	int errnum, how, how_len, retval, rfd, set_len;
+	payload_size_t actual_payload_size, how_len, payload_size, set_len;
+	int errnum, how, retval, rfd;
 
 	pset = &set;
 
@@ -1624,10 +1627,10 @@ process_kevent(struct slave_thread *slave_thread)
 	struct payload *payload;
 	struct timespec timeout, *ptimeout;
 	sigset_t oset;
-	payload_size_t actual_payload_size, payload_size;
+	payload_size_t actual_payload_size, len, payload_size;
 	size_t size;
 	command_t return_command;
-	int changelist_code, e, i, kq, len, nchanges, nevents, retval, rfd;
+	int changelist_code, e, i, kq, nchanges, nevents, retval, rfd;
 	int timeout_code, udata_code;
 	const char *fmt = "Invalid kevent(2) changelist code: %d";
 	const char *fmt2 = "Invalid kevent(2) timeout code: %d";
@@ -1733,10 +1736,10 @@ static void
 process_setsockopt(struct slave_thread *slave_thread)
 {
 	sigset_t oset;
-	payload_size_t actual_payload_size, payload_size;
+	payload_size_t actual_payload_size, level_len, optname_len, optlen_len;
+	payload_size_t optval_len, payload_size, s_len;
 	socklen_t optlen;
-	int e, level, level_len, n, optname, optname_len, optlen_len;
-	int optval_len, retval, rfd, s, s_len;
+	int e, level, n, optname, retval, rfd, s;
 	void *optval;
 
 	rfd = slave_thread->fsth_rfd;
@@ -1780,10 +1783,10 @@ process_getsockopt(struct slave_thread *slave_thread)
 {
 	struct payload *payload;
 	sigset_t oset;
-	payload_size_t actual_payload_size, payload_size;
+	payload_size_t actual_payload_size, level_len, optname_len, optlen_len;
+	payload_size_t payload_size, s_len;
 	socklen_t optlen;
-	int e, level, level_len, optname, optname_len, optlen_len, retval, rfd;
-	int s, s_len;
+	int e, level, optname, retval, rfd, s;
 	void *optval;
 
 	rfd = slave_thread->fsth_rfd;
@@ -1878,7 +1881,8 @@ process_thr_exit(struct slave_thread *slave_thread)
 static int
 process_exit(struct slave_thread *slave_thread)
 {
-	int _, status;
+	payload_size_t _;
+	int status;
 
 	status = read_int32(slave_thread->fsth_rfd, &_);
 
@@ -1892,9 +1896,9 @@ process_utimes(struct slave_thread *slave_thread)
 {
 	sigset_t oset;
 	struct timeval *ptimes, times[2];
-	payload_size_t actual_payload_size, payload_size;
-	uint64_t path_len;
-	int e, i, ntimes, retval, rfd, times_code_len, times_len;
+	payload_size_t actual_payload_size, path_len, payload_size;
+	payload_size_t times_code_len, times_len;
+	int e, i, ntimes, retval, rfd;
 	const char *path;
 	uint8_t times_code;
 
@@ -1945,8 +1949,8 @@ static void
 read_getdirentries_args(struct slave_thread *slave_thread,
 			struct getdirentries_args *args)
 {
-	payload_size_t actual_payload_size, payload_size;
-	int fd_len, nentmax_len, rfd;
+	payload_size_t actual_payload_size, fd_len, nentmax_len, payload_size;
+	int rfd;
 
 	rfd = slave_thread->fsth_rfd;
 	payload_size = read_payload_size(rfd);
@@ -2067,9 +2071,9 @@ static void
 process_openat(struct slave_thread *slave_thread)
 {
 	sigset_t oset;
-	uint64_t path_len;
-	payload_size_t actual_payload_size, payload_size;
-	int e, fd, fd_len, flags, flags_len, mode_len, retval, rfd;
+	payload_size_t actual_payload_size, fd_len, flags_len, mode_len;
+	payload_size_t path_len, payload_size;
+	int e, fd, flags, retval, rfd;
 	mode_t mode;
 	char *path;
 
@@ -2105,9 +2109,10 @@ static void
 process_fcntl(struct slave_thread *slave_thread)
 {
 	sigset_t oset;
-	payload_size_t actual_payload_size, payload_size;
+	payload_size_t actual_payload_size, arg_len, cmd_len, fd_len;
+	payload_size_t payload_size;
 	long arg;
-	int arg_len, cmd, cmd_len, e, fd, fd_len, retval, rfd;
+	int cmd, e, fd, retval, rfd;
 
 	rfd = slave_thread->fsth_rfd;
 	payload_size = read_payload_size(rfd);

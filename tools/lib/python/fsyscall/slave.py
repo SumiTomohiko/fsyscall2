@@ -89,15 +89,14 @@ def print_fslave_call(p, print_newline, syscall):
         if a.datatype == "struct iovec *":
             for datatype, name in (
                     (a.datatype, a.name),
-                    ("int *", "{name}_iov_len_len"),
+                    ("payload_size_t *", "{name}_iov_len_len"),
                     ("int", "i"),
                     ("payload_size_t", "{name}_payload_size")):
                 local_vars.append(Variable(datatype, name.format(**vars(a))))
             continue
 
-        len_type = "uint64_t" if a.datatype == "char *" else "int"
         for datatype, name in (
-                (len_type, "{name}_len"),
+                ("payload_size_t", "{name}_len"),
                 ("{datatype}", "{name}")):
             d = vars(a)
             v = Variable(datatype.format(**d), name.format(**d))
@@ -125,7 +124,7 @@ def print_fslave_call(p, print_newline, syscall):
             size = data_of_argument(syscall, a).size
             p("""\
 \t{name} = (struct iovec *)alloca(sizeof(*{name}) * {size});
-\t{name}_iov_len_len = (int *)alloca(sizeof(int) * {size});
+\t{name}_iov_len_len = (payload_size_t *)alloca(sizeof(int) * {size});
 \tfor (i = 0; i < {size}; i++) {{
 \t\t{name}[i].iov_len = read_uint64(rfd, &{name}_iov_len_len[i]);
 \t\t{name}[i].iov_base = alloca({name}[i].iov_len);

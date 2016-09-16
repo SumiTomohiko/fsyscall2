@@ -340,9 +340,10 @@ process_fork_socket(struct mhub *mhub)
 	struct master *master;
 	struct sockaddr_storage addr;
 	struct fork_info *fi;
+	payload_size_t len;
 	socklen_t addrlen;
 	pid_t pid;
-	int len, sock;
+	int sock;
 	const char *fmt = "A new master (pair id: %ld) has come.";
 	char token[TOKEN_SIZE];
 
@@ -465,7 +466,8 @@ static int
 process_exit(struct mhub *mhub, struct master *master)
 {
 	pair_id_t pair_id;
-	int _, status, wfd;
+	payload_size_t _;
+	int status, wfd;
 
 	status = read_int32(master->rfd, &_);
 	pair_id = master->pair_id;

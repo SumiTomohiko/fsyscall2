@@ -6,16 +6,16 @@
 #include <fsyscall/private.h>
 #include <fsyscall/private/command.h>
 
-int	fsyscall_decode_command(char *, int, command_t *);
-int	fsyscall_decode_int8(char *, int, int8_t *);
-int	fsyscall_decode_int16(char *, int, int16_t *);
-int	fsyscall_decode_int32(char *, int, int32_t *);
-int	fsyscall_decode_int64(char *, int, int64_t *);
+int	fsyscall_decode_command(char *, payload_size_t, command_t *);
+int	fsyscall_decode_int8(char *, payload_size_t, int8_t *);
+int	fsyscall_decode_int16(char *, payload_size_t, int16_t *);
+int	fsyscall_decode_int32(char *, payload_size_t, int32_t *);
+int	fsyscall_decode_int64(char *, payload_size_t, int64_t *);
 #define	fsyscall_decode_uint32(buf, bufsize, dest) \
 		fsyscall_decode_int32((buf), (bufsize), (int32_t *)(dest))
 #define	fsyscall_decode_uint64(buf, bufsize, dest) \
 		fsyscall_decode_int64((buf), (bufsize), (int64_t *)(dest))
-int	fsyscall_decode_pair_id(char *, int, pair_id_t);
+int	fsyscall_decode_pair_id(char *, payload_size_t, pair_id_t);
 
 #define		fsyscall_encode_command	fsyscall_encode_uint32
 int		fsyscall_encode_int16(int16_t, char *, int);
@@ -52,11 +52,11 @@ int		encode_uint32(uint32_t, char *, int);
 int		encode_uint64(uint64_t, char *, int);
 #define		encode_payload_size	encode_uint32
 #define		encode_pair_id		encode_uint64
-command_t	decode_command(char *, int);
-int8_t		decode_int8(char *, int);
-int16_t		decode_int16(char *, int);
-int32_t		decode_int32(char *, int);
-int64_t		decode_int64(char *, int);
+command_t	decode_command(char *, payload_size_t);
+int8_t		decode_int8(char *, payload_size_t);
+int16_t		decode_int16(char *, payload_size_t);
+int32_t		decode_int32(char *, payload_size_t);
+int64_t		decode_int64(char *, payload_size_t);
 #define		decode_uint32(buf, bufsize) \
 			(uint32_t)decode_int32((buf), (bufsize))
 #define		decode_uint64(buf, bufsize) \

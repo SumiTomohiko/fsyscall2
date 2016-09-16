@@ -25,8 +25,8 @@ execute_call(struct slave_thread *slave_thread, int *retval, int *errnum)
 {
 	struct slave *slave;
 	sigset_t oset;
-	payload_size_t actual_payload_size, payload_size;
-	int fd, fd_len, rfd;
+	payload_size_t actual_payload_size, fd_len, payload_size;
+	int fd, rfd;
 
 	rfd = slave_thread->fsth_rfd;
 	payload_size = read_payload_size(rfd);

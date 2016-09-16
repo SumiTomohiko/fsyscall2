@@ -6,10 +6,10 @@
 
 #define	IMPLEMENT_DECODE_X(type, name)				\
 int								\
-name(char *buf, int bufsize, type *dest)			\
+name(char *buf, payload_size_t bufsize, type *dest)		\
 {								\
+	payload_size_t i;					\
 	type n;							\
-	int i;							\
 								\
 	if ((buf[bufsize - 1] & 0x80) != 0)			\
 		return (-1);					\
@@ -31,7 +31,7 @@ IMPLEMENT_DECODE_X(int64_t, fsyscall_decode_int64)
 #if !defined(KLD_MODULE)
 #define	IMPLEMENT_DECODE_OR_DIE_X(type, name, decoder)	\
 type							\
-name(char *buf, int bufsize)				\
+name(char *buf, payload_size_t bufsize)			\
 {							\
 	type dest;					\
 							\

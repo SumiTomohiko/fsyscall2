@@ -195,8 +195,9 @@ static void
 process_exit(struct shub *shub)
 {
 	struct slave *slave;
+	payload_size_t _;
 	pair_id_t pair_id;
-	int _, rfd, status, wfd;
+	int rfd, status, wfd;
 
 	rfd = shub->mhub.rfd;
 	pair_id = read_pair_id(rfd);

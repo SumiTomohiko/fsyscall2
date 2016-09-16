@@ -1064,7 +1064,7 @@ fmaster_read(struct thread *td, int d, void *buf, size_t nbytes)
 }
 
 static int
-rs_read_socklen(struct rsopts *opts, socklen_t *socklen, int *len)
+rs_read_socklen(struct rsopts *opts, socklen_t *socklen, payload_size_t *len)
 {
 	struct thread *td = (struct thread *)opts->rs_bonus;
 	int error;
@@ -1075,7 +1075,7 @@ rs_read_socklen(struct rsopts *opts, socklen_t *socklen, int *len)
 }
 
 static int
-rs_read_uint64(struct rsopts *opts, uint64_t *n, int *len)
+rs_read_uint64(struct rsopts *opts, uint64_t *n, payload_size_t *len)
 {
 	struct thread *td = (struct thread *)opts->rs_bonus;
 	int error;
@@ -1086,7 +1086,7 @@ rs_read_uint64(struct rsopts *opts, uint64_t *n, int *len)
 }
 
 static int
-rs_read_uint8(struct rsopts *opts, uint8_t *n, int *len)
+rs_read_uint8(struct rsopts *opts, uint8_t *n, payload_size_t *len)
 {
 	struct thread *td = (struct thread *)opts->rs_bonus;
 	int error;
@@ -1124,7 +1124,7 @@ rs_free(struct rsopts *opts, void *ptr)
 
 int
 fmaster_read_sockaddr(struct thread *td, struct sockaddr_storage *addr,
-		      int *len)
+		      payload_size_t *len)
 {
 	struct rsopts opts;
 	int error;
@@ -1144,7 +1144,7 @@ fmaster_read_sockaddr(struct thread *td, struct sockaddr_storage *addr,
 
 static int
 read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize,
-		      int *size)
+		      payload_size_t *size)
 {
 	int error;
 	char *p, *pend;
@@ -1166,7 +1166,7 @@ read_numeric_sequence(struct thread *td, int fd, char *buf, int bufsize,
 
 #define	IMPLEMENT_READ_X(type, name, bufsize, decode)		\
 int								\
-name(struct thread *td, type *dest, int *size)			\
+name(struct thread *td, type *dest, payload_size_t *size)	\
 {								\
 	int error, fd;						\
 	char buf[bufsize];					\
@@ -1629,9 +1629,10 @@ static int
 execute_accept_return(struct thread *td, command_t return_command,
 		      struct sockaddr_storage *addr, socklen_t *namelen)
 {
-	payload_size_t actual_payload_size, payload_size;
+	payload_size_t actual_payload_size, addr_len, errnum_len, namelen_len;
+	payload_size_t payload_size;
 	command_t cmd;
-	int addr_len, errnum, errnum_len, error, namelen_len, retval;
+	int errnum, error, retval;
 	int retval_len;
 
 	error = fmaster_read_command(td, &cmd);

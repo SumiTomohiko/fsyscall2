@@ -16,7 +16,8 @@
 void
 transport_fds(int rfd, int wfd)
 {
-	int _, n;
+	payload_size_t _;
+	int n;
 	char *buf;
 
 	n = read_int32(rfd, &_);

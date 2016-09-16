@@ -10,17 +10,15 @@
 
 #define	IMPLEMENTE_READ_FUNC(name, type)		\
 type							\
-read_##name(int fd, int *len)				\
+read_##name(int fd, payload_size_t *len)		\
 {							\
 	struct io io;					\
-	payload_size_t size;				\
 	type n;						\
 							\
 	io_init(&io, fd);				\
 							\
-	if (io_read_##name(&io, &n, &size) == -1)	\
+	if (io_read_##name(&io, &n, len) == -1)		\
 		diec(1, io.io_error, "cannot read");	\
-	*len = (int)size;				\
 							\
 	return (n);					\
 }
@@ -98,55 +96,47 @@ transfer(int rfd, int wfd, uint32_t len)
 }
 
 char *
-read_string(int fd, uint64_t *total_len)
+read_string(int fd, payload_size_t *len)
 {
 	struct io io;
-	payload_size_t size;
 	char *s;
 
 	io_init(&io, fd);
-	if (io_read_string(&io, &s, &size) == -1)
+	if (io_read_string(&io, &s, len) == -1)
 		diec(1, io.io_error, "cannot read string");
-	*total_len = (uint64_t)size;
 
 	return (s);
 }
 
 void
-read_timeval(int fd, struct timeval *t, int *len)
+read_timeval(int fd, struct timeval *t, payload_size_t *len)
 {
 	struct io io;
-	payload_size_t size;
 
 	io_init(&io, fd);
-	if (io_read_timeval(&io, t, &size) == -1)
+	if (io_read_timeval(&io, t, len) == -1)
 		diec(1, io.io_error, "cannot read timeval");
-	*len = (int)size;
 }
 
 void
-read_sigset(int fd, sigset_t *set, int *len)
+read_sigset(int fd, sigset_t *set, payload_size_t *len)
 {
 	struct io io;
-	payload_size_t size;
 
 	io_init(&io, fd);
-	if (io_read_sigset(&io, set, &size) == -1)
+	if (io_read_sigset(&io, set, len) == -1)
 		diec(1, io.io_error, "cannot read sigset");
-	*len = (int)size;
 }
 
 pid_t
-read_pid(int fd, int *len)
+read_pid(int fd, payload_size_t *len)
 {
 	struct io io;
-	payload_size_t size;
 	pid_t pid;
 
 	io_init(&io, fd);
-	if (io_read_pid(&io, &pid, &size) == -1)
+	if (io_read_pid(&io, &pid, len) == -1)
 		diec(1, io.io_error, "cannot read pid");
-	*len = (int)size;
 
 	return (pid);
 }
