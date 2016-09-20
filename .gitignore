@@ -121,7 +121,6 @@ fmaster/sys/fmaster/fmaster_nlm_syscall.c
 fmaster/sys/fmaster/fmaster_nlstat.c
 fmaster/sys/fmaster/fmaster_nstat.c
 fmaster/sys/fmaster/fmaster_ntp_adjtime.c
-fmaster/sys/fmaster/fmaster_openat.c
 fmaster/sys/fmaster/fmaster_ovadvise.c
 fmaster/sys/fmaster/fmaster_pathconf.c
 fmaster/sys/fmaster/fmaster_pipe2.c
