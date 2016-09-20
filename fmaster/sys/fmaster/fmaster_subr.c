@@ -3543,3 +3543,88 @@ fmaster_pipe(struct thread *td, int flags)
 
 	return (error);
 }
+
+static int
+execute_open_call(struct thread *td, char *path, int flags, mode_t mode)
+{
+	struct payload *payload;
+	int error;
+
+	payload = fsyscall_payload_create();
+	if (payload == NULL)
+		return (ENOMEM);
+	error = fsyscall_payload_add_string(payload, path);
+	if (error != 0)
+		goto exit;
+	error = fsyscall_payload_add_int(payload, flags);
+	if (error != 0)
+		goto exit;
+	if ((flags & O_CREAT) != 0) {
+		error = fsyscall_payload_add_mode(payload, mode);
+		if (error != 0)
+			goto exit;
+	}
+
+	error = fmaster_write_payloaded_command(td, OPEN_CALL, payload);
+	if (error != 0)
+		goto exit;
+
+	error = 0;
+exit:
+	fsyscall_payload_dispose(payload);
+
+	return (error);
+}
+
+int
+fmaster_execute_open(struct thread *td, char *path, int flags, mode_t mode)
+{
+	int error;
+
+	error = execute_open_call(td, path, flags, mode);
+	if (error != 0)
+		return (error);
+	error = fmaster_execute_return_generic32(td, OPEN_RETURN);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+fmaster_open(struct thread *td, const char *sysname, char *path, int flags,
+	     mode_t mode)
+{
+	enum fmaster_file_place place;
+	int error;
+	char desc[VNODE_DESC_LEN];
+
+	if (fmaster_is_master_file(td, path)) {
+		error = kern_open(td, path, UIO_SYSSPACE, ~O_CLOEXEC & flags,
+				  mode);
+		if (error != 0)
+			return (error);
+		place = FFP_MASTER;
+	}
+	else {
+		error = fmaster_execute_open(td, path, flags, mode);
+		if (error != 0)
+			return (error);
+		place = FFP_SLAVE;
+	}
+
+	snprintf(desc, sizeof(desc),
+		 "%s for path=%s in %s",
+		 sysname, path, fmaster_str_of_place(place));
+	error = fmaster_return_fd(td, DTYPE_VNODE, place, td->td_retval[0],
+				  desc);
+	if (error != 0)
+		return (error);
+	/* fmaster_return_fd() overwrote td->td_retval[0] */
+	error = fmaster_set_close_on_exec(td, td->td_retval[0],
+					  (O_CLOEXEC & flags) != 0);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}

@@ -1,0 +1,5 @@
+
+cmd="open_O_CLOEXEC/open_O_CLOEXEC"
+expected_status="0"
+
+# vim: filetype=sh

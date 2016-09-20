@@ -116,6 +116,7 @@ int	fmaster_get_close_on_exec(struct thread *, int, bool *);
 int	fmaster_set_close_on_exec(struct thread *, int, bool);
 int	fmaster_get_file_status_flags(struct thread *, int, int *);
 int	fmaster_set_file_status_flags(struct thread *, int, int);
+int	fmaster_open(struct thread *, const char *, char *, int, mode_t);
 
 int	fmaster_fd_of_master_fd(struct thread *, int, int *);
 int	fmaster_fd_of_slave_fd(struct thread *, int, int *);
@@ -145,6 +146,7 @@ int	fmaster_execute_return_generic64(struct thread *, command_t);
 int	fmaster_execute_return_int32_with_token(struct thread *, command_t,
 						char **, uint64_t *);
 int	fmaster_execute_fcntl(struct thread *, int, int, long);
+int	fmaster_execute_open(struct thread *, char *, int, mode_t);
 int	fmaster_execute_setsockopt(struct thread *, int, int, int, void *, int);
 int	fmaster_execute_connect_protocol(struct thread *td,
 					 command_t call_command,

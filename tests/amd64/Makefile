@@ -20,11 +20,11 @@ SUBDIR=	${LIBDIR} SIGKILL_poll SIGKILL_wait4 accept accept4 \
 	getsockopt_pending_sock getsockopt_slave gettimeofday_dsttime \
 	gettimeofday_minuteswest gettimeofday_sec gettimeofday_usec getuid \
 	ioctl issetugid kill listen lseek lstat mkdir open open_EISDIR \
-	open_ENOENT open_O_DIRECTORY open_pwddb openat openat_EBADF \
-	openat_abspath openat_perm openat_sock pipe pipe2 pipe2_O_CLOEXEC \
-	pipe2_O_NONBLOCK poll_POLLHUP poll_POLLHUP2 poll_bind poll_ignore_fd \
-	poll_ignore_fd_master poll_ignore_fd_master_slave poll_ignore_fd_slave \
-	poll_in poll_master poll_master_slave_blocking \
+	open_ENOENT open_O_CLOEXEC open_O_CLOEXEC2 open_O_DIRECTORY open_pwddb \
+	openat openat_EBADF openat_abspath openat_perm openat_sock pipe pipe2 \
+	pipe2_O_CLOEXEC pipe2_O_NONBLOCK poll_POLLHUP poll_POLLHUP2 poll_bind \
+	poll_ignore_fd poll_ignore_fd_master poll_ignore_fd_master_slave \
+	poll_ignore_fd_slave poll_in poll_master poll_master_slave_blocking \
 	poll_master_slave_blocking2 poll_master_slave_nonblocking \
 	poll_master_slave_nonblocking2 poll_out poll_pending_sock poll_timeout \
 	pread read readlink recvmsg_controllen_for_nothing recvmsg_master \

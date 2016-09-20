@@ -121,7 +121,6 @@ fmaster/sys/fmaster/fmaster_nlm_syscall.c
 fmaster/sys/fmaster/fmaster_nlstat.c
 fmaster/sys/fmaster/fmaster_nstat.c
 fmaster/sys/fmaster/fmaster_ntp_adjtime.c
-fmaster/sys/fmaster/fmaster_open.c
 fmaster/sys/fmaster/fmaster_openat.c
 fmaster/sys/fmaster/fmaster_ovadvise.c
 fmaster/sys/fmaster/fmaster_pathconf.c
@@ -350,6 +349,8 @@ tests/amd64/lstat/lstat
 tests/amd64/mkdir/mkdir
 tests/amd64/open_EISDIR/open_EISDIR
 tests/amd64/open_ENOENT/open_ENOENT
+tests/amd64/open_O_CLOEXEC/open_O_CLOEXEC
+tests/amd64/open_O_CLOEXEC2/open_O_CLOEXEC2
 tests/amd64/open_O_DIRECTORY/open_O_DIRECTORY
 tests/amd64/open_pwddb/open_pwddb
 tests/amd64/openat/openat
