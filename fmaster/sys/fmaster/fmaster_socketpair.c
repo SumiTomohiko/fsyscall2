@@ -10,16 +10,22 @@
 static int
 fmaster_socketpair_main(struct thread *td, struct fmaster_socketpair_args *uap)
 {
-	int error, i, rsv[2], sv[2], vfd;
+	int error, i, rsv[2], sv[2], type, vfd;
 	char desc[VNODE_DESC_LEN];
 
-	error = kern_socketpair(td, uap->domain, uap->type, uap->protocol, rsv);
+	type = uap->type;
+	error = kern_socketpair(td, uap->domain, ~SOCK_CLOEXEC & type,
+				uap->protocol, rsv);
 	if (error != 0)
 		return (error);
 	snprintf(desc, sizeof(desc), "socketpair (%d, %d)", rsv[0], rsv[1]);
 	for (i = 0; i < sizeof(rsv) / sizeof(rsv[0]); i++) {
 		error = fmaster_register_file(td, DTYPE_SOCKET, FFP_MASTER,
 					      rsv[i], &vfd, desc);
+		if (error != 0)
+			return (error);
+		error = fmaster_set_close_on_exec(td, vfd,
+						  (SOCK_CLOEXEC & type) != 0);
 		if (error != 0)
 			return (error);
 		sv[i] = vfd;
