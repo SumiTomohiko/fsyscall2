@@ -2,8 +2,8 @@
 from os import mkdir
 from os.path import join
 
-from fsyscall.share import FMASTER_SYSCALLS, FSLAVE_SYSCALLS, SYSCALLS,     \
-                           Variable, bufsize_of_datatype, data_of_argument, \
+from fsyscall.share import FSLAVE_SYSCALLS, SYSCALLS, Variable,             \
+                           bufsize_of_datatype, data_of_argument,           \
                            concrete_datatype_of_abstract_datatype,          \
                            drop_pointer, drop_prefix, make_cmd_name,        \
                            make_decl, make_payload_size_expr,               \
@@ -141,7 +141,7 @@ def print_fslave_call(p, print_newline, syscall):
                 "off_t": "read_int64",
                 "size_t": "read_uint64" }[a.datatype]
         assignment = "{name} = {f}(rfd, &{name}_len)".format(**locals())
-        opt = opt_of_syscall(FMASTER_SYSCALLS, syscall, a)
+        opt = opt_of_syscall(FSLAVE_SYSCALLS, syscall, a)
         if opt is not None:
             p("""\
 \tif ({opt})
