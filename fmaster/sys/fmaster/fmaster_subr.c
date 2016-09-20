@@ -3596,18 +3596,18 @@ fmaster_open(struct thread *td, const char *sysname, char *path, int flags,
 	     mode_t mode)
 {
 	enum fmaster_file_place place;
-	int error;
+	int error, f;
 	char desc[VNODE_DESC_LEN];
 
+	f = ~O_CLOEXEC & flags;
 	if (fmaster_is_master_file(td, path)) {
-		error = kern_open(td, path, UIO_SYSSPACE, ~O_CLOEXEC & flags,
-				  mode);
+		error = kern_open(td, path, UIO_SYSSPACE, f, mode);
 		if (error != 0)
 			return (error);
 		place = FFP_MASTER;
 	}
 	else {
-		error = fmaster_execute_open(td, path, flags, mode);
+		error = fmaster_execute_open(td, path, f, mode);
 		if (error != 0)
 			return (error);
 		place = FFP_SLAVE;
