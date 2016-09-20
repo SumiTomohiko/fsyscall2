@@ -1,0 +1,5 @@
+
+cmd="socket_SOCK_CLOEXEC/socket_SOCK_CLOEXEC"
+expected_status="0"
+
+# vim: filetype=sh

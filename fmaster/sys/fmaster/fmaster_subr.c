@@ -3384,22 +3384,24 @@ fmaster_register_pending_socket(struct thread *td, int domain, int type,
 {
 	struct fmaster_vnode *vnode;
 	struct fmaster_pending_sock *sock;
-	int error;
+	int error, fd;
 
 	error = fmaster_return_fd(td, DTYPE_SOCKET, FFP_PENDING_SOCKET, -1,
 				  "pending socket");
 	if (error != 0)
 		return (error);
-	vnode = fmaster_get_locked_vnode_of_fd(td, td->td_retval[0]);
+	fd = td->td_retval[0];
+	vnode = fmaster_get_locked_vnode_of_fd(td, fd);
 	if (vnode == NULL)
 		return (EBADF);
 
 	sock = &vnode->fv_pending_sock;
 	sock->fps_domain = domain;
-	sock->fps_type = type;
+	sock->fps_type = ~(SOCK_CLOEXEC | SOCK_NONBLOCK) & type;
 	sock->fps_protocol = protocol;
 	sock->fps_reuseaddr = false;
 	sock->fps_nonblocking = false;
+	fmaster_set_close_on_exec(td, fd, (SOCK_CLOEXEC & type) != 0);
 
 	fmaster_unlock_vnode(td, vnode);
 

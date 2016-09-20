@@ -33,9 +33,9 @@ SUBDIR=	${LIBDIR} SIGKILL_poll SIGKILL_wait4 accept accept4 \
 	sendmsg_not_socket_slave sendmsg_pending_sock sendmsg_slave setsockopt \
 	shutdown_EBADF shutdown_EINVAL shutdown_ENOTCONN shutdown_ENOTSOCK \
 	shutdown_SHUT_RD shutdown_SHUT_RDWR shutdown_SHUT_WR shutdown_read \
-	shutdown_write sigprocmask socket socketpair stat stat_ENOENT stat_dir \
-	thr_new umask unixsock_creds unlink utimes utimes_null wait4_ECHILD \
-	wait4_WNOHANG wait4_multithread wait4_rusage wait4_status \
-	wait4_successful write writev
+	shutdown_write sigprocmask socket socket_SOCK_CLOEXEC socketpair stat \
+	stat_ENOENT stat_dir thr_new umask unixsock_creds unlink utimes \
+	utimes_null wait4_ECHILD wait4_WNOHANG wait4_multithread wait4_rusage \
+	wait4_status wait4_successful write writev
 
 .include <bsd.subdir.mk>

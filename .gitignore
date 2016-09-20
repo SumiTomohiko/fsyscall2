@@ -409,6 +409,7 @@ tests/amd64/shutdown_write/shutdown_write
 tests/amd64/sigaction/sigaction
 tests/amd64/sigprocmask/sigprocmask
 tests/amd64/socket/socket
+tests/amd64/socket_SOCK_CLOEXEC/socket_SOCK_CLOEXEC
 tests/amd64/socketpair/socketpair
 tests/amd64/stat/stat
 tests/amd64/stat_ENOENT/stat_ENOENT

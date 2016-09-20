@@ -61,9 +61,13 @@ get_domain_str(int domain)
 	return (get_array_element(domains, ndomains, domain));
 }
 
-static const char *
-get_type_str(int type)
+static void
+get_type_str(char *dst, size_t dstsize, int type)
 {
+	static struct flag_definition defs[] = {
+		DEFINE_FLAG(SOCK_CLOEXEC),
+		DEFINE_FLAG(SOCK_NONBLOCK)
+	};
 	static const char *types[] = {
 		UNKNOWN,
 		"SOCK_STREAM",
@@ -73,8 +77,16 @@ get_type_str(int type)
 		"SOCK_SEQPACKET"
 	};
 	static int ntypes = array_sizeof(types);
+	int flags = SOCK_CLOEXEC | SOCK_NONBLOCK;
+	const char *fmt, *s;
+	char t[256];
 
-	return (get_array_element(types, ntypes, type));
+	s = get_array_element(types, ntypes, ~flags & type);
+	fmaster_chain_flags(t, sizeof(t), flags & type, defs,
+			    array_sizeof(defs));
+	fmt = t[0] == '\0' ? "%s" : "%s|%s";
+
+	snprintf(dst, dstsize, fmt, s, t);
 }
 
 int
@@ -82,15 +94,17 @@ sys_fmaster_socket(struct thread *td, struct fmaster_socket_args *uap)
 {
 	struct timeval time_start;
 	int domain, error, protocol, type;
-	const char *domainstr, *sysname = "socket", *typestr;
+	char typestr[256];
+	const char *domainstr, *sysname = "socket";
 
 	domain = uap->domain;
 	domainstr = get_domain_str(domain);
 	type = uap->type;
-	typestr = get_type_str(type);
+	get_type_str(typestr, sizeof(typestr), type);
 	protocol = uap->protocol;
 	fmaster_log(td, LOG_DEBUG,
-		    "%s: started: domain=%d (%s), type=%d (%s), protocol=%d",
+		    "%s: started: domain=0x%x (%s), type=0x%x (%s), protocol=0x"
+		    "%x",
 		    sysname, domain, domainstr, type, typestr, protocol);
 	microtime(&time_start);
 
