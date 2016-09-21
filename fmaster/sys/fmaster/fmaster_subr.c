@@ -943,6 +943,7 @@ fmaster_is_master_file(struct thread *td, const char *path)
 		"/var/db/fontconfig/",
 	};
 	const char *files[] = {
+		"/usr/local/etc/at-spi2/accessibility.conf",
 		"/usr/local/etc/dbus-1/session.conf",
 		"/usr/local/etc/dbus-1/session.d",
 		"/usr/local/share/dbus-1/services",
