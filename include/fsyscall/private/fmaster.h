@@ -181,7 +181,9 @@ long	fmaster_subtract_timeval(const struct timeval *,
 				 const struct timeval *);
 int	fmaster_openlog(struct thread *);
 void	fmaster_log(struct thread *, int, const char *, ...);
+#if 0
 void	fmaster_log_all(struct thread *, const char *, const char *, size_t);
+#endif
 int	fmaster_log_buf(struct thread *, const char *, const char *, size_t);
 void	fmaster_log_syscall_end(struct thread *, const char *,
 				const struct timeval *, int);

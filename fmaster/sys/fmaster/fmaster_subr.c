@@ -2837,6 +2837,7 @@ fmaster_add_thread(struct thread *td, lwpid_t tid, const char *token,
 	return (0);
 }
 
+#if 0
 void
 fmaster_log_all(struct thread *td, const char *tag, const char *buf,
 		size_t nbytes)
@@ -2886,6 +2887,7 @@ fmaster_log_all(struct thread *td, const char *tag, const char *buf,
 		fmaster_log(td, LOG_DEBUG, fmt, tag, i, c, chars[c]);
 	}
 }
+#endif
 
 static void
 dump_buffer(char *dst, size_t dstsize, const char *src, size_t srcsize)

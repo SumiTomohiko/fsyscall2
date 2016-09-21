@@ -36,8 +36,10 @@ fmaster_write_pre_execute(struct thread *td, struct fmaster_write_args *uap,
 	switch (fd) {
 	case 1:
 	case 2:
+#if 0
 		snprintf(tag, sizeof(tag), "write(2) to fd %d", fd);
 		fmaster_log_all(td, tag, buf, nbytes);
+#endif
 		/* FALLTHROUGH */
 	default:
 		snprintf(tag, sizeof(tag), "write: fd=%d: buf", fd);
