@@ -108,18 +108,19 @@ accept4_main(struct thread *td, int s, struct sockaddr *name,
 	     socklen_t *anamelen, int flags)
 {
 	enum fmaster_file_place place;
-	int error, fd, lfd;
+	int error, f, fd, lfd;
 	char desc[VNODE_DESC_LEN];
 
 	error = fmaster_get_vnode_info(td, s, &place, &lfd);
 	if (error != 0)
 		return (error);
+	f = ~SOCK_CLOEXEC & flags;
 	switch (place) {
 	case FFP_MASTER:
-		error = accept4_master(td, lfd, name, anamelen, flags);
+		error = accept4_master(td, lfd, name, anamelen, f);
 		break;
 	case FFP_SLAVE:
-		error = accept4_slave(td, lfd, name, anamelen, flags);
+		error = accept4_slave(td, lfd, name, anamelen, f);
 		break;
 	case FFP_PENDING_SOCKET:
 	default:
@@ -131,6 +132,11 @@ accept4_main(struct thread *td, int s, struct sockaddr *name,
 	fd = td->td_retval[0];
 	snprintf(desc, sizeof(desc), "%s(s=%d)", sysname, s);
 	error = fmaster_return_fd(td, DTYPE_SOCKET, place, fd, desc);
+	if (error != 0)
+		return (error);
+	/* fmaster_return_fd() overwrote td->td_retval[0] with the virtual fd */
+	error = fmaster_set_close_on_exec(td, td->td_retval[0],
+					  (SOCK_CLOEXEC & flags) != 0);
 	if (error != 0)
 		return (error);
 
