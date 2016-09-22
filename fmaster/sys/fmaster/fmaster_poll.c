@@ -620,8 +620,8 @@ log_args(struct thread *td, const char *tag, struct pollfd *fds, nfds_t nfds)
 		revents = pfd->revents;
 		events_to_string(srevents, sizeof(srevents), revents);
 		fmaster_log(td, LOG_DEBUG,
-			    "%s: %s: fds[%d]: fd=%d (%s), events=%d (%s), reven"
-			    "ts=%d (%s)",
+			    "%s: %s: fds[%d]: fd=%d (%s), events=0x%x (%s), rev"
+			    "ents=0x%x (%s)",
 			    sysname, tag, i, fd, desc, events, sevents, revents,
 			    srevents);
 	}
