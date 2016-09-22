@@ -507,7 +507,6 @@ exit:
 int
 sys_fmaster_recvmsg(struct thread *td, struct fmaster_recvmsg_args *uap)
 {
-
 	struct flag_definition defs[] = {
 		DEFINE_FLAG(MSG_OOB),
 		DEFINE_FLAG(MSG_PEEK),
