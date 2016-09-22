@@ -3,10 +3,15 @@
 # For android log, use this with $(nkf -Lu -d).
 
 while (<>) {
-    if (m/\bwrite\(2\) (for|to) fd \d+: buf\[\d+\]=(0x[0-9a-f]{2}) \(.\)$/) {
-        print chr(hex($2));
+    if (!m/\bwrite: fd=(\d+): buf: (.*)$/) {
         next;
     }
+    my ($fd, $buf) = ($1, $2);
+    if (($fd != 1) && ($fd != 2)) {
+        next;
+    }
+    $buf =~ s/\\x([0-9a-z]{2})/sub { chr(hex($_[0])) }->($1)/ge;
+    print $buf;
 }
 
 # vim: shiftwidth=4 expandtab softtabstop=4
