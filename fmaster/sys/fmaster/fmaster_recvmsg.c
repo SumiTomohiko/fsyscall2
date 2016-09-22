@@ -512,11 +512,12 @@ sys_fmaster_recvmsg(struct thread *td, struct fmaster_recvmsg_args *uap)
 		DEFINE_FLAG(MSG_OOB),
 		DEFINE_FLAG(MSG_PEEK),
 		DEFINE_FLAG(MSG_WAITALL),
-		DEFINE_FLAG(MSG_DONTWAIT)
+		DEFINE_FLAG(MSG_DONTWAIT),
+		DEFINE_FLAG(MSG_CMSG_CLOEXEC)
 	};
 	struct timeval time_start;
 	int error, flags;
-	char flagsstr[64];
+	char flagsstr[256];
 
 	flags = uap->flags;
 	fmaster_chain_flags(flagsstr, sizeof(flagsstr), flags, defs,
