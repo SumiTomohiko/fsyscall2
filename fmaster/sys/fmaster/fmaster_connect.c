@@ -12,11 +12,11 @@
 
 static int
 connect_slave(struct thread *td, int s, struct sockaddr *uname,
-	      socklen_t namelen)
+	      socklen_t namelen, const char *desc)
 {
 	int error;
 
-	error = fmaster_fix_pending_socket_to_slave(td, s, "connect");
+	error = fmaster_fix_pending_socket_to_slave(td, s, desc);
 	if (error != 0)
 		return (error);
 	error = fmaster_execute_connect_protocol(td, CONNECT_CALL,
@@ -33,16 +33,12 @@ connect_slave(struct thread *td, int s, struct sockaddr *uname,
  */
 
 static int
-connect_master(struct thread *td, int s, const struct sockaddr *kname,
-	       struct sockaddr *uname, socklen_t namelen)
+connect_master(struct thread *td, int s, struct sockaddr *uname,
+	       socklen_t namelen, const char *desc)
 {
-	const struct sockaddr_un *paddr;
 	struct connect_args args;
 	int error, fd;
-	char desc[8192];
 
-	paddr = (const struct sockaddr_un *)kname;
-	snprintf(desc, sizeof(desc), "connected to %s", paddr->sun_path);
 	error = fmaster_fix_pending_socket_to_master(td, s, desc);
 	if (error != 0)
 		return (error);
@@ -86,15 +82,27 @@ connect_main(struct thread *td, int s, struct sockaddr *uname,
 	struct sockaddr_storage addr;
 	struct sockaddr *paddr;
 	int error;
+	char desc[8192];
+	int (*f)(struct thread *, int, struct sockaddr *, socklen_t,
+		 const char *);
 
 	paddr = (struct sockaddr *)&addr;
 	error = copyin(uname, paddr, MIN(sizeof(addr), namelen));
 	if (error != 0)
 		return (error);
+	switch (paddr->sa_family) {
+	case AF_LOCAL:
+		snprintf(desc, sizeof(desc),
+			 "connected to %s",
+			 ((struct sockaddr_un *)paddr)->sun_path);
+		break;
+	default:
+		strcpy(desc, "connected");
+		break;
+	}
 
-	error = is_master_addr(paddr) ? connect_master(td, s, paddr, uname,
-						       namelen)
-				      : connect_slave(td, s, uname, namelen);
+	f = is_master_addr(paddr) ? connect_master : connect_slave;
+	error = f(td, s, uname, namelen, desc);
 	if (error != 0)
 		return (error);
 
