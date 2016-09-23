@@ -2,6 +2,9 @@
 
 # For android log, use this with $(nkf -Lu -d).
 
+use strict;
+use warnings;
+
 while (<>) {
     if (!m/\bwrite: fd=(\d+): buf: (.*)$/) {
         next;
