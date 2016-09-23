@@ -8,9 +8,27 @@
 static int
 bind_main(struct thread *td, int s, struct sockaddr *name, socklen_t namelen)
 {
+	struct sockaddr_storage buf;
+	const struct sockaddr *addr;
 	int error;
+	char desc[VNODE_DESC_LEN];
 
-	error = fmaster_fix_pending_socket_to_slave(td, s, "bound");
+	error = copyin(name, &buf, namelen);
+	if (error != 0)
+		return (error);
+	addr = (const struct sockaddr *)&buf;
+	switch (addr->sa_family) {
+	case AF_LOCAL:
+		snprintf(desc, sizeof(desc),
+			 "bound on %s",
+			 ((const struct sockaddr_un *)addr)->sun_path);
+		break;
+	default:
+		strcpy(desc, "bound");
+		break;
+	}
+
+	error = fmaster_fix_pending_socket_to_slave(td, s, desc);
 	if (error != 0)
 		return (error);
 
