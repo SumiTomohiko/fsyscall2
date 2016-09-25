@@ -1,0 +1,11 @@
+
+cmd="poll_POLLOUT_POLLHUP/poll_POLLOUT_POLLHUP"
+sock="${tmp_dir}/$$.poll_POLLOUT_POLLHUP"
+args="${sock}"
+expected_status="0"
+
+postcmd() {
+	rm -f "${sock}"
+}
+
+# vim: filetype=sh

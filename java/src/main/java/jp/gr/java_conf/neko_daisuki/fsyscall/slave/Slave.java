@@ -1030,7 +1030,7 @@ public class Slave implements Runnable {
         }
 
         public boolean isReadyToWrite() throws IOException {
-            return true;
+            return !isDisconnected();
         }
 
         public boolean isDisconnected() {
