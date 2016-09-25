@@ -102,27 +102,32 @@ public class Links {
         return l;
     }
 
-    private static void test(String dest, String src, String path,
-                             String expected) {
-        NormalizedPath actual;
+    private static void test(NormalizedPath dest, NormalizedPath src,
+                             NormalizedPath path, NormalizedPath expected) {
         Links links = new Links();
-        try {
-            links.put(new NormalizedPath(dest), new NormalizedPath(src));
-            actual = links.get(new NormalizedPath(path));
-        }
-        catch (NormalizedPath.InvalidPathException e) {
-            e.printStackTrace();
-            return;
-        }
+        links.put(dest, src);
+        NormalizedPath actual = links.get(path);
         String result = expected.equals(actual) ? "OK"
                                                 : String.format("NG (%s)",
                                                                 actual);
         String fmt = "dest=%s, src=%s, path=%s, expected=%s: %s";
-        String msg = String.format(fmt, StringUtil.quote(dest),
-                                   StringUtil.quote(src),
-                                   StringUtil.quote(path),
-                                   StringUtil.quote(expected), result);
+        String msg = String.format(fmt, StringUtil.quote(dest.toString()),
+                                   StringUtil.quote(src.toString()),
+                                   StringUtil.quote(path.toString()),
+                                   StringUtil.quote(expected.toString()),
+                                   result);
         System.out.println(msg);
+    }
+
+    private static void test(String dest, String src, String path,
+                             String expected) {
+        try {
+            test(new NormalizedPath(dest), new NormalizedPath(src),
+                 new NormalizedPath(path), new NormalizedPath(expected));
+        }
+        catch (NormalizedPath.InvalidPathException e) {
+            e.printStackTrace();
+        }
     }
 
     public static void main(String[] args) {
