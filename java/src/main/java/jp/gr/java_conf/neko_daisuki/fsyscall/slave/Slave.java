@@ -3293,9 +3293,11 @@ public class Slave implements Runnable {
 
     public SyscallResult.Generic64 doWrite(int fd, byte[] buf, long nbytes) throws IOException {
         mLogger.info("write(fd=%d, buf, nbytes=%d)", fd, nbytes);
+        /*
         if (fd == 2) {
             logPossibleDyingMessage(buf);
         }
+        */
         logBuffer(String.format("write: fd=%d: buf", fd), buf);
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
@@ -3779,6 +3781,7 @@ public class Slave implements Runnable {
         logBuffer(tag, buf, buf.length);
     }
 
+    /*
     private void logPossibleDyingMessage(byte[] buf) {
         int size = Math.min(buf.length, 256);
         for (int i = 0; i < size; i++) {
@@ -3787,6 +3790,7 @@ public class Slave implements Runnable {
             mLogger.debug(fmt, i, c, CHARS[c]);
         }
     }
+    */
 
     private void setListener(Listener listener) {
         mListener = listener != null ? listener : Listener.NOP;
