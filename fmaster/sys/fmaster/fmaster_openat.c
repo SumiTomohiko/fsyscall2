@@ -82,7 +82,7 @@ fmaster_openat_main(struct thread *td, int fd, char *path, int flags,
 	int error, lfd;
 	char desc[VNODE_DESC_LEN];
 
-	if (path[0] == '/') {
+	if ((path[0] == '/') || (fd == AT_FDCWD)) {
 		error = fmaster_open(td, "openat (open emulated)", path, flags,
 				     mode);
 		return (error);

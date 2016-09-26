@@ -1,0 +1,16 @@
+
+cmd="openat_AT_FDCWD/openat_AT_FDCWD"
+dir="${tmp_dir}"
+file="$$.openat_AT_FDCWD"
+args="${dir} ${file}"
+expected_status="0"
+
+precmd() {
+	touch "${dir}/${file}"
+}
+
+postcmd() {
+	rm "${dir}/${file}"
+}
+
+# vim: filetype=sh
