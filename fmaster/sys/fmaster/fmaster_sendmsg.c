@@ -443,7 +443,7 @@ sys_fmaster_sendmsg(struct thread *td, struct fmaster_sendmsg_args *uap)
 	fmaster_chain_flags(flagsstr, sizeof(flagsstr), flags, defs,
 			    array_sizeof(defs));
 	fmaster_log(td, LOG_DEBUG,
-		    "%s: started: s=%d, msg=%p, flags=%d (%s)",
+		    "%s: started: s=%d, msg=%p, flags=0x%x (%s)",
 		    sysname, uap->s, uap->msg, flags, flagsstr);
 	microtime(&time_start);
 

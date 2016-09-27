@@ -2492,58 +2492,6 @@ fail:
 	return (error);
 }
 
-static const char *
-dump(char *buf, size_t bufsize, const char *data, size_t datasize)
-{
-	static char chars[] = {
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		' ', '!', '"', '#', '$', '%', '&', '\'',
-		'(', ')', '*', '+', ',', '-', '.', '/',
-		'0', '1', '2', '3', '4', '5', '6', '7',
-		'8', '9', ':', ';', '<', '=', '>', '?',
-		'@', 'A', 'B', 'C', 'D', 'E', 'F', 'G',
-		'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',
-		'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W',
-		'X', 'Y', 'Z', '[', '\\', ']', '^', '_',
-		'`', 'a', 'b', 'c', 'd', 'e', 'f', 'g',
-		'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
-		'p', 'q', 'r', 's', 't', 'u', 'v', 'w',
-		'x', 'y', 'z', '{', '|', '}', '~', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.',
-		'.', '.', '.', '.', '.', '.', '.', '.'
-	};
-	size_t i, len;
-	const unsigned char *q;
-	char *p;
-
-	if (data == NULL)
-		return ("null");
-
-	len = MIN(bufsize - 1, datasize);
-	for (i = 0, p = buf, q = data; i < len; i++, p++, q++)
-		*p = chars[(unsigned int)*q];
-	*p = '\0';
-
-	return (buf);
-}
-
 static void
 log_cmsgdata_creds(struct thread *td, const char *tag, struct cmsghdr *cmsghdr)
 {
@@ -2569,22 +2517,111 @@ log_cmsgdata_creds(struct thread *td, const char *tag, struct cmsghdr *cmsghdr)
 #undef	LOG
 }
 
+static char *
+dump_buffer(char *dst, size_t dstsize, const char *src, size_t srcsize)
+{
+	size_t i;
+	unsigned char c;
+	const char *s;
+	char *dstend, *p;
+
+	dstend = &dst[dstsize - 1];
+	p = dst;
+	for (i = 0; i < srcsize; i++) {
+		c = (unsigned char)src[i];
+		switch (c) {
+		case '\\':
+		case '\n':
+		case '\t':
+		case '\0':
+			if (dstend - 1 <= p)
+				goto exit;
+			strcpy(p, "\\");
+			p++;
+			switch (c) {
+			case '\\':
+				s = "\\";
+				break;
+			case '\n':
+				s = "n";
+				break;
+			case '\t':
+				s = "t";
+				break;
+			case '\0':
+				s = "0";
+				break;
+			default:
+				panic("invalid char: 0x%02x", c);
+				break;
+			}
+			strcpy(p, s);
+			p++;
+			continue;
+		default:
+			break;
+		}
+		if (isprint(c)) {
+			if (dstend == p)
+				goto exit;
+			*p = c;
+			p++;
+		}
+		else {
+			if (dstend - 3 <= p)
+				goto exit;
+			sprintf(p, "\\x%02x", c);
+			p += 4;
+		}
+	}
+
+exit:
+	*p = '\0';
+
+	return (dst);
+}
+
+static char *
+dump_nullable_buffer(char *dst, size_t dstsize, const char *src, size_t srcsize)
+{
+
+	return (src != NULL ? dump_buffer(dst, dstsize, src, srcsize) : "null");
+}
+
 int
 fmaster_log_msghdr(struct thread *td, const char *tag, const struct msghdr *msg,
 		   size_t size)
 {
-	struct cmsghdr *cmsghdr, *control;
+	static struct flag_definition defs[] = {
+		DEFINE_FLAG(MSG_OOB),
+		DEFINE_FLAG(MSG_PEEK),
+		DEFINE_FLAG(MSG_DONTROUTE),
+		DEFINE_FLAG(MSG_EOR),
+		DEFINE_FLAG(MSG_TRUNC),
+		DEFINE_FLAG(MSG_CTRUNC),
+		DEFINE_FLAG(MSG_WAITALL),
+		DEFINE_FLAG(MSG_NOSIGNAL),
+		DEFINE_FLAG(MSG_DONTWAIT),
+		DEFINE_FLAG(MSG_EOF),
+		DEFINE_FLAG(MSG_NOTIFICATION),
+		DEFINE_FLAG(MSG_NBIO),
+		DEFINE_FLAG(MSG_COMPAT),
+		DEFINE_FLAG(MSG_CMSG_CLOEXEC),
+		DEFINE_FLAG(MSG_SOCALLBCK)
+	};
+
+	struct cmsghdr *cmsghdr;
 	struct iovec *iov, *p;
 	socklen_t len;
 	size_t bufsize, rest;
-	int controllen, i, iovlen, level, namelen, *pend, *pfd, *pfds, type;
+	int controllen, flags, i, iovlen, level, namelen, *pend, *pfd, *pfds;
+	int type;
 	const char *levelstr, *typestr;
 	char buf[256];
 
 #define	LOG(fmt, ...)	do {						\
 	fmaster_log(td, LOG_DEBUG, "%s: " fmt, tag, __VA_ARGS__);	\
 } while (0)
-#define	DUMP(p, len)	dump(buf, sizeof(buf), (p), (len))
 	namelen = msg->msg_namelen;
 	LOG("msg->msg_name=%p", msg->msg_name);
 	LOG("msg->msg_namelen=%d", namelen);
@@ -2594,14 +2631,17 @@ fmaster_log_msghdr(struct thread *td, const char *tag, const struct msghdr *msg,
 		p = &iov[i];
 		bufsize = MIN(rest, p->iov_len);
 		LOG("msg->msg_iov[%d].iov_base=%s",
-		    i, DUMP(p->iov_base, bufsize));
+		    i,
+		    dump_nullable_buffer(buf, sizeof(buf), p->iov_base,
+					 bufsize));
 		LOG("msg->msg_iov[%d].iov_len=%d", i, p->iov_len);
 		rest -= bufsize;
 	}
 	LOG("msg->msg_iovlen=%d", iovlen);
-	control = msg->msg_control;
 	controllen = msg->msg_controllen;
-	LOG("msg->msg_control=%s", DUMP(msg->msg_control, controllen));
+	LOG("msg->msg_control=%s",
+	    dump_nullable_buffer(buf, sizeof(buf), msg->msg_control,
+				 controllen));
 	LOG("msg->msg_controllen=%d", controllen);
 	for (cmsghdr = CMSG_FIRSTHDR(msg);
 	     (cmsghdr != NULL) && (0 < cmsghdr->cmsg_len);
@@ -2652,8 +2692,10 @@ fmaster_log_msghdr(struct thread *td, const char *tag, const struct msghdr *msg,
 			break;
 		}
 	}
-	LOG("msg->msg_flags=%d", msg->msg_flags);
-#undef	DUMP
+
+	flags = msg->msg_flags;
+	fmaster_chain_flags(buf, sizeof(buf), flags, defs, array_sizeof(defs));
+	LOG("msg->msg_flags=0x%x (%s)", flags, buf);
 #undef	LOG
 
 	return (0);
@@ -2889,40 +2931,6 @@ fmaster_log_all(struct thread *td, const char *tag, const char *buf,
 	}
 }
 #endif
-
-static void
-dump_buffer(char *dst, size_t dstsize, const char *src, size_t srcsize)
-{
-	size_t i;
-	unsigned char c;
-	char *dstend, *p;
-
-	dstend = &dst[dstsize - 1];
-	p = dst;
-	for (i = 0; i < srcsize; i++) {
-		c = (unsigned char)src[i];
-		if (c == '\\') {
-			if (dstend - 1 <= p)
-				break;
-			strcpy(p, "\\\\");
-			p += 2;
-		}
-		else if (isprint(c)) {
-			if (dstend == p)
-				break;
-			*p = c;
-			p++;
-		}
-		else {
-			if (dstend - 3 <= p)
-				break;
-			sprintf(p, "\\x%02x", c);
-			p += 4;
-		}
-	}
-
-	*p = '\0';
-}
 
 int
 fmaster_log_buf(struct thread *td, const char *tag, const char *buf,

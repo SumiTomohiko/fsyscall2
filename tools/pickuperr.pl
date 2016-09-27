@@ -5,6 +5,26 @@
 use strict;
 use warnings;
 
+sub decode {
+    my ($code) = @_;
+
+    if ($code eq "\\\\") {
+        return "\\";
+    }
+    elsif ($code eq "\\n") {
+        return "\n";
+    }
+    elsif ($code eq "\\t") {
+        return "\t";
+    }
+    elsif ($code eq "\\0") {
+        return "";
+    }
+    elsif ($code =~ m/\\x([0-9a-f]{2})/) {
+        return chr(hex($1));
+    }
+}
+
 while (<>) {
     if (!m/\bwrite: fd=(\d+): buf: (.*)$/) {
         next;
@@ -13,7 +33,7 @@ while (<>) {
     if (($fd != 1) && ($fd != 2)) {
         next;
     }
-    $buf =~ s/\\x([0-9a-z]{2})/sub { chr(hex($_[0])) }->($1)/ge;
+    $buf =~ s/(\\(?:x[0-9a-f]{2}|[\\nt0]))/decode($1)/ge;
     print $buf;
 }
 
