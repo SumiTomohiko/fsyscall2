@@ -2438,7 +2438,7 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doOpen(String path, int flags, int mode) throws IOException {
-        mLogger.info("open(path=%s, flags=0o%o (%s), mode=0o%o (%s))",
+        mLogger.info("open(path=%s, flags=0x%x (%s), mode=0o%o (%s))",
                      StringUtil.quote(path),
                      flags, Unix.Constants.Open.toString(flags), mode,
                      Unix.Constants.Mode.toString(mode));
