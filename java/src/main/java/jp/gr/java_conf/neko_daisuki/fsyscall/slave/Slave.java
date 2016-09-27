@@ -561,8 +561,13 @@ public class Slave implements Runnable {
                 file = new UnixInputFile(mAlarm, mPath.toString(), create);
                 break;
             case Unix.Constants.O_WRONLY:
+                int flags = Unix.Constants.O_CREAT | Unix.Constants.O_EXCL;
+                String path = mPath.toString();
+                if (((mFlags & flags) != 0) && new File(path).exists()) {
+                    throw new UnixException(Errno.EEXIST);
+                }
                 // XXX: Here ignores O_CREAT.
-                file = new UnixOutputFile(mAlarm, mPath.toString());
+                file = new UnixOutputFile(mAlarm, path);
                 break;
             default:
                 throw new UnixException(Errno.EINVAL);

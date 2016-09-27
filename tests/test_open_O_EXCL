@@ -1,0 +1,15 @@
+
+cmd="open_O_EXCL/open_O_EXCL"
+file="${tmp_dir}/$$.open_O_EXCL"
+args="${file}"
+expected_status="0"
+
+precmd() {
+	rm -f "${file}"
+}
+
+postcmd() {
+	rm -f "${file}"
+}
+
+# vim: filetype=sh
