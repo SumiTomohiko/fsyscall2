@@ -1,0 +1,11 @@
+
+cmd="access_ENOENT/access_ENOENT"
+file="${tmp_dir}/$$.access_ENOENT"
+args="${file}"
+expected_status="0"
+
+precmd() {
+	rm -f "${file}"
+}
+
+# vim: filetype=sh

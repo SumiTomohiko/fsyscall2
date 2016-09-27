@@ -267,6 +267,7 @@ tests/amd64/accept/accept
 tests/amd64/accept4/accept4
 tests/amd64/accept4_SOCK_CLOEXEC/accept4_SOCK_CLOEXEC
 tests/amd64/accept4_SOCK_NONBLOCK/accept4_SOCK_NONBLOCK
+tests/amd64/access_ENOENT/access_ENOENT
 tests/amd64/ancillary_from_client/ancillary_from_client
 tests/amd64/bind/bind
 tests/amd64/chdir/chdir

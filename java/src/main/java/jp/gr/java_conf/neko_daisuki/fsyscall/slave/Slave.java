@@ -3754,12 +3754,14 @@ public class Slave implements Runnable {
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
         if (!mPermissions.isAllowed(absPath)) {
-            result.retval = -1;
-            result.errno = Errno.ENOENT;
+            result.setError(Errno.ENOENT);
+            return result;
+        }
+        if (!new File(absPath.toString()).exists()) {
+            result.setError(Errno.ENOENT);
             return result;
         }
 
-        result.retval = 0;
         return result;
     }
 
