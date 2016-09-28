@@ -1,5 +1,8 @@
 #!/usr/local/bin/perl
 
+# usage: unexpected_ENOENT [-a]
+#   -a: show all ENOENT
+
 use strict;
 use warnings;
 
@@ -46,6 +49,16 @@ my @knowns = qw[
     ^/var/run/console/\w+$
     lib[-\.\w\+]+.so.\d+
     nss_(compat|dns|files|nis).so.1];
+
+while ((0 < @ARGV) && ($ARGV[0] =~ m/^(-.)/)) {
+    my ($opt) = ($1);
+
+    if ($opt eq "-a") {
+        @knowns = ();
+    }
+
+    shift @ARGV;
+}
 
 sub defined_or_empty {
     my ($s) = @_;
