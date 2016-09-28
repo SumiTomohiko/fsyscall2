@@ -18,6 +18,7 @@ sub key {
 my %pathes = ();
 
 while (<>) {
+    s%/+%/%g;
     if (m/\bfmaster\[(\d+)\]: (?:tid=(0x[0-9a-f]+): )?(?:access|open|stat|lstat): started: path=\"(.*)\"/) {
         my ($pid, $tid, $path) = ($1, $2, $3);
         $pathes{key($pid, $tid)} = $path;
