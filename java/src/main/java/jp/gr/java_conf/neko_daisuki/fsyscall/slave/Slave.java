@@ -1447,6 +1447,40 @@ public class Slave implements Runnable {
         }
     }
 
+    private static class RandomAccessFileUtil {
+
+        public static int read(RandomAccessFile file,
+                               byte[] buffer) throws UnixException {
+            int nBytes;
+            try {
+                nBytes = file.read(buffer);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            return nBytes != -1 ? nBytes : 0;
+        }
+
+        public static long pread(RandomAccessFile file, byte[] buffer,
+                                 long offset) throws UnixException {
+            int nBytes;
+            try {
+                long initialPosition = file.getFilePointer();
+                file.seek(offset);
+                try {
+                    nBytes = file.read(buffer);
+                }
+                finally {
+                    file.seek(initialPosition);
+                }
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            return nBytes == -1 ? 0 : nBytes;
+        }
+    }
+
     private abstract static class UnixRandomAccessFile extends UnixFile {
 
         protected RandomAccessFile mFile;
@@ -1654,32 +1688,11 @@ public class Slave implements Runnable {
         }
 
         public int read(byte[] buffer) throws UnixException {
-            int nBytes;
-            try {
-                nBytes = mFile.read(buffer);
-            }
-            catch (IOException e) {
-                throw new UnixException(Errno.EIO, e);
-            }
-            return nBytes != -1 ? nBytes : 0;
+            return RandomAccessFileUtil.read(mFile, buffer);
         }
 
         public long pread(byte[] buffer, long offset) throws UnixException {
-            int nBytes;
-            try {
-                long initialPosition = mFile.getFilePointer();
-                mFile.seek(offset);
-                try {
-                    nBytes = mFile.read(buffer);
-                }
-                finally {
-                    mFile.seek(initialPosition);
-                }
-            }
-            catch (IOException e) {
-                throw new UnixException(Errno.EIO, e);
-            }
-            return nBytes == -1 ? 0 : nBytes;
+            return RandomAccessFileUtil.pread(mFile, buffer, offset);
         }
 
         @Override
@@ -1769,32 +1782,11 @@ public class Slave implements Runnable {
         }
 
         public int read(byte[] buffer) throws UnixException {
-            int nBytes;
-            try {
-                nBytes = mFile.read(buffer);
-            }
-            catch (IOException e) {
-                throw new UnixException(Errno.EIO, e);
-            }
-            return nBytes != -1 ? nBytes : 0;
+            return RandomAccessFileUtil.read(mFile, buffer);
         }
 
         public long pread(byte[] buffer, long offset) throws UnixException {
-            int nBytes;
-            try {
-                long initialPosition = mFile.getFilePointer();
-                mFile.seek(offset);
-                try {
-                    nBytes = mFile.read(buffer);
-                }
-                finally {
-                    mFile.seek(initialPosition);
-                }
-            }
-            catch (IOException e) {
-                throw new UnixException(Errno.EIO, e);
-            }
-            return nBytes == -1 ? 0 : nBytes;
+            return RandomAccessFileUtil.pread(mFile, buffer, offset);
         }
 
         @Override
