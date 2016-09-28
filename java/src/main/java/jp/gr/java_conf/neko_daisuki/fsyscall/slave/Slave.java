@@ -1680,7 +1680,7 @@ public class Slave implements Runnable {
         }
 
         public boolean isReadyToRead() throws IOException {
-            return mFile.getFilePointer() < mFile.length();
+            return true;
         }
 
         public boolean isReadyToWrite() throws IOException {
@@ -1774,7 +1774,7 @@ public class Slave implements Runnable {
         }
 
         public boolean isReadyToRead() throws IOException {
-            return mFile.getFilePointer() < mFile.length();
+            return true;
         }
 
         public boolean isReadyToWrite() throws IOException {

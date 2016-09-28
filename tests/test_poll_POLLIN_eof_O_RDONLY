@@ -1,0 +1,15 @@
+
+cmd="poll_POLLIN_eof_O_RDONLY/poll_POLLIN_eof_O_RDONLY"
+file="${tmp_dir}/$$.poll_POLLIN_eof_O_RDONLY"
+args="${file}"
+expected_status="0"
+
+precmd() {
+	: > "${file}"
+}
+
+postcmd() {
+	rm -f "${file}"
+}
+
+# vim: filetype=sh

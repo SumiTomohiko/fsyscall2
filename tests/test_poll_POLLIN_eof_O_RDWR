@@ -1,0 +1,15 @@
+
+cmd="poll_POLLIN_eof_O_RDWR/poll_POLLIN_eof_O_RDWR"
+file="${tmp_dir}/$$.poll_POLLIN_eof_O_RDWR"
+args="${file}"
+expected_status="0"
+
+precmd() {
+	: > "${file}"
+}
+
+postcmd() {
+	rm -f "${file}"
+}
+
+# vim: filetype=sh

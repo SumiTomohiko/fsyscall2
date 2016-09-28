@@ -368,6 +368,8 @@ tests/amd64/pipe2_O_CLOEXEC/pipe2_O_CLOEXEC
 tests/amd64/pipe2_O_NONBLOCK/pipe2_O_NONBLOCK
 tests/amd64/poll_POLLHUP/poll_POLLHUP
 tests/amd64/poll_POLLHUP2/poll_POLLHUP2
+tests/amd64/poll_POLLIN_eof_O_RDONLY/poll_POLLIN_eof_O_RDONLY
+tests/amd64/poll_POLLIN_eof_O_RDWR/poll_POLLIN_eof_O_RDWR
 tests/amd64/poll_POLLOUT_POLLHUP/poll_POLLOUT_POLLHUP
 tests/amd64/poll_bind/poll_bind
 tests/amd64/poll_ignore_fd/poll_ignore_fd
