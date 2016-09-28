@@ -553,21 +553,24 @@ public class Slave implements Runnable {
             if ((mFlags & Unix.Constants.O_DIRECTORY) != 0) {
                 throw new UnixException(Errno.ENOTDIR);
             }
+            int flags = Unix.Constants.O_CREAT | Unix.Constants.O_EXCL;
+            String path = mPath.toString();
+            if (((mFlags & flags) != 0) && new File(path).exists()) {
+                throw new UnixException(Errno.EEXIST);
+            }
 
             UnixFile file;
             switch (mFlags & Unix.Constants.O_ACCMODE) {
             case Unix.Constants.O_RDONLY:
                 boolean create = (mFlags & Unix.Constants.O_CREAT) != 0;
-                file = new UnixInputFile(mAlarm, mPath.toString(), create);
+                file = new UnixInputFile(mAlarm, path, create);
                 break;
             case Unix.Constants.O_WRONLY:
-                int flags = Unix.Constants.O_CREAT | Unix.Constants.O_EXCL;
-                String path = mPath.toString();
-                if (((mFlags & flags) != 0) && new File(path).exists()) {
-                    throw new UnixException(Errno.EEXIST);
-                }
                 // XXX: Here ignores O_CREAT.
                 file = new UnixOutputFile(mAlarm, path);
+                break;
+            case Unix.Constants.O_RDWR:
+                file = new UnixInputOutputFile(mAlarm, path);
                 break;
             default:
                 throw new UnixException(Errno.EINVAL);
@@ -1720,6 +1723,78 @@ public class Slave implements Runnable {
 
         public long pread(byte[] buffer, long offset) throws UnixException {
             throw new UnixException(Errno.EBADF);
+        }
+
+        @Override
+        public void clearFilterFlags() {
+            mFilterFlags = 0;
+        }
+
+        @Override
+        public long getFilterFlags() {
+            return mFilterFlags;
+        }
+
+        protected int doWrite(byte[] buffer) throws UnixException {
+            try {
+                mFile.write(buffer);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            mFilterFlags |= KEvent.NOTE_WRITE;
+            return buffer.length;
+        }
+    }
+
+    private static class UnixInputOutputFile extends UnixRandomAccessFile {
+
+        private long mFilterFlags;
+
+        public UnixInputOutputFile(Alarm alarm,
+                                   String path) throws UnixException {
+            super(alarm, path, "rw");
+        }
+
+        public int getAccessMode() {
+            return Unix.Constants.O_RDWR;
+        }
+
+        public boolean isReadyToRead() throws IOException {
+            return mFile.getFilePointer() < mFile.length();
+        }
+
+        public boolean isReadyToWrite() throws IOException {
+            return true;
+        }
+
+        public int read(byte[] buffer) throws UnixException {
+            int nBytes;
+            try {
+                nBytes = mFile.read(buffer);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            return nBytes != -1 ? nBytes : 0;
+        }
+
+        public long pread(byte[] buffer, long offset) throws UnixException {
+            int nBytes;
+            try {
+                long initialPosition = mFile.getFilePointer();
+                mFile.seek(offset);
+                try {
+                    nBytes = mFile.read(buffer);
+                }
+                finally {
+                    mFile.seek(initialPosition);
+                }
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            return nBytes == -1 ? 0 : nBytes;
         }
 
         @Override

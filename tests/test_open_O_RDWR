@@ -1,0 +1,20 @@
+
+cmd="open_O_RDWR/open_O_RDWR"
+file="${tmp_dir}/$$.open_O_RDWR"
+msg="foobarbazquuxhogehogefugafuga"
+args="${file} ${msg}"
+expected_status="0"
+
+precmd() {
+	rm -f "${file}"
+}
+
+postcmd() {
+	rm -f "${file}"
+}
+
+testcmd() {
+	test "$(cat ${file})" = "${msg}"
+}
+
+# vim: filetype=sh

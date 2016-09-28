@@ -21,7 +21,7 @@ SUBDIR=	${LIBDIR} SIGKILL_poll SIGKILL_wait4 accept accept4 \
 	gettimeofday_minuteswest gettimeofday_sec gettimeofday_usec getuid \
 	ioctl issetugid kill listen lseek lstat mkdir open open_EISDIR \
 	open_ENOENT open_O_CLOEXEC open_O_CLOEXEC2 open_O_DIRECTORY \
-	open_O_EXCL open_O_EXCL2 open_pwddb openat openat_AT_FDCWD \
+	open_O_EXCL open_O_EXCL2 open_O_RDWR open_pwddb openat openat_AT_FDCWD \
 	openat_EBADF openat_abspath openat_perm openat_sock pipe pipe2 \
 	pipe2_O_CLOEXEC pipe2_O_NONBLOCK poll_POLLHUP poll_POLLHUP2 \
 	poll_POLLOUT_POLLHUP poll_bind poll_ignore_fd poll_ignore_fd_master \
