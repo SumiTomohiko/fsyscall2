@@ -351,6 +351,7 @@ tests/amd64/open_EISDIR/open_EISDIR
 tests/amd64/open_ENOENT/open_ENOENT
 tests/amd64/open_O_CLOEXEC/open_O_CLOEXEC
 tests/amd64/open_O_CLOEXEC2/open_O_CLOEXEC2
+tests/amd64/open_O_CREAT/open_O_CREAT
 tests/amd64/open_O_DIRECTORY/open_O_DIRECTORY
 tests/amd64/open_O_EXCL/open_O_EXCL
 tests/amd64/open_O_EXCL2/open_O_EXCL2

@@ -1,0 +1,15 @@
+
+cmd="open_O_CREAT/open_O_CREAT"
+file="${tmp_dir}/$$.open_O_CREAT"
+args="${file}"
+expected_status="0"
+
+precmd() {
+	touch "${file}"
+}
+
+postcmd() {
+	rm -f "${file}"
+}
+
+# vim: filetype=sh

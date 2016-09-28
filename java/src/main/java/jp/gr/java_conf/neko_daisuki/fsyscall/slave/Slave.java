@@ -555,7 +555,7 @@ public class Slave implements Runnable {
             }
             int flags = Unix.Constants.O_CREAT | Unix.Constants.O_EXCL;
             String path = mPath.toString();
-            if (((mFlags & flags) != 0) && new File(path).exists()) {
+            if (((mFlags & flags) == flags) && new File(path).exists()) {
                 throw new UnixException(Errno.EEXIST);
             }
 
