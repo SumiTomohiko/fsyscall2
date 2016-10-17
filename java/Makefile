@@ -15,7 +15,7 @@ all: ${JAVA_SRC}
 .SUFFIXES: .java.in .java
 
 .java.in.java:
-	cd .. && python3 tools/makesyscalls.py
+	$(MAKE) -C .. syscalls
 
 clean:
 	rm -f ${JAVA_SRC}
