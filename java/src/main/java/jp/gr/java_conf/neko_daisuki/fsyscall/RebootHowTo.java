@@ -1,7 +1,7 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall;
 
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
 
 public class RebootHowTo {
 

@@ -9,7 +9,6 @@ import java.io.RandomAccessFile;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.Pipe;
-import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.ArrayList;
@@ -24,11 +23,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TimeZone;
-
-/*
- * Android 3.2.1 does not have UnixSystem.
- */
-//import com.sun.security.auth.module.UnixSystem;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.DirEntries;
@@ -58,6 +52,11 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.util.ArrayUtil;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.ByteUtil;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
+
+/*
+ * Android 3.2.1 does not have UnixSystem.
+ */
+//import com.sun.security.auth.module.UnixSystem;
 
 /**
  * The class for one fsyscall thread.
