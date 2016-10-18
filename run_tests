@@ -121,9 +121,7 @@ else
 	tests="${@}"
 fi
 if [ "${java}" = "${YES}" ]; then
-	tester_opts="--java"
-else
-	tester_opts=""
+	tester="${tests_dir}/java_tester/java_tester"
 fi
 
 show_title "*" "Running Tests"
@@ -165,7 +163,7 @@ do
 			tailpid="$!"
 		fi
 
-		"${tester}" ${tester_opts} "${exe}" ${args} > "${stdout_log}"
+		"${tester}" "${exe}" ${args} > "${stdout_log}"
 		status="${?}"
 
 		if [ -n "${syslog}" ]; then

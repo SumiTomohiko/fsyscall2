@@ -1,7 +1,8 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.io;
 
 import java.io.IOException;
-import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Encoder;
@@ -9,25 +10,16 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.PayloadSize;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 
-public class SyscallOutputStream {
+public class SyscallWritableChannel {
 
-    private OutputStream mOut;
+    private WritableByteChannel mChannel;
 
-    public SyscallOutputStream(OutputStream stream) {
-        mOut = stream;
-    }
-
-    public void copyInputStream(SyscallInputStream in, PayloadSize size) throws IOException {
-        int rest = size.toInteger();
-        while (0 < rest) {
-            int nBytes = Math.min(rest, 8192);
-            write(in.read(nBytes));
-            rest -= nBytes;
-        }
+    public SyscallWritableChannel(WritableByteChannel channel) {
+        mChannel = channel;
     }
 
     public void write(byte n) throws IOException {
-        mOut.write(new byte[] { n });
+        write(new byte[] { n });
     }
 
     public void write(int n) throws IOException {
@@ -38,8 +30,11 @@ public class SyscallOutputStream {
         write(size.toInteger());
     }
 
-    public void write(byte buffer[]) throws IOException {
-        mOut.write(buffer);
+    public void write(byte[] buffer) throws IOException {
+        ByteBuffer b = ByteBuffer.wrap(buffer);
+        while (b.hasRemaining()) {
+            mChannel.write(b);
+        }
     }
 
     public void write(Command command) throws IOException {
@@ -54,11 +49,18 @@ public class SyscallOutputStream {
         write(pid.toInteger());
     }
 
+    public void copy(SyscallReadableChannel in, PayloadSize size) throws IOException {
+        int rest = size.toInteger();
+        while (0 < rest) {
+            int nBytes = Math.min(rest, 8192);
+            write(in.read(nBytes));
+            rest -= nBytes;
+        }
+    }
+
     public void close() throws IOException {
-        mOut.close();
+        mChannel.close();
     }
 }
 
-/**
- * vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4
- */
+// vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4

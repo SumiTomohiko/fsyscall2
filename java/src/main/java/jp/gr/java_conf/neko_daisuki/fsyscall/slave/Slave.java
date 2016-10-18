@@ -7,6 +7,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.channels.Pipe;
+import java.nio.channels.SelectableChannel;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -17,6 +22,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.TimeZone;
 
 /*
@@ -46,9 +52,8 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.Pipe;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallReadableChannel;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallWritableChannel;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.ArrayUtil;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.ByteUtil;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
@@ -896,8 +901,8 @@ public class Slave implements Runnable {
                 mPeer = peer;
 
                 Connection connection = new Connection();
-                Pipe s2c = new Pipe();
-                Pipe c2s = new Pipe();
+                jp.gr.java_conf.neko_daisuki.fsyscall.io.Pipe s2c = new jp.gr.java_conf.neko_daisuki.fsyscall.io.Pipe();
+                jp.gr.java_conf.neko_daisuki.fsyscall.io.Pipe c2s = new jp.gr.java_conf.neko_daisuki.fsyscall.io.Pipe();
                 mClientCore = new PipeCore(connection, s2c.getInputStream(),
                                            c2s.getOutputStream());
                 mServerCore = new PipeCore(connection, c2s.getInputStream(),
@@ -2253,6 +2258,11 @@ public class Slave implements Runnable {
         }
     }
 
+    private enum SelectionKeyType {
+        HUB,
+        SIGNAL
+    }
+
     private static final int UID = 1001;
     private static final int GID = 1001;
     private static final String CHARS[] = {
@@ -2301,8 +2311,8 @@ public class Slave implements Runnable {
 
     // settings
     private Application mApplication;
-    private SyscallInputStream mIn;
-    private SyscallOutputStream mOut;
+    private SyscallReadableChannel mIn;
+    private SyscallWritableChannel mOut;
     private Permissions mPermissions;
     private Links mLinks;
     private Listener mListener;
@@ -2313,16 +2323,21 @@ public class Slave implements Runnable {
     private SignalSet mPendingSignals = new SignalSet();
 
     private Alarm mAlarm;
+    private Object mSignalNotificationLock = new Object();
+    private Pipe.SourceChannel mSignalNotificationSource;
+    private Pipe.SinkChannel mSignalNotificationSink;
 
     // helpers
     private SlaveHelper mHelper;
     private FcntlProcs mFcntlProcs;
     private boolean mTerminated = false;
     private EventFilters mEventFilters = new EventFilters();
+    private ByteBuffer mSignalNotification;
 
-    public Slave(Application application, Process process, InputStream hubIn,
-                 OutputStream hubOut, NormalizedPath currentDirectory,
-                 InputStream stdin, OutputStream stdout, OutputStream stderr,
+    public Slave(Application application, Process process,
+                 SyscallReadableChannel hubIn, SyscallWritableChannel hubOut,
+                 NormalizedPath currentDirectory, InputStream stdin,
+                 OutputStream stdout, OutputStream stderr,
                  Permissions permissions, Links links, Listener listener) throws IOException {
         mLogger.info("a slave is starting.");
 
@@ -2340,9 +2355,10 @@ public class Slave implements Runnable {
     /**
      * Constructor for fork(2)/thr_new(2).
      */
-    public Slave(Application application, Process process, InputStream hubIn,
-                 OutputStream hubOut, NormalizedPath currentDirectory,
-                 Permissions permissions, Links links, Listener listener) {
+    public Slave(Application application, Process process,
+                 SyscallReadableChannel hubIn, SyscallWritableChannel hubOut,
+                 NormalizedPath currentDirectory, Permissions permissions,
+                 Links links, Listener listener) throws IOException {
         initialize(application, process, hubIn, hubOut, currentDirectory,
                    permissions, links, listener);
     }
@@ -2351,7 +2367,21 @@ public class Slave implements Runnable {
         if (sig == null) {
             throw new UnixException(Errno.EINVAL);
         }
-        mPendingSignals.add(sig);
+        synchronized (mSignalNotificationLock) {
+            mPendingSignals.add(sig);
+            mSignalNotification.rewind();
+            int nBytes;
+            try {
+                nBytes = mSignalNotificationSink.write(mSignalNotification);
+            }
+            catch (IOException e) {
+                throw new UnixException(Errno.EIO, e);
+            }
+            if (nBytes != mSignalNotification.capacity()) {
+                String fmt = "cannot write signal notification: %d[bytes]";
+                throw new Error(String.format(fmt, nBytes));
+            }
+        }
         mAlarm.alarm();
     }
 
@@ -2360,26 +2390,17 @@ public class Slave implements Runnable {
         mLogger.info("a slave started: pid=%s", getPid());
 
         try {
+            Selector selector = Selector.open();
+            mIn.register(selector, SelectionKeyType.HUB);
+            mSignalNotificationSource.configureBlocking(false);
+            mSignalNotificationSource.register(selector, SelectionKey.OP_READ,
+                                               SelectionKeyType.SIGNAL);
+
             try {
                 try {
                     while (!mTerminated) {
                         try {
-                            if (mPendingSignals.contains(Signal.SIGKILL)) {
-                                throw new SigkillException();
-                            }
-                            for (Signal sig: mPendingSignals.toCollection()) {
-                                writeSignaled(sig);
-                            }
-                            if (mIn.isReady()) {
-                                mHelper.runSlave();
-                            }
-
-                            try {
-                                Thread.sleep(10 /* msec */);
-                            }
-                            catch (InterruptedException unused) {
-                                terminate();
-                            }
+                            doIterationWork(selector);
                         }
                         catch (SigkillException e) {
                             Signal sig = Signal.SIGKILL;
@@ -3609,6 +3630,49 @@ public class Slave implements Runnable {
         return retval;
     }
 
+    private void doIterationWork(Selector selector) throws IOException,
+                                                           SigkillException {
+        int nChannels = selector.select(120 * 1000);    // [msec]
+        switch (nChannels) {
+        case 0:
+            throw new IOException("timeout");
+        case 1:
+        case 2:
+            break;
+        default:
+            String fmt = "Selector.select() returned invalid value, %d";
+            throw new Error(String.format(fmt, nChannels));
+        }
+
+        Set<SelectionKey> keys = selector.selectedKeys();
+        for (SelectionKey key: keys) {
+            SelectionKeyType a = (SelectionKeyType)key.attachment();
+            switch (a) {
+            case HUB:
+                mHelper.runSlave();
+                break;
+            case SIGNAL:
+                synchronized (mSignalNotificationLock) {
+                    ByteBuffer buffer = ByteBuffer.allocate(32);
+                    while (0 < mSignalNotificationSource.read(buffer)) {
+                    }
+
+                    if (mPendingSignals.contains(Signal.SIGKILL)) {
+                        throw new SigkillException();
+                    }
+                    for (Signal sig: mPendingSignals.toCollection()) {
+                        writeSignaled(sig);
+                    }
+                }
+                break;
+            default:
+                String fmt = "invalid attachment type: %s";
+                throw new Error(String.format(fmt, a));
+            }
+        }
+        keys.clear();
+    }
+
     private SyscallResult.Wait4 doWait4NoHang(Process process) {
         SyscallResult.Wait4 result = new SyscallResult.Wait4();
 
@@ -4010,20 +4074,24 @@ public class Slave implements Runnable {
     }
 
     private void initialize(Application application, Process process,
-                            InputStream hubIn, OutputStream hubOut,
+                            SyscallReadableChannel hubIn,
+                            SyscallWritableChannel hubOut,
                             NormalizedPath currentDirectory,
                             Permissions permissions, Links links,
-                            Listener listener) {
+                            Listener listener) throws IOException {
         mApplication = application;
         mProcess = process;
-        mIn = new SyscallInputStream(hubIn);
-        mOut = new SyscallOutputStream(hubOut);
+        mIn = hubIn;
+        mOut = hubOut;
         mPermissions = permissions;
         mLinks = links;
         setListener(listener);
         mCurrentDirectory = currentDirectory;
 
         mAlarm = mApplication.getAlarm();
+        Pipe signalNotification = Pipe.open();
+        mSignalNotificationSource = signalNotification.source();
+        mSignalNotificationSink = signalNotification.sink();
 
         mHelper = new SlaveHelper(this, mIn, mOut);
         mFcntlProcs = new FcntlProcs();
@@ -4031,6 +4099,7 @@ public class Slave implements Runnable {
         mFcntlProcs.put(Unix.Constants.F_SETFD, new FSetFdProc());
         mFcntlProcs.put(Unix.Constants.F_GETFL, new FGetFlProc());
         mFcntlProcs.put(Unix.Constants.F_SETFL, new FSetFlProc());
+        mSignalNotification = ByteBuffer.allocate(1).put((byte)42);
     }
 
     static {

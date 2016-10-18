@@ -439,6 +439,7 @@ tests/amd64/wait4_successful/wait4_successful
 tests/amd64/writev/writev
 tests/encode/pid/pid
 tests/fstat.rc
+tests/java_tester/java_tester
 tests/lstat.rc
 tests/o2d/o2d
 tests/socktestd/socktestd

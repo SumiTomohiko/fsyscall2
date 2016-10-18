@@ -8,7 +8,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.URL;
+import java.nio.channels.Pipe;
+import java.nio.channels.SocketChannel;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.HashMap;
@@ -21,7 +26,8 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.Pipe;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallReadableChannel;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallWritableChannel;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
 
 public class Application {
@@ -156,18 +162,18 @@ public class Application {
                           NormalizedPath currentDirectory,
                           Permissions permissions, Links links,
                           Slave.Listener listener) throws IOException {
-        Pipe slave2hub = new Pipe();
-        Pipe hub2slave = new Pipe();
+        Pipe slave2hub = Pipe.open();
+        Pipe hub2slave = Pipe.open();
 
-        InputStream slaveIn = hub2slave.getInputStream();
-        OutputStream slaveOut = slave2hub.getOutputStream();
-        Slave slave = new Slave(this, process, slaveIn, slaveOut,
+        Slave slave = new Slave(this, process,
+                                new SyscallReadableChannel(hub2slave.source()),
+                                new SyscallWritableChannel(slave2hub.sink()),
                                 currentDirectory, permissions, links, listener);
         process.add(slave);
 
-        InputStream hubIn = slave2hub.getInputStream();
-        OutputStream hubOut = hub2slave.getOutputStream();
-        mSlaveHub.addSlave(hubIn, hubOut, newPairId);
+        mSlaveHub.addSlave(new SyscallReadableChannel(slave2hub.source()),
+                           new SyscallWritableChannel(hub2slave.sink()),
+                           newPairId);
 
         return slave;
     }
@@ -187,13 +193,14 @@ public class Application {
                         listener);
     }
 
-    public int run(InputStream in, OutputStream out,
-                   NormalizedPath currentDirectory, InputStream stdin,
-                   OutputStream stdout, OutputStream stderr,
+    public int run(SocketChannel socket, NormalizedPath currentDirectory,
+                   InputStream stdin, OutputStream stdout, OutputStream stderr,
                    Permissions permissions, Links links,
                    Slave.Listener listener, String resourceDirectory)
                    throws IOException, InterruptedException {
         mLogger.info("starting a slave application");
+        SyscallReadableChannel in = new SyscallReadableChannel(socket);
+        SyscallWritableChannel out = new SyscallWritableChannel(socket);
 
         mResourceDirectory = resourceDirectory;
 
@@ -203,19 +210,19 @@ public class Application {
         mInit.addChild(process);
         addProcess(process);
 
-        Pipe slave2hub = new Pipe();
-        Pipe hub2slave = new Pipe();
+        Pipe slave2hub = Pipe.open();
+        Pipe hub2slave = Pipe.open();
         Slave slave = new Slave(
                 this, process,
-                hub2slave.getInputStream(), slave2hub.getOutputStream(),
+                new SyscallReadableChannel(hub2slave.source()),
+                new SyscallWritableChannel(slave2hub.sink()),
                 currentDirectory, stdin, stdout, stderr,
                 permissions, links, listener);
         process.add(slave);
 
-        mSlaveHub = new SlaveHub(
-                this,
-                in, out,
-                slave2hub.getInputStream(), hub2slave.getOutputStream());
+        mSlaveHub = new SlaveHub(this, in, out,
+                                 new SyscallReadableChannel(slave2hub.source()),
+                                 new SyscallWritableChannel(hub2slave.sink()));
 
         new Thread(slave).start();
         mSlaveHub.work();
@@ -329,7 +336,7 @@ public class Application {
     }
 
     private static void usage(PrintStream out) {
-        out.println("usage: Main rfd wfd currentDirectory resourceDirectory");
+        out.println("usage: Main port currentDirectory");
     }
 
     private static void deleteDirectory(String path) {
@@ -347,15 +354,6 @@ public class Application {
         file.delete();
     }
 
-    /**
-     * This is the tester method. This class requires two parameters -- the file
-     * descriptor to read and another one to write. But, Java DOES NOT HAVE ANY
-     * WAYS to make InputStream/OutputStream from file descriptor number. So
-     * this method opens <code>/dev/fd/<var>rfd</var></code> and
-     * <code>/dev/fd/<var>wfd</var></code> to make streams. This way is
-     * available on FreeBSD 9.1 with fdescfs mounted on <code>/dev/fd</code>. I
-     * do not know if the same way is usable on other platforms.
-     */
     public static void main(String[] args) {
         Logging.Destination destination;
         try {
@@ -363,39 +361,35 @@ public class Application {
         }
         catch (IOException e) {
             e.printStackTrace();
-            System.exit(1);
+            System.exit(254);
             return; // This is needed to avoid the unreachable warning.
         }
         Logging.setDestination(destination);
         mLogger.info("================================");
 
-        int rfd, wfd;
+        int port;
         try {
-            rfd = Integer.parseInt(args[0]);
-            wfd = Integer.parseInt(args[1]);
+            port = Integer.parseInt(args[0]);
         }
         catch (ArrayIndexOutOfBoundsException unused) {
             Application.usage(System.out);
-            System.exit(1);
+            System.exit(253);
             return;
         }
         catch (NumberFormatException unused) {
             Application.usage(System.out);
-            System.exit(1);
+            System.exit(252);
             return;
         }
-        String fdFormat = "/dev/fd/%d";
-        String inPath = String.format(fdFormat, new Integer(rfd));
-        String outPath = String.format(fdFormat, new Integer(wfd));
-        InputStream in;
-        OutputStream out;
+        SocketAddress address = new InetSocketAddress("127.0.0.1", port);
+        SocketChannel socket;
         try {
-            in = new FileInputStream(inPath);
-            out = new FileOutputStream(outPath);
+            socket = SocketChannel.open(address);
+            socket.socket().setTcpNoDelay(true);
         }
         catch (IOException e) {
             e.printStackTrace();
-            System.exit(1);
+            System.exit(251);
             return;
         }
 
@@ -411,7 +405,7 @@ public class Application {
         if (!new File(resourceDir).mkdir()) {
             String messageFormat = "cannot make the resource directory: %s\n";
             System.err.format(messageFormat, resourceDir);
-            System.exit(32);
+            System.exit(250);
         }
         int exitStatus;
         try {
@@ -422,13 +416,13 @@ public class Application {
             Permissions perm = new Permissions(true);
             Links links = new Links();
             try {
-                exitStatus = app.run(in, out, new NormalizedPath(args[2]),
-                                     stdin, stdout, stderr, perm, links, null,
+                exitStatus = app.run(socket, new NormalizedPath(args[1]), stdin,
+                                     stdout, stderr, perm, links, null,
                                      resourceDir);
             }
             catch (Throwable e) {
                 e.printStackTrace();
-                exitStatus = 1;
+                exitStatus = 249;
             }
         }
         finally {

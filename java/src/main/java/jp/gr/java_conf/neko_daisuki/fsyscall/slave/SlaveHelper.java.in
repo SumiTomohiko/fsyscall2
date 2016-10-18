@@ -32,8 +32,8 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Unix.Constants;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallReadableChannel;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallWritableChannel;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.ArrayUtil;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.ByteUtil;
 
@@ -878,12 +878,13 @@ class SlaveHelper {
     private static Logging.Logger mLogger;
 
     private Slave mSlave;
-    private SyscallInputStream mIn;
-    private SyscallOutputStream mOut;
+    private SyscallReadableChannel mIn;
+    private SyscallWritableChannel mOut;
 
     private CommandDispatcher mDispatcher;
 
-    public SlaveHelper(Slave slave, SyscallInputStream in, SyscallOutputStream out) {
+    public SlaveHelper(Slave slave, SyscallReadableChannel in,
+                       SyscallWritableChannel out) {
         mSlave = slave;
         mIn = in;
         mOut = out;

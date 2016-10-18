@@ -3,6 +3,10 @@ package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.Pipe;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -17,26 +21,26 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.ProtocolError;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallInputStream;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallOutputStream;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallReadableChannel;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallWritableChannel;
 
 class SlaveHub {
 
     private static class Peer {
 
-        private SyscallInputStream mIn;
-        private SyscallOutputStream mOut;
+        private SyscallReadableChannel mIn;
+        private SyscallWritableChannel mOut;
 
-        public Peer(SyscallInputStream in, SyscallOutputStream out) {
+        protected Peer(SyscallReadableChannel in, SyscallWritableChannel out) {
             mIn = in;
             mOut = out;
         }
 
-        public SyscallInputStream getInputStream() {
+        public SyscallReadableChannel getReadableChannel() {
             return mIn;
         }
 
-        public SyscallOutputStream getOutputStream() {
+        public SyscallWritableChannel getWritableChannel() {
             return mOut;
         }
 
@@ -46,12 +50,19 @@ class SlaveHub {
         }
     }
 
-    private static class SlavePeer extends Peer {
+    private static class Mhub extends Peer {
+
+        public Mhub(SyscallReadableChannel in, SyscallWritableChannel out) {
+            super(in, out);
+        }
+    }
+
+    private static class NewSlave extends Peer {
 
         private PairId mPairId;
 
-        public SlavePeer(SyscallInputStream in, SyscallOutputStream out,
-                         PairId pairId) {
+        public NewSlave(SyscallReadableChannel in, SyscallWritableChannel out,
+                        PairId pairId) {
             super(in, out);
             mPairId = pairId;
         }
@@ -61,34 +72,90 @@ class SlaveHub {
         }
     }
 
+    private static class RunningSlave extends Peer {
+
+        private PairId mPairId;
+
+        public RunningSlave(NewSlave slave) {
+            super(slave.getReadableChannel(), slave.getWritableChannel());
+            mPairId = slave.getPairId();
+        }
+
+        public PairId getPairId() {
+            return mPairId;
+        }
+    }
+
+    private enum SelectableAttachmentType {
+        MHUB,
+        SLAVE
+    }
+
+    private abstract static class SelectableAttachment {
+
+        public abstract SelectableAttachmentType getType();
+
+        public RunningSlave getSlave() {
+            return null;
+        }
+    }
+
+    private static class MhubSelectableAttachment extends SelectableAttachment {
+
+        public SelectableAttachmentType getType() {
+            return SelectableAttachmentType.MHUB;
+        }
+    }
+
+    private static class SlaveSelectableAttachment extends SelectableAttachment {
+
+        private RunningSlave mSlave;
+
+        public SlaveSelectableAttachment(RunningSlave slave) {
+            mSlave = slave;
+        }
+
+        public SelectableAttachmentType getType() {
+            return SelectableAttachmentType.SLAVE;
+        }
+
+        public RunningSlave getSlave() {
+            return mSlave;
+        }
+    }
+
     private static Logging.Logger mLogger;
 
-    private Peer mMhub;
-    private Map<PairId, SlavePeer> mSlaves;
-    private Map<PairId, SlavePeer> mNewSlaves;
+    private Mhub mMhub;
+    private Map<PairId, RunningSlave> mSlaves;
+    private Set<NewSlave> mNewSlaves;
     private Set<PairId> mDeadSlaves;
 
+    private Selector mSelector;
     private Alarm mAlarm;
 
-    public SlaveHub(Application application, InputStream mhubIn, OutputStream mhubOut, InputStream slaveIn, OutputStream slaveOut) throws IOException {
+    public SlaveHub(Application application, SyscallReadableChannel mhubIn,
+                    SyscallWritableChannel mhubOut,
+                    SyscallReadableChannel slaveIn,
+                    SyscallWritableChannel slaveOut) throws IOException {
         mLogger.info("a slave hub is starting.");
 
+        mSelector = Selector.open();
         mAlarm = application.getAlarm();
 
-        mMhub = new Peer(
-                new SyscallInputStream(mhubIn),
-                new SyscallOutputStream(mhubOut));
+        mMhub = new Mhub(mhubIn, mhubOut);
+        mhubIn.register(mSelector, new MhubSelectableAttachment());
 
         negotiateVersion();
         mLogger.verbose("version negotiation finished.");
 
-        PairId firstPairId = mMhub.getInputStream().readPairId();
+        PairId firstPairId = mhubIn.readPairId();
         mLogger.info("the first pair id is %s.", firstPairId);
 
-        mSlaves = new HashMap<PairId, SlavePeer>();
-        mNewSlaves = Collections.synchronizedMap(new HashMap<PairId, SlavePeer>());
+        mSlaves = new HashMap<PairId, RunningSlave>();
+        mNewSlaves = new HashSet<NewSlave>();
         mDeadSlaves = new HashSet<PairId>();
-        SlavePeer slave = addSlave(slaveIn, slaveOut, firstPairId);
+        NewSlave slave = addSlave(slaveIn, slaveOut, firstPairId);
 
         transportFileDescriptors(slave);
         mLogger.verbose("file descriptors were transfered from the slave hub.");
@@ -101,20 +168,28 @@ class SlaveHub {
             addNewSlaves();
 
             while (0 < mSlaves.size()) {
-                if (mMhub.getInputStream().isReady()) {
-                    processMasterHub();
+                int nChannels = mSelector.select(120 * 1000);   // [msec]
+                if (nChannels == 0) {
+                    throw new IOException("timeout");
                 }
-                for (SlavePeer slave: mSlaves.values()) {
-                    if (slave.getInputStream().isReady()) {
-                        processSlave(slave);
+                Set<SelectionKey> keys = mSelector.selectedKeys();
+                for (SelectionKey key: keys) {
+                    Object o = key.attachment();
+                    SelectableAttachment a = (SelectableAttachment)o;
+                    SelectableAttachmentType type = a.getType();
+                    switch (type) {
+                    case MHUB:
+                        processMasterHub();
+                        break;
+                    case SLAVE:
+                        processSlave(a.getSlave());
+                        break;
+                    default:
+                        String fmt = "invalid attachment type: %s";
+                        throw new Error(String.format(fmt, type));
                     }
                 }
-                try {
-                    Thread.sleep(10 /* msec */);
-                }
-                catch (InterruptedException unused) {
-                    break;
-                }
+                keys.clear();
 
                 removeDeadSlaves();
                 addNewSlaves();
@@ -127,12 +202,12 @@ class SlaveHub {
         //mLogger.verbose("works of the slave hub were finished.");
     }
 
-    public SlavePeer addSlave(InputStream in, OutputStream out, PairId pairId) {
-        SlavePeer slave = new SlavePeer(
-                new SyscallInputStream(in),
-                new SyscallOutputStream(out),
-                pairId);
-        mNewSlaves.put(pairId, slave);
+    public NewSlave addSlave(SyscallReadableChannel in,
+                             SyscallWritableChannel out, PairId pairId) {
+        NewSlave slave = new NewSlave(in, out, pairId);
+        synchronized (mNewSlaves) {
+            mNewSlaves.add(slave);
+        }
         return slave;
     }
 
@@ -148,21 +223,26 @@ class SlaveHub {
         mMhub.close();
     }
 
-    private void addNewSlaves() {
-        for (PairId pairId: mNewSlaves.keySet()) {
-            mSlaves.put(pairId, mNewSlaves.get(pairId));
+    private void addNewSlaves() throws ClosedChannelException {
+        synchronized (mNewSlaves) {
+            for (NewSlave newSlave: mNewSlaves) {
+                RunningSlave slave = new RunningSlave(newSlave);
+                SyscallReadableChannel in = slave.getReadableChannel();
+                in.register(mSelector, new SlaveSelectableAttachment(slave));
+                mSlaves.put(slave.getPairId(), slave);
+            }
+            mNewSlaves.clear();
         }
-        mNewSlaves.clear();
     }
 
-    private void processSignaled(SlavePeer slave) throws IOException {
-        byte signum = slave.getInputStream().readByte();
+    private void processSignaled(RunningSlave slave) throws IOException {
+        byte signum = slave.getReadableChannel().readByte();
         PairId pairId = slave.getPairId();
 
         String fmt = "processing SIGNALED: pairId=%s, signal=%d (%s)";
         mLogger.debug(fmt, pairId, signum, Signal.toString(signum));
 
-        SyscallOutputStream out = mMhub.getOutputStream();
+        SyscallWritableChannel out = mMhub.getWritableChannel();
         out.write(Command.SIGNALED);
         out.write(pairId);
         out.write(signum);
@@ -179,11 +259,11 @@ class SlaveHub {
         }
     }
 
-    private void processSlave(SlavePeer slave) throws IOException {
+    private void processSlave(RunningSlave slave) throws IOException {
         //mLogger.verbose("the work for the slave is being processed.");
         PairId pairId = slave.getPairId();
 
-        SyscallInputStream in = slave.getInputStream();
+        SyscallReadableChannel in = slave.getReadableChannel();
         Command command = in.readCommand();
         if (command == Command.SIGNALED) {
             processSignaled(slave);
@@ -194,16 +274,16 @@ class SlaveHub {
         //String fmt = "from the slave to the master: pairId=%s, command=%s, payloadSize=%s";
         //mLogger.debug(String.format(fmt, pairId, command, payloadSize));
 
-        SyscallOutputStream out = mMhub.getOutputStream();
+        SyscallWritableChannel out = mMhub.getWritableChannel();
         out.write(command);
         out.write(pairId);
         out.write(payloadSize);
-        out.copyInputStream(in, payloadSize);
+        out.copy(in, payloadSize);
 
         //mLogger.verbose("the work for the slave was finished.");
     }
 
-    private void disposeCommand(SyscallInputStream in,
+    private void disposeCommand(SyscallReadableChannel in,
                                 Command command) throws IOException {
         switch (command) {
             case EXIT_CALL:
@@ -221,19 +301,19 @@ class SlaveHub {
     private void processMasterHub() throws IOException {
         //mLogger.verbose("the work for the master hub is being processed.");
 
-        SyscallInputStream in = mMhub.getInputStream();
+        SyscallReadableChannel in = mMhub.getReadableChannel();
         Command command = in.readCommand();
         PairId pairId = in.readPairId();
         //String fmt = "command received: pairId=%s, command=%s";
         //mLogger.debug(String.format(fmt, pairId, command));
 
-        SlavePeer slave = mSlaves.get(pairId);
+        RunningSlave slave = mSlaves.get(pairId);
         if (slave == null) {
             disposeCommand(in, command);
             return;
         }
 
-        SyscallOutputStream out = slave.getOutputStream();
+        SyscallWritableChannel out = slave.getWritableChannel();
 
         switch (command) {
         case EXIT_CALL:
@@ -270,13 +350,13 @@ class SlaveHub {
 
         out.write(command);
         out.write(payloadSize);
-        out.copyInputStream(in, payloadSize);
+        out.copy(in, payloadSize);
     }
 
     private void negotiateVersion() throws IOException {
-        mMhub.getOutputStream().write((byte)0);
+        mMhub.getWritableChannel().write((byte)0);
 
-        byte version = mMhub.getInputStream().readByte();
+        byte version = mMhub.getReadableChannel().readByte();
         if (version != 0) {
             String fmt = "requested version is not supported: %d";
             throw new ProtocolError(String.format(fmt, version));
@@ -296,11 +376,11 @@ class SlaveHub {
     }
 
     private void transportFileDescriptors(Peer slave) throws IOException {
-        SyscallInputStream in = slave.getInputStream();
+        SyscallReadableChannel in = slave.getReadableChannel();
         int len = in.readInteger();
         byte[] data = in.read(len);
 
-        SyscallOutputStream out = mMhub.getOutputStream();
+        SyscallWritableChannel out = mMhub.getWritableChannel();
         out.write(len);
         out.write(data);
     }
