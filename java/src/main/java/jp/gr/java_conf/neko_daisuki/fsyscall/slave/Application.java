@@ -191,14 +191,13 @@ public class Application {
                         listener);
     }
 
-    public int run(SocketChannel socket, NormalizedPath currentDirectory,
-                   InputStream stdin, OutputStream stdout, OutputStream stderr,
+    public int run(SyscallReadableChannel in, SyscallWritableChannel out,
+                   NormalizedPath currentDirectory, InputStream stdin,
+                   OutputStream stdout, OutputStream stderr,
                    Permissions permissions, Links links,
                    Slave.Listener listener, String resourceDirectory)
                    throws IOException, InterruptedException {
         mLogger.info("starting a slave application");
-        SyscallReadableChannel in = new SyscallReadableChannel(socket);
-        SyscallWritableChannel out = new SyscallWritableChannel(socket);
 
         mResourceDirectory = resourceDirectory;
 
@@ -414,9 +413,10 @@ public class Application {
             Permissions perm = new Permissions(true);
             Links links = new Links();
             try {
-                exitStatus = app.run(socket, new NormalizedPath(args[1]), stdin,
-                                     stdout, stderr, perm, links, null,
-                                     resourceDir);
+                exitStatus = app.run(new SyscallReadableChannel(socket),
+                                     new SyscallWritableChannel(socket),
+                                     new NormalizedPath(args[1]), stdin, stdout,
+                                     stderr, perm, links, null, resourceDir);
             }
             catch (Throwable e) {
                 e.printStackTrace();
