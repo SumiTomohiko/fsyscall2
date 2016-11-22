@@ -3,6 +3,6 @@
 
 #include <stdbool.h>
 
-int fmhub_run(int, int, int, char **, const char **, const char *);
+int fmhub_run(int, int, int, char * const *, char * const *, const char *);
 
 #endif

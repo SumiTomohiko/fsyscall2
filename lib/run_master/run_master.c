@@ -5,8 +5,8 @@
 #include <fsyscall/private/fmhub.h>
 
 int
-fsyscall_run_master(int shub2mhub, int mhub2shub, int argc, char *argv[],
-		    const char *envp[])
+fsyscall_run_master(int shub2mhub, int mhub2shub, int argc, char *const argv[],
+		    char *const envp[])
 {
 	int retval;
 	char fork_sock[MAXPATHLEN];

@@ -130,7 +130,7 @@ find_syscall()
 
 static void
 exec_master(int syscall_num, int rfd, int wfd, const char *fork_sock, int argc,
-	    char *argv[], const char *envp[])
+	    char *const argv[], char *const envp[])
 {
 	char **args;
 	int i;
@@ -771,8 +771,8 @@ mainloop(struct mhub *mhub)
 }
 
 static int
-mhub_main(struct mhub *mhub, const char *fork_sock, int argc, char *argv[],
-	  const char *envp[])
+mhub_main(struct mhub *mhub, const char *fork_sock, int argc,
+	  char *const argv[], char *const envp[])
 {
 	struct master *master;
 	int hub2master[2], master2hub[2], rfd, syscall_num, wfd;
@@ -839,7 +839,7 @@ reset_signal_handlers()
 }
 
 int
-fmhub_run(int rfd, int wfd, int argc, char *argv[], const char *envp[],
+fmhub_run(int rfd, int wfd, int argc, char *const argv[], char *const envp[],
 	  const char *sock_path)
 {
 	struct mhub mhub, *pmhub;

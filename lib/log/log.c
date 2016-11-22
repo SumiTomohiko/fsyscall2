@@ -11,7 +11,7 @@ log_graceful_exit(int status)
 }
 
 void
-log_start_message(int argc, char *argv[])
+log_start_message(int argc, char *const argv[])
 {
 	int i;
 	char buf[4096], *p, *pend, *s;

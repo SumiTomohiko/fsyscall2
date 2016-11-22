@@ -2,6 +2,6 @@
 #define FSYSCALL_PRIVATE_LOG_H_INCLUDED
 
 void log_graceful_exit(int);
-void log_start_message(int, char *[]);
+void log_start_message(int, char * const *);
 
 #endif
