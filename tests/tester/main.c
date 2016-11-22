@@ -137,6 +137,8 @@ main(int argc, char *argv[])
 	if (slave_pid == 0) {
 		close_or_die(shub2mhub[R]);
 		close_or_die(mhub2shub[W]);
+		close_or_die(sigfds[R]);
+		close_or_die(sigfds[W]);
 		r = mhub2shub[R];
 		w = shub2mhub[W];
 		fsyscall_start_slave(r, w, argc, argv);
