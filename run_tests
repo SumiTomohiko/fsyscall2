@@ -183,13 +183,13 @@ do
 			if [ "${expected_stdout}" = "${actual_stdout}" ]; then
 				result="OK"
 			else
-				result="NG"
+				result="NG (unexpected stdout)"
 			fi
 		elif [ -n "$(isset unexpected_status)" ]; then
 			if [ "${unexpected_status}" != "${status}" ]; then
 				result="OK"
 			else
-				result="NG"
+				result="NG (unexpected status)"
 			fi
 		elif [ "$(typename test_stdout)" = "shell function" ]; then
 			test_stdout < "${stdout_log}"
