@@ -16,7 +16,7 @@
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/fork_or_die.h>
 #include <fsyscall/private/pipe_or_die.h>
-#include <fsyscall/start_master.h>
+#include <fsyscall/run_master.h>
 #include <fsyscall/start_slave.h>
 
 #define	STATUS_TIMEOUT	255
@@ -147,6 +147,8 @@ main(int argc, char *argv[])
 	if (master_pid == 0) {
 		close_or_die(mhub2shub[R]);
 		close_or_die(shub2mhub[W]);
+		close_or_die(sigfds[R]);
+		close_or_die(sigfds[W]);
 		r = shub2mhub[R];
 		w = mhub2shub[W];
 		/*
@@ -156,9 +158,8 @@ main(int argc, char *argv[])
 		 * /usr/src/lib/libc/gen/exec.c does not include this header.
 		 * exec.c declares extern environ by itself.
 		 */
-		extern char **environ;
-		fsyscall_start_master(r, w, argc, argv, environ);
-		/* NOTREACHED */
+		extern char *const *environ;
+		return (fsyscall_run_master(r, w, argc, argv, environ));
 	}
 
 	if (verbose) {

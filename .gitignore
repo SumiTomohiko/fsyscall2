@@ -197,9 +197,6 @@ fmaster/sys/fmaster/fmaster_wait6.c
 fmaster/sys/fmaster/fmaster_write.c
 fmaster/sys/fmaster/fmaster_writev.c
 fmaster/x86
-fmhub/dispatch_call.inc
-fmhub/dispatch_ret.inc
-fmhub/fmhub
 fshub/dispatch_call.inc
 fshub/dispatch_ret.inc
 fshub/fshub
@@ -254,6 +251,8 @@ jp.gr.java_conf.neko_daisuki.fsyscall.io
 jp.gr.java_conf.neko_daisuki.fsyscall.slave
 jp.gr.java_conf.neko_daisuki.fsyscall.util
 lib/command/names.inc
+libfmhub/dispatch_call.inc
+libfmhub/dispatch_ret.inc
 log.txt
 tests/*/access/access
 tests/*/close/close

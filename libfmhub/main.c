@@ -20,6 +20,7 @@
 #include <fsyscall/private/command.h>
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/encode.h>
+#include <fsyscall/private/fmhub.h>
 #include <fsyscall/private/fork_or_die.h>
 #include <fsyscall/private/geterrorname.h>
 #include <fsyscall/private/hub.h>
@@ -50,11 +51,6 @@ struct mhub {
 	struct list fork_info;
 };
 
-struct env {
-	struct env *next;
-	const char *pair;
-};
-
 #define	TOKEN_SIZE	64
 
 struct fork_info {
@@ -63,12 +59,6 @@ struct fork_info {
 	pair_id_t child_pair_id;
 	char token[TOKEN_SIZE];
 };
-
-static void
-usage()
-{
-	puts("fmhub rfd wfd command...");
-}
 
 static void
 negotiate_version_with_master(struct master *master)
@@ -781,53 +771,13 @@ mainloop(struct mhub *mhub)
 }
 
 static int
-count_env(struct env *penv)
-{
-	struct env *p;
-	int n = 0;
-
-	for (p = penv; p != NULL; p = p->next)
-		n++;
-
-	return (n);
-}
-
-static const char **
-build_envp(struct env *penv)
-{
-	struct env *p;
-	int i, nenv;
-	const char **envp;
-
-	nenv = count_env(penv);
-	envp = (const char **)malloc_or_die((nenv + 1) * sizeof(const char *));
-
-	for (p = penv, i = 0; p != NULL; p = p->next, i++)
-		envp[i] = p->pair;
-	envp[i] = NULL;
-
-	return (envp);
-}
-
-static void
-free_env(struct env *penv)
-{
-	struct env *next, *p;
-
-	for (p = penv; p != NULL; p = next) {
-		next = p->next;
-		free(p);
-	}
-}
-
-static int
 mhub_main(struct mhub *mhub, const char *fork_sock, int argc, char *argv[],
-	  struct env *penv)
+	  const char *envp[])
 {
 	struct master *master;
 	int hub2master[2], master2hub[2], rfd, syscall_num, wfd;
 	pid_t pid;
-	const char **envp, *verbose;
+	const char *verbose;
 
 	syscall_num = find_syscall();
 
@@ -841,12 +791,9 @@ mhub_main(struct mhub *mhub, const char *fork_sock, int argc, char *argv[],
 
 		rfd = hub2master[R];
 		wfd = master2hub[W];
-		envp = build_envp(penv);
 		exec_master(syscall_num, rfd, wfd, fork_sock, argc, argv, envp);
 		/* NOTREACHED */
 	}
-
-	free_env(penv);
 
 	verbose = getenv(FSYSCALL_ENV_VERBOSE);
 	if ((verbose != NULL) && (strcmp(verbose, "1") == 0))
@@ -868,68 +815,49 @@ mhub_main(struct mhub *mhub, const char *fork_sock, int argc, char *argv[],
 	return (0);
 }
 
-static struct env *
-create_env(const char *pair)
+static void
+reset_signal_handlers()
 {
-	struct env *penv;
+	struct sigaction act;
+	int i, nsigs;
+	int sigs[] = { SIGHUP, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
+		       SIGEMT, SIGFPE, SIGKILL, SIGBUS, SIGSEGV, SIGSYS,
+		       SIGPIPE, SIGALRM, SIGTERM, SIGURG, SIGSTOP, SIGTSTP,
+		       SIGCONT, SIGCHLD, SIGTTIN, SIGTTOU, SIGIO, SIGXCPU,
+		       SIGXFSZ, SIGVTALRM, SIGPROF, SIGWINCH, SIGINFO, SIGUSR1,
+		       SIGUSR2, SIGTHR, SIGLIBRT };
 
-	penv = (struct env *)malloc_or_die(sizeof(struct env));
-	penv->pair = pair;
+	act.sa_handler = SIG_DFL;
+	act.sa_flags = 0;
+	if (sigemptyset(&act.sa_mask) != 0)
+		die(1, "cannot sigemptyset(3)");
 
-	return (penv);
+	nsigs = array_sizeof(sigs);
+	for (i = 0; i < nsigs; i++)
+		if (sigaction(sigs[i], &act, NULL) == -1)
+			die(1, "cannot sigaction(2)");
 }
 
 int
-main(int argc, char *argv[])
+fmhub_run(int rfd, int wfd, int argc, char *argv[], const char *envp[],
+	  const char *sock_path)
 {
-	struct option opts[] = {
-		{ "env", required_argument, NULL, 'e' },
-		{ "help", no_argument, NULL, 'h' },
-		{ "version", no_argument, NULL, 'v' },
-		{ NULL, 0, NULL, 0 }
-	};
 	struct mhub mhub, *pmhub;
-	struct env *p, *penv = NULL;
-	int opt, status;
-	const char *sock_path;
-	char **args;
+	int status;
 
 	pmhub = &mhub;
-	openlog(argv[0], LOG_PID, LOG_USER);
 	log_start_message(argc, argv);
 
-	while ((opt = getopt_long(argc, argv, "+", opts, NULL)) != -1)
-		switch (opt) {
-		case 'e':
-			p = create_env(optarg);
-			p->next = penv;
-			penv = p;
-			break;
-		case 'h':
-			usage();
-			return (0);
-		case 'v':
-			printf("fmhub %s\n", FSYSCALL_VERSION);
-			return (0);
-		default:
-			usage();
-			return (-1);
-		}
-	if (argc - optind < 4) {
-		usage();
-		return (-1);
-	}
+	reset_signal_handlers();
 
-	args = &argv[optind];
-	pmhub->shub.rfd = atoi_or_die(args[0], "rfd");
-	pmhub->shub.wfd = atoi_or_die(args[1], "wfd");
+	pmhub->shub.rfd = rfd;
+	pmhub->shub.wfd = wfd;
 	initialize_list(&pmhub->masters);
 	pmhub->next_pair_id = 1;
 	initialize_list(&pmhub->fork_info);
 
-	sock_path = args[2];
 	pmhub->fork_sock = hub_open_fork_socket(sock_path);
-	status = mhub_main(pmhub, sock_path, argc - optind - 3, args + 3, penv);
+	status = mhub_main(pmhub, sock_path, argc, argv, envp);
 	hub_close_fork_socket(pmhub->fork_sock);
 	hub_unlink_socket(sock_path);
 	log_graceful_exit(status);

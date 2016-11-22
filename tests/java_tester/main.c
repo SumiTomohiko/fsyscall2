@@ -13,7 +13,7 @@
 #include <fsyscall/private/close_or_die.h>
 #include <fsyscall/private/die.h>
 #include <fsyscall/private/fork_or_die.h>
-#include <fsyscall/start_master.h>
+#include <fsyscall/run_master.h>
 
 static void
 start_slave(in_port_t port)
@@ -181,7 +181,7 @@ int
 main(int argc, char *argv[])
 {
 	pid_t master_pid, pids[2], slave_pid;
-	int d, master_status, slave_status, sock;
+	int d, master_status, ret, slave_status, sock;
 	const in_port_t port = 54345;
 
 	sock = bind_port(port);
@@ -202,10 +202,9 @@ main(int argc, char *argv[])
 
 	master_pid = fork_or_die();
 	if (master_pid == 0) {
-		extern char **environ;
-		fsyscall_start_master(d, d, argc - 1, &argv[1], environ);
-		/* NOTREACHED */
-		return (64);
+		extern char *const *environ;
+		ret = fsyscall_run_master(d, d, argc - 1, &argv[1], environ);
+		return (ret);
 	}
 
 	close_or_die(d);

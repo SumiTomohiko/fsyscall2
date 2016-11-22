@@ -1,5 +1,5 @@
 
-PROG=		fmhub
+LIB=		fmhub
 SRCS=		main.c
 TOP_DIR=	..
 CFLAGS=		-I${TOP_DIR}/include
@@ -16,7 +16,7 @@ LDADD=		${LIB_DIR}/geterrorname/libgeterrorname.a \
 		${LIB_DIR}/pipe_or_die/libpipe_or_die.a \
 		${LIB_DIR}/encode/libencode.a ${LIB_DIR}/die/libdie.a \
 		${LIB_DIR}/command/libcommand.a
-WITHOUT_MAN=	yes
+LIBDIR=		/lib
 
 .include "${TOP_DIR}/Makefile.common"
-.include <bsd.prog.mk>
+.include <bsd.lib.mk>
