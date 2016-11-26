@@ -4,8 +4,11 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <syslog.h>
 #include <unistd.h>
+
+#include <openssl/ssl.h>
 
 #include <fsyscall/private.h>
 #include <fsyscall/private/command.h>
@@ -14,18 +17,336 @@
 #include <fsyscall/private/io.h>
 #include <fsyscall/private/malloc_or_die.h>
 
-void
-io_init(struct io *io, int fd)
+struct io_ops {
+	ssize_t	(*op_read)(struct io *, void *, size_t);
+	ssize_t	(*op_write)(struct io *, void *, size_t);
+	int	(*op_get_rfd)(const struct io *);
+	int	(*op_get_wfd)(const struct io *);
+	void	(*op_set_readable)(struct io *);
+	bool	(*op_is_readable)(const struct io *);
+	int	(*op_close)(struct io *);
+
+	void	(*op_dump)(const struct io *, char *, size_t);
+};
+
+#define	io_ssl		u.ssl
+#define	io_rfd		u.plain.rfd
+#define	io_wfd		u.plain.wfd
+#define	io_readable	u.plain.readable
+
+/*******************************************************************************
+ * plain operations
+ */
+
+static int
+close_nossl(struct io *io)
+{
+	int rfd, wfd;
+
+	rfd = io->io_rfd;
+	wfd = io->io_wfd;
+
+	if ((rfd != -1) && (close(rfd) == -1)) {
+		io->io_error = errno;
+		return (-1);
+	}
+	if ((wfd != -1) && (rfd != wfd))
+		if (close(wfd) == -1) {
+			io->io_error = errno;
+			return (-1);
+		}
+
+	io->io_rfd = io->io_wfd = -1;
+
+	return (0);
+}
+
+static void
+dump_nossl(const struct io *io, char *str, size_t size)
 {
 
-	io->io_fd = fd;
+	snprintf(str, size,
+		 "io(io_rfd=%d, io_wfd=%d, io_readable=%s, io_error=%d)",
+		 io->io_rfd, io->io_wfd, io->io_readable ? "true" : "false",
+		 io->io_error);
+}
+
+static void
+set_readable_nossl(struct io *io)
+{
+
+	io->io_readable = true;
+}
+
+static bool
+is_readable_nossl(const struct io *io)
+{
+
+	return (io->io_readable);
+}
+
+static int
+get_rfd_nossl(const struct io *io)
+{
+
+	return (io->io_rfd);
+}
+
+static int
+get_wfd_nossl(const struct io *io)
+{
+
+	return (io->io_wfd);
+}
+
+static ssize_t
+read_nossl(struct io *io, void *buf, size_t nbytes)
+{
+	ssize_t n;
+
+	n = read(io->io_rfd, buf, nbytes);
+	if (n == -1)
+		io->io_error = errno;
+
+	io->io_readable = false;
+
+	return (n);
+}
+
+static ssize_t
+write_nossl(struct io *io, void *buf, size_t nbytes)
+{
+	ssize_t n;
+
+	n = write(io->io_wfd, buf, nbytes);
+	if (n == -1)
+		io->io_error = errno;
+
+	return (n);
+}
+
+static struct io_ops ops_nossl = {
+	.op_read = read_nossl,
+	.op_write = write_nossl,
+	.op_get_rfd = get_rfd_nossl,
+	.op_get_wfd = get_wfd_nossl,
+	.op_set_readable = set_readable_nossl,
+	.op_is_readable = is_readable_nossl,
+	.op_close = close_nossl,
+	.op_dump = dump_nossl
+};
+
+void
+io_init_nossl(struct io *io, int rfd, int wfd)
+{
+
+	io->io_rfd = rfd;
+	io->io_wfd = wfd;
+	io->io_readable = false;
+	io->io_ops = &ops_nossl;
+	io->io_error = 0;
+}
+
+/*******************************************************************************
+ * SSL/TLS operations
+ */
+
+static int
+close_ssl(struct io *io)
+{
+	SSL *ssl;
+
+	ssl = io->io_ssl;
+	SSL_shutdown(ssl);
+	if (close(SSL_get_fd(ssl)) == -1) {
+		io->io_error = errno;
+		return (-1);
+	}
+
+	io->io_ssl = NULL;
+
+	return (0);
+}
+
+static void
+dump_ssl(const struct io *io, char *str, size_t size)
+{
+
+	snprintf(str, size,
+		 "io(io->io_ssl=0x%p, io->io_error=%d)",
+		 io->io_ssl, io->io_error);
+}
+
+static void
+set_readable_ssl(struct io *io)
+{
+	/* nothing */
+}
+
+static bool
+is_readable_ssl(const struct io *io)
+{
+
+	return (0 < SSL_pending(io->io_ssl));
+}
+
+static int
+get_fd_ssl(const struct io *io)
+{
+
+	return (SSL_get_fd(io->io_ssl));
+}
+
+static ssize_t
+read_ssl(struct io *io, void *buf, size_t nbytes)
+{
+	int n;
+
+	n = SSL_read(io->io_ssl, buf, nbytes);
+	if (n < 0)
+		io->io_error = EIO;	/* FIXME */
+
+	return (n);
+}
+
+static ssize_t
+write_ssl(struct io *io, void *buf, size_t nbytes)
+{
+	int n;
+
+	n = SSL_write(io->io_ssl, buf, nbytes);
+	if (n < 0)
+		io->io_error = EIO;	/* FIXME */
+
+	return (n);
+}
+
+static struct io_ops ops_ssl = {
+	.op_read = read_ssl,
+	.op_write = write_ssl,
+	.op_get_rfd = get_fd_ssl,
+	.op_get_wfd = get_fd_ssl,
+	.op_set_readable = set_readable_ssl,
+	.op_is_readable = is_readable_ssl,
+	.op_close = close_ssl,
+	.op_dump = dump_ssl
+};
+
+void
+io_init_ssl(struct io *io, SSL *ssl)
+{
+
+	io->io_ssl = ssl;
+	io->io_ops = &ops_ssl;
+	io->io_error = 0;
+}
+
+/******************************************************************************/
+
+int
+io_get_rfd(const struct io *io)
+{
+
+	return (io->io_ops->op_get_rfd(io));
+}
+
+int
+io_get_wfd(const struct io *io)
+{
+
+	return (io->io_ops->op_get_wfd(io));
+}
+
+int
+io_close(struct io *io)
+{
+
+	return (io->io_ops->op_close(io));
+}
+
+bool
+io_is_readable(const struct io *io)
+{
+
+	return (io->io_ops->op_is_readable(io));
 }
 
 void
-write_or_die(int fd, const void *buf, size_t nbytes)
+io_dump(const struct io *io, char *str, size_t size)
+{
+
+	io->io_ops->op_dump(io, str, size);
+}
+
+int
+io_select(int nio, struct io *const *ios, struct timeval *timeout, int *error)
+{
+	struct io *io;
+	fd_set fds;
+	int fd, i, maxfd, n, nout;
+
+	if (nio == 0)
+		return (0);
+	for (i = 0; i < nio; i++)
+		if (io_is_readable(ios[i]))
+			return (1);
+
+	for (;;) {
+		FD_ZERO(&fds);
+		maxfd = -1;
+		for (i = 0; i < nio; i++) {
+			io = ios[i];
+			fd = io->io_ops->op_get_rfd(io);
+			FD_SET(fd, &fds);
+			maxfd = maxfd < fd ? fd : maxfd;
+		}
+		n = select(maxfd + 1, &fds, NULL, NULL, timeout);
+		if (n == -1) {
+			*error = errno;
+			return (-1);
+		}
+		if (n == 0)
+			return (0);
+		nout = 0;
+		for (i = 0; i < nio; i++) {
+			io = ios[i];
+			fd = io->io_ops->op_get_rfd(io);
+			if (!FD_ISSET(fd, &fds))
+				continue;
+			io->io_ops->op_set_readable(io);
+			if (io_is_readable(io))
+				nout++;
+		}
+		if (0 < nout)
+			return (nout);
+	}
+}
+
+static int
+wait_data(struct io *io, struct timeval *timeout)
+{
+	int n, error;
+
+	n = io_select(1, &io, timeout, &error);
+	if (n == -1) {
+		io->io_error = error;
+		return (-1);
+	}
+	if (n == 0) {
+		io->io_error = ETIMEDOUT;
+		return (-1);
+	}
+	assert(n == 1);
+
+	return (0);
+}
+
+void
+write_or_die(struct io *io, const void *buf, size_t nbytes)
 {
 	size_t n = 0;
 	ssize_t m;
+	char s[256];
 
 #if 0
 	syslog(LOG_DEBUG, "write: nbytes=%lu", nbytes);
@@ -39,16 +360,17 @@ write_or_die(int fd, const void *buf, size_t nbytes)
 #endif
 
 	while (n < nbytes) {
-		m = write(fd, (char *)buf + n, nbytes - n);
+		m = io->io_ops->op_write(io, (char *)buf + n, nbytes - n);
 		if (m < 0) {
 			/*
 			 * For more about design information, please read the
 			 * comment in ignore_sigpipe() in fshub/main.c. The
 			 * comment tells why here ignores EPIPE.
 			 */
-			if (errno == EPIPE)
+			if (io->io_error == EPIPE)
 				return;
-			die(-1, "cannot write to fd %d", fd);
+			io->io_ops->op_dump(io, s, sizeof(s));
+			die(-1, "cannot write to %s", s);
 		}
 		n -= m;
 	}
@@ -57,41 +379,27 @@ write_or_die(int fd, const void *buf, size_t nbytes)
 int
 io_read_all(struct io *io, void *buf, payload_size_t nbytes)
 {
-	fd_set fds;
 	struct timeval timeout;
 	size_t n = 0;
 	ssize_t m;
-	int fd, l;
 
 	timeout.tv_sec = 8;	/* Caller must give this. */
 	timeout.tv_usec = 0;
 
-	fd = io->io_fd;
 	while (n < nbytes) {
-		FD_ZERO(&fds);
-		FD_SET(fd, &fds);
-		l = select(fd + 1, &fds, NULL, NULL, &timeout);
-		if (l == -1) {
-			if (errno != EINTR) {
-				io->io_error = errno;
+		if (wait_data(io, &timeout) == -1) {
+			if (io->io_error != EINTR)
 				return (-1);
-			}
 			continue;
 		}
-		if (l == 0) {
-			io->io_error = ETIMEDOUT;
-			return (-1);
-		}
 
-		m = read(fd, (char *)buf + n, nbytes - n);
+		m = io->io_ops->op_read(io, (char *)buf + n, nbytes - n);
 		if (m == 0) {
 			io->io_error = EPIPE;
 			return (-1);
 		}
-		if (m < 0) {
-			io->io_error = errno;
+		if (m < 0)
 			return (-1);
-		}
 		n += m;
 	}
 
@@ -100,13 +408,13 @@ io_read_all(struct io *io, void *buf, payload_size_t nbytes)
 
 #define	IMPLEMENT_WRITE_X(type, name, bufsize, encode)	\
 void							\
-name(int fd, type n)					\
+name(struct io *io, type n)				\
 {							\
 	int len;					\
 	char buf[bufsize];				\
 							\
 	len = encode(n, buf, array_sizeof(buf));	\
-	write_or_die(fd, buf, len);			\
+	write_or_die(io, buf, len);			\
 }
 
 IMPLEMENT_WRITE_X(
@@ -194,9 +502,9 @@ IMPLEMENT_READ_WITHOUT_LEN_X(
 		decode_payload_size)
 
 void
-write_pair_id(int fd, pair_id_t pair_id)
+write_pair_id(struct io *io, pair_id_t pair_id)
 {
-	write_uint64(fd, pair_id);
+	write_uint64(io, pair_id);
 }
 
 int
@@ -208,7 +516,7 @@ io_read_pair_id(struct io *io, pair_id_t *pair_id)
 }
 
 int
-io_transfer(struct io *io, int wfd, uint32_t len)
+io_transfer(struct io *src, struct io *dst, uint32_t len)
 {
 	uint32_t nbytes, rest;
 	char buf[1024];
@@ -216,9 +524,9 @@ io_transfer(struct io *io, int wfd, uint32_t len)
 	rest = len;
 	while (0 < rest) {
 		nbytes = MIN(array_sizeof(buf), rest);
-		if (io_read_all(io, buf, nbytes) == -1)
+		if (io_read_all(src, buf, nbytes) == -1)
 			return (-1);
-		write_or_die(wfd, buf, nbytes);
+		write_or_die(dst, buf, nbytes);
 		rest -= nbytes;
 	}
 

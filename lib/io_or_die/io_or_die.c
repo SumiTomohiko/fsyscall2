@@ -10,15 +10,12 @@
 
 #define	IMPLEMENTE_READ_FUNC(name, type)		\
 type							\
-read_##name(int fd, payload_size_t *len)		\
+read_##name(struct io *io, payload_size_t *len)		\
 {							\
-	struct io io;					\
 	type n;						\
 							\
-	io_init(&io, fd);				\
-							\
-	if (io_read_##name(&io, &n, len) == -1)		\
-		diec(1, io.io_error, "cannot read");	\
+	if (io_read_##name(io, &n, len) == -1)		\
+		diec(1, io->io_error, "cannot read");	\
 							\
 	return (n);					\
 }
@@ -43,15 +40,12 @@ IMPLEMENTE_READ_FUNC(susecond, suseconds_t)
 
 #define	IMPLEMENTE_READ_FUNC_WITHOUT_SIZE(name, type)	\
 type							\
-read_##name(int fd)					\
+read_##name(struct io *io)				\
 {							\
-	struct io io;					\
 	type n;						\
 							\
-	io_init(&io, fd);				\
-							\
-	if (io_read_##name(&io, &n) == -1)		\
-		diec(1, io.io_error, "cannot read");	\
+	if (io_read_##name(io, &n) == -1)		\
+		diec(1, io->io_error, "cannot read");	\
 							\
 	return (n);					\
 }
@@ -61,82 +55,67 @@ IMPLEMENTE_READ_FUNC_WITHOUT_SIZE(pair_id, pair_id_t)
 IMPLEMENTE_READ_FUNC_WITHOUT_SIZE(payload_size, payload_size_t)
 
 void
-read_or_die(int fd, void *buf, int nbytes)
+read_or_die(struct io *io, void *buf, int nbytes)
 {
-	struct io io;
 
-	io_init(&io, fd);
-
-	if (io_read_all(&io, buf, nbytes) == -1)
-		diec(1, io.io_error, "cannot read");
+	if (io_read_all(io, buf, nbytes) == -1)
+		diec(1, io->io_error, "cannot read");
 }
 
 int
-read_numeric_sequence(int fd, char *buf, int bufsize)
+read_numeric_sequence(struct io *io, char *buf, int bufsize)
 {
-	struct io io;
 	int len;
 
-	io_init(&io, fd);
-	len = io_read_numeric_sequence(&io, buf, bufsize);
+	len = io_read_numeric_sequence(io, buf, bufsize);
 	if (len == -1)
-		diec(1, io.io_error, "cannot read numeric sequence");
+		diec(1, io->io_error, "cannot read numeric sequence");
 
 	return (len);
 }
 
 void
-transfer(int rfd, int wfd, uint32_t len)
+transfer(struct io *src, struct io *dst, uint32_t len)
 {
-	struct io io;
 
-	io_init(&io, rfd);
-	if (io_transfer(&io, wfd, len) == -1)
-		diec(1, io.io_error, "cannot transfer");
+	if (io_transfer(src, dst, len) == -1)
+		diec(1, src->io_error, "cannot transfer");
 }
 
 char *
-read_string(int fd, payload_size_t *len)
+read_string(struct io *io, payload_size_t *len)
 {
-	struct io io;
 	char *s;
 
-	io_init(&io, fd);
-	if (io_read_string(&io, &s, len) == -1)
-		diec(1, io.io_error, "cannot read string");
+	if (io_read_string(io, &s, len) == -1)
+		diec(1, io->io_error, "cannot read string");
 
 	return (s);
 }
 
 void
-read_timeval(int fd, struct timeval *t, payload_size_t *len)
+read_timeval(struct io *io, struct timeval *t, payload_size_t *len)
 {
-	struct io io;
 
-	io_init(&io, fd);
-	if (io_read_timeval(&io, t, len) == -1)
-		diec(1, io.io_error, "cannot read timeval");
+	if (io_read_timeval(io, t, len) == -1)
+		diec(1, io->io_error, "cannot read timeval");
 }
 
 void
-read_sigset(int fd, sigset_t *set, payload_size_t *len)
+read_sigset(struct io *io, sigset_t *set, payload_size_t *len)
 {
-	struct io io;
 
-	io_init(&io, fd);
-	if (io_read_sigset(&io, set, len) == -1)
-		diec(1, io.io_error, "cannot read sigset");
+	if (io_read_sigset(io, set, len) == -1)
+		diec(1, io->io_error, "cannot read sigset");
 }
 
 pid_t
-read_pid(int fd, payload_size_t *len)
+read_pid(struct io *io, payload_size_t *len)
 {
-	struct io io;
 	pid_t pid;
 
-	io_init(&io, fd);
-	if (io_read_pid(&io, &pid, len) == -1)
-		diec(1, io.io_error, "cannot read pid");
+	if (io_read_pid(io, &pid, len) == -1)
+		diec(1, io->io_error, "cannot read pid");
 
 	return (pid);
 }

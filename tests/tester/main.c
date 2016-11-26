@@ -161,7 +161,7 @@ main(int argc, char *argv[])
 		 * exec.c declares extern environ by itself.
 		 */
 		extern char *const *environ;
-		return (fsyscall_run_master(r, w, argc, argv, environ));
+		return (fsyscall_run_master_nossl(r, w, argc, argv, environ));
 	}
 
 	if (verbose) {

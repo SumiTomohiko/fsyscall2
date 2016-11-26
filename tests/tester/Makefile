@@ -5,7 +5,7 @@ WITHOUT_MAN=	yes
 TOP_DIR=	../..
 CFLAGS=		-I${TOP_DIR}/include
 LIB_DIR=	${TOP_DIR}/lib
-LDADD =		${LIB_DIR}/start_slave/libstart_slave.a \
+LDADD =		-lssl ${LIB_DIR}/start_slave/libstart_slave.a \
 		${LIB_DIR}/run_master/librun_master.a \
 		${TOP_DIR}/libfmhub/libfmhub.a
 

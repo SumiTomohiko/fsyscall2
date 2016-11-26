@@ -27,8 +27,7 @@
 
 struct slave {
 	struct item item;
-	int rfd;
-	int wfd;
+	struct io io;
 	pair_id_t pair_id;
 	bool exited;
 };
@@ -44,16 +43,19 @@ struct fork_info {
 struct shub {
 	struct connection mhub;
 	struct list slaves;
+	struct io **ios;
 	int fork_sock;
+	int nslaves;
 	struct list fork_info;
 };
 
 static void
-log_fds(const char *label, int rfd, int wfd)
+log_io(const char *label, const struct io *io)
 {
-	const char *fmt = "fds for %s are %d (read) and %d (write)";
+	char buf[256];
 
-	syslog(LOG_DEBUG, fmt, label, rfd, wfd);
+	io_dump(io, buf, sizeof(buf));
+	syslog(LOG_DEBUG, "io for %s is %s", label, buf);
 }
 
 static void
@@ -65,11 +67,13 @@ usage()
 static void
 negotiate_version_with_mhub(struct shub *shub)
 {
+	struct io *io;
 	uint8_t request;
 	uint8_t ver = 0;
 
-	write_or_die(shub->mhub.wfd, &ver, sizeof(ver));
-	read_or_die(shub->mhub.rfd, &request, sizeof(request));
+	io = shub->mhub.conn_io;
+	write_or_die(io, &ver, sizeof(ver));
+	read_or_die(io, &request, sizeof(request));
 	assert(request == 0);
 	syslog(LOG_INFO, "protocol version for mhub is %d.", ver);
 }
@@ -77,35 +81,36 @@ negotiate_version_with_mhub(struct shub *shub)
 static void
 negotiate_version_with_slave(struct slave *slave)
 {
+	struct io *io;
 	uint8_t request, ver = 0;
 
-	read_or_die(slave->rfd, &request, sizeof(request));
+	io = &slave->io;
+	read_or_die(io, &request, sizeof(request));
 	assert(request == 0);
-	write_or_die(slave->wfd, &ver, sizeof(ver));
+	write_or_die(io, &ver, sizeof(ver));
 	syslog(LOG_INFO, "protocol version for slave is %d.", ver);
 }
 
 static void
 read_pids(struct shub *shub, struct slave *slave)
 {
-	slave->pair_id = read_pair_id(shub->mhub.rfd);
+	slave->pair_id = read_pair_id(shub->mhub.conn_io);
 }
 
 static bool
-compare_rfd(struct item *item, void *bonus)
+compare_io(struct item *item, void *bonus)
 {
 	struct slave *slave = (struct slave *)item;
-	int *pfd = (int *)bonus;
 
-	return (slave->rfd == *pfd);
+	return (&slave->io == bonus);
 }
 
 static struct slave *
-find_slave_of_rfd(struct shub *shub, int rfd)
+find_slave_of_io(struct shub *shub, struct io *io)
 {
 	struct item *item;
 
-	item = list_search(&shub->slaves, compare_rfd, (void *)&rfd);
+	item = list_search(&shub->slaves, compare_io, io);
 	assert(item != NULL);
 
 	return (struct slave *)item;
@@ -132,11 +137,25 @@ find_slave_of_pair_id(struct shub *shub, pair_id_t pair_id)
 }
 
 static void
-dispose_slave(struct slave *slave)
+alloc_ios(struct shub *shub)
+{
+	size_t size;
+
+	free(shub->ios);
+
+	size = sizeof(struct io *) * (shub->nslaves + 1);
+	shub->ios = (struct io **)malloc_or_die(size);
+}
+
+static void
+dispose_slave(struct shub *shub, struct slave *slave)
 {
 
+	shub->nslaves--;
+	alloc_ios(shub);
+
 	REMOVE_ITEM(slave);
-	hub_close_fds_or_die(slave->rfd, slave->wfd);
+	hub_close_fds_or_die(&slave->io);
 	free(slave);
 }
 
@@ -144,36 +163,35 @@ static void
 transfer_simple_command_to_slave(struct shub *shub, command_t cmd)
 {
 	pair_id_t pair_id;
-	int wfd;
 
-	pair_id = read_pair_id(shub->mhub.rfd);
+	pair_id = read_pair_id(shub->mhub.conn_io);
 	syslog(LOG_DEBUG, "%s: pair_id=%ld", get_command_name(cmd), pair_id);
 
-	wfd = find_slave_of_pair_id(shub, pair_id)->wfd;
-	write_command(wfd, cmd);
+	write_command(&find_slave_of_pair_id(shub, pair_id)->io, cmd);
 }
 
 static void
 transfer_payload_to_slave(struct shub *shub, command_t cmd)
 {
+	struct io *dst, *src;
 	pair_id_t pair_id;
 	uint32_t payload_size;
-	int len, rfd, wfd;
+	int len;
 	char buf[FSYSCALL_BUFSIZE_INT32];
 	const char *fmt = "%s: pair_id=%ld, payload_size=%u", *name;
 
-	rfd = shub->mhub.rfd;
-	pair_id = read_pair_id(rfd);
-	len = read_numeric_sequence(rfd, buf, array_sizeof(buf));
+	src = shub->mhub.conn_io;
+	pair_id = read_pair_id(src);
+	len = read_numeric_sequence(src, buf, array_sizeof(buf));
 	payload_size = decode_uint32(buf, len);
 
 	name = get_command_name(cmd);
 	syslog(LOG_DEBUG, fmt, name, pair_id, payload_size);
 
-	wfd = find_slave_of_pair_id(shub, pair_id)->wfd;
-	write_command(wfd, cmd);
-	write_or_die(wfd, buf, len);
-	transfer(rfd, wfd, payload_size);
+	dst = &find_slave_of_pair_id(shub, pair_id)->io;
+	write_command(dst, cmd);
+	write_or_die(dst, buf, len);
+	transfer(src, dst, payload_size);
 }
 
 static void
@@ -182,11 +200,11 @@ process_thr_exit(struct shub *shub)
 	struct slave *slave;
 	pair_id_t pair_id;
 
-	pair_id = read_pair_id(shub->mhub.rfd);
+	pair_id = read_pair_id(shub->mhub.conn_io);
 	slave = find_slave_of_pair_id(shub, pair_id);
 	syslog(LOG_DEBUG, "THR_EXIT_CALL: pair_id=%ld", pair_id);
 
-	write_command(slave->wfd, THR_EXIT_CALL);
+	write_command(&slave->io, THR_EXIT_CALL);
 
 	slave->exited = true;
 }
@@ -195,19 +213,20 @@ static void
 process_exit(struct shub *shub)
 {
 	struct slave *slave;
+	struct io *dst, *src;
 	payload_size_t _;
 	pair_id_t pair_id;
-	int rfd, status, wfd;
+	int status;
 
-	rfd = shub->mhub.rfd;
-	pair_id = read_pair_id(rfd);
+	src = shub->mhub.conn_io;
+	pair_id = read_pair_id(src);
 	slave = find_slave_of_pair_id(shub, pair_id);
-	status = read_int32(rfd, &_);
+	status = read_int32(src, &_);
 	syslog(LOG_DEBUG, "EXIT_CALL: pair_id=%ld, status=%d", pair_id, status);
 
-	wfd = slave->wfd;
-	write_command(wfd, EXIT_CALL);
-	write_int32(wfd, status);
+	dst = &slave->io;
+	write_command(dst, EXIT_CALL);
+	write_int32(dst, status);
 
 	slave->exited = true;
 }
@@ -234,12 +253,15 @@ find_fork_info_or_die(struct shub *shub, const char *token)
 }
 
 static struct slave *
-alloc_slave()
+alloc_slave(struct shub *shub)
 {
 	struct slave *slave;
 
 	slave = (struct slave *)malloc_or_die(sizeof(*slave));
 	slave->exited = false;
+
+	shub->nslaves++;
+	alloc_ios(shub);
 
 	return (slave);
 }
@@ -250,6 +272,7 @@ process_fork_socket(struct shub *shub)
 	struct slave *slave;
 	struct sockaddr_storage addr;
 	struct fork_info *fi;
+	struct io io;
 	socklen_t addrlen;
 	pair_id_t pair_id;
 	int fd;
@@ -259,16 +282,17 @@ process_fork_socket(struct shub *shub)
 	fd = accept(shub->fork_sock, (struct sockaddr *)&addr, &addrlen);
 	if (fd < 0)
 		die(1, "Cannot accept(2)");
-	read_or_die(fd, token, sizeof(token));
+	io_init_nossl(&io, fd, fd);
+	read_or_die(&io, token, sizeof(token));
 	fi = find_fork_info_or_die(shub, token);
 	syslog(LOG_INFO, "A trusted slave has been connected.");
 
-	slave = alloc_slave();
-	slave->rfd = slave->wfd = fd;
+	slave = alloc_slave(shub);
+	io_init_nossl(&slave->io, fd, fd);
 	pair_id = slave->pair_id = fi->pair_id;
 	PREPEND_ITEM(&shub->slaves, slave);
 	snprintf(name, sizeof(name), "the new slave (pair id: %lu)", pair_id);
-	log_fds(name, slave->rfd, slave->wfd);
+	log_io(name, &slave->io);
 
 	REMOVE_ITEM(fi);
 	free(fi);
@@ -278,15 +302,15 @@ static void
 transfer_token(struct shub *shub, command_t cmd)
 {
 	struct fork_info *fork_info;
+	struct io *dst, *src;
 	pair_id_t child_pair_id, pair_id;
-	int rfd, wfd;
 	const char *fmt = "%s: pair_id=%ld";
 	char *token;
 
-	rfd = shub->mhub.rfd;
-	pair_id = read_pair_id(rfd);
-	read_payload_size(rfd);	// unused
-	child_pair_id = read_pair_id(rfd);
+	src = shub->mhub.conn_io;
+	pair_id = read_pair_id(src);
+	read_payload_size(src);	// unused
+	child_pair_id = read_pair_id(src);
 
 	syslog(LOG_DEBUG, fmt, get_command_name(cmd), pair_id);
 
@@ -296,10 +320,10 @@ transfer_token(struct shub *shub, command_t cmd)
 	fork_info->pair_id = child_pair_id;
 	PREPEND_ITEM(&shub->fork_info, fork_info);
 
-	wfd = find_slave_of_pair_id(shub, pair_id)->wfd;
-	write_command(wfd, cmd);
-	write_payload_size(wfd, TOKEN_SIZE);
-	write_or_die(wfd, token, TOKEN_SIZE);
+	dst = &find_slave_of_pair_id(shub, pair_id)->io;
+	write_command(dst, cmd);
+	write_payload_size(dst, TOKEN_SIZE);
+	write_or_die(dst, token, TOKEN_SIZE);
 
 	process_fork_socket(shub);
 }
@@ -307,12 +331,10 @@ transfer_token(struct shub *shub, command_t cmd)
 static int
 process_mhub(struct shub *shub)
 {
-	struct io io;
 	command_t cmd;
 	const char *fmt = "processing %s from the master";
 
-	io_init(&io, shub->mhub.rfd);
-	if (io_read_command(&io, &cmd) == -1)
+	if (io_read_command(shub->mhub.conn_io, &cmd) == -1)
 		return (-1);
 	syslog(LOG_DEBUG, fmt, get_command_name(cmd));
 	switch (cmd) {
@@ -363,12 +385,12 @@ process_mhub(struct shub *shub)
 static void
 write_signaled(struct shub *shub, struct slave *slave, char sig)
 {
-	int wfd;
+	struct io *io;
 
-	wfd = shub->mhub.wfd;
-	write_command(wfd, SIGNALED);
-	write_pair_id(wfd, slave->pair_id);
-	write_or_die(wfd, &sig, sizeof(sig));
+	io = shub->mhub.conn_io;
+	write_command(io, SIGNALED);
+	write_pair_id(io, slave->pair_id);
+	write_or_die(io, &sig, sizeof(sig));
 }
 
 static int
@@ -376,7 +398,7 @@ process_signaled(struct shub *shub, struct slave *slave)
 {
 	char sig;
 
-	read_or_die(slave->rfd, &sig, sizeof(sig));
+	read_or_die(&slave->io, &sig, sizeof(sig));
 	syslog(LOG_DEBUG, "signal: %d (SIG%s)", sig, sys_signame[(int)sig]);
 
 	write_signaled(shub, slave, sig);
@@ -388,15 +410,14 @@ static int
 transfer_payload_from_slave(struct shub *shub, struct slave *slave,
 			    command_t cmd)
 {
-	struct io io;
+	struct io *dst, *src;
 	uint32_t payload_size;
-	int len, wfd;
+	int len;
 	char buf[FSYSCALL_BUFSIZE_UINT32];
 	const char *name;
 
-	io_init(&io, slave->rfd);
-
-	len = io_read_numeric_sequence(&io, buf, array_sizeof(buf));
+	src = &slave->io;
+	len = io_read_numeric_sequence(src, buf, array_sizeof(buf));
 	if (len == -1)
 		return (-1);
 	payload_size = decode_uint32(buf, len);
@@ -404,11 +425,11 @@ transfer_payload_from_slave(struct shub *shub, struct slave *slave,
 	name = get_command_name(cmd);
 	syslog(LOG_DEBUG, "%s: payload_size=%u", name, payload_size);
 
-	wfd = shub->mhub.wfd;
-	write_command(wfd, cmd);
-	write_pair_id(wfd, slave->pair_id);
-	write_or_die(wfd, buf, len);
-	if (io_transfer(&io, wfd, payload_size) == -1)
+	dst = shub->mhub.conn_io;
+	write_command(dst, cmd);
+	write_pair_id(dst, slave->pair_id);
+	write_or_die(dst, buf, len);
+	if (io_transfer(src, dst, payload_size) == -1)
 		return (-1);
 
 	return (0);
@@ -417,20 +438,16 @@ transfer_payload_from_slave(struct shub *shub, struct slave *slave,
 static int
 process_slave(struct shub *shub, struct slave *slave)
 {
-	struct io io;
 	pair_id_t pair_id;
 	command_t cmd;
-	int rfd;
 	const char *errfmt = "unknown command (%d) from slave %ld";
-	const char *fmt = "the slave of pair id %ld (rfd %d) is ready to read";
+	const char *fmt = "the slave of pair id %ld is ready to read";
 	const char *fmt2 = "processing %s from the slave of pair id %d";
 
 	pair_id = slave->pair_id;
-	rfd = slave->rfd;
-	syslog(LOG_DEBUG, fmt, pair_id, rfd);
+	syslog(LOG_DEBUG, fmt, pair_id);
 
-	io_init(&io, rfd);
-	if (io_read_command(&io, &cmd) == -1)
+	if (io_read_command(&slave->io, &cmd) == -1)
 		return (-1);
 	syslog(LOG_DEBUG, fmt2, get_command_name(cmd), pair_id);
 	switch (cmd) {
@@ -469,7 +486,7 @@ process_slave(struct shub *shub, struct slave *slave)
 }
 
 static int
-process_fd(struct shub *shub, int fd, fd_set *fds)
+process_fd(struct shub *shub, struct io *io)
 {
 	/*
 	 * TODO: This part is almost same as fmhub/main.c (process_fd). Share
@@ -477,12 +494,12 @@ process_fd(struct shub *shub, int fd, fd_set *fds)
 	 */
 	struct slave *slave;
 
-	if (!FD_ISSET(fd, fds))
+	if (!io_is_readable(io))
 		return (0);
-	if (shub->mhub.rfd == fd)
+	if (shub->mhub.conn_io == io)
 		return (process_mhub(shub));
 
-	slave = find_slave_of_rfd(shub, fd);
+	slave = find_slave_of_io(shub, io);
 	if (process_slave(shub, slave) == -1) {
 		/*
 		 * If a slave died without exit(2) calling, here assumes that
@@ -490,7 +507,7 @@ process_fd(struct shub *shub, int fd, fd_set *fds)
 		 */
 		if (!slave->exited)
 			write_signaled(shub, slave, SIGKILL);
-		dispose_slave(slave);
+		dispose_slave(shub, slave);
 	}
 
 	return (0);
@@ -504,31 +521,25 @@ process_fds(struct shub *shub)
 	 * code with it.
 	 */
 	struct slave *slave;
-	fd_set fds, *pfds;
-	int fork_sock, i, max_fd, n, nfds, rfd;
+	struct io **ios;
+	int error, i, n, nios;
 
-	pfds = &fds;
-	FD_ZERO(pfds);
+	ios = shub->ios;
+	ios[0] = shub->mhub.conn_io;
 
-	rfd = shub->mhub.rfd;
-	FD_SET(rfd, pfds);
-	fork_sock = shub->fork_sock;
-	FD_SET(fork_sock, pfds);
-
-	max_fd = MAX(rfd, fork_sock);
 	slave = (struct slave *)FIRST_ITEM(&shub->slaves);
+	i = 1;
 	while (!IS_LAST(slave)) {
-		rfd = slave->rfd;
-		FD_SET(rfd, pfds);
-		max_fd = MAX(max_fd, rfd);
+		ios[i] = &slave->io;
 		slave = (struct slave *)ITEM_NEXT(slave);
+		i++;
 	}
-	nfds = max_fd + 1;
-	n = select(nfds, pfds, NULL, NULL, NULL);
+	nios = shub->nslaves + 1;
+	n = io_select(nios, ios, NULL, &error);
 	if (n == -1)
-		die(-1, "select failed");
-	for (i = 0; i < nfds; i++)
-		if (process_fd(shub, i, pfds) == -1)
+		diec(1, error, "select failed");
+	for (i = 0; i < nios; i++)
+		if (process_fd(shub, ios[i]) == -1)
 			return (-1);
 
 	return (0);
@@ -550,7 +561,7 @@ shub_main(struct shub *shub)
 	negotiate_version_with_mhub(shub);
 	negotiate_version_with_slave(slave);
 	read_pids(shub, slave);
-	transport_fds(slave->rfd, shub->mhub.wfd);
+	transport_fds(&slave->io, shub->mhub.conn_io);
 
 	mainloop(shub);
 
@@ -586,6 +597,8 @@ main(int argc, char *argv[])
 		{ NULL, 0, NULL, 0 }
 	};
 	struct shub *pshub, shub;
+	struct slave *slave;
+	struct io io;
 	int fork_sock, opt, status;
 	const char *sock_path;
 	char **args;
@@ -613,16 +626,19 @@ main(int argc, char *argv[])
 	}
 
 	args = &argv[optind];
-	pshub->mhub.rfd = atoi_or_die(args[0], "mhub_rfd");
-	pshub->mhub.wfd = atoi_or_die(args[1], "mhub_wfd");
-	log_fds("mhub", pshub->mhub.rfd, pshub->mhub.wfd);
+	io_init_nossl(&io, atoi_or_die(args[0], "mhub_rfd"),
+		      atoi_or_die(args[1], "mhub_wfd"));
+	pshub->mhub.conn_io = &io;
+	log_io("mhub", pshub->mhub.conn_io);
 
 	initialize_list(&pshub->slaves);
-	struct slave *slave = alloc_slave();
-	slave->rfd = atoi_or_die(args[2], "slave_rfd");
-	slave->wfd = atoi_or_die(args[3], "slave_wfd");
+	pshub->ios = NULL;
+	pshub->nslaves = 0;
+	slave = alloc_slave(pshub);
+	io_init_nossl(&slave->io, atoi_or_die(args[2], "slave_rfd"),
+		      atoi_or_die(args[3], "slave_wfd"));
 	PREPEND_ITEM(&pshub->slaves, slave);
-	log_fds("slave", slave->rfd, slave->wfd);
+	log_io("slave", &slave->io);
 
 	sock_path = args[4];
 	pshub->fork_sock = fork_sock = hub_open_fork_socket(sock_path);

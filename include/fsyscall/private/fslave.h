@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 #include <fsyscall/private/command.h>
+#include <fsyscall/private/io.h>
 
 struct slave_thread;
 struct dir_entries_cache;
@@ -16,8 +17,9 @@ struct slave {
 	SLIST_HEAD(, slave_thread)	fsla_slaves;
 
 	struct dir_entries_cache	*fsla_dir_entries_cache;
+	struct io			fsla_sigr;	/* endpoint to read from
+							   the signal handler */
 	sigset_t mask;	/* signal mask during system call */
-	int sigr;	/* file descriptor for data from signal handler */
 	char *fork_sock;
 };
 
@@ -27,9 +29,8 @@ struct slave_thread {
 	SLIST_ENTRY(slave_thread)	fsth_next;
 
 	struct slave			*fsth_slave;
+	struct io			fsth_io;
 	SLIST_HEAD(, memory)		fsth_memory;
-	int				fsth_rfd;
-	int				fsth_wfd;
 	bool				fsth_signal_watcher;
 };
 

@@ -203,7 +203,8 @@ main(int argc, char *argv[])
 	master_pid = fork_or_die();
 	if (master_pid == 0) {
 		extern char *const *environ;
-		ret = fsyscall_run_master(d, d, argc - 1, &argv[1], environ);
+		ret = fsyscall_run_master_nossl(d, d, argc - 1, &argv[1],
+						environ);
 		return (ret);
 	}
 
