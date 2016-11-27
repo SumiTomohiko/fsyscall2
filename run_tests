@@ -112,17 +112,24 @@ do
 done
 
 if [ $# -eq 0 ]; then
-	if [ "${java}" = "${YES}" ]; then
+	case "${java}" in
+	"${YES}")
 		tests=$(find "${tests_dir}" -name "test_*" | sort)
-	else
-		tests=$(find "${tests_dir}" -name "test_*" | grep -wv java | sort)
-	fi
+		;;
+	*)
+		tests=$(find "${tests_dir}" -name "test_*" | grep -wv java								   | sort)
+		;;
+	esac
 else
 	tests="${@}"
 fi
-if [ "${java}" = "${YES}" ]; then
+case "${java}" in
+"${YES}")
 	tester="${tests_dir}/java_tester/java_tester"
-fi
+	;;
+*)
+	;;
+esac
 
 show_title "*" "Running Tests"
 summary=""
