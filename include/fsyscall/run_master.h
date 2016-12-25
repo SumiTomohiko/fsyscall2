@@ -5,7 +5,6 @@
 
 int	fsyscall_run_master_nossl(int, int, int, char * const *,
 				  char * const *);
-int	fsyscall_run_master_ssl(SSL *, int, char *, char * const *,
-				char * const *);
+int	fsyscall_run_master_ssl(SSL *, int, char * const *, char * const *);
 
 #endif
