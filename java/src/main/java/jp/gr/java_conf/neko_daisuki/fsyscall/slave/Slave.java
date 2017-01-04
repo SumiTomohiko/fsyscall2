@@ -3631,19 +3631,19 @@ public class Slave implements Runnable {
 
     private void doIterationWork(Selector selector) throws IOException,
                                                            SigkillException {
-        int nChannels = selector.select(120 * 1000);    // [msec]
-        switch (nChannels) {
+        selector.select(120 * 1000);    // [msec]
+        Set<SelectionKey> keys = selector.selectedKeys();
+        int nKeys = keys.size();
+        switch (nKeys) {
         case 0:
             throw new IOException("timeout");
         case 1:
         case 2:
             break;
         default:
-            String fmt = "Selector.select() returned invalid value, %d";
-            throw new Error(String.format(fmt, nChannels));
+            throw new Error(String.format("invalid key number: %d", nKeys));
         }
 
-        Set<SelectionKey> keys = selector.selectedKeys();
         for (SelectionKey key: keys) {
             SelectionKeyType a = (SelectionKeyType)key.attachment();
             switch (a) {

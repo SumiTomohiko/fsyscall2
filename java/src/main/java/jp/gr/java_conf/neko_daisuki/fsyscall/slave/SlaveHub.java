@@ -163,11 +163,11 @@ class SlaveHub {
             addNewSlaves();
 
             while (0 < mSlaves.size()) {
-                int nChannels = mSelector.select(120 * 1000);   // [msec]
-                if (nChannels == 0) {
+                mSelector.select(120 * 1000);   // [msec]
+                Set<SelectionKey> keys = mSelector.selectedKeys();
+                if (keys.size() == 0) {
                     throw new IOException("timeout");
                 }
-                Set<SelectionKey> keys = mSelector.selectedKeys();
                 for (SelectionKey key: keys) {
                     Object o = key.attachment();
                     SelectableAttachment a = (SelectableAttachment)o;
