@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <syslog.h>
 #include <unistd.h>
@@ -186,8 +187,12 @@ set_readable_ssl(struct io *io)
 static bool
 is_readable_ssl(const struct io *io)
 {
+	SSL *ssl;
 
-	return (0 < SSL_pending(io->io_ssl));
+	ssl = io->io_ssl;
+	SSL_read(ssl, NULL, 0);
+
+	return (0 < SSL_pending(ssl));
 }
 
 static int
@@ -235,6 +240,18 @@ static struct io_ops ops_ssl = {
 void
 io_init_ssl(struct io *io, SSL *ssl)
 {
+	int fd, flags;
+
+	fd = SSL_get_fd(ssl);
+	if (fd == -1) {
+		syslog(LOG_ERR, "cannot SSL_get_fd(3)");
+		return;
+	}
+	flags = fcntl(fd, F_GETFL);
+	if (fcntl(fd, F_SETFL, O_NONBLOCK | flags) == -1) {
+		syslog(LOG_ERR, "cannot fcntl(2): fd=%d", fd);
+		return;
+	}
 
 	io->io_ssl = ssl;
 	io->io_ops = &ops_ssl;
