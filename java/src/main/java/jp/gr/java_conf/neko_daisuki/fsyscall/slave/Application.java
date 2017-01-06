@@ -12,11 +12,13 @@ import java.net.SocketAddress;
 import java.net.URL;
 import java.nio.channels.Pipe;
 import java.nio.channels.SocketChannel;
+import java.security.GeneralSecurityException;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import javax.net.ssl.SSLContext;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Errno;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
@@ -24,9 +26,11 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.PairId;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Pid;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Signal;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
+import jp.gr.java_conf.neko_daisuki.fsyscall.io.SSLFrontEnd;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallReadableChannel;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallWritableChannel;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.SSLUtil;
 
 public class Application {
 
@@ -135,6 +139,35 @@ public class Application {
                 copy(file, url);
             }
             return file.getAbsolutePath();
+        }
+    }
+
+    private interface MainCleanUp {
+
+        public void run();
+    }
+
+    private static class NopMainCleanUp implements MainCleanUp {
+
+        public void run() {
+        }
+    }
+
+    private static class SSLMainCleanUp implements MainCleanUp {
+
+        private SSLFrontEnd mSSLFrontEnd;
+
+        public SSLMainCleanUp(SSLFrontEnd sslFrontEnd) {
+            mSSLFrontEnd = sslFrontEnd;
+        }
+
+        public void run() {
+            try {
+                mSSLFrontEnd.join();
+            }
+            catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -390,6 +423,67 @@ public class Application {
             return;
         }
 
+        MainCleanUp cleanUp;
+        SyscallReadableChannel readableChannel;
+        SyscallWritableChannel writableChannel;
+        String key = "fsyscall.ssl";
+        String ssl = System.getProperty(key, "false");
+        if (ssl.equals("true")) {
+            String keyStore = System.getProperty("fsyscall.keystore");
+            String password = System.getProperty("fsyscall.keystore_password");
+            SSLContext context;
+            try {
+                context = SSLUtil.createContext(keyStore, password);
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+                System.exit(246);
+                return;
+            }
+            catch (GeneralSecurityException e) {
+                e.printStackTrace();
+                System.exit(245);
+                return;
+            }
+            Pipe front2back;
+            Pipe back2front;
+            SSLFrontEnd sslFrontEnd;
+            try {
+                front2back = Pipe.open();
+                back2front = Pipe.open();
+                sslFrontEnd = new SSLFrontEnd(context, socket,
+                                              back2front.source(),
+                                              front2back.sink());
+                Pipe.SourceChannel source = front2back.source();
+                readableChannel = new SyscallReadableChannel(source);
+                writableChannel = new SyscallWritableChannel(back2front.sink());
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+                System.exit(244);
+                return;
+            }
+            cleanUp = new SSLMainCleanUp(sslFrontEnd);
+        }
+        else if (ssl.equals("false")) {
+            try {
+                readableChannel = new SyscallReadableChannel(socket);
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+                System.exit(247);
+                return;
+            }
+            writableChannel = new SyscallWritableChannel(socket);
+            cleanUp = new NopMainCleanUp();
+        }
+        else {
+            System.err.format("%s must be true or false, %s is not allowed",
+                              key, ssl);
+            System.exit(248);
+            return;
+        }
+
         Calendar now = Calendar.getInstance();
         String resourceFormat = "/tmp/slave.resource.%04d%02d%02d%02d%02d%02d";
         String resourceDir = String.format(resourceFormat,
@@ -413,8 +507,7 @@ public class Application {
             Permissions perm = new Permissions(true);
             Links links = new Links();
             try {
-                exitStatus = app.run(new SyscallReadableChannel(socket),
-                                     new SyscallWritableChannel(socket),
+                exitStatus = app.run(readableChannel, writableChannel,
                                      new NormalizedPath(args[1]), stdin, stdout,
                                      stderr, perm, links, null, resourceDir);
             }
@@ -424,6 +517,7 @@ public class Application {
             }
         }
         finally {
+            cleanUp.run();
             deleteDirectory(resourceDir);
         }
 

@@ -38,7 +38,8 @@ excludes = [
         StrictPattern("test_fcntl_accmode_readwrite"),
         StrictPattern("test_kqueue"),
         StrictPattern("test_kevent"),
-        StrictPattern("test_openat_perm")
+        StrictPattern("test_openat_perm"),
+        StrictPattern("test_getdirentries5")    # requires too long time.
         ]
 
 name = basename(argv[1])

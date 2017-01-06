@@ -71,6 +71,7 @@ fi
 dir="$(dirname $0)"
 tests_dir="${dir}/tests"
 tester="${tests_dir}/tester/tester"
+tester_opts=""
 tmp_dir="${dir}/tmp.tests"
 arch=$(uname -p)
 
@@ -80,6 +81,7 @@ NO="no"
 filter="/usr/bin/true"
 repeat="1"
 java="${NO}"
+ssl="${NO}"
 stop_on_ng="${NO}"
 syslog=""
 while [ 0 -lt $# ]
@@ -91,6 +93,10 @@ do
 		;;
 	"--java")
 		java="${YES}"
+		shift
+		;;
+	"--ssl")
+		ssl="${YES}"
 		shift
 		;;
 	"--repeat")
@@ -123,11 +129,32 @@ if [ $# -eq 0 ]; then
 else
 	tests="${@}"
 fi
+
 case "${java}" in
 "${YES}")
 	tester="${tests_dir}/java_tester/java_tester"
+	case "${ssl}" in
+	"${YES}")
+		ssl_dir="${tests_dir}/ssl"
+		tester_opts="--ssl"
+		tester_opts="${tester_opts} --cert=${ssl_dir}/cert.pem"
+		tester_opts="${tester_opts} --private=${ssl_dir}/private.pem"
+		tester_opts="${tester_opts} --keystore=${ssl_dir}/keystore"
+		tester_opts="${tester_opts} --keystore-password=hogehoge"
+		;;
+	*)
+		;;
+	esac
 	;;
 *)
+	case "${ssl}" in
+	"${YES}")
+		echo "error: ssl is available only for java." 1>&2
+		exit 1
+		;;
+	*)
+		;;
+	esac
 	;;
 esac
 
@@ -170,7 +197,7 @@ do
 			tailpid="$!"
 		fi
 
-		"${tester}" "${exe}" ${args} > "${stdout_log}"
+		"${tester}" ${tester_opts} "${exe}" ${args} > "${stdout_log}"
 		status="${?}"
 
 		if [ -n "${syslog}" ]; then
