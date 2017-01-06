@@ -11,6 +11,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Set;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
@@ -78,7 +79,9 @@ public class SyscallReadableChannel {
                 continue;
             }
 
-            int nChannels = mSelector.select(TIMEOUT);
+            mSelector.select(TIMEOUT);
+            Set<SelectionKey> keys = mSelector.selectedKeys();
+            int nChannels = keys.size();
             switch (nChannels) {
             case 0:
                 throw new IOException("timeout");
@@ -88,7 +91,7 @@ public class SyscallReadableChannel {
                 String fmt = "Selector.select() returned invalid value: %d";
                 throw new Error(String.format(fmt, nChannels));
             }
-            mSelector.selectedKeys().clear();
+            keys.clear();
 
             switch (mReadableChannel.read(buffer)) {
             case -1:
@@ -162,7 +165,9 @@ public class SyscallReadableChannel {
         }
 
         // The channel did not return any data immediately. Wait.
-        int nChannels = mSelector.select(TIMEOUT);
+        mSelector.select(TIMEOUT);
+        Set<SelectionKey> keys = mSelector.selectedKeys();
+        int nChannels = keys.size();
         switch (nChannels) {
         case 0:
             throw new IOException("timeout");
@@ -172,7 +177,7 @@ public class SyscallReadableChannel {
             String fmt = "Selector.select() returned invalid value: %d";
             throw new Error(String.format(fmt, nChannels));
         }
-        mSelector.selectedKeys().clear();
+        keys.clear();
 
         // The channel is ready to read (or disconnected). Try again.
         nBytes = mReadableChannel.read(mBuffer);
