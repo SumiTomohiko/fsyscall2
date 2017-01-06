@@ -16,6 +16,19 @@
 #include <fsyscall/run_master.h>
 
 static void
+info(const char *fmt, ...)
+{
+	va_list ap;
+	char buf[8192];
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+
+	fprintf(stderr, "%s\n", buf);
+}
+
+static void
 start_slave(in_port_t port)
 {
 	char *argv[7], dir[MAXPATHLEN], portbuf[32];
@@ -98,15 +111,18 @@ do_kill(pid_t pid)
 }
 
 static void
-wait_child_term(pid_t pids[2])
+wait_child_term(pid_t master_pid, pid_t slave_pid)
 {
 	struct kevent changelist[2], eventlist[2];
 	struct timespec timeout;
 	size_t npids;
-	pid_t pid;
+	pid_t pid, pids[2];
 	int kq, i, incomplete, nkev, status[2];
+	const char *which;
 
-	npids = 2;
+	npids = array_sizeof(pids);
+	pids[0] = master_pid;
+	pids[1] = slave_pid;
 
 	kq = kqueue();
 	if (kq == -1)
@@ -123,6 +139,7 @@ wait_child_term(pid_t pids[2])
 		die(1, "kevent(2)");
 		/* NOTREACHED */
 	case 0:
+		info("both of the master and the slave timeouted");
 		for (i = 0; i < npids; i++)
 			do_kill(pids[i]);
 		break;
@@ -135,6 +152,10 @@ wait_child_term(pid_t pids[2])
 			die(1, "kevent(2)");
 			/* NOTREACHED */
 		case 0:
+			which = changelist[incomplete].ident == master_pid
+				? "master"
+				: "slave";
+			info("the %s timeouted", which);
 			do_kill(pids[incomplete]);
 			break;
 		case 1:
@@ -169,18 +190,17 @@ report_abnormal_termination(const char *name, int status)
 	if (WIFEXITED(status))
 		return;
 	prog = getprogname();
-	fprintf(stderr, "%s: %s terminated abnormally\n", prog, name);
+	info("%s: %s terminated abnormally", prog, name);
 	if (WIFSIGNALED(status)) {
-		fmt = "%s:   signaled (%d, SIG%s)\n";
 		sig = WTERMSIG(status);
-		fprintf(stderr, fmt, prog, sig, sys_signame[sig]);
+		info("%s:   signaled (%d, SIG%s)", prog, sig, sys_signame[sig]);
 	}
 }
 
 int
 main(int argc, char *argv[])
 {
-	pid_t master_pid, pids[2], slave_pid;
+	pid_t master_pid, slave_pid;
 	int d, master_status, ret, slave_status, sock;
 	const in_port_t port = 54345;
 
@@ -209,9 +229,7 @@ main(int argc, char *argv[])
 	}
 
 	close_or_die(d);
-	pids[0] = slave_pid;
-	pids[1] = master_pid;
-	wait_child_term(pids);
+	wait_child_term(master_pid, slave_pid);
 	waitpid_or_die(slave_pid, &slave_status);
 	waitpid_or_die(master_pid, &master_status);
 	report_abnormal_termination("slave", slave_status);
