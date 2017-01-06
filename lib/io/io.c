@@ -372,7 +372,7 @@ write_or_die(struct io *io, const void *buf, size_t nbytes)
 			io->io_ops->op_dump(io, s, sizeof(s));
 			die(-1, "cannot write to %s", s);
 		}
-		n -= m;
+		n += m;
 	}
 }
 
