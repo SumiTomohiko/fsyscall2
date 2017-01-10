@@ -2,4 +2,18 @@
 
 dir=$(dirname $0)
 
-"${dir}/run_tests" --java --filter "${dir}/tests/java_filter" "$@"
+opts=""
+while [ 0 -lt $# ]
+do
+	case "$1" in
+	"--ssl")
+		opts="${opts} --ssl"
+		shift
+		;;
+	*)
+		break
+		;;
+	esac
+done
+
+"${dir}/run_tests" --java ${opts} --filter "${dir}/tests/java_filter" "$@"

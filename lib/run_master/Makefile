@@ -1,4 +1,4 @@
 
-LIB=	start_master
+LIB=	run_master
 
 .include "../Makefile.lib"

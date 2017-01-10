@@ -1,6 +1,6 @@
 
 SLAVEDIR=	fshub fslave
-SUBDIR= 	lib fmhub fmaster $(SLAVEDIR) tests
+SUBDIR= 	lib libfmhub fmaster $(SLAVEDIR) tests
 DOCDIR=		doc
 JAVADIR=	java
 JAVABUILDER=	./gradlew
@@ -21,7 +21,7 @@ install-all: install-master install-slave
 
 install-master:
 	@cd fmaster && $(MAKE) install
-	@cd fmhub && $(MAKE) install
+	@cd libfmhub && $(MAKE) install
 	@sync
 	@sync
 	@sync

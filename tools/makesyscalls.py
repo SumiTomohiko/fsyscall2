@@ -74,7 +74,7 @@ def main(dirpath):
     slave.write_proto(join(private_dir, "fslave"), syscalls)
 
     shub.write_fshub_dispatch(join(dirpath, "fshub"), syscalls)
-    mhub.write_fmhub_dispatch(join(dirpath, "fmhub"), syscalls)
+    mhub.write_fmhub_dispatch(join(dirpath, "libfmhub"), syscalls)
 
     java.write(join(dirpath, "java"), syscalls, codes)
 

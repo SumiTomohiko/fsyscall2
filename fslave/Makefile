@@ -4,7 +4,7 @@ SRCS=		fslave_close.c dir_entries_cache.c main.c
 TOP_DIR=	..
 CFLAGS=		-I${TOP_DIR}/include
 LIB_DIR=	${TOP_DIR}/lib
-LDADD=		${LIB_DIR}/geterrorname/libgeterrorname.a \
+LDADD=		-lssl ${LIB_DIR}/geterrorname/libgeterrorname.a \
 		${LIB_DIR}/read_sockaddr/libread_sockaddr.a \
 		${LIB_DIR}/payload/libpayload.a \
 		${LIB_DIR}/fork_or_die/libfork_or_die.a \

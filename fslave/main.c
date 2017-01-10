@@ -55,7 +55,7 @@ static int sigs[] = { SIGHUP, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT,
 		      SIGWINCH, SIGINFO, SIGUSR1, SIGUSR2, /*SIGTHR*/ };
 static int nsigs = array_sizeof(sigs);
 
-static int sigw;
+static struct io	sigw;
 
 #if 0
 static void
@@ -88,8 +88,10 @@ destroy_slave(struct slave *slave)
 
 	free(slave->fork_sock);
 	reset_signal_handler();
-	close_or_die(sigw);
-	close_or_die(slave->sigr);
+	if (io_close(&sigw) == -1)
+		diec(1, sigw.io_error, "cannot close sigw");
+	if (io_close(&slave->fsla_sigr) == -1)
+		diec(1, slave->fsla_sigr.io_error, "cannot close sigr");
 	dir_entries_cache_dispose(slave->fsla_dir_entries_cache);
 	pthread_rwlock_destroy(&slave->fsla_lock);
 	free(slave);
@@ -128,13 +130,11 @@ writelock_slave(struct slave *slave)
 static void
 close_slave_thread(struct slave_thread *slave_thread)
 {
-	int rfd, wfd;
+	struct io *io;
 
-	rfd = slave_thread->fsth_rfd;
-	wfd = slave_thread->fsth_wfd;
-	close_or_die(rfd);
-	if (rfd != wfd)
-		close_or_die(wfd);
+	io = &slave_thread->fsth_io;
+	if (io_close(io) == -1)
+		diec(1, io->io_error, "cannot close slave thread");
 }
 
 static void
@@ -185,16 +185,17 @@ mem_freeall(struct slave_thread *slave_thread)
 static void
 process_signal(struct slave_thread *slave_thread)
 {
-	int n, wfd;
+	struct io *dst;
+	int n;
 	char sig;
 
-	read_or_die(slave_thread->fsth_slave->sigr, &sig, sizeof(sig));
+	read_or_die(&slave_thread->fsth_slave->fsla_sigr, &sig, sizeof(sig));
 	n = (int)sig;
 	syslog(LOG_DEBUG, "signaled: %d (SIG%s)", n, sys_signame[n]);
 
-	wfd = slave_thread->fsth_wfd;
-	write_command(wfd, SIGNALED);
-	write_or_die(wfd, &sig, sizeof(sig));
+	dst = &slave_thread->fsth_io;
+	write_command(dst, SIGNALED);
+	write_or_die(dst, &sig, sizeof(sig));
 }
 
 void
@@ -212,24 +213,21 @@ suspend_signal(struct slave_thread *slave_thread, sigset_t *oset)
 void
 resume_signal(struct slave_thread *slave_thread, sigset_t *set)
 {
-	fd_set fds, *pfds;
+	struct io *ios[1];
 	struct timeval timeout;
-	int n, sigr;
+	int error, n;
 
 	if (sigprocmask(SIG_SETMASK, set, NULL) == -1)
 		die(1, "failed sigprocmask(2) to resume signal");
 	if (!slave_thread->fsth_signal_watcher)
 		return;
 
-	pfds = &fds;
-	sigr = slave_thread->fsth_slave->sigr;
+	ios[0] = &slave_thread->fsth_slave->fsla_sigr;
 	timeout.tv_sec = timeout.tv_usec = 0;
 	for (;;) {
-		FD_ZERO(pfds);
-		FD_SET(sigr, pfds);
-		n = select(sigr + 1, pfds, NULL, NULL, &timeout);
+		n = io_select(array_sizeof(ios), ios, &timeout, &error);
 		if (n == -1) {
-			if (errno != EINTR)
+			if (error != EINTR)
 				die(1, "failed select(2)");
 			continue;
 		}
@@ -259,8 +257,8 @@ negotiate_version(struct slave_thread *slave_thread)
 	uint8_t request_ver = 0;
 	uint8_t response;
 
-	write_or_die(slave_thread->fsth_wfd, &request_ver, sizeof(request_ver));
-	read_or_die(slave_thread->fsth_rfd, &response, sizeof(response));
+	write_or_die(&slave_thread->fsth_io, &request_ver, sizeof(request_ver));
+	read_or_die(&slave_thread->fsth_io, &response, sizeof(response));
 	assert(response == 0);
 	syslog(LOG_INFO, "protocol version for shub is %d.", response);
 }
@@ -268,9 +266,13 @@ negotiate_version(struct slave_thread *slave_thread)
 static bool
 is_alive_fd(struct slave_thread *slave_thread, int fd)
 {
-	if ((slave_thread->fsth_rfd == fd) || (slave_thread->fsth_wfd == fd))
+	if (io_get_rfd(&slave_thread->fsth_io) == fd)
 		return (false);
-	if ((slave_thread->fsth_slave->sigr == fd) || (sigw == fd))
+	if (io_get_wfd(&slave_thread->fsth_io) == fd)
+		return (false);
+	if (io_get_rfd(&slave_thread->fsth_slave->fsla_sigr) == fd)
+		return (false);
+	if (io_get_wfd(&sigw) == fd)
 		return (false);
 	if (fcntl(fd, F_GETFL) != -1)
 		return (true);
@@ -302,8 +304,9 @@ encode_alive_fd(struct slave_thread *slave_thread, int fd, char *dest, int size)
 static void
 write_open_fds(struct slave_thread *slave_thread)
 {
+	struct io *io;
 	size_t buf_size;
-	int i, nfds, pos, wfd;
+	int i, nfds, pos;
 	char *buf;
 
 	buf_size = count_alive_fds(slave_thread) * FSYSCALL_BUFSIZE_INT32;
@@ -316,22 +319,22 @@ write_open_fds(struct slave_thread *slave_thread)
 				       buf_size - pos);
 
 	assert(0 <= pos);
-	wfd = slave_thread->fsth_wfd;
-	write_int32(wfd, pos);
-	write_or_die(wfd, buf, pos);
+	io = &slave_thread->fsth_io;
+	write_int32(io, pos);
+	write_or_die(io, buf, pos);
 }
 
 static void
 return_generic(struct slave_thread *slave_thread, command_t cmd, char *ret_buf,
 	       int ret_len, char *errnum_buf, int errnum_len)
 {
-	int wfd;
+	struct io *io;
 
-	wfd = slave_thread->fsth_wfd;
-	write_command(wfd, cmd);
-	write_payload_size(wfd, ret_len + errnum_len);
-	write_or_die(wfd, ret_buf, ret_len);
-	write_or_die(wfd, errnum_buf, errnum_len);
+	io = &slave_thread->fsth_io;
+	write_command(io, cmd);
+	write_payload_size(io, ret_len + errnum_len);
+	write_or_die(io, ret_buf, ret_len);
+	write_or_die(io, errnum_buf, errnum_len);
 }
 
 void
@@ -386,16 +389,17 @@ static void
 read_fds(struct slave_thread *slave_thread, int *maxfd, fd_set *fds,
 	 payload_size_t *len)
 {
+	struct io *io;
 	payload_size_t fd_len, nfds_len, payload_size;
-	int fd, i, nfds, rfd;
+	int fd, i, nfds;
 
-	rfd = slave_thread->fsth_rfd;
+	io = &slave_thread->fsth_io;
 
-	nfds = read_int32(rfd, &nfds_len);
+	nfds = read_int32(io, &nfds_len);
 	payload_size = nfds_len;
 
 	for (i = 0; i < nfds; i++) {
-		fd = read_int32(rfd, &fd_len);
+		fd = read_int32(io, &fd_len);
 		payload_size += fd_len;
 		FD_SET(fd, fds);
 		*maxfd = MAX(*maxfd, fd);
@@ -409,14 +413,15 @@ read_select_parameters(struct slave_thread *slave_thread, int *nfds,
 		       fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
 		       struct timeval *timeout, struct timeval **ptimeout)
 {
+	struct io *io;
 	payload_size_t actual_payload_size, exceptfds_len, payload_size;
 	payload_size_t readfds_len, timeout_len, timeout_status_len;
 	payload_size_t writefds_len;
-	int maxfd, rfd, timeout_status;
+	int maxfd, timeout_status;
 
-	rfd = slave_thread->fsth_rfd;
+	io = &slave_thread->fsth_io;
 	actual_payload_size = 0;
-	payload_size = read_payload_size(rfd);
+	payload_size = read_payload_size(io);
 
 	maxfd = 0;
 	read_fds(slave_thread, &maxfd, readfds, &readfds_len);
@@ -426,14 +431,14 @@ read_select_parameters(struct slave_thread *slave_thread, int *nfds,
 	read_fds(slave_thread, &maxfd, exceptfds, &exceptfds_len);
 	actual_payload_size += exceptfds_len;
 
-	timeout_status = read_int32(rfd, &timeout_status_len);
+	timeout_status = read_int32(io, &timeout_status_len);
 	actual_payload_size += timeout_status_len;
 
 	if (timeout_status == 0)
 		*ptimeout = NULL;
 	else {
 		assert(timeout_status == 1);
-		read_timeval(rfd, timeout, &timeout_len);
+		read_timeval(io, timeout, &timeout_len);
 		actual_payload_size += timeout_len;
 		*ptimeout = timeout;
 	}
@@ -462,27 +467,28 @@ encode_fds(int nfds, fd_set *fds, char *buf, size_t bufsize)
 static void
 write_select_timeout(struct slave_thread *slave_thread)
 {
+	struct io *io;
 	payload_size_t retval_len;
-	int wfd;
 	char retval_buf[FSYSCALL_BUFSIZE_INT32];
 
 	retval_len = fsyscall_encode_int32(0, retval_buf, sizeof(retval_buf));
 
-	wfd = slave_thread->fsth_wfd;
-	write_command(wfd, SELECT_RETURN);
-	write_payload_size(wfd, retval_len);
-	write_or_die(wfd, retval_buf, retval_len);
+	io = &slave_thread->fsth_io;
+	write_command(io, SELECT_RETURN);
+	write_payload_size(io, retval_len);
+	write_or_die(io, retval_buf, retval_len);
 }
 
 static void
 write_select_ready(struct slave_thread *slave_thread, int retval, int nfds,
 		   fd_set *readfds, fd_set *writefds, fd_set *exceptfds)
 {
+	struct io *io;
 	payload_size_t exceptfds_len, nexceptfds_len, nreadfds_len;
 	payload_size_t nwritefds_len, payload_size, readfds_len, retval_len;
 	payload_size_t writefds_len;
 	size_t exceptfds_buf_len, readfds_buf_len, writefds_buf_len;
-	int nexceptfds, nreadfds, nwritefds, wfd;
+	int nexceptfds, nreadfds, nwritefds;
 	char *exceptfds_buf, nexceptfds_buf[FSYSCALL_BUFSIZE_INT32];
 	char nreadfds_buf[FSYSCALL_BUFSIZE_INT32];
 	char nwritefds_buf[FSYSCALL_BUFSIZE_INT32], *readfds_buf;
@@ -514,30 +520,30 @@ write_select_ready(struct slave_thread *slave_thread, int retval, int nfds,
 	ENCODE_FDS(exceptfds_len, exceptfds, exceptfds_buf, exceptfds_buf_len);
 #undef	ENCODE_FDS
 
-	wfd = slave_thread->fsth_wfd;
+	io = &slave_thread->fsth_io;
 	payload_size = retval_len + nreadfds_len + readfds_len + nwritefds_len +
 		       writefds_len + nexceptfds_len + exceptfds_len;
-	write_command(wfd, SELECT_RETURN);
-	write_payload_size(wfd, payload_size);
-	write_or_die(wfd, retval_buf, retval_len);
-	write_or_die(wfd, nreadfds_buf, nreadfds_len);
-	write_or_die(wfd, readfds_buf, readfds_len);
-	write_or_die(wfd, nwritefds_buf, nwritefds_len);
-	write_or_die(wfd, writefds_buf, writefds_len);
-	write_or_die(wfd, nexceptfds_buf, nexceptfds_len);
-	write_or_die(wfd, exceptfds_buf, exceptfds_len);
+	write_command(io, SELECT_RETURN);
+	write_payload_size(io, payload_size);
+	write_or_die(io, retval_buf, retval_len);
+	write_or_die(io, nreadfds_buf, nreadfds_len);
+	write_or_die(io, readfds_buf, readfds_len);
+	write_or_die(io, nwritefds_buf, nwritefds_len);
+	write_or_die(io, writefds_buf, writefds_len);
+	write_or_die(io, nexceptfds_buf, nexceptfds_len);
+	write_or_die(io, exceptfds_buf, exceptfds_len);
 }
 
 static void
 read_accept_protocol_request(struct slave_thread *slave_thread, int *s)
 {
+	struct io *io;
 	payload_size_t actual_payload_size, namelen_len, payload_size, s_len;
-	int rfd;
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
-	*s = read_int(rfd, &s_len);
-	read_socklen(rfd, &namelen_len);	/* namelen. unused */
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
+	*s = read_int(io, &s_len);
+	read_socklen(io, &namelen_len);		/* namelen. unused */
 	actual_payload_size = s_len + namelen_len;
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
 }
@@ -546,14 +552,14 @@ static void
 write_payloaded_command(struct slave_thread *slave_thread, command_t command,
 			struct payload *payload)
 {
+	struct io *io;
 	payload_size_t payload_size;
-	int wfd;
 
-	wfd = slave_thread->fsth_wfd;
+	io = &slave_thread->fsth_io;
 	payload_size = payload_get_size(payload);
-	write_command(wfd, command);
-	write_payload_size(wfd, payload_size);
-	write_or_die(wfd, payload_get(payload), payload_size);
+	write_command(io, command);
+	write_payload_size(io, payload_size);
+	write_or_die(io, payload_get(payload), payload_size);
 }
 
 static void
@@ -576,15 +582,15 @@ write_accept_protocol_response(struct slave_thread *slave_thread,
 static void
 read_accept4_args(struct slave_thread *slave_thread, int *s, int *flags)
 {
+	struct io *io;
 	payload_size_t actual_payload_size, flags_len, namelen_len;
 	payload_size_t payload_size, s_len;
-	int rfd;
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
-	*s = read_int(rfd, &s_len);
-	read_socklen(rfd, &namelen_len);	/* namelen. unused */
-	*flags = read_int(rfd, &flags_len);
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
+	*s = read_int(io, &s_len);
+	read_socklen(io, &namelen_len);		/* namelen. unused */
+	*flags = read_int(io, &flags_len);
 	actual_payload_size = s_len + namelen_len + flags_len;
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
 }
@@ -652,7 +658,7 @@ rs_read_socklen(struct rsopts *opts, socklen_t *socklen, payload_size_t *len)
 
 	slave_thread = (struct slave_thread *)opts->rs_bonus;
 
-	*socklen = read_socklen(slave_thread->fsth_rfd, len);
+	*socklen = read_socklen(&slave_thread->fsth_io, len);
 
 	return (0);
 }
@@ -664,7 +670,7 @@ rs_read_uint8(struct rsopts *opts, uint8_t *n, payload_size_t *len)
 
 	slave_thread = (struct slave_thread *)opts->rs_bonus;
 
-	*n = read_uint8(slave_thread->fsth_rfd, len);
+	*n = read_uint8(&slave_thread->fsth_io, len);
 
 	return (0);
 }
@@ -676,7 +682,7 @@ rs_read_uint64(struct rsopts *opts, uint64_t *n, payload_size_t *len)
 
 	slave_thread = (struct slave_thread *)opts->rs_bonus;
 
-	*n = read_uint64(slave_thread->fsth_rfd, len);
+	*n = read_uint64(&slave_thread->fsth_io, len);
 
 	return (0);
 }
@@ -688,7 +694,7 @@ rs_read(struct rsopts *opts, char *buf, int len)
 
 	slave_thread = (struct slave_thread *)opts->rs_bonus;
 
-	read_or_die(slave_thread->fsth_rfd, buf, len);
+	read_or_die(&slave_thread->fsth_io, buf, len);
 
 	return (0);
 }
@@ -735,21 +741,22 @@ process_connect_protocol(struct slave_thread *slave_thread,
 			 command_t call_command, command_t return_command,
 			 connect_syscall syscall)
 {
+	struct io *io;
 	struct sockaddr *name;
 	sigset_t oset;
 	payload_size_t actual_payload_size, namelen_len, payload_size, s_len;
 	payload_size_t sockaddr_len;
 	socklen_t namelen;
-	int e, retval, rfd, s;
+	int e, retval, s;
 
-	rfd = slave_thread->fsth_rfd;
+	io = &slave_thread->fsth_io;
 	actual_payload_size = 0;
-	payload_size = read_payload_size(rfd);
+	payload_size = read_payload_size(io);
 
-	s = read_int32(rfd, &s_len);
+	s = read_int32(io, &s_len);
 	actual_payload_size += s_len;
 
-	namelen = read_uint32(rfd, &namelen_len);
+	namelen = read_uint32(io, &namelen_len);
 	actual_payload_size += namelen_len;
 	name = (struct sockaddr *)alloca(namelen);
 
@@ -776,26 +783,27 @@ static void
 read_poll_args(struct slave_thread *slave_thread, struct poll_args *dest,
 	       int nfdsopts)
 {
+	struct io *io;
 	struct pollfd *fds;
 	payload_size_t actual_payload_size, events_len, fd_len, nfds_len;
 	payload_size_t payload_size, timeout_len;
-	int i, nfds, rfd, timeout;
+	int i, nfds, timeout;
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
 	actual_payload_size = 0;
 
-	nfds = read_int32(rfd, &nfds_len);
+	nfds = read_int32(io, &nfds_len);
 	actual_payload_size += nfds_len;
 	fds = (struct pollfd *)malloc(sizeof(*fds) * (nfds + nfdsopts));
 	for (i = 0; i < nfds; i++) {
-		fds[i].fd = read_int32(rfd, &fd_len);
+		fds[i].fd = read_int32(io, &fd_len);
 		actual_payload_size += fd_len;
-		fds[i].events = read_int16(rfd, &events_len);
+		fds[i].events = read_int16(io, &events_len);
 		actual_payload_size += events_len;
 		fds[i].revents = 0;
 	}
-	timeout = read_int32(rfd, &timeout_len);
+	timeout = read_int32(io, &timeout_len);
 	actual_payload_size += timeout_len;
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
@@ -809,9 +817,10 @@ static void
 write_poll_result(struct slave_thread *slave_thread, command_t cmd, int retval,
 		  int e, struct pollfd *fds, nfds_t nfds)
 {
+	struct io *io;
 	payload_size_t return_payload_size;
 	size_t rest_size;
-	int i, retval_len, revents_len, wfd;
+	int i, retval_len, revents_len;
 	char buf[256], *p;
 
 	if ((retval == 0) || (retval == -1)) {
@@ -831,10 +840,10 @@ write_poll_result(struct slave_thread *slave_thread, command_t cmd, int retval,
 	}
 	return_payload_size = sizeof(buf) - rest_size;
 
-	wfd = slave_thread->fsth_wfd;
-	write_command(wfd, cmd);
-	write_payload_size(wfd, return_payload_size);
-	write_or_die(wfd, buf, return_payload_size);
+	io = &slave_thread->fsth_io;
+	write_command(io, cmd);
+	write_payload_size(io, return_payload_size);
+	write_or_die(io, buf, return_payload_size);
 }
 
 static void
@@ -875,7 +884,7 @@ process_poll_start(struct slave_thread *slave_thread)
 	fds = args.fds;
 	nfds = args.nfds;
 	shubfd = &fds[nfds];
-	shubfd->fd = slave_thread->fsth_rfd;
+	shubfd->fd = io_get_rfd(&slave_thread->fsth_io);
 	shubfd->events = POLLIN;
 	shubfd->revents = 0;
 
@@ -889,7 +898,7 @@ process_poll_start(struct slave_thread *slave_thread)
 
 	free(fds);
 
-	cmd = read_command(slave_thread->fsth_rfd);
+	cmd = read_command(&slave_thread->fsth_io);
 	if (cmd != POLL_END)
 		diex(1, "protocol error: %s (%d)", get_command_name(cmd), cmd);
 }
@@ -920,7 +929,7 @@ drop_payload_to_error(struct slave_thread *slave_thread, command_t cmd,
 	char *buf;
 
 	buf = (char *)alloca(len);
-	read_or_die(slave_thread->fsth_rfd, buf, len);
+	read_or_die(&slave_thread->fsth_io, buf, len);
 	return_int(slave_thread, cmd, -1, e);
 }
 
@@ -928,23 +937,24 @@ static int
 read_recvmsg_args(struct slave_thread *slave_thread, int *fd,
 		  struct msghdr *msg, int *flags)
 {
+	struct io *io;
 	struct iovec *iov, *piov;
 	payload_size_t actual_payload_size, controllen_len, fd_len, flags_len;
 	payload_size_t iovlen_len, len_len, msg_flags_len, namecode_len;
 	payload_size_t payload_size, rest_size;
 	socklen_t controllen;
 	command_t return_command;
-	int i, iovlen, len, namecode, rfd;
+	int i, iovlen, len, namecode;
 
 	return_command = RECVMSG_RETURN;
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
 
-	*fd = read_int(rfd, &fd_len);
+	*fd = read_int(io, &fd_len);
 	actual_payload_size = fd_len;
 
-	namecode = read_int(rfd, &namecode_len);
+	namecode = read_int(io, &namecode_len);
 	actual_payload_size += namecode_len;
 	switch (namecode) {
 	case MSGHDR_MSG_NAME_NOT_NULL:
@@ -963,12 +973,12 @@ read_recvmsg_args(struct slave_thread *slave_thread, int *fd,
 	msg->msg_name = NULL;
 	msg->msg_namelen = 0;
 
-	iovlen = read_int(rfd, &iovlen_len);
+	iovlen = read_int(io, &iovlen_len);
 	actual_payload_size += iovlen_len;
 	iov = (struct iovec *)mem_alloc(slave_thread, sizeof(*iov) * iovlen);
 	for (i = 0; i < iovlen; i++) {
 		piov = &iov[i];
-		len = read_int(rfd, &len_len);
+		len = read_int(io, &len_len);
 		actual_payload_size += len_len;
 
 		piov->iov_base = (char *)mem_alloc(slave_thread, len);
@@ -977,16 +987,16 @@ read_recvmsg_args(struct slave_thread *slave_thread, int *fd,
 	msg->msg_iov = iov;
 	msg->msg_iovlen = iovlen;
 
-	controllen = read_socklen(rfd, &controllen_len);
+	controllen = read_socklen(io, &controllen_len);
 	actual_payload_size += controllen_len;
 	msg->msg_control = 0 < controllen ? mem_alloc(slave_thread, controllen)
 					  : NULL;
 	msg->msg_controllen = controllen;
 
-	msg->msg_flags = read_int(rfd, &msg_flags_len);
+	msg->msg_flags = read_int(io, &msg_flags_len);
 	actual_payload_size += msg_flags_len;
 
-	*flags = read_int(rfd, &flags_len);
+	*flags = read_int(io, &flags_len);
 	actual_payload_size += flags_len;
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
@@ -1181,17 +1191,18 @@ read_cmsghdrs(struct slave_thread *slave_thread, struct cmsghdr **control,
 
 	struct cmsghdr *cmsghdr, *cmsghdrs;
 	struct cmsgspec *spec, *specs;
+	struct io *io;
 	payload_size_t fd_len, level_len, ncmsghdr_len, nfds_len, payload_size;
 	payload_size_t type_len;
 	size_t cmsgspace, datasize;
 	socklen_t len;
-	int i, j, level, ncmsghdr, nfds, *pfd, rfd, type;
+	int i, j, level, ncmsghdr, nfds, *pfd, type;
 	char *p;
 
 	payload_size = 0;
-	rfd = slave_thread->fsth_rfd;
+	io = &slave_thread->fsth_io;
 
-	ncmsghdr = read_int(rfd, &ncmsghdr_len);
+	ncmsghdr = read_int(io, &ncmsghdr_len);
 	payload_size += ncmsghdr_len;
 
 	/* The master gives level and type at first to compute controllen */
@@ -1200,9 +1211,9 @@ read_cmsghdrs(struct slave_thread *slave_thread, struct cmsghdr **control,
 	for (i = 0; i < ncmsghdr; i++) {
 		spec = &specs[i];
 
-		level = read_int(rfd, &level_len);
+		level = read_int(io, &level_len);
 		payload_size += level_len;
-		type = read_int(rfd, &type_len);
+		type = read_int(io, &type_len);
 		payload_size += type_len;
 		spec->cmsgspec_level = level;
 		spec->cmsgspec_type = type;
@@ -1214,7 +1225,7 @@ read_cmsghdrs(struct slave_thread *slave_thread, struct cmsghdr **control,
 				datasize = 0;
 				break;
 			case SCM_RIGHTS:
-				nfds = read_int(rfd, &nfds_len);
+				nfds = read_int(io, &nfds_len);
 				payload_size += nfds_len;
 				spec->cmsgspec_nfds = nfds;
 				datasize = sizeof(int) * nfds;
@@ -1255,7 +1266,7 @@ read_cmsghdrs(struct slave_thread *slave_thread, struct cmsghdr **control,
 				pfd = (int *)CMSG_DATA(cmsghdr);
 				nfds = spec->cmsgspec_nfds;
 				for (j = 0; j < nfds; j++, pfd++) {
-					*pfd = read_int(rfd, &fd_len);
+					*pfd = read_int(io, &fd_len);
 					payload_size += fd_len;
 				}
 				break;
@@ -1282,6 +1293,7 @@ process_sendmsg(struct slave_thread *slave_thread)
 {
 	struct msghdr msg;
 	struct iovec *iov;
+	struct io *io;
 	sigset_t oset;
 	payload_size_t actual_payload_size, cmsghdrs_len, controlcode_len;
 	payload_size_t fd_len, flags_len, iovlen_len, len_len, msg_flags_len;
@@ -1290,19 +1302,19 @@ process_sendmsg(struct slave_thread *slave_thread)
 	ssize_t retval;
 	socklen_t controllen;
 	command_t return_command;
-	int controlcode, e, error, fd, flags, i, iovlen, namecode, rfd;
+	int controlcode, e, error, fd, flags, i, iovlen, namecode;
 	const char *fmt, *sysname = "sendmsg";
 	void *base, *control;
 
 	return_command = SENDMSG_RETURN;
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
 
-	fd = read_int(rfd, &fd_len);
+	fd = read_int(io, &fd_len);
 	actual_payload_size = fd_len;
 
-	namecode = read_int(rfd, &namecode_len);
+	namecode = read_int(io, &namecode_len);
 	actual_payload_size += namecode_len;
 	switch (namecode) {
 	case MSGHDR_MSG_NAME_NOT_NULL:
@@ -1325,7 +1337,7 @@ process_sendmsg(struct slave_thread *slave_thread)
 		return;
 	}
 
-	iovlen = read_int(rfd, &iovlen_len);
+	iovlen = read_int(io, &iovlen_len);
 	actual_payload_size += iovlen_len;
 	msg.msg_iovlen = iovlen;
 	msg.msg_iov = (struct iovec *)alloca(sizeof(struct iovec) * iovlen);
@@ -1333,17 +1345,17 @@ process_sendmsg(struct slave_thread *slave_thread)
 	for (i = 0; i < iovlen; i++) {
 		iov = &msg.msg_iov[i];
 
-		len = read_int(rfd, &len_len);
+		len = read_int(io, &len_len);
 		actual_payload_size += len_len;
 		iov->iov_len = len;
 
 		base = (char *)alloca(len);
-		read_or_die(rfd, base, len);
+		read_or_die(io, base, len);
 		actual_payload_size += len;
 		iov->iov_base = base;
 	}
 
-	controlcode = read_int(rfd, &controlcode_len);
+	controlcode = read_int(io, &controlcode_len);
 	actual_payload_size += controlcode_len;
 	switch (controlcode) {
 	case MSGHDR_MSG_CONTROL_NOT_NULL:
@@ -1373,10 +1385,10 @@ process_sendmsg(struct slave_thread *slave_thread)
 	msg.msg_control = control;
 	msg.msg_controllen = controllen;
 
-	msg.msg_flags = read_int(rfd, &msg_flags_len);
+	msg.msg_flags = read_int(io, &msg_flags_len);
 	actual_payload_size += msg_flags_len;
 
-	flags = read_int(rfd, &flags_len);
+	flags = read_int(io, &flags_len);
 	actual_payload_size += flags_len;
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
@@ -1393,18 +1405,19 @@ static void
 process_sigprocmask(struct slave_thread *slave_thread)
 {
 	struct slave *slave;
+	struct io *io;
 	sigset_t *pset, set;
 	payload_size_t actual_payload_size, how_len, payload_size, set_len;
-	int errnum, how, retval, rfd;
+	int errnum, how, retval;
 
 	pset = &set;
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
 
-	how = read_int(rfd, &how_len);
+	how = read_int(io, &how_len);
 	actual_payload_size = how_len;
-	read_sigset(rfd, pset, &set_len);
+	read_sigset(io, pset, &set_len);
 	actual_payload_size += set_len;
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
@@ -1437,20 +1450,23 @@ signal_handler(int sig)
 {
 	char c = (char)sig;
 
-	write_or_die(sigw, &c, sizeof(c));
+	write_or_die(&sigw, &c, sizeof(c));
 }
 
 static void
 initialize_signal_handling(struct slave *slave)
 {
 	int fds[2];
-	const char *fmt = "initialized signal handling: sigr=%d, sigw=%d";
+	const char *fmt = "initialized signal handling: sigr=%s, sigw=%s";
+	char s1[256], s2[256];
 
 	if (pipe(fds) == -1)
 		die(1, "cannot pipe(2) in initializing signal handling");
-	slave->sigr = fds[0];
-	sigw = fds[1];
-	syslog(LOG_DEBUG, fmt, slave->sigr, sigw);
+	io_init_nossl(&slave->fsla_sigr, fds[0], -1);
+	io_init_nossl(&sigw, -1, fds[1]);
+	io_dump(&slave->fsla_sigr, s1, sizeof(s1));
+	io_dump(&sigw, s2, sizeof(s2));
+	syslog(LOG_DEBUG, fmt, s1, s2);
 }
 
 static int
@@ -1458,6 +1474,7 @@ connect_to_shub(struct slave *slave, const char *token, size_t token_size)
 {
 	struct sockaddr_storage sockaddr;
 	struct sockaddr_un *addr;
+	struct io io;
 	int sock;
 	char len;
 
@@ -1472,7 +1489,8 @@ connect_to_shub(struct slave *slave, const char *token, size_t token_size)
 		die(1, "Cannot connect(2)");
 	syslog(LOG_DEBUG, "connected to fshub: socket=%d", sock);
 
-	write_or_die(sock, token, token_size);
+	io_init_nossl(&io, sock, sock);
+	write_or_die(&io, token, token_size);
 
 	return (sock);
 }
@@ -1484,7 +1502,7 @@ child_main(struct slave_thread *slave_thread, const char *token,
 	struct slave_thread *thread, *tmp;
 	struct slave *slave;
 	int sock;
-	const char *fmt = "A new child process has started: rfd=%d, wfd=%d";
+	char s[256];
 
 	slave = slave_thread->fsth_slave;
 	SLIST_FOREACH_SAFE(thread, &slave->fsla_slaves, fsth_next, tmp)
@@ -1493,31 +1511,32 @@ child_main(struct slave_thread *slave_thread, const char *token,
 
 	close_slave_thread(slave_thread);
 	sock = connect_to_shub(slave, token, token_size);
-	slave_thread->fsth_rfd = slave_thread->fsth_wfd = sock;
+	io_init_nossl(&slave_thread->fsth_io, sock, sock);
 	slave_thread->fsth_signal_watcher = true;
 
-	if (close(slave->sigr) != 0)
-		die(1, "Cannot close(2) for sigr");
-	if (close(sigw) != 0)
-		die(1, "Cannot close(2) for sigw");
+	if (io_close(&slave->fsla_sigr) != 0)
+		diec(1, slave->fsla_sigr.io_error, "Cannot close(2) for sigr");
+	if (io_close(&sigw) != 0)
+		diec(1, sigw.io_error, "Cannot close(2) for sigw");
 	initialize_signal_handling(slave);
 	if (sigprocmask(SIG_SETMASK, sigset, NULL) == -1)
 		die(1, "sigprocmask(2) to recover failed");
-	syslog(LOG_INFO, fmt, slave_thread->fsth_rfd, slave_thread->fsth_wfd);
+	io_dump(&slave_thread->fsth_io, s, sizeof(s));
+	syslog(LOG_INFO, "A new child process has started: io=%s", s);
 }
 
 static void
 read_token(struct slave_thread *slave_thread, char **token,
 	   payload_size_t *token_size)
 {
+	struct io *io;
 	payload_size_t payload_size;
-	int rfd;
 	char *s;
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
 	s = (char *)mem_alloc(slave_thread, payload_size);
-	read_or_die(rfd, s, payload_size);
+	read_or_die(io, s, payload_size);
 
 	*token = s;
 	*token_size = payload_size;
@@ -1567,7 +1586,7 @@ start_new_thread(struct slave *slave, const char *token, size_t token_size)
 	new_thread = malloc_slave_thread();
 	new_thread->fsth_slave = slave;
 	SLIST_INIT(&new_thread->fsth_memory);
-	new_thread->fsth_rfd = new_thread->fsth_wfd = sock;
+	io_init_nossl(&new_thread->fsth_io, sock, sock);
 	new_thread->fsth_signal_watcher = false;
 	add_thread(slave, new_thread);
 
@@ -1590,10 +1609,10 @@ process_thr_new(struct slave_thread *slave_thread)
 static void
 process_fork(struct slave_thread *slave_thread)
 {
+	struct io *io;
 	sigset_t oset, set;
 	payload_size_t len, token_size;
 	pid_t parent_pid, pid;
-	int wfd;
 	char buf[FSYSCALL_BUFSIZE_INT32], *token;
 
 	read_token(slave_thread, &token, &token_size);
@@ -1614,15 +1633,16 @@ process_fork(struct slave_thread *slave_thread)
 		die(1, "sigprocmask(2) to recover failed");
 
 	len = encode_int32(pid, buf, sizeof(buf));
-	wfd = slave_thread->fsth_wfd;
-	write_command(wfd, FORK_RETURN);
-	write_payload_size(wfd, len);
-	write_or_die(wfd, buf, len);
+	io = &slave_thread->fsth_io;
+	write_command(io, FORK_RETURN);
+	write_payload_size(io, len);
+	write_or_die(io, buf, len);
 }
 
 static void
 process_kevent(struct slave_thread *slave_thread)
 {
+	struct io *io;
 	struct kevent *changelist, *eventlist, *kev;
 	struct payload *payload;
 	struct timespec timeout, *ptimeout;
@@ -1630,21 +1650,21 @@ process_kevent(struct slave_thread *slave_thread)
 	payload_size_t actual_payload_size, len, payload_size;
 	size_t size;
 	command_t return_command;
-	int changelist_code, e, i, kq, nchanges, nevents, retval, rfd;
+	int changelist_code, e, i, kq, nchanges, nevents, retval;
 	int timeout_code, udata_code;
 	const char *fmt = "Invalid kevent(2) changelist code: %d";
 	const char *fmt2 = "Invalid kevent(2) timeout code: %d";
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
 
-	kq = read_int(rfd, &len);
+	kq = read_int(io, &len);
 	actual_payload_size = len;
 
-	nchanges = read_int(rfd, &len);
+	nchanges = read_int(io, &len);
 	actual_payload_size += len;
 
-	changelist_code = read_int(rfd, &len);
+	changelist_code = read_int(io, &len);
 	actual_payload_size += len;
 
 	switch (changelist_code) {
@@ -1653,17 +1673,17 @@ process_kevent(struct slave_thread *slave_thread)
 		changelist = (struct kevent *)alloca(size);
 		for (i = 0; i < nchanges; i++) {
 			kev = &changelist[i];
-			kev->ident = read_ulong(rfd, &len);
+			kev->ident = read_ulong(io, &len);
 			actual_payload_size += len;
-			kev->filter = read_short(rfd, &len);
+			kev->filter = read_short(io, &len);
 			actual_payload_size += len;
-			kev->flags = read_ushort(rfd, &len);
+			kev->flags = read_ushort(io, &len);
 			actual_payload_size += len;
-			kev->fflags = read_uint(rfd, &len);
+			kev->fflags = read_uint(io, &len);
 			actual_payload_size += len;
-			kev->data = read_long(rfd, &len);
+			kev->data = read_long(io, &len);
 			actual_payload_size += len;
-			udata_code = read_int(rfd, &len);
+			udata_code = read_int(io, &len);
 			actual_payload_size += len;
 			switch (udata_code) {
 			case KEVENT_UDATA_NULL:
@@ -1685,18 +1705,18 @@ process_kevent(struct slave_thread *slave_thread)
 		break;
 	}
 
-	nevents = read_int(rfd, &len);
+	nevents = read_int(io, &len);
 	actual_payload_size += len;
 	eventlist = (struct kevent *)alloca(sizeof(*eventlist) * nevents);
 
-	timeout_code = read_int(rfd, &len);
+	timeout_code = read_int(io, &len);
 	actual_payload_size += len;
 
 	switch (timeout_code) {
 	case KEVENT_TIMEOUT_NOT_NULL:
-		timeout.tv_sec = read_int64(rfd, &len);
+		timeout.tv_sec = read_int64(io, &len);
 		actual_payload_size += len;
-		timeout.tv_nsec = read_int64(rfd, &len);
+		timeout.tv_nsec = read_int64(io, &len);
 		actual_payload_size += len;
 		ptimeout = &timeout;
 		break;
@@ -1735,31 +1755,32 @@ process_kevent(struct slave_thread *slave_thread)
 static void
 process_setsockopt(struct slave_thread *slave_thread)
 {
+	struct io *io;
 	sigset_t oset;
 	payload_size_t actual_payload_size, level_len, optname_len, optlen_len;
 	payload_size_t optval_len, payload_size, s_len;
 	socklen_t optlen;
-	int e, level, n, optname, retval, rfd, s;
+	int e, level, n, optname, retval, s;
 	void *optval;
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
 
-	s = read_int32(rfd, &s_len);
+	s = read_int32(io, &s_len);
 	actual_payload_size = s_len;
 
-	level = read_int32(rfd, &level_len);
+	level = read_int32(io, &level_len);
 	actual_payload_size += level_len;
 
-	optname = read_int32(rfd, &optname_len);
+	optname = read_int32(io, &optname_len);
 	actual_payload_size += optname_len;
 
-	optlen = read_socklen(rfd, &optlen_len);
+	optlen = read_socklen(io, &optlen_len);
 	actual_payload_size += optlen_len;
 
 	switch (optname) {
 	case SO_REUSEADDR:
-		n = read_int(rfd, &optval_len);
+		n = read_int(io, &optval_len);
 		actual_payload_size += optval_len;
 		break;
 	default:
@@ -1781,27 +1802,28 @@ process_setsockopt(struct slave_thread *slave_thread)
 static void
 process_getsockopt(struct slave_thread *slave_thread)
 {
+	struct io *io;
 	struct payload *payload;
 	sigset_t oset;
 	payload_size_t actual_payload_size, level_len, optname_len, optlen_len;
 	payload_size_t payload_size, s_len;
 	socklen_t optlen;
-	int e, level, optname, retval, rfd, s;
+	int e, level, optname, retval, s;
 	void *optval;
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
 
-	s = read_int32(rfd, &s_len);
+	s = read_int32(io, &s_len);
 	actual_payload_size = s_len;
 
-	level = read_int32(rfd, &level_len);
+	level = read_int32(io, &level_len);
 	actual_payload_size += level_len;
 
-	optname = read_int32(rfd, &optname_len);
+	optname = read_int32(io, &optname_len);
 	actual_payload_size += optname_len;
 
-	optlen = read_socklen(rfd, &optlen_len);
+	optlen = read_socklen(io, &optlen_len);
 	actual_payload_size += optlen_len;
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
@@ -1884,7 +1906,7 @@ process_exit(struct slave_thread *slave_thread)
 	payload_size_t _;
 	int status;
 
-	status = read_int32(slave_thread->fsth_rfd, &_);
+	status = read_int32(&slave_thread->fsth_io, &_);
 
 	syslog(LOG_DEBUG, "EXIT_CALL: status=%d", status);
 
@@ -1894,22 +1916,23 @@ process_exit(struct slave_thread *slave_thread)
 static void
 process_utimes(struct slave_thread *slave_thread)
 {
+	struct io *io;
 	sigset_t oset;
 	struct timeval *ptimes, times[2];
 	payload_size_t actual_payload_size, path_len, payload_size;
 	payload_size_t times_code_len, times_len;
-	int e, i, ntimes, retval, rfd;
+	int e, i, ntimes, retval;
 	const char *path;
 	uint8_t times_code;
 
-	rfd = slave_thread->fsth_rfd;
+	io = &slave_thread->fsth_io;
 	actual_payload_size = 0;
-	payload_size = read_payload_size(rfd);
+	payload_size = read_payload_size(io);
 
-	path = read_string(rfd, &path_len);
+	path = read_string(io, &path_len);
 	actual_payload_size += path_len;
 
-	times_code = read_uint8(rfd, &times_code_len);
+	times_code = read_uint8(io, &times_code_len);
 	actual_payload_size += times_code_len;
 
 	switch (times_code) {
@@ -1919,7 +1942,7 @@ process_utimes(struct slave_thread *slave_thread)
 	case UTIMES_TIMES_NOT_NULL:
 		ntimes = array_sizeof(times);
 		for (i = 0; i < ntimes; i++) {
-			read_timeval(rfd, &times[i], &times_len);
+			read_timeval(io, &times[i], &times_len);
 			actual_payload_size += times_len;
 		}
 		ptimes = times;
@@ -1949,16 +1972,16 @@ static void
 read_getdirentries_args(struct slave_thread *slave_thread,
 			struct getdirentries_args *args)
 {
+	struct io *io;
 	payload_size_t actual_payload_size, fd_len, nentmax_len, payload_size;
-	int rfd;
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
 
-	args->fd = read_int(rfd, &fd_len);
+	args->fd = read_int(io, &fd_len);
 	actual_payload_size = fd_len;
 
-	args->nentmax = read_int(rfd, &nentmax_len);
+	args->nentmax = read_int(io, &nentmax_len);
 	actual_payload_size += nentmax_len;
 
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);
@@ -2070,27 +2093,28 @@ process_getdirentries(struct slave_thread *slave_thread)
 static void
 process_openat(struct slave_thread *slave_thread)
 {
+	struct io *io;
 	sigset_t oset;
 	payload_size_t actual_payload_size, fd_len, flags_len, mode_len;
 	payload_size_t path_len, payload_size;
-	int e, fd, flags, retval, rfd;
+	int e, fd, flags, retval;
 	mode_t mode;
 	char *path;
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
 
-	fd = read_int(rfd, &fd_len);
+	fd = read_int(io, &fd_len);
 	actual_payload_size = fd_len;
 
-	path = read_string(rfd, &path_len);
+	path = read_string(io, &path_len);
 	actual_payload_size += path_len;
 
-	flags = read_int(rfd, &flags_len);
+	flags = read_int(io, &flags_len);
 	actual_payload_size += flags_len;
 
 	if ((flags & O_CREAT) != 0) {
-		mode = read_mode(rfd, &mode_len);
+		mode = read_mode(io, &mode_len);
 		actual_payload_size += mode_len;
 	}
 	else
@@ -2108,19 +2132,20 @@ process_openat(struct slave_thread *slave_thread)
 static void
 process_fcntl(struct slave_thread *slave_thread)
 {
+	struct io *io;
 	sigset_t oset;
 	payload_size_t actual_payload_size, arg_len, cmd_len, fd_len;
 	payload_size_t payload_size;
 	long arg;
-	int cmd, e, fd, retval, rfd;
+	int cmd, e, fd, retval;
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
 
-	fd = read_int(rfd, &fd_len);
+	fd = read_int(io, &fd_len);
 	actual_payload_size = fd_len;
 
-	cmd = read_int(rfd, &cmd_len);
+	cmd = read_int(io, &cmd_len);
 	actual_payload_size += cmd_len;
 
 	switch (cmd) {
@@ -2131,7 +2156,7 @@ process_fcntl(struct slave_thread *slave_thread)
 	case F_SETFD:
 	case F_SETFL:
 	default:
-		arg = read_long(rfd, &arg_len);
+		arg = read_long(io, &arg_len);
 		actual_payload_size += arg_len;
 		break;
 	}
@@ -2147,36 +2172,32 @@ process_fcntl(struct slave_thread *slave_thread)
 static int
 mainloop(struct slave_thread *slave_thread)
 {
-	fd_set fds, *pfds;
+	struct io *ios[2];
 	command_t cmd;
-	int nfds, rfd, sigr;
+	int error, nios;
 	const char *name;
 
-	pfds = &fds;
 	for (;;) {
-		FD_ZERO(pfds);
-		rfd = slave_thread->fsth_rfd;
-		FD_SET(rfd, pfds);
+		ios[0] = &slave_thread->fsth_io;
 
 		if (slave_thread->fsth_signal_watcher) {
-			sigr = slave_thread->fsth_slave->sigr;
-			FD_SET(sigr, pfds);
-			nfds = MAX(rfd, sigr);
+			ios[1] = &slave_thread->fsth_slave->fsla_sigr;
+			nios = 2;
 		}
 		else
-			nfds = rfd;
+			nios = 1;
 
-		if (select(nfds + 1, pfds, NULL, NULL, NULL) == -1) {
-			if (errno != EINTR)
-				die(1, "select(2) failed");
+		if (io_select(nios, ios, NULL, &error) == -1) {
+			if (error != EINTR)
+				diec(1, error, "select(2) failed");
 			continue;
 		}
 
-		if (slave_thread->fsth_signal_watcher && FD_ISSET(sigr, pfds))
+		if (slave_thread->fsth_signal_watcher && io_is_readable(ios[1]))
 			process_signal(slave_thread);
 
-		if (FD_ISSET(rfd, pfds)) {
-			cmd = read_command(rfd);
+		if (io_is_readable(ios[0])) {
+			cmd = read_command(ios[0]);
 			name = get_command_name(cmd);
 			syslog(LOG_DEBUG, "processing %s.", name);
 			switch (cmd) {
@@ -2371,8 +2392,8 @@ main(int argc, char* argv[])
 	slave_thread = malloc_slave_thread();
 	slave_thread->fsth_slave = slave;
 	SLIST_INIT(&slave_thread->fsth_memory);
-	slave_thread->fsth_rfd = atoi_or_die(args[0], "rfd");
-	slave_thread->fsth_wfd = atoi_or_die(args[1], "wfd");
+	io_init_nossl(&slave_thread->fsth_io, atoi_or_die(args[0], "rfd"),
+		      atoi_or_die(args[1], "wfd"));
 	slave_thread->fsth_signal_watcher = true;
 	add_thread(slave, slave_thread);
 

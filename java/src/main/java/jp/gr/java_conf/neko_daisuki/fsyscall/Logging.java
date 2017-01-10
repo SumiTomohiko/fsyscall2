@@ -91,6 +91,13 @@ public class Logging {
             }
         }
 
+        private class InfoProc implements LoggingProc {
+
+            public void log(String fmt, Object... args) {
+                info(fmt, args);
+            }
+        }
+
         private class ErrProc implements LoggingProc {
 
             public void log(String fmt, Object... args) {
@@ -99,6 +106,7 @@ public class Logging {
         }
 
         private final LoggingProc VERBOSE_PROC = new VerboseProc();
+        private final LoggingProc INFO_PROC = new InfoProc();
         private final LoggingProc ERR_PROC = new ErrProc();
 
         private String mTag;
@@ -121,6 +129,10 @@ public class Logging {
 
         public void info(String fmt, Object... args) {
             mDestination.info(formatMessage(fmt, args));
+        }
+
+        public void info(Throwable e) {
+            log(INFO_PROC, e);
         }
 
         public void warn(String fmt, Object... args) {
@@ -162,6 +174,11 @@ public class Logging {
         private void log(LoggingProc proc, Throwable e, String fmt,
                          Object... args) {
             proc.log("%s: %s", String.format(fmt, args), e.getMessage());
+            logStacktrace(proc, e.getStackTrace());
+        }
+
+        private void log(LoggingProc proc, Throwable e) {
+            proc.log("%s", e.getMessage());
             logStacktrace(proc, e.getStackTrace());
         }
 

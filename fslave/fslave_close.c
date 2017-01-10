@@ -24,14 +24,15 @@ static void
 execute_call(struct slave_thread *slave_thread, int *retval, int *errnum)
 {
 	struct slave *slave;
+	struct io *io;
 	sigset_t oset;
 	payload_size_t actual_payload_size, fd_len, payload_size;
-	int fd, rfd;
+	int fd;
 
-	rfd = slave_thread->fsth_rfd;
-	payload_size = read_payload_size(rfd);
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
 
-	fd = read_int32(rfd, &fd_len);
+	fd = read_int32(io, &fd_len);
 
 	actual_payload_size = fd_len;
 	die_if_payload_size_mismatched(payload_size, actual_payload_size);

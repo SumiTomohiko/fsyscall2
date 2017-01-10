@@ -14,19 +14,19 @@
 #include <fsyscall/private/io_or_die.h>
 
 void
-transport_fds(int rfd, int wfd)
+transport_fds(struct io *src, struct io *dst)
 {
 	payload_size_t _;
 	int n;
 	char *buf;
 
-	n = read_int32(rfd, &_);
+	n = read_int32(src, &_);
 	assert(0 <= n);
 	buf = (char *)alloca(sizeof(char) * n);
-	read_or_die(rfd, buf, n);
+	read_or_die(src, buf, n);
 
-	write_int32(wfd, n);
-	write_or_die(wfd, buf, n);
+	write_int32(dst, n);
+	write_or_die(dst, buf, n);
 }
 
 int
@@ -91,10 +91,9 @@ hub_generate_token(char *token, size_t size)
 }
 
 void
-hub_close_fds_or_die(int rfd, int wfd)
+hub_close_fds_or_die(struct io *io)
 {
 
-	close_or_die(rfd);
-	if (rfd != wfd)
-		close_or_die(wfd);
+	if (io_close(io) == -1)
+		diec(1, io->io_error, "cannot close");
 }

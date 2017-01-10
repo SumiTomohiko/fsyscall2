@@ -78,7 +78,7 @@ def print_fslave_call(p, print_newline, syscall):
             ("sigset_t", "oset"),
             ("payload_size_t", "payload_size"),
             ("payload_size_t", "actual_payload_size"),
-            ("int", "rfd")):
+            ("struct io *", "io")):
         local_vars.append(Variable(datatype, name))
     input_arguments = syscall.input_args
     for a in input_arguments:
@@ -105,8 +105,8 @@ def print_fslave_call(p, print_newline, syscall):
     print_locals(p, local_vars)
     print_newline()
     p("""\
-\trfd = slave_thread->fsth_rfd;
-\tpayload_size = read_payload_size(rfd);
+\tio = &slave_thread->fsth_io;
+\tpayload_size = read_payload_size(io);
 """)
     print_newline()
     for a in syscall.input_args:
@@ -115,7 +115,7 @@ def print_fslave_call(p, print_newline, syscall):
             size = SYSCALLS[syscall.name][name].size
             p("""\
 \t{name} = alloca({size});
-\tread_or_die(rfd, {name}, {size});
+\tread_or_die(io, {name}, {size});
 """.format(**locals()))
             continue
 
@@ -126,9 +126,9 @@ def print_fslave_call(p, print_newline, syscall):
 \t{name} = (struct iovec *)alloca(sizeof(*{name}) * {size});
 \t{name}_iov_len_len = (payload_size_t *)alloca(sizeof(int) * {size});
 \tfor (i = 0; i < {size}; i++) {{
-\t\t{name}[i].iov_len = read_uint64(rfd, &{name}_iov_len_len[i]);
+\t\t{name}[i].iov_len = read_uint64(io, &{name}_iov_len_len[i]);
 \t\t{name}[i].iov_base = alloca({name}[i].iov_len);
-\t\tread_or_die(rfd, {name}[i].iov_base, {name}[i].iov_len);
+\t\tread_or_die(io, {name}[i].iov_base, {name}[i].iov_len);
 \t}}
 """.format(**locals()))
             continue
@@ -140,7 +140,7 @@ def print_fslave_call(p, print_newline, syscall):
                 "u_int": "read_uint32",
                 "off_t": "read_int64",
                 "size_t": "read_uint64" }[a.datatype]
-        assignment = "{name} = {f}(rfd, &{name}_len)".format(**locals())
+        assignment = "{name} = {f}(io, &{name}_len)".format(**locals())
         opt = opt_of_syscall(FSLAVE_SYSCALLS, syscall, a)
         if opt is not None:
             p("""\
@@ -235,7 +235,7 @@ execute_return(struct slave_thread *slave_thread, int retval, int errnum, {args}
         ("payload_size_t", "payload_size", None),
         ("char", "retval_buf", bufsize_of_datatype(syscall.rettype)),
         ("int", "retval_len", None),
-        ("int", "wfd", None))]
+        ("struct io *", "io", None))]
     out_arguments = syscall.output_args
     for a in out_arguments:
         datatype = a.datatype
@@ -297,29 +297,29 @@ execute_return(struct slave_thread *slave_thread, int retval, int errnum, {args}
     p("""\
 \tpayload_size = retval_len + {payload_size};
 
-\twfd = slave_thread->fsth_wfd;
-\twrite_command(wfd, {cmd_name}_RETURN);
-\twrite_payload_size(wfd, payload_size);
-\twrite_or_die(wfd, retval_buf, retval_len);
+\tio = &slave_thread->fsth_io;
+\twrite_command(io, {cmd_name}_RETURN);
+\twrite_payload_size(io, payload_size);
+\twrite_or_die(io, retval_buf, retval_len);
 """.format(**locals()))
     for a in out_arguments:
         if a.datatype in ("char *", "void *"):
             name = a.name
             size = data_of_argument(syscall, a).retsize
             p("""\
-\twrite_or_die(wfd, {name}, {size});
+\twrite_or_die(io, {name}, {size});
 """.format(**locals()))
             continue
         st = data_of_argument(syscall, a).struct
         if st is not None:
             for _, name in st.expand_all_members(a.name):
                 p("""\
-\twrite_or_die(wfd, {name}_buf, {name}_len);
+\twrite_or_die(io, {name}_buf, {name}_len);
 """.format(**locals()))
             continue
         name = a.name
         p("""\
-\twrite_or_die(wfd, {name}_buf, {name}_len);
+\twrite_or_die(io, {name}_buf, {name}_len);
 """.format(**locals()))
 
     newlined = False
