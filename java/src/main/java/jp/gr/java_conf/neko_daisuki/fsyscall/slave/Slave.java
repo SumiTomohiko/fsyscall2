@@ -2535,6 +2535,22 @@ public class Slave implements Runnable {
                      flags, Unix.Constants.Open.toString(flags), mode,
                      Unix.Constants.Mode.toString(mode));
 
+        if (path.equals("/etc/pwd.db")) {
+            // This file is special.
+            SyscallResult.Generic32 result = new SyscallResult.Generic32();
+            URL url = getClass().getResource("pwd.db");
+            if (url == null) {
+                result.setError(Errno.ENOENT);
+                return result;
+            }
+            if ((flags & Unix.Constants.O_DIRECTORY) != 0) {
+                result.setError(Errno.ENOTDIR);
+                return result;
+            }
+            registerFile(new OpenResourceCallback(url), result);
+            return result;
+        }
+
         return openActualFile(getActualPath(path), flags, mode);
     }
 
@@ -3796,21 +3812,6 @@ public class Slave implements Runnable {
         mLogger.info("open actual file: %s", absPath);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        if (absPath.equals(mPwdDbPath)) {
-            // This file is special.
-            URL url = getClass().getResource("pwd.db");
-            if (url == null) {
-                result.setError(Errno.ENOENT);
-                return result;
-            }
-            if ((flags & Unix.Constants.O_DIRECTORY) != 0) {
-                result.setError(Errno.ENOTDIR);
-                return result;
-            }
-            registerFile(new OpenResourceCallback(url), result);
-            return result;
-        }
-
         if (!mPermissions.isAllowed(absPath)) {
             result.retval = -1;
             result.errno = Errno.ENOENT;
@@ -3983,7 +3984,14 @@ public class Slave implements Runnable {
     private NormalizedPath getActualPath(String path) throws IOException {
         NormalizedPath normPath = new NormalizedPath(mCurrentDirectory, path);
         //String absPath = getAbsolutePath(path);
-        return mLinks.get(normPath);
+        //return mLinks.get(normPath);
+        String s = String.format("/storage/emulated/0/nexec%s", normPath);
+        try {
+            return new NormalizedPath(s);
+        }
+        catch (NormalizedPath.InvalidPathException e) {
+            throw new IOException(e);
+        }
     }
 
     private SyscallResult.Generic32 runSetsockopt(int s, SocketLevel level,
