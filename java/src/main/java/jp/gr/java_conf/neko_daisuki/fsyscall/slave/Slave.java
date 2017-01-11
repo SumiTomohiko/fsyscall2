@@ -3983,15 +3983,7 @@ public class Slave implements Runnable {
 
     private NormalizedPath getActualPath(String path) throws IOException {
         NormalizedPath normPath = new NormalizedPath(mCurrentDirectory, path);
-        //String absPath = getAbsolutePath(path);
-        //return mLinks.get(normPath);
-        String s = String.format("/storage/emulated/0/nexec%s", normPath);
-        try {
-            return new NormalizedPath(s);
-        }
-        catch (NormalizedPath.InvalidPathException e) {
-            throw new IOException(e);
-        }
+        return mLinks.get(normPath);
     }
 
     private SyscallResult.Generic32 runSetsockopt(int s, SocketLevel level,
