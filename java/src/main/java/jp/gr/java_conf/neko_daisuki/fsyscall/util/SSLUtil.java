@@ -28,7 +28,7 @@ public class SSLUtil {
         char[] password = trustKeyStorePassword.toCharArray();
         keyStore.load(trustKeyStore, password);
 
-        String algo = "SunX509";
+        String algo = TrustManagerFactory.getDefaultAlgorithm();
         TrustManagerFactory factory = TrustManagerFactory.getInstance(algo);
         factory.init(keyStore);
         TrustManager[] tm = factory.getTrustManagers();
