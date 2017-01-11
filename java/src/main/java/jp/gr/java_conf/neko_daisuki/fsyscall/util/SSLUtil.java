@@ -14,7 +14,8 @@ import javax.net.ssl.TrustManagerFactory;
 
 public class SSLUtil {
 
-    public static SSLContext createContext(InputStream trustKeyStore,
+    public static SSLContext createContext(String type,
+                                           InputStream trustKeyStore,
                                            String trustKeyStorePassword)
                                            throws CertificateException,
                                                   IOException,
@@ -23,7 +24,7 @@ public class SSLUtil {
                                                   NoSuchAlgorithmException {
         SSLContext context = SSLContext.getInstance("TLS");
 
-        KeyStore keyStore = KeyStore.getInstance("JKS");
+        KeyStore keyStore = KeyStore.getInstance(type);
         char[] password = trustKeyStorePassword.toCharArray();
         keyStore.load(trustKeyStore, password);
 
@@ -44,7 +45,7 @@ public class SSLUtil {
                                                   KeyManagementException,
                                                   KeyStoreException,
                                                   NoSuchAlgorithmException {
-        return createContext(new FileInputStream(trustKeyStorePath),
+        return createContext("JKS", new FileInputStream(trustKeyStorePath),
                              trustKeyStorePassword);
     }
 }
