@@ -139,7 +139,7 @@ case "${java}" in
 		tester_opts="--ssl"
 		tester_opts="${tester_opts} --cert=${ssl_dir}/cert.pem"
 		tester_opts="${tester_opts} --private=${ssl_dir}/private.pem"
-		tester_opts="${tester_opts} --keystore=${ssl_dir}/keystore"
+		tester_opts="${tester_opts} --keystore=${ssl_dir}/cacerts.jks"
 		tester_opts="${tester_opts} --keystore-password=hogehoge"
 		;;
 	*)
