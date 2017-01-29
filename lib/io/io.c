@@ -9,6 +9,7 @@
 #include <syslog.h>
 #include <unistd.h>
 
+#include <openssl/err.h>
 #include <openssl/ssl.h>
 
 #include <fsyscall/private.h>
@@ -184,13 +185,114 @@ set_readable_ssl(struct io *io)
 	/* nothing */
 }
 
+/*#define	DEBUG_SSL*/
+
 static bool
 is_readable_ssl(const struct io *io)
 {
 	SSL *ssl;
+	int error, ret;
+#if defined(DEBUG_SSL)
+	const char *s;
+#endif
 
 	ssl = io->io_ssl;
-	SSL_read(ssl, NULL, 0);
+#if defined(DEBUG_SSL)
+	syslog(LOG_DEBUG,
+	       "is_readable_ssl: SSL_pending[0]=%d", SSL_pending(ssl));
+#endif
+	if (0 < SSL_pending(ssl))
+		return (true);
+
+	ret = SSL_read(ssl, NULL, 0);
+	error = SSL_get_error(ssl, ret);
+#if defined(DEBUG_SSL)
+	if (error != SSL_ERROR_SYSCALL) {
+		switch (error) {
+		case SSL_ERROR_NONE:
+			s = "SSL_ERROR_NONE";
+			break;
+		case SSL_ERROR_WANT_READ:
+			s = "SSL_ERROR_WANT_READ";
+			break;
+		case SSL_ERROR_WANT_WRITE:
+			s = "SSL_ERROR_WANT_WRITE";
+			break;
+		case SSL_ERROR_WANT_CONNECT:
+			s = "SSL_ERROR_WANT_CONNECT";
+			break;
+		case SSL_ERROR_WANT_ACCEPT:
+			s = "SSL_ERROR_WANT_ACCEPT";
+			break;
+		case SSL_ERROR_SSL:
+			s = "SSL_ERROR_SSL";
+			break;
+		case SSL_ERROR_WANT_X509_LOOKUP:
+			s = "SSL_ERROR_WANT_X509_LOOKUP";
+			break;
+		case SSL_ERROR_ZERO_RETURN:
+			s = "SSL_ERROR_ZERO_RETURN";
+			break;
+		default:
+			s = "unknown error";
+			break;
+		}
+		syslog(LOG_DEBUG, "is_readable_ssl: error=%d (%s)", error, s);
+	}
+	else {
+		switch (ERR_get_error()) {
+		case 0:
+			switch (ret) {
+			case 0:
+				s = "EOF";
+				break;
+			case -1:
+				s = "I/O error";
+				break;
+			default:
+				s = "unknown error";
+				break;
+			}
+			break;
+		default:
+			s = "queued error";
+			break;
+		}
+		syslog(LOG_DEBUG,
+		       "is_readable_ssl: error=SSL_ERROR_SYSCALL, reason=%s",
+		       s);
+	}
+	syslog(LOG_DEBUG,
+	       "is_readable_ssl: SSL_pending[1]=%d", SSL_pending(ssl));
+#endif
+	switch (error) {
+	case SSL_ERROR_NONE:
+	case SSL_ERROR_WANT_READ:
+	case SSL_ERROR_WANT_WRITE:
+	case SSL_ERROR_WANT_CONNECT:
+	case SSL_ERROR_WANT_ACCEPT:
+		break;
+	case SSL_ERROR_SYSCALL:
+		switch (ERR_get_error()) {
+		case 0:
+			switch (ret) {
+			case 0:
+				break;
+			case -1:
+			default:
+				return (true);
+			}
+			break;
+		default:
+			return (true);
+		}
+		break;
+	case SSL_ERROR_SSL:
+	case SSL_ERROR_WANT_X509_LOOKUP:
+	case SSL_ERROR_ZERO_RETURN:
+	default:
+		return (true);
+	}
 
 	return (0 < SSL_pending(ssl));
 }
