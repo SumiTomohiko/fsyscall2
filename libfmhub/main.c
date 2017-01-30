@@ -925,10 +925,13 @@ fmhub_run_ssl(SSL *ssl, int argc, char *const argv[], char *const envp[],
 	      const char *sock_path)
 {
 	struct io io;
+	die_log die_log_old;
 	int retval;
 
+	die_log_old = libdie_init(log);
 	io_init_ssl(&io, ssl, vlog);
 	retval = fmhub_run(&io, argc, argv, envp, sock_path);
+	libdie_init(die_log_old);
 
 	return (retval);
 }
