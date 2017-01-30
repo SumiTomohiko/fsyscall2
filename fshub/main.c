@@ -282,13 +282,13 @@ process_fork_socket(struct shub *shub)
 	fd = accept(shub->fork_sock, (struct sockaddr *)&addr, &addrlen);
 	if (fd < 0)
 		die(1, "Cannot accept(2)");
-	io_init_nossl(&io, fd, fd);
+	io_init_nossl(&io, fd, fd, vsyslog);
 	read_or_die(&io, token, sizeof(token));
 	fi = find_fork_info_or_die(shub, token);
 	syslog(LOG_INFO, "A trusted slave has been connected.");
 
 	slave = alloc_slave(shub);
-	io_init_nossl(&slave->io, fd, fd);
+	io_init_nossl(&slave->io, fd, fd, vsyslog);
 	pair_id = slave->pair_id = fi->pair_id;
 	PREPEND_ITEM(&shub->slaves, slave);
 	snprintf(name, sizeof(name), "the new slave (pair id: %lu)", pair_id);
@@ -627,7 +627,7 @@ main(int argc, char *argv[])
 
 	args = &argv[optind];
 	io_init_nossl(&io, atoi_or_die(args[0], "mhub_rfd"),
-		      atoi_or_die(args[1], "mhub_wfd"));
+		      atoi_or_die(args[1], "mhub_wfd"), vsyslog);
 	pshub->mhub.conn_io = &io;
 	log_io("mhub", pshub->mhub.conn_io);
 
@@ -636,7 +636,7 @@ main(int argc, char *argv[])
 	pshub->nslaves = 0;
 	slave = alloc_slave(pshub);
 	io_init_nossl(&slave->io, atoi_or_die(args[2], "slave_rfd"),
-		      atoi_or_die(args[3], "slave_wfd"));
+		      atoi_or_die(args[3], "slave_wfd"), vsyslog);
 	PREPEND_ITEM(&pshub->slaves, slave);
 	log_io("slave", &slave->io);
 
