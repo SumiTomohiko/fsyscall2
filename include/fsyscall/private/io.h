@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <sys/select.h>
+#include <stdarg.h>
 #include <stdbool.h>
 
 #include <openssl/ssl.h>
@@ -11,6 +12,7 @@
 #include <fsyscall/private/command.h>
 
 struct io_ops;
+typedef void (*io_vlog)(int, const char *, va_list);
 
 struct io {
 	union {
@@ -22,11 +24,12 @@ struct io {
 		}	plain;
 	} u;
 	struct io_ops	*io_ops;
+	io_vlog		io_vlog;
 	int		io_error;
 };
 
-void	io_init_nossl(struct io *, int, int);
-void	io_init_ssl(struct io *, SSL *);
+void	io_init_nossl(struct io *, int, int, io_vlog);
+void	io_init_ssl(struct io *, SSL *, io_vlog);
 
 int	io_select(int, struct io * const *, struct timeval *, int *);
 bool	io_is_readable(const struct io *);

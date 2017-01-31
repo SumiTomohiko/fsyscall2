@@ -5,10 +5,11 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdarg.h>
 #include <stdbool.h>
-#include <syslog.h>
 #include <unistd.h>
 
+#include <openssl/err.h>
 #include <openssl/ssl.h>
 
 #include <fsyscall/private.h>
@@ -34,6 +35,16 @@ struct io_ops {
 #define	io_rfd		u.plain.rfd
 #define	io_wfd		u.plain.wfd
 #define	io_readable	u.plain.readable
+
+static void
+log(io_vlog vlog, int priority, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vlog(priority, fmt, ap);
+	va_end(ap);
+}
 
 /*******************************************************************************
  * plain operations
@@ -138,13 +149,14 @@ static struct io_ops ops_nossl = {
 };
 
 void
-io_init_nossl(struct io *io, int rfd, int wfd)
+io_init_nossl(struct io *io, int rfd, int wfd, io_vlog vlog)
 {
 
 	io->io_rfd = rfd;
 	io->io_wfd = wfd;
 	io->io_readable = false;
 	io->io_ops = &ops_nossl;
+	io->io_vlog = vlog;
 	io->io_error = 0;
 }
 
@@ -184,13 +196,114 @@ set_readable_ssl(struct io *io)
 	/* nothing */
 }
 
+/*#define	DEBUG_SSL*/
+
 static bool
 is_readable_ssl(const struct io *io)
 {
 	SSL *ssl;
+	int error, ret;
+#if defined(DEBUG_SSL)
+	const char *s;
+#endif
 
 	ssl = io->io_ssl;
-	SSL_read(ssl, NULL, 0);
+#if defined(DEBUG_SSL)
+	log(io->io_vlog, LOG_DEBUG,
+	    "is_readable_ssl: SSL_pending[0]=%d", SSL_pending(ssl));
+#endif
+	if (0 < SSL_pending(ssl))
+		return (true);
+
+	ret = SSL_read(ssl, NULL, 0);
+	error = SSL_get_error(ssl, ret);
+#if defined(DEBUG_SSL)
+	if (error != SSL_ERROR_SYSCALL) {
+		switch (error) {
+		case SSL_ERROR_NONE:
+			s = "SSL_ERROR_NONE";
+			break;
+		case SSL_ERROR_WANT_READ:
+			s = "SSL_ERROR_WANT_READ";
+			break;
+		case SSL_ERROR_WANT_WRITE:
+			s = "SSL_ERROR_WANT_WRITE";
+			break;
+		case SSL_ERROR_WANT_CONNECT:
+			s = "SSL_ERROR_WANT_CONNECT";
+			break;
+		case SSL_ERROR_WANT_ACCEPT:
+			s = "SSL_ERROR_WANT_ACCEPT";
+			break;
+		case SSL_ERROR_SSL:
+			s = "SSL_ERROR_SSL";
+			break;
+		case SSL_ERROR_WANT_X509_LOOKUP:
+			s = "SSL_ERROR_WANT_X509_LOOKUP";
+			break;
+		case SSL_ERROR_ZERO_RETURN:
+			s = "SSL_ERROR_ZERO_RETURN";
+			break;
+		default:
+			s = "unknown error";
+			break;
+		}
+		log(io->io_vlog, LOG_DEBUG,
+		    "is_readable_ssl: error=%d (%s)", error, s);
+	}
+	else {
+		switch (ERR_get_error()) {
+		case 0:
+			switch (ret) {
+			case 0:
+				s = "EOF";
+				break;
+			case -1:
+				s = "I/O error";
+				break;
+			default:
+				s = "unknown error";
+				break;
+			}
+			break;
+		default:
+			s = "queued error";
+			break;
+		}
+		log(io->io_vlog, LOG_DEBUG,
+		    "is_readable_ssl: error=SSL_ERROR_SYSCALL, reason=%s", s);
+	}
+	log(io->io_vlog, LOG_DEBUG,
+	    "is_readable_ssl: SSL_pending[1]=%d", SSL_pending(ssl));
+#endif
+	switch (error) {
+	case SSL_ERROR_NONE:
+	case SSL_ERROR_WANT_READ:
+	case SSL_ERROR_WANT_WRITE:
+	case SSL_ERROR_WANT_CONNECT:
+	case SSL_ERROR_WANT_ACCEPT:
+		break;
+	case SSL_ERROR_SYSCALL:
+		switch (ERR_get_error()) {
+		case 0:
+			switch (ret) {
+			case 0:
+				break;
+			case -1:
+			default:
+				return (true);
+			}
+			break;
+		default:
+			return (true);
+		}
+		break;
+	case SSL_ERROR_SSL:
+	case SSL_ERROR_WANT_X509_LOOKUP:
+	case SSL_ERROR_ZERO_RETURN:
+	default:
+		return (true);
+	}
 
 	return (0 < SSL_pending(ssl));
 }
@@ -238,23 +351,24 @@ static struct io_ops ops_ssl = {
 };
 
 void
-io_init_ssl(struct io *io, SSL *ssl)
+io_init_ssl(struct io *io, SSL *ssl, io_vlog vlog)
 {
 	int fd, flags;
 
 	fd = SSL_get_fd(ssl);
 	if (fd == -1) {
-		syslog(LOG_ERR, "cannot SSL_get_fd(3)");
+		log(vlog, LOG_ERR, "cannot SSL_get_fd(3)");
 		return;
 	}
 	flags = fcntl(fd, F_GETFL);
 	if (fcntl(fd, F_SETFL, O_NONBLOCK | flags) == -1) {
-		syslog(LOG_ERR, "cannot fcntl(2): fd=%d", fd);
+		log(vlog, LOG_ERR, "cannot fcntl(2): fd=%d", fd);
 		return;
 	}
 
 	io->io_ssl = ssl;
 	io->io_ops = &ops_ssl;
+	io->io_vlog = vlog;
 	io->io_error = 0;
 }
 
@@ -366,13 +480,14 @@ write_or_die(struct io *io, const void *buf, size_t nbytes)
 	char s[256];
 
 #if 0
-	syslog(LOG_DEBUG, "write: nbytes=%lu", nbytes);
+	log(io->io_vlog, LOG_DEBUG, "write: nbytes=%lu", nbytes);
 	int i;
 	for (i = 0; i < nbytes; i++) {
 		char *p = (char *)buf;
 		int n = 0xff & p[i];
 		char c = isprint(n) ? n : ' ';
-		syslog(LOG_DEBUG, "write: buf[%d]=0x%02x (%c)", i, n, c);
+		log(io->io_vlog, LOG_DEBUG,
+		    "write: buf[%d]=0x%02x (%c)", i, n, c);
 	}
 #endif
 

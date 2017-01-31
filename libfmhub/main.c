@@ -72,16 +72,22 @@ log2(int priority, const char *msg)
 }
 
 static void
+vlog(int priority, const char *fmt, va_list ap)
+{
+	char buf[8192];
+
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	log2(priority, buf);
+}
+
+static void
 log(int priority, const char *fmt, ...)
 {
 	va_list ap;
-	char buf[8192];
 
 	va_start(ap, fmt);
-	vsnprintf(buf, sizeof(buf), fmt, ap);
+	vlog(priority, fmt, ap);
 	va_end(ap);
-
-	log2(priority, buf);
 }
 
 static void
@@ -300,7 +306,7 @@ create_master(struct mhub *mhub, pair_id_t pair_id, pid_t pid, int rfd, int wfd)
 	master = (struct master *)malloc_or_die(sizeof(*master));
 	master->pair_id = pair_id;
 	master->pid = pid;
-	io_init_nossl(&master->io, rfd, wfd);
+	io_init_nossl(&master->io, rfd, wfd, vlog);
 	master->exited = false;
 
 	mhub->nmasters++;
@@ -383,7 +389,7 @@ process_fork_socket(struct mhub *mhub)
 	sock = accept(mhub->fork_sock, (struct sockaddr *)&addr, &addrlen);
 	if (sock == -1)
 		die(1, "accept(2) failed");
-	io_init_nossl(&io, sock, sock);
+	io_init_nossl(&io, sock, sock, vlog);
 	read_or_die(&io, token, sizeof(token));
 	fi = find_fork_info_of_token(mhub, token);
 	if (fi == NULL)
@@ -908,7 +914,7 @@ fmhub_run_nossl(int rfd, int wfd, int argc, char *const argv[],
 	struct io io;
 	int retval;
 
-	io_init_nossl(&io, rfd, wfd);
+	io_init_nossl(&io, rfd, wfd, vlog);
 	retval = fmhub_run(&io, argc, argv, envp, sock_path);
 
 	return (retval);
@@ -919,10 +925,13 @@ fmhub_run_ssl(SSL *ssl, int argc, char *const argv[], char *const envp[],
 	      const char *sock_path)
 {
 	struct io io;
+	die_log die_log_old;
 	int retval;
 
-	io_init_ssl(&io, ssl);
+	die_log_old = libdie_init(log);
+	io_init_ssl(&io, ssl, vlog);
 	retval = fmhub_run(&io, argc, argv, envp, sock_path);
+	libdie_init(die_log_old);
 
 	return (retval);
 }

@@ -8,12 +8,15 @@
 #include <unistd.h>
 
 #include <fsyscall/private.h>
+#include <fsyscall/private/die.h>
+
+static die_log log = syslog;
 
 void
 output(const char *msg)
 {
 	fprintf(stderr, "%s[%d]: %s\n", getprogname(), getpid(), msg);
-	syslog(LOG_ERR, "%s", msg);
+	log(LOG_ERR, "%s", msg);
 }
 
 void
@@ -93,4 +96,15 @@ __die_for_assertion(const char *filename, int lineno, const char *expr)
 	msgsize = sizeof(msg);
 	snprintf(msg, msgsize, fmt, filename, lineno, expr, asserting_message);
 	die_with_message(128, msg);
+}
+
+die_log
+libdie_init(die_log f)
+{
+	die_log old;
+
+	old = log;
+	log = f;
+
+	return (old);
 }

@@ -1462,8 +1462,8 @@ initialize_signal_handling(struct slave *slave)
 
 	if (pipe(fds) == -1)
 		die(1, "cannot pipe(2) in initializing signal handling");
-	io_init_nossl(&slave->fsla_sigr, fds[0], -1);
-	io_init_nossl(&sigw, -1, fds[1]);
+	io_init_nossl(&slave->fsla_sigr, fds[0], -1, vsyslog);
+	io_init_nossl(&sigw, -1, fds[1], vsyslog);
 	io_dump(&slave->fsla_sigr, s1, sizeof(s1));
 	io_dump(&sigw, s2, sizeof(s2));
 	syslog(LOG_DEBUG, fmt, s1, s2);
@@ -1489,7 +1489,7 @@ connect_to_shub(struct slave *slave, const char *token, size_t token_size)
 		die(1, "Cannot connect(2)");
 	syslog(LOG_DEBUG, "connected to fshub: socket=%d", sock);
 
-	io_init_nossl(&io, sock, sock);
+	io_init_nossl(&io, sock, sock, vsyslog);
 	write_or_die(&io, token, token_size);
 
 	return (sock);
@@ -1511,7 +1511,7 @@ child_main(struct slave_thread *slave_thread, const char *token,
 
 	close_slave_thread(slave_thread);
 	sock = connect_to_shub(slave, token, token_size);
-	io_init_nossl(&slave_thread->fsth_io, sock, sock);
+	io_init_nossl(&slave_thread->fsth_io, sock, sock, vsyslog);
 	slave_thread->fsth_signal_watcher = true;
 
 	if (io_close(&slave->fsla_sigr) != 0)
@@ -1586,7 +1586,7 @@ start_new_thread(struct slave *slave, const char *token, size_t token_size)
 	new_thread = malloc_slave_thread();
 	new_thread->fsth_slave = slave;
 	SLIST_INIT(&new_thread->fsth_memory);
-	io_init_nossl(&new_thread->fsth_io, sock, sock);
+	io_init_nossl(&new_thread->fsth_io, sock, sock, vsyslog);
 	new_thread->fsth_signal_watcher = false;
 	add_thread(slave, new_thread);
 
@@ -2393,7 +2393,7 @@ main(int argc, char* argv[])
 	slave_thread->fsth_slave = slave;
 	SLIST_INIT(&slave_thread->fsth_memory);
 	io_init_nossl(&slave_thread->fsth_io, atoi_or_die(args[0], "rfd"),
-		      atoi_or_die(args[1], "wfd"));
+		      atoi_or_die(args[1], "wfd"), vsyslog);
 	slave_thread->fsth_signal_watcher = true;
 	add_thread(slave, slave_thread);
 

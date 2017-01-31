@@ -9,6 +9,9 @@ void diex(int, const char *, ...);
 void __die_for_assertion(const char *, int, const char *);
 void __build_asserting_message(const char *, ...);
 
+typedef void (*die_log)(int, const char *, ...);
+die_log	libdie_init(die_log);
+
 #define	die_if_false(expr, msg)		do {			\
 	if (!(expr)) {						\
 		__build_asserting_message msg;			\
