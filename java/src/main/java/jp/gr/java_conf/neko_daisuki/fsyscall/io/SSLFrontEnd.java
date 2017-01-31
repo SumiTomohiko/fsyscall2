@@ -220,7 +220,6 @@ public class SSLFrontEnd {
         }
 
         private void logStatus() {
-            log("--------------------------------");
             log("mSelector.keys().size()=%d", mSelector.keys().size());
             log("mSocket.isOpen()=%s", mSocket.isOpen());
             log("mSource.isOpen()=%s", mSource.isOpen());
@@ -233,9 +232,9 @@ public class SSLFrontEnd {
         }
 
         private String dumpBuffer(ByteBuffer buffer) {
-            String fmt = "[remaining()=%d, position=%d, limit=%d, capacity=%d]";
-            return String.format(fmt, buffer.remaining(), buffer.position(),
-                                 buffer.limit(), buffer.capacity());
+            String fmt = "ByteBuffer(capacity=%d, limit=%d, position=%d, remaining=%d)";
+            return String.format(fmt, buffer.capacity(), buffer.limit(),
+                                 buffer.position(), buffer.remaining());
         }
 
         private void header(String title, String mark) {
@@ -326,6 +325,24 @@ public class SSLFrontEnd {
                     case BUFFER_OVERFLOW:
                         SSLSession session = mEngine.getSession();
                         int appBufSize = session.getApplicationBufferSize();
+
+                        /*
+                         * When the master crashes, SSLEngine.unwrap() returns
+                         * BUFFER_OVERFLOW even though the mPeerAppData has
+                         * enough space. I do not know why.
+                         *
+                         * In this case, this loop never ended. I throw an Error
+                         * to stop.
+                         */
+                        if (appBufSize <= mPeerAppData.remaining()) {
+                            String message = "SSLEngine.unwrap() RETURNS UNEXPECTED BUFFER_OVERFLOW";
+                            mLogger.err("%s: mPeerNetData=%s, mPeerAppData=%s, appBufSize=%d",
+                                        message, dumpBuffer(mPeerNetData),
+                                        dumpBuffer(mPeerAppData), appBufSize);
+                            logStatus();
+                            throw new Error(message);
+                        }
+
                         mPeerAppData = enlargeBuffer(mPeerAppData, appBufSize);
                         break;
                     case BUFFER_UNDERFLOW:
