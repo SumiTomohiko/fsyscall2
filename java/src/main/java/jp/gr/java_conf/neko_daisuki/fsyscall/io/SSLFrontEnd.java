@@ -327,14 +327,18 @@ public class SSLFrontEnd {
                         int appBufSize = session.getApplicationBufferSize();
 
                         /*
-                         * When the master crashes, SSLEngine.unwrap() returns
-                         * BUFFER_OVERFLOW even though the mPeerAppData has
-                         * enough space. I do not know why.
+                         * The document[1] is saying that I need a buffer of
+                         * SSLSession.getApplicationBufferSize(). However, calls
+                         * of SSLEngine.unwrap() with such enough sized buffer
+                         * returns BUFFER_OVERFLOW. I do not know why.
                          *
-                         * In this case, this loop never ended. I throw an Error
-                         * to stop.
+                         * SSLEngine.unwrap() seems to work with twice large
+                         * buffers. I cannot make sure this assumption.
+                         *
+                         * [1] https://docs.oracle.com/javase/7/docs/api/javax/net/ssl/SSLEngine.html
                          */
-                        if (appBufSize <= mPeerAppData.remaining()) {
+                        int neededBufSize = 2 * appBufSize;
+                        if (neededBufSize < mPeerAppData.remaining()) {
                             String message = "SSLEngine.unwrap() RETURNS UNEXPECTED BUFFER_OVERFLOW";
                             mLogger.err("%s: mPeerNetData=%s, mPeerAppData=%s, appBufSize=%d",
                                         message, dumpBuffer(mPeerNetData),
@@ -342,8 +346,10 @@ public class SSLFrontEnd {
                             logStatus();
                             throw new Error(message);
                         }
-
-                        mPeerAppData = enlargeBuffer(mPeerAppData, appBufSize);
+                        mPeerAppData = enlargeBuffer(mPeerAppData,
+                                                     neededBufSize);
+                        mLogger.info("Enlarged mPeerAppData: size=%d",
+                                     neededBufSize);
                         break;
                     case BUFFER_UNDERFLOW:
                         mPeerNetDataAvailable = false;
