@@ -196,6 +196,95 @@ set_readable_ssl(struct io *io)
 	/* nothing */
 }
 
+const char *
+get_error_name(int e)
+{
+	static const char *errornames[] = {
+		"not error", "EPERM", "ENOENT", "ESRCH", "EINTR", "EIO",
+		"ENXIO", "E2BIG", "ENOEXEC", "EBADF", "ECHILD", "EDEADLK",
+		"ENOMEM", "EACCES", "EFAULT", "ENOTBLK", "EBUSY", "EEXIST",
+		"EXDEV", "ENODEV", "ENOTDIR", "EISDIR", "EINVAL", "ENFILE",
+		"EMFILE", "NOTTY", "ETXTBSY", "EFBIG", "ENOSPC", "ESPIPE",
+		"EROFS", "EMLINK", "EPIPE", "EDOM", "ERANGE", "EAGAIN",
+		"EINPROGRESS", "EALREADY", "ENOTSOCK", "EDESTADDRREQ",
+		"EMSGSIZE", "EPROTOTYPE", "ENOPROTOOPT", "EPROTONOSUPPORT",
+		"ESOCKTNOSUPPORT", "EOPNOTSUPP", "EPFNOSUPPORT", "EAFNOSUPPORT",
+		"EADDRINUSE", "EADDRNOTAVAIL", "ENETDOWN", "ENETUNREACH",
+		"ENETRESET", "ECONNABORTED", "ECONNRESET", "ENOBUFS", "EISCONN",
+		"ENOTCONN", "ESHUTDOWN", "ETOOMANYREFS", "ETOOMANYREFS",
+		"ETIMEDOUT", "ECONNREFUSED", "ELOOP", "ENAMETOOLONG",
+		"EHOSTDOWN", "EHOSTUNREACH", "ENOTEMPTY", "EPROCLIM", "EUSERS",
+		"EDQUOT", "ESTALE", "EREMOTE", "EBADRPC", "ERPCMISMATCH",
+		"EPROGUNAVAIL", "EPROGMISMATCH", "EPROCUNAVAIL", "ENOLCK",
+		"ENOSYS", "EFTYPE", "EAUTH", "ENEEDAUTH", "EIDRM", "ENOMSG",
+		"EOVERFLOW", "ECANCELED", "EILSEQ", "ENOATTR", "EDOOFUS",
+		"EBADMSG", "EMULTIHOP", "ENOLINK", "EPROTO", "ENOTCAPABLE",
+		"ECAPMODE", "ENOTRECOVERABLE", "EOWNERDEAD" };
+	static int nerrno = sizeof(errornames) / sizeof(errornames[0]);
+
+	return ((0 <= e) && (e < nerrno) ? errornames[e] : "unknown error");
+}
+
+static void
+log_error_ssl(const struct io *io, int ret, const char *tag)
+{
+	io_vlog vlog;
+	int e, error, error2;
+	const char *s;
+	char buf[256];
+
+	e = errno;
+
+	error = SSL_get_error(io->io_ssl, ret);
+	vlog = io->io_vlog;
+	if (error != SSL_ERROR_SYSCALL) {
+		switch (error) {
+#define	CASE(name)	case name: s = #name; break
+		CASE(SSL_ERROR_NONE);
+		CASE(SSL_ERROR_WANT_READ);
+		CASE(SSL_ERROR_WANT_WRITE);
+		CASE(SSL_ERROR_WANT_CONNECT);
+		CASE(SSL_ERROR_WANT_ACCEPT);
+		CASE(SSL_ERROR_SSL);
+		CASE(SSL_ERROR_WANT_X509_LOOKUP);
+		CASE(SSL_ERROR_ZERO_RETURN);
+#undef	CASE
+		default:
+			s = "unknown error";
+			break;
+		}
+		log(vlog, LOG_DEBUG,
+		    "%s: ret=%d, error=%d (%s)", tag, ret, error, s);
+	}
+	else {
+		error2 = ERR_peek_error();
+		switch (error2) {
+		case 0:
+			switch (ret) {
+			case 0:
+				s = "EOF";
+				break;
+			case -1:
+				snprintf(buf, sizeof(buf),
+					 "I/O error (errno=%d (%s), %s)",
+					 e, get_error_name(e), strerror(e));
+				s = buf;
+				break;
+			default:
+				s = "unknown error";
+				break;
+			}
+			break;
+		default:
+			s = "queued error";
+			break;
+		}
+		log(vlog, LOG_DEBUG,
+		    "%s: ret=%d, error=%d (SSL_ERROR_SYSCALL), error2=%d (%s)",
+		    tag, ret, error, error2, s);
+	}
+}
+
 /*#define	DEBUG_SSL*/
 
 static bool
@@ -330,13 +419,62 @@ read_ssl(struct io *io, void *buf, size_t nbytes)
 static ssize_t
 write_ssl(struct io *io, void *buf, size_t nbytes)
 {
-	int n;
+	SSL *ssl;
+	fd_set fds;
+	struct timeval timeout;
+	int e, fd, nfds, ret;
+	char tag[256];
 
-	n = SSL_write(io->io_ssl, buf, nbytes);
-	if (n < 0)
-		io->io_error = EIO;	/* FIXME */
+#define	LOG_ERROR	do {						\
+	io->io_error = EIO;						\
+	snprintf(tag, sizeof(tag), "SSL_write: nbytes=%zu", nbytes);	\
+	log_error_ssl(io, ret, tag);					\
+} while (0)
 
-	return (n);
+	ssl = io->io_ssl;
+	ret = SSL_write(ssl, buf, nbytes);
+	if (ret <= 0) {
+		if (SSL_get_error(ssl, ret) == SSL_ERROR_WANT_WRITE) {
+			fd = SSL_get_fd(ssl);
+			FD_ZERO(&fds);
+			FD_SET(fd, &fds);
+			timeout.tv_sec = 120;
+			timeout.tv_usec = 0;
+			nfds = select(fd + 1, NULL, &fds, NULL, &timeout);
+			switch (nfds) {
+			case -1:
+				e = errno;
+				io->io_error = e;
+				log(io->io_vlog, LOG_ERR,
+				    "select(2) for SSL_ERROR_WANT_WRITE failed:"
+				    " errno=%d (%s, %s)",
+				    e, get_error_name(e), strerror(e));
+				break;
+			case 0:
+				log(io->io_vlog, LOG_ERR,
+				    "select(2) for SSL_ERROR_WANT_WRITE timeout"
+				    "ed");
+				break;
+			case 1:
+				ret = SSL_write(ssl, buf, nbytes);
+				if (ret <= 0)
+					LOG_ERROR;
+				break;
+			default:
+				log(io->io_vlog, LOG_ERR,
+				    "select(2) for SSL_ERROR_WANT_WRITE returne"
+				    "d invalid value, %d",
+				    nfds);
+				break;
+			}
+		}
+		else
+			LOG_ERROR;
+	}
+
+#undef	LOG_ERROR
+
+	return (ret);
 }
 
 static struct io_ops ops_ssl = {
