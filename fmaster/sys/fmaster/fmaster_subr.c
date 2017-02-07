@@ -934,6 +934,7 @@ fmaster_is_master_file(struct thread *td, const char *path)
 		"/usr/local/etc/pango/",
 		"/usr/local/lib/",
 		"/usr/local/share/",
+		"/usr/share/",
 		"/var/db/fontconfig/",
 	};
 	const char *files[] = {
@@ -987,6 +988,7 @@ fmaster_is_master_file(struct thread *td, const char *path)
 		"/usr/local/etc",
 		"/usr/local/etc/fonts/conf.d",
 		"/usr/local/etc/fonts/fonts.conf",
+		"/usr/local/etc/pouetChess.conf",
 		"/usr/local/share/applications/gedit.desktop",
 		"/usr/local/share/glib-2.0/schemas/gschemas.compiled",
 		"/usr/local/share/gvfs/mounts",
