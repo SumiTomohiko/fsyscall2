@@ -17,6 +17,8 @@ doc:
 doc-clean:
 	@cd $(DOCDIR) && $(MAKE) clean
 
+install: install-all
+
 install-all: install-master install-slave
 
 install-master:
