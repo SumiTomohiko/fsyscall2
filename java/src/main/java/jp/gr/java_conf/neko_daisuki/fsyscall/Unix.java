@@ -81,7 +81,11 @@ public class Unix {
         }
 
         public String toString() {
-            String s = ByteUtil.toString(iov_base, (int)iov_len);
+            return toString((int)iov_len);
+        }
+
+        public String toString(int maxLength) {
+            String s = ByteUtil.toString(iov_base, maxLength);
             return String.format("IoVec(iov_base=%s, iov_len=%d)", s, iov_len);
         }
     }

@@ -72,8 +72,11 @@ public class ByteUtil {
         " ", " ", " ", " ", " ", " ", " ", " "
     };
 
-    public static String toString(byte[] buf, int from, int to) {
-        return buf != null ? buildArrayString(buf, from, to) : "null";
+    /**
+     * @param len If -1 is given, this method works for whole of the buffer.
+     */
+    public static String toString(byte[] buf, int pos, int len) {
+        return buf != null ? buildArrayString(buf, pos, len) : "null";
     }
 
     public static String toString(byte[] buf, int len) {
@@ -109,11 +112,23 @@ public class ByteUtil {
         return b < 0 ? b - Byte.MIN_VALUE : b;
     }
 
-    private static String buildArrayString(byte[] buf, int from, int to) {
-        StringBuilder builder = new StringBuilder();
-        for (int i = from; i < to; i++) {
-            builder.append(toString(buf[i]));
+    private static String buildArrayString(byte[] buf, int pos, int len) {
+        int n;
+        String postfix;
+        if ((len != -1) && (len < buf.length)) {
+            n = len;
+            postfix = "...";
         }
+        else {
+            n = buf.length;
+            postfix = "";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < n; i++) {
+            builder.append(toString(buf[pos + i]));
+        }
+        builder.append(postfix);
         return builder.toString();
     }
 

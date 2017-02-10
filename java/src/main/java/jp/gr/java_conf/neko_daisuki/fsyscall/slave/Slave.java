@@ -50,6 +50,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallReadableChannel;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallWritableChannel;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.ArrayUtil;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.ByteUtil;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.IoVecUtil;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
 
@@ -2305,6 +2306,7 @@ public class Slave implements Runnable {
     private static NormalizedPath mPwdDbPath;
     private static Map<Integer, String> mFcntlCommands;
     private static Logging.Logger mLogger;
+    private static int mMaxBufferLogLength = 8;
 
     private final Process.FileRegisteringCallback KQUEUE_CALLBACK = new KQueueCallback();
 
@@ -2626,7 +2628,7 @@ public class Slave implements Runnable {
 
         int len = (int)result.retval;
         result.buf = Arrays.copyOf(buffer, len);
-        logBuffer(String.format("read: fd=%d: result", fd), result.buf, len);
+        //logBuffer(String.format("read: fd=%d: result", fd), result.buf, len);
 
         return result;
     }
@@ -3022,7 +3024,8 @@ public class Slave implements Runnable {
     }
 
     public SyscallResult.Generic32 doWritev(int fd, Unix.IoVec[] iovec) throws IOException {
-        mLogger.info("writev(fd=%d, iovec=%s)", fd, ArrayUtil.toString(iovec));
+        String fmt = "writev(fd=%d, iovec=%s)";
+        mLogger.info(fmt, fd, IoVecUtil.toString(iovec, mMaxBufferLogLength));
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
@@ -3047,7 +3050,7 @@ public class Slave implements Runnable {
                 System.arraycopy(v.iov_base, 0, buffer, pos, len);
                 pos += len;
             }
-            logBuffer(String.format("writev: fd=%d", fd), buffer);
+            //logBuffer(String.format("writev: fd=%d", fd), buffer);
 
             try {
                 result.retval = file.write(buffer);
@@ -3406,7 +3409,7 @@ public class Slave implements Runnable {
             logPossibleDyingMessage(buf);
         }
         */
-        logBuffer(String.format("write: fd=%d: buf", fd), buf);
+        //logBuffer(String.format("write: fd=%d: buf", fd), buf);
 
         SyscallResult.Generic64 result = new SyscallResult.Generic64();
 
@@ -3905,7 +3908,7 @@ public class Slave implements Runnable {
         int len = iov.length;
         for (int i = 0; i < len; i++) {
             Unix.IoVec v = iov[i];
-            String s = ByteUtil.toString(v.iov_base, (int)v.iov_len);
+            String s = ByteUtil.toString(v.iov_base, mMaxBufferLogLength);
             mLogger.debug("%s: %s[%d]=%s", tag, name, i, s);
         }
     }
