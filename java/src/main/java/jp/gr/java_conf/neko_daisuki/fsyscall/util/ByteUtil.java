@@ -2,6 +2,17 @@ package jp.gr.java_conf.neko_daisuki.fsyscall.util;
 
 public class ByteUtil {
 
+    private static class ChainParam {
+
+        public int length;
+        public String postfix;
+
+        public ChainParam(int length, String postfix) {
+            this.length = length;
+            this.postfix = postfix;
+        }
+    }
+
     private static final boolean[] IS_PRINT = {
         false, false, false, false, false, false, false, false,
         false, false, false, false, false, false, false, false,
@@ -113,22 +124,16 @@ public class ByteUtil {
     }
 
     private static String buildArrayString(byte[] buf, int pos, int len) {
-        int n;
-        String postfix;
-        if ((len != -1) && (len < buf.length)) {
-            n = len;
-            postfix = "...";
-        }
-        else {
-            n = buf.length;
-            postfix = "";
-        }
+        ChainParam param = (len != -1) && (len < buf.length)
+                ? new ChainParam(len, "...")
+                : new ChainParam(buf.length, "");
 
         StringBuilder builder = new StringBuilder();
+        int n = param.length;
         for (int i = 0; i < n; i++) {
             builder.append(toString(buf[pos + i]));
         }
-        builder.append(postfix);
+        builder.append(param.postfix);
         return builder.toString();
     }
 
