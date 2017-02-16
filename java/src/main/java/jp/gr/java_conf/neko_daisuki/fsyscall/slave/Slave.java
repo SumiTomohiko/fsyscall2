@@ -46,7 +46,6 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.SyscallResult;
 import jp.gr.java_conf.neko_daisuki.fsyscall.Unix;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixDomainAddress;
 import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
-import jp.gr.java_conf.neko_daisuki.fsyscall.io.StreamPipe;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallReadableChannel;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallWritableChannel;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.ArrayUtil;
@@ -902,15 +901,8 @@ public class Slave implements Runnable {
                 mPeer = peer;
 
                 Connection connection = new Connection();
-                StreamPipe s2c;
-                StreamPipe c2s;
-                try {
-                    s2c = new StreamPipe();
-                    c2s = new StreamPipe();
-                }
-                catch (IOException e) {
-                    throw new UnixException(Errno.EIO, e);
-                }
+                jp.gr.java_conf.neko_daisuki.fsyscall.io.Pipe s2c = new jp.gr.java_conf.neko_daisuki.fsyscall.io.Pipe();
+                jp.gr.java_conf.neko_daisuki.fsyscall.io.Pipe c2s = new jp.gr.java_conf.neko_daisuki.fsyscall.io.Pipe();
                 mClientCore = new PipeCore(connection, s2c.getInputStream(),
                                            c2s.getOutputStream());
                 mServerCore = new PipeCore(connection, c2s.getInputStream(),
