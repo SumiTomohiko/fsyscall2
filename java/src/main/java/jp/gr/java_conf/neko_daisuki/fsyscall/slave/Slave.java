@@ -2695,7 +2695,7 @@ public class Slave implements Runnable {
 
         int len = (int)result.retval;
         result.buf = Arrays.copyOf(buffer, len);
-        logBuffer(String.format("pread: fd=%d: result", fd), result.buf, len);
+        //logBuffer(String.format("pread: fd=%d: result", fd), result.buf, len);
 
         return result;
     }
