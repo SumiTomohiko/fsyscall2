@@ -253,6 +253,9 @@ public class Application {
         mSlaveHub = new SlaveHub(this, in, out,
                                  new SyscallReadableChannel(slave2hub.source()),
                                  new SyscallWritableChannel(hub2slave.sink()));
+        synchronized (this) {
+            notifyAll();
+        }
 
         new Thread(slave).start();
         mSlaveHub.work();
@@ -266,9 +269,19 @@ public class Application {
     }
 
     public void cancel() {
-        mCancelled = true;
-        for (Process process: mProcesses) {
-            process.terminate();
+        try {
+            synchronized (this) {
+                while (!isCancellable()) {
+                    wait();
+                }
+                mCancelled = true;
+                for (Process process: mProcesses) {
+                    process.terminate();
+                }
+            }
+        }
+        catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 
@@ -329,6 +342,10 @@ public class Application {
                 mAlarm.alarm();
             }
         }
+    }
+
+    private boolean isCancellable() {
+        return mSlaveHub != null;
     }
 
     private void releaseProcess(Process process) {
