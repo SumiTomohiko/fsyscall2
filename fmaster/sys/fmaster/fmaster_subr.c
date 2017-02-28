@@ -913,7 +913,7 @@ fmaster_log_syscall_end(struct thread *td, const char *name,
 	int retval;
 	const char *fmt, *s;
 
-	fmt = "%s: ended: retval[0]=%d, retval[1]=%d, error=%d (%s): %ld[usec]",
+	fmt = "%s: ended: retval[0]=%d, retval[1]=%d, error=%d (%s): %ld[usec]";
 
 	microtime(&t2);
 	delta = fmaster_subtract_timeval(t1, &t2);
