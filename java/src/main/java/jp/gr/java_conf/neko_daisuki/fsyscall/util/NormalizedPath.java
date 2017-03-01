@@ -92,6 +92,9 @@ public class NormalizedPath {
                     // stay at the root directory.
                 }
             }
+            else if (name.equals("")) {
+                // ignore
+            }
             else {
                 l.addLast(name);
             }
