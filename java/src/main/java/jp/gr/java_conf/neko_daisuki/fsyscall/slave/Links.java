@@ -10,9 +10,6 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
 
 public class Links {
 
-    public class DuplicateSettingsException extends Exception {
-    }
-
     private static class Node {
 
         private NormalizedPath mDestination;
