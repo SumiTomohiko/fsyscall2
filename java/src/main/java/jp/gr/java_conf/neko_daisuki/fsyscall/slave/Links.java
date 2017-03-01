@@ -13,83 +13,95 @@ public class Links {
     public class DuplicateSettingsException extends Exception {
     }
 
-    private interface Node {
-
-        public NormalizedPath traverse(List<String> elems);
-        public void put(NormalizedPath dest, List<String> elems);
-    }
-
-    private static class InnerNode implements Node {
-
-        private Map<String, Node> mNodes = new HashMap<String, Node>();
-
-        @Override
-        public NormalizedPath traverse(List<String> elems) {
-            int size = elems.size();
-            if (size == 0) {
-                return null;
-            }
-            Node node = mNodes.get(elems.get(0));
-            if (node == null) {
-                return null;
-            }
-            return node.traverse(elems.subList(1, size));
-        }
-
-        @Override
-        public void put(NormalizedPath dest, List<String> elems) {
-            int size = elems.size();
-            if (size == 0) {
-                return;
-            }
-            String name = elems.get(0);
-            if (size == 1) {
-                mNodes.put(name, new Leaf(dest));
-                return;
-            }
-            InnerNode node = new InnerNode();
-            node.put(dest, elems.subList(1, size));
-            mNodes.put(name, node);
-        }
-    }
-
-    private static class Leaf implements Node {
+    private static class Node {
 
         private NormalizedPath mDestination;
+        private Map<String, Node> mNodes = new HashMap<String, Node>();
 
-        public Leaf(NormalizedPath destination) {
-            mDestination = destination;
+        public NormalizedPath walk(List<String> elems) throws NormalizedPath.InvalidPathException {
+            return walk0(new NormalizedPath("/"), new LinkedList<String>(),
+                         elems);
         }
 
-        @Override
-        public NormalizedPath traverse(List<String> elems) {
-            int size = elems.size();
-            StringBuilder buf = new StringBuilder(size == 0 ? ""
-                                                            : elems.get(0));
-            for (int i = 1; i < size; i++) {
-                buf.append(SEPARATOR);
-                buf.append(elems.get(i));
-            }
-            return new NormalizedPath(mDestination, buf.toString());
-        }
-
-        @Override
         public void put(NormalizedPath dest, List<String> elems) {
-            // nothing
+            int size = elems.size();
+            if (size == 0) {
+                mDestination = dest;
+                return;
+            }
+
+            String name = elems.get(0);
+            List<String> rest = elems.subList(1, size);
+            Node node = mNodes.get(name);
+            if (node != null) {
+                node.put(dest, rest);
+                return;
+            }
+
+            Node newNode = new Node();
+            newNode.put(dest, rest);
+            mNodes.put(name, newNode);
+        }
+
+        private NormalizedPath walk0(NormalizedPath path, List<String> accum,
+                                     List<String> elems) throws NormalizedPath.InvalidPathException {
+            if (mDestination != null) {
+                int size = elems.size();
+                if (size == 0) {
+                    return mDestination;
+                }
+                String name = elems.get(0);
+                Node node = mNodes.get(name);
+                if (node == null) {
+                    return new NormalizedPath(mDestination, chain(elems));
+                }
+                List<String> newAccum = new LinkedList<String>();
+                newAccum.add(name);
+                List<String> rest = elems.subList(1, size);
+                return node.walk0(mDestination, newAccum, rest);
+            }
+
+            int size = elems.size();
+            if (size == 0) {
+                return new NormalizedPath(path, chain(accum));
+            }
+            String name = elems.get(0);
+            accum.add(name);
+            Node node = mNodes.get(name);
+            if (node == null) {
+                return new NormalizedPath(path, chain(accum));
+            }
+            return node.walk0(path, accum, elems.subList(1, size));
+        }
+
+        private String chain(List<String> elems) {
+            StringBuilder buffer = new StringBuilder();
+            String sep = "";
+            for (String s: elems) {
+                buffer.append(sep);
+                buffer.append(s);
+                sep = SEPARATOR;
+            }
+            return buffer.toString();
         }
     }
 
     private static final String SEPARATOR = "/";
 
-    private Node mRootNode = new InnerNode();
+    private Node mRootNode = new Node();
 
     public void put(NormalizedPath dest, NormalizedPath src) {
         mRootNode.put(dest, listPathElements(src));
     }
 
     public NormalizedPath get(NormalizedPath path) {
-        NormalizedPath dest = mRootNode.traverse(listPathElements(path));
-        return dest != null ? dest : path;
+        try {
+            return mRootNode.walk(listPathElements(path));
+        }
+        catch (NormalizedPath.InvalidPathException e) {
+            String message = String.format("unexpected exception for %s", path);
+            throw new Error(message, e);
+        }
     }
 
     private List<String> listPathElements(NormalizedPath path) {
@@ -102,21 +114,27 @@ public class Links {
         return l;
     }
 
-    private static void test(NormalizedPath dest, NormalizedPath src,
-                             NormalizedPath path, NormalizedPath expected) {
-        Links links = new Links();
-        links.put(dest, src);
+    private static void test(String tag, Links links, NormalizedPath path,
+                             NormalizedPath expected) {
         NormalizedPath actual = links.get(path);
         String result = expected.equals(actual) ? "OK"
                                                 : String.format("NG (%s)",
                                                                 actual);
-        String fmt = "dest=%s, src=%s, path=%s, expected=%s: %s";
-        String msg = String.format(fmt, StringUtil.quote(dest.toString()),
-                                   StringUtil.quote(src.toString()),
-                                   StringUtil.quote(path.toString()),
+        String fmt = "%s: path=%s, expected=%s: %s";
+        String msg = String.format(fmt, tag, StringUtil.quote(path.toString()),
                                    StringUtil.quote(expected.toString()),
                                    result);
         System.out.println(msg);
+    }
+
+    private static void test(NormalizedPath dest, NormalizedPath src,
+                             NormalizedPath path, NormalizedPath expected) {
+        String tag = String.format("test(dest=%s, src=%s)",
+                                   StringUtil.quote(dest.toString()),
+                                   StringUtil.quote(src.toString()));
+        Links links = new Links();
+        links.put(dest, src);
+        test(tag, links, path, expected);
     }
 
     private static void test(String dest, String src, String path,
@@ -130,10 +148,34 @@ public class Links {
         }
     }
 
+    private static void test2(NormalizedPath path, NormalizedPath expected)
+                              throws NormalizedPath.InvalidPathException {
+        Links links = new Links();
+        links.put(new NormalizedPath("/foobar"), new NormalizedPath("/"));
+        links.put(new NormalizedPath("/foobar/buzquux"),
+                  new NormalizedPath("/home"));
+        test("test2", links, path, expected);
+    }
+
+    private static void test2(String path, String expected) {
+        try {
+            test2(new NormalizedPath(path), new NormalizedPath(expected));
+        }
+        catch (NormalizedPath.InvalidPathException e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void main(String[] args) {
         test("/sdcard", "/home/fsyscall", "/home/fsyscall/dbus",
              "/sdcard/dbus");
         test("/sdcard", "/home/fsyscall", "/tmp", "/tmp");
+        test("/foobar", "/", "/", "/foobar");
+        test("/foobar", "/", "/hogehoge", "/foobar/hogehoge");
+        test2("/", "/foobar");
+        test2("/home", "/foobar/buzquux");
+        test2("/home/hogehoge", "/foobar/buzquux/hogehoge");
+        test2("/etc", "/foobar/etc");
     }
 }
 
