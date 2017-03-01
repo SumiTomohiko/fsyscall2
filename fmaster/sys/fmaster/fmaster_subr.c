@@ -982,7 +982,6 @@ fmaster_is_master_file(struct thread *td, const char *path)
 		"/etc/group",
 		"/etc/nsswitch.conf",
 		"/etc/libmap.conf",
-		"/usr",
 		"/usr/local",
 		"/usr/local/etc",
 		"/usr/local/etc/fonts/conf.d",
