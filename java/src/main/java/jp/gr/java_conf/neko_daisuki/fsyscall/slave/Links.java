@@ -67,11 +67,15 @@ public class Links {
             }
             String name = elems.get(0);
             accum.add(name);
+            List<String> rest = elems.subList(1, size);
             Node node = mNodes.get(name);
             if (node == null) {
-                return new NormalizedPath(path, chain(accum));
+                List<String> l = new LinkedList<String>();
+                l.addAll(accum);
+                l.addAll(rest);
+                return new NormalizedPath(path, chain(l));
             }
-            return node.walk0(path, accum, elems.subList(1, size));
+            return node.walk0(path, accum, rest);
         }
 
         private String chain(List<String> elems) {
@@ -127,6 +131,17 @@ public class Links {
         System.out.println(msg);
     }
 
+    private static void test(String tag, Links links, String path,
+                             String expected) {
+        try {
+            test(tag, links, new NormalizedPath(path),
+                 new NormalizedPath(expected));
+        }
+        catch (NormalizedPath.InvalidPathException e) {
+            e.printStackTrace();
+        }
+    }
+
     private static void test(NormalizedPath dest, NormalizedPath src,
                              NormalizedPath path, NormalizedPath expected) {
         String tag = String.format("test(dest=%s, src=%s)",
@@ -166,6 +181,22 @@ public class Links {
         }
     }
 
+    private static void test3() {
+        Links links = new Links();
+        try {
+            links.put(new NormalizedPath("/foobar"), new NormalizedPath("/"));
+            links.put(new NormalizedPath("/foobar/usr/home"),
+                      new NormalizedPath("/home"));
+            links.put(new NormalizedPath("/foobar/usr/home/fsyscall/sdcard"),
+                      new NormalizedPath("/home/fsyscall/sdcard"));
+            test("test3", links, "/home/fsyscall/.local/share/fonts",
+                 "/foobar/usr/home/fsyscall/.local/share/fonts");
+        }
+        catch (NormalizedPath.InvalidPathException e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void main(String[] args) {
         test("/sdcard", "/home/fsyscall", "/home/fsyscall/dbus",
              "/sdcard/dbus");
@@ -176,6 +207,7 @@ public class Links {
         test2("/home", "/foobar/buzquux");
         test2("/home/hogehoge", "/foobar/buzquux/hogehoge");
         test2("/etc", "/foobar/etc");
+        test3();
     }
 }
 
