@@ -1,6 +1,9 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +41,17 @@ public class Links {
             Node newNode = new Node();
             newNode.put(dest, rest);
             mNodes.put(name, newNode);
+        }
+
+        public Collection<String> getNamesUnder(List<String> elems) {
+            int size = elems.size();
+            if (size == 0) {
+                return mNodes.keySet();
+            }
+
+            Node node = mNodes.get(elems.get(0));
+            return node != null ? node.getNamesUnder(elems.subList(1, size))
+                                : new HashSet<String>();
         }
 
         private NormalizedPath walk0(NormalizedPath path, List<String> accum,
@@ -105,6 +119,10 @@ public class Links {
         }
     }
 
+    public Collection<String> getNamesUnder(NormalizedPath path) {
+        return mRootNode.getNamesUnder(listPathElements(path));
+    }
+
     private List<String> listPathElements(NormalizedPath path) {
         List<String> l = new LinkedList<String>();
         String[] sa = path.toString().split(SEPARATOR);
@@ -115,12 +133,14 @@ public class Links {
         return l;
     }
 
+    private static String makeResultMessage(boolean result, Object actual) {
+        return result ? "OK" : String.format("NG (%s)", actual);
+    }
+
     private static void test(String tag, Links links, NormalizedPath path,
                              NormalizedPath expected) {
         NormalizedPath actual = links.get(path);
-        String result = expected.equals(actual) ? "OK"
-                                                : String.format("NG (%s)",
-                                                                actual);
+        String result = makeResultMessage(expected.equals(actual), actual);
         String fmt = "%s: path=%s, expected=%s: %s";
         String msg = String.format(fmt, tag, StringUtil.quote(path.toString()),
                                    StringUtil.quote(expected.toString()),
@@ -194,6 +214,49 @@ public class Links {
         }
     }
 
+    private static void testGetNamesUnder(String tag, String path,
+                                          String[] expected) {
+        boolean result = false;
+        Collection<String> actual = null;
+
+        Links links = new Links();
+        try {
+            links.put(new NormalizedPath("/usr/home"),
+                      new NormalizedPath("/home"));
+            actual = links.getNamesUnder(new NormalizedPath(path));
+            int n = expected.length;
+            if (n == actual.size()) {
+                Arrays.sort(expected);
+                String[] a = actual.toArray(new String[0]);
+                Arrays.sort(a);
+                int i;
+                for (i = 0; i < n; i++) {
+                    if (!expected[i].equals(a[i])) {
+                        break;
+                    }
+                }
+                if (i == n) {
+                    result = true;
+                }
+            }
+        }
+        catch (NormalizedPath.InvalidPathException e) {
+            e.printStackTrace();
+        }
+
+        String msg = String.format("%s: %s",
+                                   tag, makeResultMessage(result, actual));
+        System.out.println(msg);
+    }
+
+    private static void test4() {
+        testGetNamesUnder("test4", "/", new String[] { "home" });
+    }
+
+    private static void test5() {
+        testGetNamesUnder("test5", "/hogehoge", new String[] {});
+    }
+
     public static void main(String[] args) {
         test("/sdcard", "/home/fsyscall", "/home/fsyscall/dbus",
              "/sdcard/dbus");
@@ -205,6 +268,8 @@ public class Links {
         test2("/home/hogehoge", "/foobar/buzquux/hogehoge");
         test2("/etc", "/foobar/etc");
         test3();
+        test4();
+        test5();
     }
 }
 
