@@ -46,7 +46,14 @@ public class Links {
         public Collection<String> getNamesUnder(List<String> elems) {
             int size = elems.size();
             if (size == 0) {
-                return mNodes.keySet();
+                Collection<String> c = new HashSet<String>();
+                for (String name: mNodes.keySet()) {
+                    Node node = mNodes.get(name);
+                    if (node.mNodes.size() == 0) {
+                        c.add(name);
+                    }
+                }
+                return c;
             }
 
             Node node = mNodes.get(elems.get(0));
@@ -221,8 +228,12 @@ public class Links {
 
         Links links = new Links();
         try {
-            links.put(new NormalizedPath("/usr/home"),
+            links.put(new NormalizedPath("/foobar/rootdir"),
+                      new NormalizedPath("/"));
+            links.put(new NormalizedPath("/foobar/rootdir/usr/home"),
                       new NormalizedPath("/home"));
+            links.put(new NormalizedPath("/hogehoge"),
+                      new NormalizedPath("/usr/home/fugafuga/sdcard"));
             actual = links.getNamesUnder(new NormalizedPath(path));
             int n = expected.length;
             if (n == actual.size()) {
