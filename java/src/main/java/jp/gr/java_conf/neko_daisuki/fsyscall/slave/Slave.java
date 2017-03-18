@@ -531,17 +531,21 @@ public class Slave implements Runnable {
 
     private class OpenCallback implements Process.FileRegisteringCallback {
 
-        private NormalizedPath mPath;
+        private NormalizedPath mVirtualPath;
+        private NormalizedPath mPhisicalPath;
         private int mFlags;
 
-        public OpenCallback(NormalizedPath path, int flags) {
-            mPath = path;
+        public OpenCallback(NormalizedPath virtualPath,
+                            NormalizedPath phisicalPath, int flags) {
+            mVirtualPath = virtualPath;
+            mPhisicalPath = phisicalPath;
             mFlags = flags;
         }
 
         public UnixFile call() throws UnixException {
-            return new File(mPath.toString()).isDirectory() ? openDirectory()
-                                                            : openRegularFile();
+            String path = mPhisicalPath.toString();
+            return new File(path).isDirectory() ? openDirectory()
+                                                : openRegularFile();
         }
 
         private UnixFile openDirectory() throws UnixException {
@@ -551,7 +555,7 @@ public class Slave implements Runnable {
                 throw new UnixException(Errno.EISDIR);
             }
 
-            return new DirectoryFile(mAlarm, mPath);
+            return new DirectoryFile(mAlarm, mVirtualPath, mPhisicalPath);
         }
 
         private UnixFile openRegularFile() throws UnixException {
@@ -559,7 +563,7 @@ public class Slave implements Runnable {
                 throw new UnixException(Errno.ENOTDIR);
             }
             int flags = Unix.Constants.O_CREAT | Unix.Constants.O_EXCL;
-            String path = mPath.toString();
+            String path = mPhisicalPath.toString();
             if (((mFlags & flags) == flags) && new File(path).exists()) {
                 throw new UnixException(Errno.EEXIST);
             }
@@ -1572,15 +1576,12 @@ public class Slave implements Runnable {
         private int mPosition;
         private NormalizedPath mPath;
 
-        public DirectoryFile(Alarm alarm,
-                             NormalizedPath path) throws UnixException {
+        public DirectoryFile(Alarm alarm, NormalizedPath virtualPath,
+                             NormalizedPath phisicalPath) throws UnixException {
             super(alarm);
 
-            mEntries = new ArrayList<Unix.DirEnt>();
-            mEntries.add(new Unix.DirEnt(Unix.Constants.DT_DIR, "."));
-            mEntries.add(new Unix.DirEnt(Unix.Constants.DT_DIR, ".."));
-
-            File[] files = path.toFile().listFiles();
+            Map<String, Unix.DirEnt> c = new HashMap<String, Unix.DirEnt>();
+            File[] files = phisicalPath.toFile().listFiles();
             if (files == null) {
                 throw new UnixException(Errno.ENOENT);
             }
@@ -1589,10 +1590,21 @@ public class Slave implements Runnable {
                 File file = files[i];
                 int type = file.isFile() ? Unix.Constants.DT_REG
                                          : Unix.Constants.DT_DIR;
-                mEntries.add(new Unix.DirEnt(type, file.getName()));
+                String name = file.getName();
+                c.put(name, new Unix.DirEnt(type, name));
+            }
+            for (String name: mLinks.getNamesUnder(virtualPath)) {
+                c.put(name, new Unix.DirEnt(Unix.Constants.DT_LNK, name));
             }
 
-            mPath = path;
+            mEntries = new ArrayList<Unix.DirEnt>();
+            mEntries.add(new Unix.DirEnt(Unix.Constants.DT_DIR, "."));
+            mEntries.add(new Unix.DirEnt(Unix.Constants.DT_DIR, ".."));
+            for (Unix.DirEnt entry: c.values()) {
+                mEntries.add(entry);
+            }
+
+            mPath = phisicalPath;
         }
 
         public NormalizedPath getPath() {
@@ -2553,7 +2565,8 @@ public class Slave implements Runnable {
             return result;
         }
 
-        return openActualFile(getActualPath(path), flags, mode);
+        return openActualFile(new NormalizedPath(mCurrentDirectory, path),
+                              getActualPath(path), flags, mode);
     }
 
     public SyscallResult.Generic32 doOpenat(int fd, String path, int flags,
@@ -2563,10 +2576,13 @@ public class Slave implements Runnable {
                      Unix.Constants.Open.toString(flags), mode,
                      Unix.Constants.Mode.toString(mode));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
+        NormalizedPath virtualPath = new NormalizedPath(mCurrentDirectory,
+                                                        path);
 
         if (path.startsWith("/")) {
             // If the path is absolute, openat(2) ignores the fd.
-            return openActualFile(getActualPath(path), flags, mode);
+            return openActualFile(virtualPath, getActualPath(path), flags,
+                                  mode);
         }
 
         UnixFile file;
@@ -2587,7 +2603,7 @@ public class Slave implements Runnable {
                 return result;
             }
             NormalizedPath absPath = new NormalizedPath(dir.getPath(), path);
-            return openActualFile(absPath, flags, mode);
+            return openActualFile(virtualPath, absPath, flags, mode);
         }
         finally {
             file.unlock();
@@ -3811,17 +3827,25 @@ public class Slave implements Runnable {
         return result;
     }
 
-    private SyscallResult.Generic32 openActualFile(NormalizedPath absPath, int flags, int mode) throws IOException {
-        mLogger.info("open actual file: %s", absPath);
+    private SyscallResult.Generic32 openActualFile(NormalizedPath virtualPath,
+                                                   NormalizedPath phisicalPath,
+                                                   int flags,
+                                                   int mode)
+                                                   throws IOException {
+        mLogger.info("open actual file: %s", phisicalPath);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        if (!mPermissions.isAllowed(absPath)) {
+        if (!mPermissions.isAllowed(phisicalPath)) {
             result.retval = -1;
             result.errno = Errno.ENOENT;
             return result;
         }
 
-        registerFile(new OpenCallback(absPath, flags), result);
+        Process.FileRegisteringCallback cb = new OpenCallback(virtualPath,
+                                                              phisicalPath,
+                                                              flags);
+        registerFile(cb, result);
+
         return result;
     }
 
