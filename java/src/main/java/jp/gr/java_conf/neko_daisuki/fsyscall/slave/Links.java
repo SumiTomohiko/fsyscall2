@@ -48,8 +48,7 @@ public class Links {
             if (size == 0) {
                 Collection<String> c = new HashSet<String>();
                 for (String name: mNodes.keySet()) {
-                    Node node = mNodes.get(name);
-                    if (node.mNodes.size() == 0) {
+                    if (mNodes.get(name).mDestination != null) {
                         c.add(name);
                     }
                 }
@@ -228,12 +227,15 @@ public class Links {
 
         Links links = new Links();
         try {
+            String sdcardDir = "/hogehoge";
             links.put(new NormalizedPath("/foobar/rootdir"),
                       new NormalizedPath("/"));
+            links.put(new NormalizedPath(sdcardDir),
+                      new NormalizedPath("/usr/home/fugafuga/sdcard"));
             links.put(new NormalizedPath("/foobar/rootdir/usr/home"),
                       new NormalizedPath("/home"));
-            links.put(new NormalizedPath("/hogehoge"),
-                      new NormalizedPath("/usr/home/fugafuga/sdcard"));
+            links.put(new NormalizedPath(sdcardDir),
+                      new NormalizedPath("/home/sdcard"));
             actual = links.getNamesUnder(new NormalizedPath(path));
             int n = expected.length;
             if (n == actual.size()) {
