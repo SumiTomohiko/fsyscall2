@@ -29,8 +29,9 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SSLFrontEnd;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallReadableChannel;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallWritableChannel;
-import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.PhysicalPath;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.SSLUtil;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.VirtualPath;
 
 public class Application {
 
@@ -66,13 +67,13 @@ public class Application {
 
     private static class LocalBoundSockets {
 
-        private Map<NormalizedPath, Object> mSockets;
+        private Map<PhysicalPath, Object> mSockets;
 
         public LocalBoundSockets() {
-            mSockets = new HashMap<NormalizedPath, Object>();
+            mSockets = new HashMap<PhysicalPath, Object>();
         }
 
-        public void bind(NormalizedPath path,
+        public void bind(PhysicalPath path,
                          Object socket) throws UnixException {
             synchronized (mSockets) {
                 if (mSockets.get(path) != null) {
@@ -82,7 +83,7 @@ public class Application {
             }
         }
 
-        public Object get(NormalizedPath path) throws UnixException {
+        public Object get(PhysicalPath path) throws UnixException {
             Object socket;
             synchronized (mSockets) {
                 socket = mSockets.get(path);
@@ -93,7 +94,7 @@ public class Application {
             return socket;
         }
 
-        public void unlink(NormalizedPath path) throws UnixException {
+        public void unlink(PhysicalPath path) throws UnixException {
             Object socket;
             synchronized (mSockets) {
                 socket = mSockets.remove(path);
@@ -190,7 +191,7 @@ public class Application {
      * This is for thr_new(2) (fork(2) also uses this internally).
      */
     public Slave newSlave(PairId newPairId, Process process,
-                          NormalizedPath currentDirectory,
+                          VirtualPath currentDirectory,
                           Permissions permissions, Links links,
                           Slave.Listener listener) throws IOException {
         Pipe slave2hub = Pipe.open();
@@ -213,7 +214,7 @@ public class Application {
      * This is for fork(2).
      */
     public Slave newProcess(PairId pairId, Process parent,
-                            NormalizedPath currentDirectory,
+                            VirtualPath currentDirectory,
                             Permissions permissions, Links links,
                             Slave.Listener listener) throws IOException {
         Pid pid = mPidGenerator.next();
@@ -225,7 +226,7 @@ public class Application {
     }
 
     public int run(SyscallReadableChannel in, SyscallWritableChannel out,
-                   NormalizedPath currentDirectory, InputStream stdin,
+                   VirtualPath currentDirectory, InputStream stdin,
                    OutputStream stdout, OutputStream stderr,
                    Permissions permissions, Links links,
                    Slave.Listener listener, String resourceDirectory)
@@ -293,7 +294,7 @@ public class Application {
      * Binds a Unix domain socket to a path. This method handles a socket as an
      * Object instance, because I dislike disclosing the Slave.Socket class.
      */
-    public void bindSocket(NormalizedPath path, Object socket) throws UnixException {
+    public void bindSocket(PhysicalPath path, Object socket) throws UnixException {
         mLocalBoundSockets.bind(path, socket);
     }
 
@@ -301,11 +302,11 @@ public class Application {
      * Returns a socket bound to a given path. This method returns an Object.
      * Callers have responsibility to cast it to Slave.Socket.
      */
-    public Object getUnixDomainSocket(NormalizedPath path) throws UnixException {
+    public Object getUnixDomainSocket(PhysicalPath path) throws UnixException {
         return mLocalBoundSockets.get(path);
     }
 
-    public void unlinkUnixDomainNode(NormalizedPath path) throws UnixException {
+    public void unlinkUnixDomainNode(PhysicalPath path) throws UnixException {
         mLocalBoundSockets.unlink(path);
     }
 
@@ -525,7 +526,7 @@ public class Application {
             Links links = new Links();
             try {
                 exitStatus = app.run(readableChannel, writableChannel,
-                                     new NormalizedPath(args[1]), stdin, stdout,
+                                     new VirtualPath(args[1]), stdin, stdout,
                                      stderr, perm, links, null, resourceDir);
             }
             catch (Throwable e) {

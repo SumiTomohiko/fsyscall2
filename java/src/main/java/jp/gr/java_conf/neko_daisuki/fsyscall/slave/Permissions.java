@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Logging;
-import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.PhysicalPath;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
 
 public class Permissions {
@@ -17,7 +17,7 @@ public class Permissions {
             mAllowed = allowed;
         }
 
-        public abstract boolean isMatched(NormalizedPath path);
+        public abstract boolean isMatched(PhysicalPath path);
         public abstract String represent();
 
         public boolean isAllowed() {
@@ -27,14 +27,14 @@ public class Permissions {
 
     private static class PathPermission extends Permission {
 
-        private NormalizedPath mPath;
+        private PhysicalPath mPath;
 
-        public PathPermission(NormalizedPath path, boolean allowed) {
+        public PathPermission(PhysicalPath path, boolean allowed) {
             super(allowed);
             mPath = path;
         }
 
-        public boolean isMatched(NormalizedPath path) {
+        public boolean isMatched(PhysicalPath path) {
             return mPath.equals(path);
         }
 
@@ -47,12 +47,12 @@ public class Permissions {
 
         private String mDirPath;
 
-        public DirectoryPermission(NormalizedPath dirPath, boolean allowed) {
+        public DirectoryPermission(PhysicalPath dirPath, boolean allowed) {
             super(allowed);
             mDirPath = dirPath.toString() + "/";
         }
 
-        public boolean isMatched(NormalizedPath path) {
+        public boolean isMatched(PhysicalPath path) {
             return path.toString().startsWith(mDirPath);
         }
 
@@ -74,15 +74,15 @@ public class Permissions {
         initialize(default_);
     }
 
-    public void allowPath(NormalizedPath path) {
+    public void allowPath(PhysicalPath path) {
         mPermissions.add(new PathPermission(path, true));
     }
 
-    public void allowDirectoryContents(NormalizedPath dirPath) {
+    public void allowDirectoryContents(PhysicalPath dirPath) {
         mPermissions.add(new DirectoryPermission(dirPath, true));
     }
 
-    public boolean isAllowed(NormalizedPath path) {
+    public boolean isAllowed(PhysicalPath path) {
         for (Permission p: mPermissions) {
             if (p.isMatched(path)) {
                 boolean allowed = p.isAllowed();

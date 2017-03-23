@@ -5,20 +5,13 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-public class NormalizedPath {
+class NormalizedPath {
 
-    public static class InvalidPathException extends Exception {
-
-        public InvalidPathException(String message, String path) {
-            super(String.format("%s: %s", message, path));
-        }
-    }
-
-    private static final String SEPARATOR = "/";
+    protected static final String SEPARATOR = "/";
 
     private String mPath;
 
-    public NormalizedPath(NormalizedPath parent, String path) {
+    protected NormalizedPath(NormalizedPath parent, String path) {
         if (path == null) {
             throw new NullPointerException("null given as path");
         }
@@ -30,7 +23,7 @@ public class NormalizedPath {
         mPath = normalize(s);
     }
 
-    public NormalizedPath(String path) throws InvalidPathException {
+    protected NormalizedPath(String path) throws InvalidPathException {
         if (path == null) {
             throw new NullPointerException("null given as path");
         }
@@ -38,18 +31,6 @@ public class NormalizedPath {
             throw new InvalidPathException("path must be absolute", path);
         }
         mPath = normalize(path);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        NormalizedPath path;
-        try {
-            path = (NormalizedPath)o;
-        }
-        catch (ClassCastException unused) {
-            return false;
-        }
-        return path.toString().equals(mPath);
     }
 
     @Override

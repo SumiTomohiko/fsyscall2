@@ -8,22 +8,24 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.InvalidPathException;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.PhysicalPath;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.VirtualPath;
 
 public class Links {
 
     private static class Node {
 
-        private NormalizedPath mDestination;
+        private PhysicalPath mDestination;
         private Map<String, Node> mNodes = new HashMap<String, Node>();
 
-        public NormalizedPath walk(List<String> elems) throws NormalizedPath.InvalidPathException {
-            return walk0(new NormalizedPath("/"), new LinkedList<String>(),
+        public PhysicalPath walk(List<String> elems) throws InvalidPathException {
+            return walk0(new PhysicalPath("/"), new LinkedList<String>(),
                          elems);
         }
 
-        public void put(NormalizedPath dest, List<String> elems) {
+        public void put(PhysicalPath dest, List<String> elems) {
             int size = elems.size();
             if (size == 0) {
                 mDestination = dest;
@@ -60,8 +62,8 @@ public class Links {
                                 : new HashSet<String>();
         }
 
-        private NormalizedPath walk0(NormalizedPath path, List<String> accum,
-                                     List<String> elems) throws NormalizedPath.InvalidPathException {
+        private PhysicalPath walk0(PhysicalPath path, List<String> accum,
+                                   List<String> elems) throws InvalidPathException {
             if (mDestination != null) {
                 int size = elems.size();
                 if (size == 0) {
@@ -70,7 +72,7 @@ public class Links {
                 String name = elems.get(0);
                 Node node = mNodes.get(name);
                 if (node == null) {
-                    return new NormalizedPath(mDestination, chain(elems));
+                    return new PhysicalPath(mDestination, chain(elems));
                 }
                 List<String> newAccum = new LinkedList<String>();
                 newAccum.add(name);
@@ -80,7 +82,7 @@ public class Links {
 
             int size = elems.size();
             if (size == 0) {
-                return new NormalizedPath(path, chain(accum));
+                return new PhysicalPath(path, chain(accum));
             }
             String name = elems.get(0);
             accum.add(name);
@@ -90,7 +92,7 @@ public class Links {
                 List<String> l = new LinkedList<String>();
                 l.addAll(accum);
                 l.addAll(rest);
-                return new NormalizedPath(path, chain(l));
+                return new PhysicalPath(path, chain(l));
             }
             return node.walk0(path, accum, rest);
         }
@@ -111,25 +113,25 @@ public class Links {
 
     private Node mRootNode = new Node();
 
-    public void put(NormalizedPath dest, NormalizedPath src) {
+    public void put(PhysicalPath dest, VirtualPath src) {
         mRootNode.put(dest, listPathElements(src));
     }
 
-    public NormalizedPath get(NormalizedPath path) {
+    public PhysicalPath get(VirtualPath path) {
         try {
             return mRootNode.walk(listPathElements(path));
         }
-        catch (NormalizedPath.InvalidPathException e) {
+        catch (InvalidPathException e) {
             String message = String.format("unexpected exception for %s", path);
             throw new Error(message, e);
         }
     }
 
-    public Collection<String> getNamesUnder(NormalizedPath path) {
+    public Collection<String> getNamesUnder(VirtualPath path) {
         return mRootNode.getNamesUnder(listPathElements(path));
     }
 
-    private List<String> listPathElements(NormalizedPath path) {
+    private List<String> listPathElements(VirtualPath path) {
         List<String> l = new LinkedList<String>();
         String[] sa = path.toString().split(SEPARATOR);
         int len = sa.length;
@@ -143,9 +145,9 @@ public class Links {
         return result ? "OK" : String.format("NG (%s)", actual);
     }
 
-    private static void test(String tag, Links links, NormalizedPath path,
-                             NormalizedPath expected) {
-        NormalizedPath actual = links.get(path);
+    private static void test(String tag, Links links, VirtualPath path,
+                             PhysicalPath expected) {
+        PhysicalPath actual = links.get(path);
         String result = makeResultMessage(expected.equals(actual), actual);
         String fmt = "%s: path=%s, expected=%s: %s";
         String msg = String.format(fmt, tag, StringUtil.quote(path.toString()),
@@ -157,16 +159,16 @@ public class Links {
     private static void test(String tag, Links links, String path,
                              String expected) {
         try {
-            test(tag, links, new NormalizedPath(path),
-                 new NormalizedPath(expected));
+            test(tag, links, new VirtualPath(path),
+                 new PhysicalPath(expected));
         }
-        catch (NormalizedPath.InvalidPathException e) {
+        catch (InvalidPathException e) {
             e.printStackTrace();
         }
     }
 
-    private static void test(NormalizedPath dest, NormalizedPath src,
-                             NormalizedPath path, NormalizedPath expected) {
+    private static void test(PhysicalPath dest, VirtualPath src,
+                             VirtualPath path, PhysicalPath expected) {
         String tag = String.format("test(dest=%s, src=%s)",
                                    StringUtil.quote(dest.toString()),
                                    StringUtil.quote(src.toString()));
@@ -178,28 +180,28 @@ public class Links {
     private static void test(String dest, String src, String path,
                              String expected) {
         try {
-            test(new NormalizedPath(dest), new NormalizedPath(src),
-                 new NormalizedPath(path), new NormalizedPath(expected));
+            test(new PhysicalPath(dest), new VirtualPath(src),
+                 new VirtualPath(path), new PhysicalPath(expected));
         }
-        catch (NormalizedPath.InvalidPathException e) {
+        catch (InvalidPathException e) {
             e.printStackTrace();
         }
     }
 
-    private static void test2(NormalizedPath path, NormalizedPath expected)
-                              throws NormalizedPath.InvalidPathException {
+    private static void test2(VirtualPath path, PhysicalPath expected)
+                              throws InvalidPathException {
         Links links = new Links();
-        links.put(new NormalizedPath("/foobar"), new NormalizedPath("/"));
-        links.put(new NormalizedPath("/foobar/buzquux"),
-                  new NormalizedPath("/home"));
+        links.put(new PhysicalPath("/foobar"), new VirtualPath("/"));
+        links.put(new PhysicalPath("/foobar/buzquux"),
+                  new VirtualPath("/home"));
         test("test2", links, path, expected);
     }
 
     private static void test2(String path, String expected) {
         try {
-            test2(new NormalizedPath(path), new NormalizedPath(expected));
+            test2(new VirtualPath(path), new PhysicalPath(expected));
         }
-        catch (NormalizedPath.InvalidPathException e) {
+        catch (InvalidPathException e) {
             e.printStackTrace();
         }
     }
@@ -207,15 +209,15 @@ public class Links {
     private static void test3() {
         Links links = new Links();
         try {
-            links.put(new NormalizedPath("/foobar"), new NormalizedPath("/"));
-            links.put(new NormalizedPath("/foobar/usr/home"),
-                      new NormalizedPath("/home"));
-            links.put(new NormalizedPath("/foobar/usr/home/fsyscall/sdcard"),
-                      new NormalizedPath("/home/fsyscall/sdcard"));
+            links.put(new PhysicalPath("/foobar"), new VirtualPath("/"));
+            links.put(new PhysicalPath("/foobar/usr/home"),
+                      new VirtualPath("/home"));
+            links.put(new PhysicalPath("/foobar/usr/home/fsyscall/sdcard"),
+                      new VirtualPath("/home/fsyscall/sdcard"));
             test("test3", links, "/home/fsyscall/.local/share/fonts",
                  "/foobar/usr/home/fsyscall/.local/share/fonts");
         }
-        catch (NormalizedPath.InvalidPathException e) {
+        catch (InvalidPathException e) {
             e.printStackTrace();
         }
     }
@@ -228,15 +230,15 @@ public class Links {
         Links links = new Links();
         try {
             String sdcardDir = "/hogehoge";
-            links.put(new NormalizedPath("/foobar/rootdir"),
-                      new NormalizedPath("/"));
-            links.put(new NormalizedPath(sdcardDir),
-                      new NormalizedPath("/usr/home/fugafuga/sdcard"));
-            links.put(new NormalizedPath("/foobar/rootdir/usr/home"),
-                      new NormalizedPath("/home"));
-            links.put(new NormalizedPath(sdcardDir),
-                      new NormalizedPath("/home/sdcard"));
-            actual = links.getNamesUnder(new NormalizedPath(path));
+            links.put(new PhysicalPath("/foobar/rootdir"),
+                      new VirtualPath("/"));
+            links.put(new PhysicalPath(sdcardDir),
+                      new VirtualPath("/usr/home/fugafuga/sdcard"));
+            links.put(new PhysicalPath("/foobar/rootdir/usr/home"),
+                      new VirtualPath("/home"));
+            links.put(new PhysicalPath(sdcardDir),
+                      new VirtualPath("/home/sdcard"));
+            actual = links.getNamesUnder(new VirtualPath(path));
             int n = expected.length;
             if (n == actual.size()) {
                 Arrays.sort(expected);
@@ -253,7 +255,7 @@ public class Links {
                 }
             }
         }
-        catch (NormalizedPath.InvalidPathException e) {
+        catch (InvalidPathException e) {
             e.printStackTrace();
         }
 

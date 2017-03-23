@@ -50,9 +50,11 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallReadableChannel;
 import jp.gr.java_conf.neko_daisuki.fsyscall.io.SyscallWritableChannel;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.ArrayUtil;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.ByteUtil;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.InvalidPathException;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.IoVecUtil;
-import jp.gr.java_conf.neko_daisuki.fsyscall.util.NormalizedPath;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.PhysicalPath;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
+import jp.gr.java_conf.neko_daisuki.fsyscall.util.VirtualPath;
 
 /*
  * Android 3.2.1 does not have UnixSystem.
@@ -531,12 +533,12 @@ public class Slave implements Runnable {
 
     private class OpenCallback implements Process.FileRegisteringCallback {
 
-        private NormalizedPath mVirtualPath;
-        private NormalizedPath mPhisicalPath;
+        private VirtualPath mVirtualPath;
+        private PhysicalPath mPhisicalPath;
         private int mFlags;
 
-        public OpenCallback(NormalizedPath virtualPath,
-                            NormalizedPath phisicalPath, int flags) {
+        public OpenCallback(VirtualPath virtualPath,
+                            PhysicalPath phisicalPath, int flags) {
             mVirtualPath = virtualPath;
             mPhisicalPath = phisicalPath;
             mFlags = flags;
@@ -1120,7 +1122,7 @@ public class Slave implements Runnable {
 
         public void connect(UnixDomainAddress addr) throws UnixException {
             String addrPath = addr.getPath();
-            NormalizedPath path;
+            PhysicalPath path;
             try {
                 path = getActualPath(addrPath);
             }
@@ -1170,7 +1172,7 @@ public class Slave implements Runnable {
             }
             mConnectingRequests = new LinkedList<ConnectingRequest>();
             String addrPath = addr.getPath();
-            NormalizedPath path;
+            PhysicalPath path;
             try {
                 path = getActualPath(addrPath);
             }
@@ -1574,10 +1576,10 @@ public class Slave implements Runnable {
 
         private List<Unix.DirEnt> mEntries;
         private int mPosition;
-        private NormalizedPath mPath;
+        private PhysicalPath mPath;
 
-        public DirectoryFile(Alarm alarm, NormalizedPath virtualPath,
-                             NormalizedPath phisicalPath) throws UnixException {
+        public DirectoryFile(Alarm alarm, VirtualPath virtualPath,
+                             PhysicalPath phisicalPath) throws UnixException {
             super(alarm);
 
             Map<String, Unix.DirEnt> c = new HashMap<String, Unix.DirEnt>();
@@ -1607,7 +1609,7 @@ public class Slave implements Runnable {
             mPath = phisicalPath;
         }
 
-        public NormalizedPath getPath() {
+        public PhysicalPath getPath() {
             return mPath;
         }
 
@@ -2315,7 +2317,7 @@ public class Slave implements Runnable {
     private static final SelectPred WRITE_SELECT_PRED = new WriteSelectPred();
 
     // static helpers
-    private static NormalizedPath mPwdDbPath;
+    private static VirtualPath mPwdDbPath;
     private static Map<Integer, String> mFcntlCommands;
     private static Logging.Logger mLogger;
     private static int mMaxBufferLogLength = 8;
@@ -2332,7 +2334,7 @@ public class Slave implements Runnable {
 
     // states
     private Process mProcess;
-    private NormalizedPath mCurrentDirectory;
+    private VirtualPath mCurrentDirectory;
     private SignalSet mPendingSignals = new SignalSet();
 
     private Alarm mAlarm;
@@ -2349,7 +2351,7 @@ public class Slave implements Runnable {
 
     public Slave(Application application, Process process,
                  SyscallReadableChannel hubIn, SyscallWritableChannel hubOut,
-                 NormalizedPath currentDirectory, InputStream stdin,
+                 VirtualPath currentDirectory, InputStream stdin,
                  OutputStream stdout, OutputStream stderr,
                  Permissions permissions, Links links, Listener listener) throws IOException {
         mLogger.info("a slave is starting.");
@@ -2370,7 +2372,7 @@ public class Slave implements Runnable {
      */
     public Slave(Application application, Process process,
                  SyscallReadableChannel hubIn, SyscallWritableChannel hubOut,
-                 NormalizedPath currentDirectory, Permissions permissions,
+                 VirtualPath currentDirectory, Permissions permissions,
                  Links links, Listener listener) throws IOException {
         initialize(application, process, hubIn, hubOut, currentDirectory,
                    permissions, links, listener);
@@ -2515,7 +2517,7 @@ public class Slave implements Runnable {
         mLogger.info("chdir(path=%s)", StringUtil.quote(path));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        NormalizedPath actPath = getActualPath(path);
+        PhysicalPath actPath = getActualPath(path);
         /*
         if (!mPermissions.isAllowed(actPath)) {
             result.setError(Errno.EPERM);
@@ -2529,7 +2531,7 @@ public class Slave implements Runnable {
             return result;
         }
 
-        mCurrentDirectory = new NormalizedPath(mCurrentDirectory, path);
+        mCurrentDirectory = new VirtualPath(mCurrentDirectory, path);
 
         return result;
     }
@@ -2565,7 +2567,7 @@ public class Slave implements Runnable {
             return result;
         }
 
-        return openActualFile(new NormalizedPath(mCurrentDirectory, path),
+        return openActualFile(new VirtualPath(mCurrentDirectory, path),
                               getActualPath(path), flags, mode);
     }
 
@@ -2576,8 +2578,7 @@ public class Slave implements Runnable {
                      Unix.Constants.Open.toString(flags), mode,
                      Unix.Constants.Mode.toString(mode));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
-        NormalizedPath virtualPath = new NormalizedPath(mCurrentDirectory,
-                                                        path);
+        VirtualPath virtualPath = new VirtualPath(mCurrentDirectory, path);
 
         if (path.startsWith("/")) {
             // If the path is absolute, openat(2) ignores the fd.
@@ -2602,7 +2603,7 @@ public class Slave implements Runnable {
                 result.setError(Errno.EINVAL);
                 return result;
             }
-            NormalizedPath absPath = new NormalizedPath(dir.getPath(), path);
+            PhysicalPath absPath = new PhysicalPath(dir.getPath(), path);
             return openActualFile(virtualPath, absPath, flags, mode);
         }
         finally {
@@ -3498,7 +3499,7 @@ public class Slave implements Runnable {
         mLogger.info("chmod(path=%s, mode=0o%o)", StringUtil.quote(path), mode);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        NormalizedPath actPath = getActualPath(path);
+        PhysicalPath actPath = getActualPath(path);
         Object socket;
         try {
             socket = mApplication.getUnixDomainSocket(actPath);
@@ -3532,7 +3533,7 @@ public class Slave implements Runnable {
         mLogger.info("rmdir(path=%s)", StringUtil.quote(path));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        NormalizedPath actPath = getActualPath(path);
+        PhysicalPath actPath = getActualPath(path);
         if (!mPermissions.isAllowed(actPath)) {
             result.setError(Errno.EPERM);
             return result;
@@ -3555,7 +3556,7 @@ public class Slave implements Runnable {
         mLogger.info("unlink(path=%s)", StringUtil.quote(path));
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        NormalizedPath actPath = getActualPath(path);
+        PhysicalPath actPath = getActualPath(path);
         try {
             mApplication.unlinkUnixDomainNode(actPath);
             return result;
@@ -3587,7 +3588,7 @@ public class Slave implements Runnable {
         mLogger.info("mkdir(path=%s, mode=0o%o)", StringUtil.quote(path), mode);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        NormalizedPath actPath = getActualPath(path);
+        PhysicalPath actPath = getActualPath(path);
         if (!mPermissions.isAllowed(actPath)) {
             result.setError(Errno.EPERM);
             return result;
@@ -3806,8 +3807,8 @@ public class Slave implements Runnable {
         result.retval = fd;
     }
 
-    private SyscallResult.Generic32 renameActualFile(NormalizedPath from,
-                                                     NormalizedPath to) {
+    private SyscallResult.Generic32 renameActualFile(PhysicalPath from,
+                                                     PhysicalPath to) {
         mLogger.info("rename actual file: from=%s, to=%s", from, to);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
@@ -3827,8 +3828,8 @@ public class Slave implements Runnable {
         return result;
     }
 
-    private SyscallResult.Generic32 openActualFile(NormalizedPath virtualPath,
-                                                   NormalizedPath phisicalPath,
+    private SyscallResult.Generic32 openActualFile(VirtualPath virtualPath,
+                                                   PhysicalPath phisicalPath,
                                                    int flags,
                                                    int mode)
                                                    throws IOException {
@@ -3849,7 +3850,7 @@ public class Slave implements Runnable {
         return result;
     }
 
-    private SyscallResult.Stat statActualFile(NormalizedPath absPath) throws IOException {
+    private SyscallResult.Stat statActualFile(PhysicalPath absPath) throws IOException {
         mLogger.info("stat actual file: %s", absPath);
 
         SyscallResult.Stat result = new SyscallResult.Stat();
@@ -3890,7 +3891,7 @@ public class Slave implements Runnable {
         return result;
     }
 
-    private SyscallResult.Readlink readlinkActualFile(NormalizedPath absPath,
+    private SyscallResult.Readlink readlinkActualFile(PhysicalPath absPath,
                                                       long count)
                                                       throws IOException {
         mLogger.info("readlink actual file: %s", absPath);
@@ -3909,7 +3910,7 @@ public class Slave implements Runnable {
         return result;
     }
 
-    private SyscallResult.Generic32 accessActualFile(NormalizedPath absPath,
+    private SyscallResult.Generic32 accessActualFile(PhysicalPath absPath,
                                                      int flags)
                                                      throws IOException {
         mLogger.info("access actual file: %s", absPath);
@@ -4008,8 +4009,8 @@ public class Slave implements Runnable {
     }
     */
 
-    private NormalizedPath getActualPath(String path) throws IOException {
-        NormalizedPath normPath = new NormalizedPath(mCurrentDirectory, path);
+    private PhysicalPath getActualPath(String path) throws IOException {
+        VirtualPath normPath = new VirtualPath(mCurrentDirectory, path);
         return mLinks.get(normPath);
     }
 
@@ -4102,7 +4103,7 @@ public class Slave implements Runnable {
     private void initialize(Application application, Process process,
                             SyscallReadableChannel hubIn,
                             SyscallWritableChannel hubOut,
-                            NormalizedPath currentDirectory,
+                            VirtualPath currentDirectory,
                             Permissions permissions, Links links,
                             Listener listener) throws IOException {
         mApplication = application;
@@ -4130,9 +4131,9 @@ public class Slave implements Runnable {
 
     static {
         try {
-            mPwdDbPath = new NormalizedPath("/etc/pwd.db");
+            mPwdDbPath = new VirtualPath("/etc/pwd.db");
         }
-        catch (NormalizedPath.InvalidPathException unused) {
+        catch (InvalidPathException unused) {
             // never works.
         }
 
