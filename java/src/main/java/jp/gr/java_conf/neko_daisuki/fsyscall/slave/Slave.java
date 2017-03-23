@@ -1595,7 +1595,7 @@ public class Slave implements Runnable {
                 String name = file.getName();
                 c.put(name, new Unix.DirEnt(type, name));
             }
-            for (String name: mLinks.getNamesUnder(virtualPath)) {
+            for (String name: mFileMap.getNamesUnder(virtualPath)) {
                 c.put(name, new Unix.DirEnt(Unix.Constants.DT_LNK, name));
             }
 
@@ -2329,7 +2329,7 @@ public class Slave implements Runnable {
     private SyscallReadableChannel mIn;
     private SyscallWritableChannel mOut;
     private Permissions mPermissions;
-    private Links mLinks;
+    private FileMap mFileMap;
     private Listener mListener;
 
     // states
@@ -2353,11 +2353,11 @@ public class Slave implements Runnable {
                  SyscallReadableChannel hubIn, SyscallWritableChannel hubOut,
                  VirtualPath currentDirectory, InputStream stdin,
                  OutputStream stdout, OutputStream stderr,
-                 Permissions permissions, Links links, Listener listener) throws IOException {
+                 Permissions permissions, FileMap fileMap, Listener listener) throws IOException {
         mLogger.info("a slave is starting.");
 
         initialize(application, process, hubIn, hubOut, currentDirectory,
-                   permissions, links, listener);
+                   permissions, fileMap, listener);
 
         mProcess.registerFileAt(new UnixInputStream(mAlarm, stdin), 0);
         mProcess.registerFileAt(new UnixOutputStream(mAlarm, stdout), 1);
@@ -2373,9 +2373,9 @@ public class Slave implements Runnable {
     public Slave(Application application, Process process,
                  SyscallReadableChannel hubIn, SyscallWritableChannel hubOut,
                  VirtualPath currentDirectory, Permissions permissions,
-                 Links links, Listener listener) throws IOException {
+                 FileMap fileMap, Listener listener) throws IOException {
         initialize(application, process, hubIn, hubOut, currentDirectory,
-                   permissions, links, listener);
+                   permissions, fileMap, listener);
     }
 
     public void kill(Signal sig) throws UnixException {
@@ -3458,7 +3458,7 @@ public class Slave implements Runnable {
 
         Slave slave = mApplication.newSlave(newPairId, mProcess,
                                             mCurrentDirectory, mPermissions,
-                                            mLinks, mListener);
+                                            mFileMap, mListener);
         startSlave(slave, "thr_new(2)'ed", newPairId);
 
         return new SyscallResult.Generic32();
@@ -3469,7 +3469,7 @@ public class Slave implements Runnable {
 
         Slave slave = mApplication.newProcess(pairId, mProcess,
                                               mCurrentDirectory, mPermissions,
-                                              mLinks, mListener);
+                                              mFileMap, mListener);
         startSlave(slave, "forked", pairId);
 
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
@@ -4011,7 +4011,7 @@ public class Slave implements Runnable {
 
     private PhysicalPath getActualPath(String path) throws IOException {
         VirtualPath normPath = new VirtualPath(mCurrentDirectory, path);
-        return mLinks.get(normPath);
+        return mFileMap.get(normPath);
     }
 
     private SyscallResult.Generic32 runSetsockopt(int s, SocketLevel level,
@@ -4104,14 +4104,14 @@ public class Slave implements Runnable {
                             SyscallReadableChannel hubIn,
                             SyscallWritableChannel hubOut,
                             VirtualPath currentDirectory,
-                            Permissions permissions, Links links,
+                            Permissions permissions, FileMap fileMap,
                             Listener listener) throws IOException {
         mApplication = application;
         mProcess = process;
         mIn = hubIn;
         mOut = hubOut;
         mPermissions = permissions;
-        mLinks = links;
+        mFileMap = fileMap;
         setListener(listener);
         mCurrentDirectory = currentDirectory;
 

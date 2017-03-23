@@ -13,7 +13,7 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.util.PhysicalPath;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.StringUtil;
 import jp.gr.java_conf.neko_daisuki.fsyscall.util.VirtualPath;
 
-public class Links {
+public class FileMap {
 
     private static class Node {
 
@@ -145,9 +145,9 @@ public class Links {
         return result ? "OK" : String.format("NG (%s)", actual);
     }
 
-    private static void test(String tag, Links links, VirtualPath path,
+    private static void test(String tag, FileMap fileMap, VirtualPath path,
                              PhysicalPath expected) {
-        PhysicalPath actual = links.get(path);
+        PhysicalPath actual = fileMap.get(path);
         String result = makeResultMessage(expected.equals(actual), actual);
         String fmt = "%s: path=%s, expected=%s: %s";
         String msg = String.format(fmt, tag, StringUtil.quote(path.toString()),
@@ -156,10 +156,10 @@ public class Links {
         System.out.println(msg);
     }
 
-    private static void test(String tag, Links links, String path,
+    private static void test(String tag, FileMap fileMap, String path,
                              String expected) {
         try {
-            test(tag, links, new VirtualPath(path),
+            test(tag, fileMap, new VirtualPath(path),
                  new PhysicalPath(expected));
         }
         catch (InvalidPathException e) {
@@ -172,9 +172,9 @@ public class Links {
         String tag = String.format("test(dest=%s, src=%s)",
                                    StringUtil.quote(dest.toString()),
                                    StringUtil.quote(src.toString()));
-        Links links = new Links();
-        links.put(dest, src);
-        test(tag, links, path, expected);
+        FileMap fileMap = new FileMap();
+        fileMap.put(dest, src);
+        test(tag, fileMap, path, expected);
     }
 
     private static void test(String dest, String src, String path,
@@ -190,11 +190,11 @@ public class Links {
 
     private static void test2(VirtualPath path, PhysicalPath expected)
                               throws InvalidPathException {
-        Links links = new Links();
-        links.put(new PhysicalPath("/foobar"), new VirtualPath("/"));
-        links.put(new PhysicalPath("/foobar/buzquux"),
-                  new VirtualPath("/home"));
-        test("test2", links, path, expected);
+        FileMap fileMap = new FileMap();
+        fileMap.put(new PhysicalPath("/foobar"), new VirtualPath("/"));
+        fileMap.put(new PhysicalPath("/foobar/buzquux"),
+                    new VirtualPath("/home"));
+        test("test2", fileMap, path, expected);
     }
 
     private static void test2(String path, String expected) {
@@ -207,14 +207,14 @@ public class Links {
     }
 
     private static void test3() {
-        Links links = new Links();
+        FileMap fileMap = new FileMap();
         try {
-            links.put(new PhysicalPath("/foobar"), new VirtualPath("/"));
-            links.put(new PhysicalPath("/foobar/usr/home"),
-                      new VirtualPath("/home"));
-            links.put(new PhysicalPath("/foobar/usr/home/fsyscall/sdcard"),
-                      new VirtualPath("/home/fsyscall/sdcard"));
-            test("test3", links, "/home/fsyscall/.local/share/fonts",
+            fileMap.put(new PhysicalPath("/foobar"), new VirtualPath("/"));
+            fileMap.put(new PhysicalPath("/foobar/usr/home"),
+                        new VirtualPath("/home"));
+            fileMap.put(new PhysicalPath("/foobar/usr/home/fsyscall/sdcard"),
+                        new VirtualPath("/home/fsyscall/sdcard"));
+            test("test3", fileMap, "/home/fsyscall/.local/share/fonts",
                  "/foobar/usr/home/fsyscall/.local/share/fonts");
         }
         catch (InvalidPathException e) {
@@ -227,18 +227,18 @@ public class Links {
         boolean result = false;
         Collection<String> actual = null;
 
-        Links links = new Links();
+        FileMap fileMap = new FileMap();
         try {
             String sdcardDir = "/hogehoge";
-            links.put(new PhysicalPath("/foobar/rootdir"),
-                      new VirtualPath("/"));
-            links.put(new PhysicalPath(sdcardDir),
-                      new VirtualPath("/usr/home/fugafuga/sdcard"));
-            links.put(new PhysicalPath("/foobar/rootdir/usr/home"),
-                      new VirtualPath("/home"));
-            links.put(new PhysicalPath(sdcardDir),
-                      new VirtualPath("/home/sdcard"));
-            actual = links.getNamesUnder(new VirtualPath(path));
+            fileMap.put(new PhysicalPath("/foobar/rootdir"),
+                        new VirtualPath("/"));
+            fileMap.put(new PhysicalPath(sdcardDir),
+                        new VirtualPath("/usr/home/fugafuga/sdcard"));
+            fileMap.put(new PhysicalPath("/foobar/rootdir/usr/home"),
+                        new VirtualPath("/home"));
+            fileMap.put(new PhysicalPath(sdcardDir),
+                        new VirtualPath("/home/sdcard"));
+            actual = fileMap.getNamesUnder(new VirtualPath(path));
             int n = expected.length;
             if (n == actual.size()) {
                 Arrays.sort(expected);

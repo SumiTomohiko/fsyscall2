@@ -192,7 +192,7 @@ public class Application {
      */
     public Slave newSlave(PairId newPairId, Process process,
                           VirtualPath currentDirectory,
-                          Permissions permissions, Links links,
+                          Permissions permissions, FileMap fileMap,
                           Slave.Listener listener) throws IOException {
         Pipe slave2hub = Pipe.open();
         Pipe hub2slave = Pipe.open();
@@ -200,7 +200,8 @@ public class Application {
         Slave slave = new Slave(this, process,
                                 new SyscallReadableChannel(hub2slave.source()),
                                 new SyscallWritableChannel(slave2hub.sink()),
-                                currentDirectory, permissions, links, listener);
+                                currentDirectory, permissions, fileMap,
+                                listener);
         process.add(slave);
 
         mSlaveHub.addSlave(new SyscallReadableChannel(slave2hub.source()),
@@ -215,20 +216,20 @@ public class Application {
      */
     public Slave newProcess(PairId pairId, Process parent,
                             VirtualPath currentDirectory,
-                            Permissions permissions, Links links,
+                            Permissions permissions, FileMap fileMap,
                             Slave.Listener listener) throws IOException {
         Pid pid = mPidGenerator.next();
         Process process = new Process(pid, parent, parent.dupFileTable());
         parent.addChild(process);
         addProcess(process);
-        return newSlave(pairId, process, currentDirectory, permissions, links,
+        return newSlave(pairId, process, currentDirectory, permissions, fileMap,
                         listener);
     }
 
     public int run(SyscallReadableChannel in, SyscallWritableChannel out,
                    VirtualPath currentDirectory, InputStream stdin,
                    OutputStream stdout, OutputStream stderr,
-                   Permissions permissions, Links links,
+                   Permissions permissions, FileMap fileMap,
                    Slave.Listener listener, String resourceDirectory)
                    throws IOException, InterruptedException {
         mLogger.info("starting a slave application");
@@ -248,7 +249,7 @@ public class Application {
                 new SyscallReadableChannel(hub2slave.source()),
                 new SyscallWritableChannel(slave2hub.sink()),
                 currentDirectory, stdin, stdout, stderr,
-                permissions, links, listener);
+                permissions, fileMap, listener);
         process.add(slave);
 
         mSlaveHub = new SlaveHub(this, in, out,
@@ -523,11 +524,11 @@ public class Application {
             OutputStream stdout = System.out;
             OutputStream stderr = System.err;
             Permissions perm = new Permissions(true);
-            Links links = new Links();
+            FileMap fileMap = new FileMap();
             try {
                 exitStatus = app.run(readableChannel, writableChannel,
                                      new VirtualPath(args[1]), stdin, stdout,
-                                     stderr, perm, links, null, resourceDir);
+                                     stderr, perm, fileMap, null, resourceDir);
             }
             catch (Throwable e) {
                 e.printStackTrace();
