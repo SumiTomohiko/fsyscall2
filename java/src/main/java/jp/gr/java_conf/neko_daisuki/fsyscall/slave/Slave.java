@@ -534,18 +534,18 @@ public class Slave implements Runnable {
     private class OpenCallback implements Process.FileRegisteringCallback {
 
         private VirtualPath mVirtualPath;
-        private PhysicalPath mPhisicalPath;
+        private PhysicalPath mPhysicalPath;
         private int mFlags;
 
         public OpenCallback(VirtualPath virtualPath,
-                            PhysicalPath phisicalPath, int flags) {
+                            PhysicalPath physicalPath, int flags) {
             mVirtualPath = virtualPath;
-            mPhisicalPath = phisicalPath;
+            mPhysicalPath = physicalPath;
             mFlags = flags;
         }
 
         public UnixFile call() throws UnixException {
-            String path = mPhisicalPath.toString();
+            String path = mPhysicalPath.toString();
             return new File(path).isDirectory() ? openDirectory()
                                                 : openRegularFile();
         }
@@ -557,7 +557,7 @@ public class Slave implements Runnable {
                 throw new UnixException(Errno.EISDIR);
             }
 
-            return new DirectoryFile(mAlarm, mVirtualPath, mPhisicalPath);
+            return new DirectoryFile(mAlarm, mVirtualPath, mPhysicalPath);
         }
 
         private UnixFile openRegularFile() throws UnixException {
@@ -565,7 +565,7 @@ public class Slave implements Runnable {
                 throw new UnixException(Errno.ENOTDIR);
             }
             int flags = Unix.Constants.O_CREAT | Unix.Constants.O_EXCL;
-            String path = mPhisicalPath.toString();
+            String path = mPhysicalPath.toString();
             if (((mFlags & flags) == flags) && new File(path).exists()) {
                 throw new UnixException(Errno.EEXIST);
             }
@@ -1579,11 +1579,11 @@ public class Slave implements Runnable {
         private PhysicalPath mPath;
 
         public DirectoryFile(Alarm alarm, VirtualPath virtualPath,
-                             PhysicalPath phisicalPath) throws UnixException {
+                             PhysicalPath physicalPath) throws UnixException {
             super(alarm);
 
             Map<String, Unix.DirEnt> c = new HashMap<String, Unix.DirEnt>();
-            File[] files = phisicalPath.toFile().listFiles();
+            File[] files = physicalPath.toFile().listFiles();
             if (files == null) {
                 throw new UnixException(Errno.ENOENT);
             }
@@ -1606,7 +1606,7 @@ public class Slave implements Runnable {
                 mEntries.add(entry);
             }
 
-            mPath = phisicalPath;
+            mPath = physicalPath;
         }
 
         public PhysicalPath getPath() {
@@ -3829,21 +3829,21 @@ public class Slave implements Runnable {
     }
 
     private SyscallResult.Generic32 openActualFile(VirtualPath virtualPath,
-                                                   PhysicalPath phisicalPath,
+                                                   PhysicalPath physicalPath,
                                                    int flags,
                                                    int mode)
                                                    throws IOException {
-        mLogger.info("open actual file: %s", phisicalPath);
+        mLogger.info("open actual file: %s", physicalPath);
         SyscallResult.Generic32 result = new SyscallResult.Generic32();
 
-        if (!mPermissions.isAllowed(phisicalPath)) {
+        if (!mPermissions.isAllowed(physicalPath)) {
             result.retval = -1;
             result.errno = Errno.ENOENT;
             return result;
         }
 
         Process.FileRegisteringCallback cb = new OpenCallback(virtualPath,
-                                                              phisicalPath,
+                                                              physicalPath,
                                                               flags);
         registerFile(cb, result);
 
