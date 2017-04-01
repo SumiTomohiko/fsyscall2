@@ -59,10 +59,6 @@ struct fmaster_thread_data {
 	fmaster_tid			ftd_tid;
 	int				ftd_rfd;
 	int				ftd_wfd;
-	int				ftd_kq;		/* kqueue for rfd */
-	size_t				ftd_rfdlen;	/* readable data length
-							   in the buffer of rfd
-							   */
 	struct memory_list		ftd_memory;
 	uint64_t			ftd_token_size;
 	char				ftd_token[DATA_TOKEN_SIZE + 1];
@@ -323,8 +319,7 @@ add_thread(struct fmaster_data *data, fmaster_tid tid,
 	if (tdata == NULL)
 		return (ENOMEM);
 	tdata->ftd_tid = tid;
-	tdata->ftd_rfd = tdata->ftd_wfd = tdata->ftd_kq = -1;
-	tdata->ftd_rfdlen = 0;
+	tdata->ftd_rfd = tdata->ftd_wfd = -1;
 	SLIST_INIT(&tdata->ftd_memory);
 	thread_data_set_token(tdata, "", 0);
 
@@ -357,69 +352,6 @@ kevent_copyin(void *arg, struct kevent *kevp, int count)
 	return (0);
 }
 
-static int
-fmaster_initialize_kqueue(struct thread *td,
-			  struct fmaster_thread_data *thread_data)
-{
-	struct kevent kev;
-	struct kevent_copyops k_ops;
-	struct kevent_bonus k_bonus;
-	int error, kq;
-	u_short flags;
-	const char *fmt;
-
-	error = sys_kqueue(td, NULL);
-	if (error != 0) {
-		fmt = "sys_kqueue failed: error=%d";
-		fmaster_log(td, LOG_ERR, fmt, error);
-		return (error);
-	}
-	kq = td->td_retval[0];
-
-	flags = EV_ADD | EV_ENABLE | EV_CLEAR;
-	EV_SET(&kev, thread_data->ftd_rfd, EVFILT_READ, flags, 0, 0, NULL);
-	k_bonus.changelist = &kev;
-	k_bonus.eventlist = NULL;
-	k_ops.arg = &k_bonus;
-	k_ops.k_copyout = NULL;
-	k_ops.k_copyin = kevent_copyin;
-	error = kern_kevent(td, kq, 1, 0, &k_ops, NULL);
-	if (error != 0) {
-		fmt = "kern_kevent failed: error=%d";
-		fmaster_log(td, LOG_ERR, fmt, error);
-		return (error);
-	}
-
-	thread_data->ftd_kq = kq;
-	thread_data->ftd_rfdlen = 0;
-
-	return (0);
-}
-
-static int
-fmaster_initialize_kqueues(struct thread *td, struct fmaster_data *data)
-{
-	struct fmaster_thread_data *tdata;
-	struct fmaster_threads *threads;
-	struct rmlock *lock;
-	int error, i;
-
-	threads = &data->fdata_threads;
-	lock = &threads->fth_lock;
-	rm_wlock(lock);
-
-	for (i = 0; i < THREAD_BUCKETS_NUM; i++)
-		LIST_FOREACH(tdata, &threads->fth_threads[i], ftd_list) {
-			error = fmaster_initialize_kqueue(td, tdata);
-			if (error != 0)
-				return (error);
-		}
-
-	rm_wunlock(lock);
-
-	return (0);
-}
-
 int
 fmaster_create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
 		    struct fmaster_data **pdata)
@@ -439,9 +371,6 @@ fmaster_create_data(struct thread *td, int rfd, int wfd, const char *fork_sock,
 	thread->ftd_wfd = wfd;
 	len = sizeof(data->fork_sock);
 	error = copystr(fork_sock, data->fork_sock, len, NULL);
-	if (error != 0)
-		return (error);
-	error = fmaster_initialize_kqueues(td, data);
 	if (error != 0)
 		return (error);
 
@@ -1031,38 +960,8 @@ kevent_copyout(void *arg, struct kevent *kevp, int count)
 }
 
 static int
-wait_data(struct thread *td)
-{
-	struct fmaster_thread_data *thread_data;
-	struct kevent kev;
-	struct timespec timeout;
-	struct kevent_copyops k_ops;
-	struct kevent_bonus k_bonus;
-	int error, kq;
-
-	thread_data = fmaster_thread_data_of_thread(td);
-	kq = thread_data->ftd_kq;
-	timeout.tv_sec = 120;
-	timeout.tv_nsec = 0;
-	k_bonus.changelist = NULL;
-	k_bonus.eventlist = &kev;
-	k_ops.arg = &k_bonus;
-	k_ops.k_copyin = NULL;
-	k_ops.k_copyout = kevent_copyout;
-	error = kern_kevent(td, kq, 0, 1, &k_ops, &timeout);
-	if (error != 0)
-		return (error);
-	if (td->td_retval[0] == 0)
-		return (ETIMEDOUT);
-	thread_data->ftd_rfdlen += kev.data;
-
-	return (0);
-}
-
-static int
 do_readv(struct thread *td, int d, void *buf, size_t nbytes, int segflg)
 {
-	struct fmaster_thread_data *thread_data;
 	struct uio auio;
 	struct iovec aiov;
 	int error;
@@ -1078,19 +977,12 @@ do_readv(struct thread *td, int d, void *buf, size_t nbytes, int segflg)
 	auio.uio_segflg = segflg;
 
 	error = 0;
-	thread_data = fmaster_thread_data_of_thread(td);
 	while (0 < auio.uio_resid) {
-		if (thread_data->ftd_rfdlen == 0) {
-			error = wait_data(td);
-			if (error != 0)
-				return (error);
-		}
 		error = kern_readv(td, d, &auio);
 		if (error != 0)
 			return (error);
 		if (td->td_retval[0] == 0)
 			die(td, "readv");
-		thread_data->ftd_rfdlen -= td->td_retval[0];
 	}
 
 	return (error);
@@ -1965,9 +1857,6 @@ connect_to_mhub(struct thread *td)
 
 	KASSERT(thread_data != NULL, ("thread data not found: tid=0x%x", tid));
 	thread_data->ftd_rfd = thread_data->ftd_wfd = sock;
-	error = fmaster_initialize_kqueues(td, data);
-	if (error != 0)
-		return (error);
 
 	error = fmaster_write(td, sock, thread_data->ftd_token,
 			      thread_data->ftd_token_size);

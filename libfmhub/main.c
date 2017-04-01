@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <openssl/ssl.h>
@@ -53,6 +54,8 @@ struct mhub {
 	struct list fork_info;
 	struct io **ios;	/* "struct io *" array used in mainloop */
 	int nmasters;
+	time_t last_send_time;
+	time_t last_recv_time;
 };
 
 #define	TOKEN_SIZE	64
@@ -451,6 +454,8 @@ process_shub(struct mhub *mhub, struct io *io)
 		return (-1);
 	log(LOG_DEBUG, fmt, get_command_name(cmd));
 	switch (cmd) {
+	case KEEPALIVE:
+		break;
 	case SIGNALED:
 		process_signaled(mhub, cmd);
 		break;
@@ -484,6 +489,8 @@ process_shub(struct mhub *mhub, struct io *io)
 	default:
 		diex(-1, "unknown command (%d) from the slave hub.", cmd);
 	}
+
+	mhub->last_recv_time = time(NULL);
 
 	return (0);
 }
@@ -637,7 +644,7 @@ process_master(struct mhub *mhub, struct master *master)
 	struct io *io;
 	command_t cmd;
 	pair_id_t pair_id;
-	int e;
+	int e, status;
 	const char *fmt = "unknown command (%d) from master (%ld)", *name;
 	char buf[1024];
 
@@ -657,10 +664,12 @@ process_master(struct mhub *mhub, struct master *master)
 	log(LOG_DEBUG, "processing %s from the master %ld.", name, pair_id);
 	switch (cmd) {
 	case EXIT_CALL:
-		return (process_exit(mhub, master));
+		status = process_exit(mhub, master);
+		break;
 	case FORK_CALL:
 	case THR_NEW_CALL:
-		return (process_fork_kind_call(mhub, master, cmd));
+		status = process_fork_kind_call(mhub, master, cmd);
+		break;
 	case CLOSE_CALL:
 	case POLL_CALL:
 	case SELECT_CALL:
@@ -682,16 +691,20 @@ process_master(struct mhub *mhub, struct master *master)
 	case OPENAT_CALL:
 	case ACCEPT4_CALL:
 #include "dispatch_call.inc"
-		return (transfer_payload_from_master(mhub, master, cmd));
+		status = transfer_payload_from_master(mhub, master, cmd);
+		break;
 	case POLL_END:
 	case THR_EXIT_CALL:
-		return (transfer_simple_command_from_master(mhub, master, cmd));
+		status = transfer_simple_command_from_master(mhub, master, cmd);
+		break;
 	default:
 		diex(-1, fmt, cmd, master->pair_id);
+		status = -1;
 	}
 
-	/* NOTREACHED */
-	return (-1);
+	mhub->last_send_time = time(NULL);
+
+	return (status);
 }
 
 static bool
@@ -762,12 +775,20 @@ process_fd(struct mhub *mhub, struct io *io)
 	return (0);
 }
 
+static void
+write_keepalive(struct mhub *mhub)
+{
+
+	write_command(mhub->shub.conn_io, KEEPALIVE);
+}
+
 static int
 process_fds(struct mhub *mhub)
 {
 	struct master *master;
 	struct io **ios;
 	struct timeval timeout;
+	time_t abort_time, next_keepalive_time, now, now2;
 	int error, i, n, nios;
 
 	ios = mhub->ios;
@@ -780,8 +801,14 @@ process_fds(struct mhub *mhub)
 		master = (struct master *)ITEM_NEXT(master);
 		i++;
 	}
-	timeout.tv_sec = 90;
+
+	next_keepalive_time = mhub->last_send_time + KEEPALIVE_INTERVAL;
+	abort_time = mhub->last_recv_time + ABORT_SEC;
+	now = time(NULL);
+	timeout.tv_sec = MAX(MIN(next_keepalive_time - now, abort_time - now),
+			     0);
 	timeout.tv_usec = 0;
+
 	nios = mhub->nmasters + 1;
 	n = io_select(nios, ios, &timeout, &error);
 	switch (n) {
@@ -789,9 +816,17 @@ process_fds(struct mhub *mhub)
 		diec(-1, error, "select failed");
 		/* NOTREACHED */
 	case 0:
-		log(LOG_ERR, "slave timeouted");
-		dispose_session(mhub);
-		return (-1);
+		now2 = time(NULL);
+		if (abort_time <= now2) {
+			log(LOG_ERR, "slave timeouted");
+			dispose_session(mhub);
+			return (-1);
+		}
+		if (next_keepalive_time <= now2) {
+			write_keepalive(mhub);
+			mhub->last_send_time = time(NULL);
+		}
+		return (0);
 	default:
 		break;
 	}
@@ -899,6 +934,7 @@ fmhub_run(struct io *io, int argc, char *const argv[], char *const envp[],
 	pmhub->fork_sock = hub_open_fork_socket(sock_path);
 	pmhub->ios = NULL;
 	pmhub->nmasters = 0;
+	pmhub->last_send_time = pmhub->last_recv_time = time(NULL);
 	status = mhub_main(pmhub, sock_path, argc, argv, envp);
 	hub_close_fork_socket(pmhub->fork_sock);
 	hub_unlink_socket(sock_path);

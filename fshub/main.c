@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <syslog.h>
+#include <time.h>
 
 #include <fsyscall.h>
 #include <fsyscall/private.h>
@@ -47,6 +48,8 @@ struct shub {
 	int fork_sock;
 	int nslaves;
 	struct list fork_info;
+	time_t last_send_time;
+	time_t last_recv_time;
 };
 
 static void
@@ -338,6 +341,8 @@ process_mhub(struct shub *shub)
 		return (-1);
 	syslog(LOG_DEBUG, fmt, get_command_name(cmd));
 	switch (cmd) {
+	case KEEPALIVE:
+		break;
 	case EXIT_CALL:
 		process_exit(shub);
 		break;
@@ -378,6 +383,8 @@ process_mhub(struct shub *shub)
 		diex(-1, "unknown command (%d) from the master hub", cmd);
 		/* NOTREACHED */
 	}
+
+	shub->last_recv_time = time(NULL);
 
 	return (0);
 }
@@ -440,6 +447,7 @@ process_slave(struct shub *shub, struct slave *slave)
 {
 	pair_id_t pair_id;
 	command_t cmd;
+	int status;
 	const char *errfmt = "unknown command (%d) from slave %ld";
 	const char *fmt = "the slave of pair id %ld is ready to read";
 	const char *fmt2 = "processing %s from the slave of pair id %d";
@@ -452,7 +460,8 @@ process_slave(struct shub *shub, struct slave *slave)
 	syslog(LOG_DEBUG, fmt2, get_command_name(cmd), pair_id);
 	switch (cmd) {
 	case SIGNALED:
-		return (process_signaled(shub, slave));
+		status = process_signaled(shub, slave);
+		break;
 	case FORK_RETURN:
 	case CLOSE_RETURN:
 	case POLL_RETURN:
@@ -476,13 +485,16 @@ process_slave(struct shub *shub, struct slave *slave)
 	case OPENAT_RETURN:
 	case ACCEPT4_RETURN:
 #include "dispatch_ret.inc"
-		return (transfer_payload_from_slave(shub, slave, cmd));
+		status = transfer_payload_from_slave(shub, slave, cmd);
+		break;
 	default:
 		diex(-1, errfmt, cmd, slave->pair_id);
+		status = -1;
 	}
 
-	/* NOTREACHED */
-	return (-1);
+	shub->last_send_time = time(NULL);
+
+	return (status);
 }
 
 static int
@@ -513,6 +525,13 @@ process_fd(struct shub *shub, struct io *io)
 	return (0);
 }
 
+static void
+write_keepalive(struct shub *shub)
+{
+
+	write_command(shub->mhub.conn_io, KEEPALIVE);
+}
+
 static int
 process_fds(struct shub *shub)
 {
@@ -522,6 +541,8 @@ process_fds(struct shub *shub)
 	 */
 	struct slave *slave;
 	struct io **ios;
+	struct timeval timeout;
+	time_t abort_time, next_keepalive_time, now, now2;
 	int error, i, n, nios;
 
 	ios = shub->ios;
@@ -534,13 +555,34 @@ process_fds(struct shub *shub)
 		slave = (struct slave *)ITEM_NEXT(slave);
 		i++;
 	}
+
+	next_keepalive_time = shub->last_send_time + KEEPALIVE_INTERVAL;
+	abort_time = shub->last_recv_time + ABORT_SEC;
+	now = time(NULL);
+	timeout.tv_sec = MAX(MIN(next_keepalive_time - now, abort_time - now),
+			     0);
+	timeout.tv_usec = 0;
+
 	nios = shub->nslaves + 1;
-	n = io_select(nios, ios, NULL, &error);
-	if (n == -1)
+	n = io_select(nios, ios, &timeout, &error);
+	switch (n) {
+	case -1:
 		diec(1, error, "select failed");
-	for (i = 0; i < nios; i++)
-		if (process_fd(shub, ios[i]) == -1)
-			return (-1);
+	case 0:
+		now2 = time(NULL);
+		if (abort_time <= now2)
+			diec(1, error, "master does not response");
+		if (next_keepalive_time <= now2) {
+			write_keepalive(shub);
+			shub->last_send_time = time(NULL);
+		}
+		break;
+	default:
+		for (i = 0; i < nios; i++)
+			if (process_fd(shub, ios[i]) == -1)
+				return (-1);
+		break;
+	}
 
 	return (0);
 }
@@ -644,6 +686,7 @@ main(int argc, char *argv[])
 	pshub->fork_sock = fork_sock = hub_open_fork_socket(sock_path);
 	initialize_list(&pshub->fork_info);
 	ignore_sigpipe();
+	pshub->last_send_time = pshub->last_recv_time = time(NULL);
 	status = shub_main(pshub);
 	hub_close_fork_socket(fork_sock);
 	hub_unlink_socket(sock_path);

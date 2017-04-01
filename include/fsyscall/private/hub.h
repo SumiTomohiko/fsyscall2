@@ -17,4 +17,7 @@ void	hub_close_fds_or_die(struct io *);
 void	hub_unlink_socket(const char *);
 void	transport_fds(struct io *, struct io *);
 
+#define	KEEPALIVE_INTERVAL	60		/* [sec] */
+#define	ABORT_SEC		(4 * 60)	/* [sec] */
+
 #endif
