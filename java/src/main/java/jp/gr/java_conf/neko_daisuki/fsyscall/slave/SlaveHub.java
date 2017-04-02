@@ -172,7 +172,12 @@ class SlaveHub {
                 long timeout = Math.max(Math.min(nextKeepAliveTime - now,
                                                  abortTime - now),
                                         0);
-                mSelector.select(timeout);
+                if (0 < timeout) {
+                    mSelector.select(timeout);
+                }
+                else {
+                    mSelector.selectNow();
+                }
                 Set<SelectionKey> keys = mSelector.selectedKeys();
 
                 if (keys.size() == 0) {
