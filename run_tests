@@ -181,7 +181,7 @@ do
 		mkdir -p "${tmp_dir}" || exit 1
 
 		unset actual_stdout args cmd expected_status expected_stdout
-		unset status unexpected_status
+		unset opts status timeout unexpected_status
 		unset -f postcmd precmd test_status test_stdout
 		. "${t}"
 
@@ -197,7 +197,8 @@ do
 			tailpid="$!"
 		fi
 
-		"${tester}" ${tester_opts} "${exe}" ${args} > "${stdout_log}"
+		opts="${tester_opts} --timeout=${timeout}"
+		"${tester}" ${opts} "${exe}" ${args} > "${stdout_log}"
 		status="${?}"
 
 		if [ -n "${syslog}" ]; then

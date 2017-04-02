@@ -1,0 +1,6 @@
+
+cmd="KEEPALIVE/KEEPALIVE"
+expected_status="0"
+timeout=$((6 * 60))
+
+# vim: filetype=sh

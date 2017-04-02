@@ -68,21 +68,21 @@ initialize_signal_handler()
 }
 
 static int
-wait_sigchld(int fd)
+wait_sigchld(int fd, int timeout /* [sec] */)
 {
 	fd_set fds;
-	struct timeval timeout;
+	struct timeval t;
 	size_t size;
 	int i, n;
 	char c;
 
-	timeout.tv_sec = 60;
-	timeout.tv_usec = 0;
+	t.tv_sec = timeout;
+	t.tv_usec = 0;
 	i = 0;
 	while (i < 2) {
 		FD_ZERO(&fds);
 		FD_SET(fd, &fds);
-		n = select(fd + 1, &fds, NULL, NULL, &timeout);
+		n = select(fd + 1, &fds, NULL, NULL, &t);
 		if (n == -1) {
 			if (errno == EINTR)
 				continue;
@@ -103,17 +103,23 @@ int
 main(int argc, char *argv[])
 {
 	struct option long_opts[] = {
+		{ "timeout", required_argument, NULL, 't' },
 		{ "verbose", no_argument, NULL, 'v' },
 		{ NULL, 0, NULL, 0 }
 	};
 	pid_t master_pid, pid, pids[2], slave_pid;
-	int i, opt, master_status, r, sigfds[2], slave_status, w;
-	int mhub2shub[2], shub2mhub[2];
+	int i, opt, master_status, r, sigfds[2], slave_status;
+	int timeout /* [sec] */, w, mhub2shub[2], shub2mhub[2];
 	bool verbose = false;
 	char **args, *fmt;
 
+	timeout = 60;
+
 	while ((opt = getopt_long(argc, argv, "v", long_opts, NULL)) != -1)
 		switch (opt) {
+		case 't':
+			timeout = strcmp(optarg, "") == 0 ? 60 : atoi(optarg);
+			break;
 		case 'v':
 			setenv(FSYSCALL_ENV_VERBOSE, "1", 1);
 			verbose = true;
@@ -173,7 +179,7 @@ main(int argc, char *argv[])
 	close_or_die(shub2mhub[W]);
 	close_or_die(mhub2shub[R]);
 	close_or_die(mhub2shub[W]);
-	if (wait_sigchld(sigfds[R]) != 0) {
+	if (wait_sigchld(sigfds[R], timeout) != 0) {
 		pids[0] = slave_pid;
 		pids[1] = master_pid;
 		for (i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {

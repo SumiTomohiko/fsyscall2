@@ -1,6 +1,6 @@
 
 LIBDIR=	do_stat_test print_stat_member lib tiny_runtime
-SUBDIR=	${LIBDIR} SIGKILL_poll SIGKILL_wait4 accept accept4 \
+SUBDIR=	${LIBDIR} KEEPALIVE SIGKILL_poll SIGKILL_wait4 accept accept4 \
 	accept4_SOCK_CLOEXEC accept4_SOCK_NONBLOCK access access_ENOENT \
 	ancillary_from_client bind chdir chdir_access chdir_error chdir_lstat \
 	chdir_open chdir_readlink chdir_stat chmod chmod_error close \

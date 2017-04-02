@@ -130,10 +130,10 @@ do_kill(pid_t pid)
 }
 
 static void
-wait_child_term(pid_t master_pid, pid_t slave_pid)
+wait_child_term(pid_t master_pid, pid_t slave_pid, int timeout /* [sec] */)
 {
 	struct kevent changelist[2], eventlist[2];
-	struct timespec timeout;
+	struct timespec t;
 	size_t npids;
 	pid_t pid, pids[2];
 	int kq, i, incomplete, nkev, status[2];
@@ -149,10 +149,10 @@ wait_child_term(pid_t master_pid, pid_t slave_pid)
 	for (i = 0; i < npids; i++)
 		EV_SET(&changelist[i], pids[i], EVFILT_PROC, EV_ADD | EV_ENABLE,
 		       NOTE_EXIT, (intptr_t)&status[i], NULL);
-	timeout.tv_sec = 120;
-	timeout.tv_nsec = 0;
+	t.tv_sec = timeout;
+	t.tv_nsec = 0;
 	nkev = kevent(kq, changelist, array_sizeof(changelist), eventlist,
-		      array_sizeof(eventlist), &timeout);
+		      array_sizeof(eventlist), &t);
 	switch (nkev) {
 	case -1:
 		die(1, "kevent(2)");
@@ -165,7 +165,7 @@ wait_child_term(pid_t master_pid, pid_t slave_pid)
 	case 1:
 		incomplete = eventlist[0].ident == changelist[0].ident ? 1 : 0;
 		nkev = kevent(kq, &changelist[incomplete], 1, eventlist, 1,
-			      &timeout);
+			      &t);
 		switch (nkev) {
 		case -1:
 			die(1, "kevent(2)");
@@ -220,6 +220,7 @@ int
 main(int argc, char *argv[])
 {
 	static struct option opts[] = {
+		{ "timeout", required_argument, NULL, 't' },
 		{ "ssl", no_argument, NULL, 's' },
 		{ "cert", required_argument, NULL, 'c' },
 		{ "private", required_argument, NULL, 'v' },
@@ -231,12 +232,13 @@ main(int argc, char *argv[])
 	SSL *ssl;
 	SSL_CTX *ctx;
 	pid_t master_pid, slave_pid;
-	int d, master_status, ret, slave_status, sock;
+	int d, master_status, ret, slave_status, sock, timeout /* [sec] */;
 	const in_port_t port = 54345;
 	bool over_ssl;
 	char cert[MAXPATHLEN], ch, keystore[MAXPATHLEN], password[32];
 	char private[MAXPATHLEN];
 
+	timeout = 120;
 	over_ssl = false;
 	cert[0] = '\0';
 	private[0] = '\0';
@@ -245,6 +247,9 @@ main(int argc, char *argv[])
 
 	while ((ch = getopt_long(argc, argv, "", opts, NULL)) != -1)
 		switch (ch) {
+		case 't':
+			timeout = strcmp(optarg, "") == 0 ? 120 : atoi(optarg);
+			break;
 		case 'c':
 			strncpy(cert, optarg, sizeof(cert));
 			break;
@@ -345,7 +350,7 @@ main(int argc, char *argv[])
 	}
 
 	close_or_die(d);
-	wait_child_term(master_pid, slave_pid);
+	wait_child_term(master_pid, slave_pid, timeout);
 	waitpid_or_die(slave_pid, &slave_status);
 	waitpid_or_die(master_pid, &master_status);
 	report_abnormal_termination("slave", slave_status);
