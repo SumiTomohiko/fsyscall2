@@ -3667,7 +3667,7 @@ public class Slave implements Runnable {
 
     private void doIterationWork(Selector selector) throws IOException,
                                                            SigkillException {
-        selector.select(120 * 1000);    // [msec]
+        selector.select();
         Set<SelectionKey> keys = selector.selectedKeys();
         int nKeys = keys.size();
         switch (nKeys) {

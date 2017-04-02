@@ -162,12 +162,34 @@ class SlaveHub {
         try {
             addNewSlaves();
 
+            long lastSendTime = System.currentTimeMillis();
+            long lastRecvTime = lastSendTime;
+
             while (0 < mSlaves.size()) {
-                mSelector.select(120 * 1000);   // [msec]
+                long nextKeepAliveTime = lastSendTime + 60 * 1000;
+                long abortTime = lastRecvTime + 4 * 60 * 1000;
+                long now = System.currentTimeMillis();
+                long timeout = Math.max(Math.min(nextKeepAliveTime - now,
+                                                 abortTime - now),
+                                        0);
+                mSelector.select(timeout);
                 Set<SelectionKey> keys = mSelector.selectedKeys();
+
                 if (keys.size() == 0) {
-                    throw new IOException("timeout");
+                    long now2 = System.currentTimeMillis();
+                    if (abortTime <= now2) {
+                        for (Peer slave: mSlaves.values()) {
+                            slave.close();
+                        }
+                        throw new IOException("timeout");
+                    }
+                    if (nextKeepAliveTime <= now2) {
+                        writeKeepAlive();
+                        lastSendTime = System.currentTimeMillis();
+                    }
+                    continue;
                 }
+
                 for (SelectionKey key: keys) {
                     Object o = key.attachment();
                     SelectableAttachment a = (SelectableAttachment)o;
@@ -175,9 +197,11 @@ class SlaveHub {
                     switch (type) {
                     case MHUB:
                         processMasterHub();
+                        lastRecvTime = System.currentTimeMillis();
                         break;
                     case SLAVE:
                         processSlave(a.getSlave());
+                        lastSendTime = System.currentTimeMillis();
                         break;
                     default:
                         String fmt = "invalid attachment type: %s";
@@ -216,6 +240,10 @@ class SlaveHub {
      */
     private void close() throws IOException {
         mMhub.close();
+    }
+
+    private void writeKeepAlive() throws IOException {
+        mMhub.getWritableChannel().write(Command.KEEPALIVE);
     }
 
     private void addNewSlaves() throws ClosedChannelException {
@@ -298,6 +326,10 @@ class SlaveHub {
 
         SyscallReadableChannel in = mMhub.getReadableChannel();
         Command command = in.readCommand();
+        if (command == Command.KEEPALIVE) {
+            return;
+        }
+
         PairId pairId = in.readPairId();
         //String fmt = "command received: pairId=%s, command=%s";
         //mLogger.debug(String.format(fmt, pairId, command));

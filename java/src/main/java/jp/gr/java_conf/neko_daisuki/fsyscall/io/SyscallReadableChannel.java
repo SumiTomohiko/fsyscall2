@@ -26,7 +26,6 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 
 public class SyscallReadableChannel {
 
-    private static final int TIMEOUT = 120 * 1000;     // [msec]
     private static final String DISCONNECTED_MESSAGE = "disconnected unexpectedly";
     //private static Logging.Logger mLogger;
 
@@ -79,7 +78,7 @@ public class SyscallReadableChannel {
                 continue;
             }
 
-            mSelector.select(TIMEOUT);
+            mSelector.select();
             Set<SelectionKey> keys = mSelector.selectedKeys();
             int nChannels = keys.size();
             switch (nChannels) {
@@ -165,7 +164,7 @@ public class SyscallReadableChannel {
         }
 
         // The channel did not return any data immediately. Wait.
-        mSelector.select(TIMEOUT);
+        mSelector.select();
         Set<SelectionKey> keys = mSelector.selectedKeys();
         int nChannels = keys.size();
         switch (nChannels) {
