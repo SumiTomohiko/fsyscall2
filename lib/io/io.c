@@ -591,6 +591,25 @@ io_select(int nio, struct io *const *ios, struct timeval *timeout, int *error)
 	}
 }
 
+static int
+wait_data(struct io *io, struct timeval *timeout)
+{
+	int n, error;
+
+	n = io_select(1, &io, timeout, &error);
+	if (n == -1) {
+		io->io_error = error;
+		return (-1);
+	}
+	if (n == 0) {
+		io->io_error = ETIMEDOUT;
+		return (-1);
+	}
+	assert(n == 1);
+
+	return (0);
+}
+
 void
 write_or_die(struct io *io, const void *buf, size_t nbytes)
 {
@@ -630,10 +649,20 @@ write_or_die(struct io *io, const void *buf, size_t nbytes)
 int
 io_read_all(struct io *io, void *buf, payload_size_t nbytes)
 {
+	struct timeval timeout;
 	size_t n = 0;
 	ssize_t m;
 
+	timeout.tv_sec = 8;	/* Caller must give this. */
+	timeout.tv_usec = 0;
+
 	while (n < nbytes) {
+		if (wait_data(io, &timeout) == -1) {
+			if (io->io_error != EINTR)
+				return (-1);
+			continue;
+		}
+
 		m = io->io_ops->op_read(io, (char *)buf + n, nbytes - n);
 		if (m == 0) {
 			io->io_error = EPIPE;
