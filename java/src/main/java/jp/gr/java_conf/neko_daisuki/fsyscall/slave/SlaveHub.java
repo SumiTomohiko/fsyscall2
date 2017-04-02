@@ -332,6 +332,7 @@ class SlaveHub {
         SyscallReadableChannel in = mMhub.getReadableChannel();
         Command command = in.readCommand();
         if (command == Command.KEEPALIVE) {
+            mLogger.verbose("read KEEPALIVE");
             return;
         }
 
