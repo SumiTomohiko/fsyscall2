@@ -1,10 +1,22 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 
 public enum Command {
     @ENUM_COMMAND@;
+
+    private static class NameComparator implements Comparator<Command> {
+
+        public int compare(Command command1, Command command2) {
+            String s1 = command1.toString();
+            String s2 = command2.toString();
+            return s1.compareTo(s2);
+        }
+    }
+
+    public static final Comparator<Command> COMPARATOR = new NameComparator();
 
     private static Map<Integer, Command> mNumber2Command;
     private static Map<Command, Integer> mCommand2Number;
