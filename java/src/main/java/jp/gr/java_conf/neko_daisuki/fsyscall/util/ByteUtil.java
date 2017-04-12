@@ -14,72 +14,72 @@ public class ByteUtil {
     }
 
     private static final boolean[] IS_PRINT = {
+        false, false, false, false, false, false, false, false,     // 0x00
         false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false,     // 0x10
         false, false, false, false, false, false, false, false,
-        false, false, false, false, false, false, false, false,
-        false, false, false, false, false, false, false, false,
+        true, true, true, true, true, true, true, true,             // 0x20
         true, true, true, true, true, true, true, true,
+        true, true, true, true, true, true, true, true,             // 0x30
         true, true, true, true, true, true, true, true,
+        true, true, true, true, true, true, true, true,             // 0x40
         true, true, true, true, true, true, true, true,
+        true, true, true, true, true, true, true, true,             // 0x50
         true, true, true, true, true, true, true, true,
+        true, true, true, true, true, true, true, true,             // 0x60
         true, true, true, true, true, true, true, true,
-        true, true, true, true, true, true, true, true,
-        true, true, true, true, true, true, true, true,
-        true, true, true, true, true, true, true, true,
-        true, true, true, true, true, true, true, true,
-        true, true, true, true, true, true, true, true,
-        true, true, true, true, true, true, true, true,
+        true, true, true, true, true, true, true, true,             // 0x70
         true, true, true, true, true, true, true, false,
+        false, false, false, false, false, false, false, false,     // 0x80
         false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false,     // 0x90
         false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false,     // 0xA0
         false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false,     // 0xB0
         false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false,     // 0xC0
         false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false,     // 0xD0
         false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false,     // 0xE0
         false, false, false, false, false, false, false, false,
-        false, false, false, false, false, false, false, false,
-        false, false, false, false, false, false, false, false,
-        false, false, false, false, false, false, false, false,
-        false, false, false, false, false, false, false, false,
-        false, false, false, false, false, false, false, false,
-        false, false, false, false, false, false, false, false,
-        false, false, false, false, false, false, false, false,
-        false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false,     // 0xF0
         false, false, false, false, false, false, false, false
     };
 
     private static final String[] CHARS = {
+        " ", " ", " ", " ", " ", " ", " ", " ",     // 0x00
         " ", " ", " ", " ", " ", " ", " ", " ",
+        " ", " ", " ", " ", " ", " ", " ", " ",     // 0x10
         " ", " ", " ", " ", " ", " ", " ", " ",
-        " ", " ", " ", " ", " ", " ", " ", " ",
-        " ", " ", " ", " ", " ", " ", " ", " ",
-        " ", "!", "\"", "#", "$", "%", "&", "'",
+        " ", "!", "\"", "#", "$", "%", "&", "'",    // 0x20
         "(", ")", "*", "+", ",", "-", ".", "/",
-        "0", "1", "2", "3", "4", "5", "6", "7",
+        "0", "1", "2", "3", "4", "5", "6", "7",     // 0x30
         "8", "9", ":", ";", "<", "=", ">", "?",
-        "@", "A", "B", "C", "D", "E", "F", "G",
+        "@", "A", "B", "C", "D", "E", "F", "G",     // 0x40
         "H", "I", "J", "K", "L", "M", "N", "O",
-        "P", "Q", "R", "S", "T", "U", "V", "W",
+        "P", "Q", "R", "S", "T", "U", "V", "W",     // 0x50
         "X", "Y", "Z", "[", "\\", "]", "^", "_",
-        "`", "a", "b", "c", "d", "e", "f", "g",
+        "`", "a", "b", "c", "d", "e", "f", "g",     // 0x60
         "h", "i", "j", "k", "l", "m", "n", "o",
-        "p", "q", "r", "s", "t", "u", "v", "w",
+        "p", "q", "r", "s", "t", "u", "v", "w",     // 0x70
         "x", "y", "z", "{", "|", "}", "~", " ",
+        " ", " ", " ", " ", " ", " ", " ", " ",     // 0x80
         " ", " ", " ", " ", " ", " ", " ", " ",
+        " ", " ", " ", " ", " ", " ", " ", " ",     // 0x90
         " ", " ", " ", " ", " ", " ", " ", " ",
+        " ", " ", " ", " ", " ", " ", " ", " ",     // 0xA0
         " ", " ", " ", " ", " ", " ", " ", " ",
+        " ", " ", " ", " ", " ", " ", " ", " ",     // 0xB0
         " ", " ", " ", " ", " ", " ", " ", " ",
+        " ", " ", " ", " ", " ", " ", " ", " ",     // 0xC0
         " ", " ", " ", " ", " ", " ", " ", " ",
+        " ", " ", " ", " ", " ", " ", " ", " ",     // 0xD0
         " ", " ", " ", " ", " ", " ", " ", " ",
+        " ", " ", " ", " ", " ", " ", " ", " ",     // 0xE0
         " ", " ", " ", " ", " ", " ", " ", " ",
-        " ", " ", " ", " ", " ", " ", " ", " ",
-        " ", " ", " ", " ", " ", " ", " ", " ",
-        " ", " ", " ", " ", " ", " ", " ", " ",
-        " ", " ", " ", " ", " ", " ", " ", " ",
-        " ", " ", " ", " ", " ", " ", " ", " ",
-        " ", " ", " ", " ", " ", " ", " ", " ",
-        " ", " ", " ", " ", " ", " ", " ", " ",
-        " ", " ", " ", " ", " ", " ", " ", " ",
+        " ", " ", " ", " ", " ", " ", " ", " ",     // 0xF0
         " ", " ", " ", " ", " ", " ", " ", " "
     };
 
