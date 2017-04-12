@@ -120,7 +120,7 @@ public class ByteUtil {
     }
 
     private static int toUnsigned(byte b) {
-        return b < 0 ? b - Byte.MIN_VALUE : b;
+        return 0xff & (int)b;
     }
 
     private static String buildArrayString(byte[] buf, int pos, int len) {
