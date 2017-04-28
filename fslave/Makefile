@@ -1,10 +1,10 @@
 
 PROG=		fslave
-SRCS=		fslave_close.c dir_entries_cache.c main.c
+SRCS=		fslave_close.c dir_entries_cache.c stream.c main.c
 TOP_DIR=	..
 CFLAGS=		-I${TOP_DIR}/include
 LIB_DIR=	${TOP_DIR}/lib
-LDADD=		-lssl -lcrypto ${LIB_DIR}/geterrorname/libgeterrorname.a \
+LDADD=		-lssl -lcrypto -lz ${LIB_DIR}/geterrorname/libgeterrorname.a \
 		${LIB_DIR}/read_sockaddr/libread_sockaddr.a \
 		${LIB_DIR}/payload/libpayload.a \
 		${LIB_DIR}/fork_or_die/libfork_or_die.a \

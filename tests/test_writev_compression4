@@ -1,0 +1,24 @@
+
+cmd="writev2/writev2"
+out="${tmp_dir}/$$.out"
+in1="${data_dir}/compressable.dat"
+in2="${data_dir}/compressable2.dat"
+args="${out} ${in1} ${in2}"
+
+precmd() {
+	rm -f "${out}"
+}
+
+postcmd() {
+	rm -f "${out}"
+}
+
+testcmd() {
+	local tmp
+
+	tmp="${tmp_dir}/$$.tmp"
+	cat "${in1}" "${in2}" > "${tmp}"
+	cmp "${tmp}" "${out}"
+}
+
+# vim: filetype=sh

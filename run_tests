@@ -70,6 +70,7 @@ fi
 
 dir="$(dirname $0)"
 tests_dir="${dir}/tests"
+data_dir="${tests_dir}/data"
 tester="${tests_dir}/tester/tester"
 tester_opts=""
 tmp_dir="${dir}/tmp.tests"

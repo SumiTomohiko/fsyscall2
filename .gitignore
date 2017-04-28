@@ -437,6 +437,7 @@ tests/amd64/wait4_rusage/wait4_rusage
 tests/amd64/wait4_status/wait4_status
 tests/amd64/wait4_successful/wait4_successful
 tests/amd64/writev/writev
+tests/amd64/writev2/writev2
 tests/encode/pid/pid
 tests/fstat.rc
 tests/java_tester/java_tester

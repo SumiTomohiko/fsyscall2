@@ -370,6 +370,7 @@ process_mhub(struct shub *shub)
 	case FCNTL_CALL:
 	case OPENAT_CALL:
 	case ACCEPT4_CALL:
+	case COMPRESSED_WRITEV_CALL:
 #include "dispatch_call.inc"
 		transfer_payload_to_slave(shub, cmd);
 		break;

@@ -690,6 +690,7 @@ process_master(struct mhub *mhub, struct master *master)
 	case FCNTL_CALL:
 	case OPENAT_CALL:
 	case ACCEPT4_CALL:
+	case COMPRESSED_WRITEV_CALL:
 #include "dispatch_call.inc"
 		status = transfer_payload_from_master(mhub, master, cmd);
 		break;

@@ -53,6 +53,7 @@ _exit:
 	; NOTREACHED
 
 defsyscall	write
+defsyscall	writev
 defsyscall	select
 defsyscall	getpid
 defsyscall	getdirentries

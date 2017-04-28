@@ -25,6 +25,8 @@ it from include/fsyscall/private/command/code.h manually.
 def number_syscalls(syscalls, codes):
     for code in codes:
         name = code.name
+        if name.startswith("COMPRESSED_"):
+            continue
         if (not name.endswith("_CALL")) and (not name.endswith("_RETURN")):
             continue
         name, which = name.rsplit("_", 1)

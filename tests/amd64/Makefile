@@ -40,6 +40,6 @@ SUBDIR=	${LIBDIR} KEEPALIVE SIGKILL_poll SIGKILL_wait4 accept accept4 \
 	socketpair_SOCK_CLOEXEC stat stat_ENOENT stat_dir thr_new umask \
 	unixsock_creds unlink utimes utimes_null wait4_ECHILD wait4_WNOHANG \
 	wait4_multithread wait4_rusage wait4_status wait4_successful write \
-	writev
+	writev writev2
 
 .include <bsd.subdir.mk>

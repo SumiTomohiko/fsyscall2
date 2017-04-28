@@ -20,6 +20,10 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <zlib.h>
+#if 0
+#include <md5.h>
+#endif
 
 #include <fsyscall.h>
 #include <fsyscall/private.h>
@@ -32,6 +36,7 @@
 #include <fsyscall/private/fslave.h>
 #include <fsyscall/private/fslave/dir_entries_cache.h>
 #include <fsyscall/private/fslave/proto.h>
+#include <fsyscall/private/fslave/stream.h>
 #include <fsyscall/private/geterrorname.h>
 #include <fsyscall/private/io.h>
 #include <fsyscall/private/io_or_die.h>
@@ -2169,6 +2174,154 @@ process_fcntl(struct slave_thread *slave_thread)
 	return_int(slave_thread, FCNTL_RETURN, retval, e);
 }
 
+static const char *
+zlib_errno(int e)
+{
+
+#define	CASE(n)	case n: return #n
+
+	switch (e) {
+	CASE(Z_OK);
+	CASE(Z_STREAM_END);
+	CASE(Z_NEED_DICT);
+	CASE(Z_ERRNO);
+	CASE(Z_STREAM_ERROR);
+	CASE(Z_DATA_ERROR);
+	CASE(Z_MEM_ERROR);
+	CASE(Z_BUF_ERROR);
+	CASE(Z_VERSION_ERROR);
+	default:
+		return "unknown error";
+	}
+
+#undef	CASE
+}
+
+static void
+decompress(struct slave_thread *slave_thread, char **out,
+	   payload_size_t *outsize, char *in, size_t insize)
+{
+	z_stream z;
+	size_t bufsize, size, tmpsize;
+	int zerror;
+	Bytef *tmp;
+	char *buf, *p;
+
+	bzero(&z, sizeof(z));
+	z.next_in = Z_NULL;
+	z.avail_in = 0;
+	z.zalloc = Z_NULL;
+	z.zfree = Z_NULL;
+	z.opaque = Z_NULL;
+	z.data_type = Z_BINARY;
+	zerror = inflateInit(&z);
+	if (zerror != Z_OK)
+		diex(1, "inflateInit() failed with %d (%s)",
+			zerror, zlib_errno(zerror));
+
+	buf = NULL;
+	bufsize = 0;
+	z.next_in = (Bytef *)in;
+	z.avail_in = insize;
+	tmpsize = 8192;
+	tmp = (Bytef *)mem_alloc(slave_thread, tmpsize);
+	while (0 < z.avail_in) {
+		z.next_out = tmp;
+		z.avail_out = tmpsize;
+		zerror = inflate(&z, Z_NO_FLUSH);
+#if 0
+		syslog(LOG_DEBUG,
+		       "inflate: zerror=%d (%s), buf=%p, bufsize=%zu, tmp=%p, t"
+		       "mpsize=%zu, in=%p, insize=%zu, z.next_in=%p, z.avail_in"
+		       "=%d, z.total_in=%lu, z.next_out=%p, z.avail_out=%d, z.t"
+		       "otal_out=%lu, z.msg=%s",
+		       zerror, zlib_errno(zerror), buf, bufsize, tmp, tmpsize,
+		       in, insize, z.next_in, z.avail_in, z.total_in,
+		       z.next_out, z.avail_out, z.total_out,
+		       z.msg != NULL ? z.msg : "NULL");
+#endif
+		switch (zerror) {
+		case Z_OK:
+		case Z_STREAM_END:
+			size = tmpsize - z.avail_out;
+			p = (char *)mem_alloc(slave_thread, bufsize + size);
+			memcpy(&p[0], buf, bufsize);
+			memcpy(&p[bufsize], tmp, size);
+			buf = p;
+			bufsize += size;
+			break;
+		case Z_BUF_ERROR:
+			tmpsize += 8192;
+			tmp = (Bytef *)mem_alloc(slave_thread, tmpsize);
+			break;
+		default:
+			diex(1, "inflate() failed with %d (%s)",
+				zerror, zlib_errno(zerror));
+			break;
+		}
+	}
+
+	zerror = inflateEnd(&z);
+	if (zerror != Z_OK)
+		diex(1, "inflateEnd() failed with %d (%s)",
+			zerror, zlib_errno(zerror));
+
+#if 0
+	/*
+	 * If you use this code, include <md5.h> and add a "-lmd" option to the
+	 * LDADD in the Makefile.
+	 */
+	char md5[256];
+	MD5_CTX ctx;
+	MD5Init(&ctx);
+	MD5Update(&ctx, buf, bufsize);
+	MD5End(&ctx, md5);
+	syslog(LOG_DEBUG, "decompressed payload md5: %s", md5);
+#endif
+
+	*out = buf;
+	*outsize = bufsize;
+}
+
+static void
+process_compressed_writev(struct slave_thread *slave_thread)
+{
+	sigset_t oset;
+	struct io *io;
+	struct stream st;
+	struct iovec *iovec, *iovp;
+	payload_size_t bufsize, payload_size;
+	size_t len;
+	int errnum, fd, i, iovcnt, retval;
+	char *buf, *payload;
+	void *base;
+
+	io = &slave_thread->fsth_io;
+	payload_size = read_payload_size(io);
+	payload = (char *)alloca(payload_size);
+	read_or_die(io, payload, payload_size);
+	decompress(slave_thread, &buf, &bufsize, payload, payload_size);
+
+	stream_init(&st, buf, bufsize);
+	fd = stream_get_int(&st);
+	iovcnt = stream_get_int(&st);
+	iovp = (struct iovec *)alloca(sizeof(iovp[0]) * iovcnt);
+	for (i = 0; i < iovcnt; i++) {
+		len = stream_get_size(&st);
+		base = alloca(len);
+		stream_get(&st, base, len);
+		iovec = &iovp[i];
+		iovec->iov_len = len;
+		iovec->iov_base = base;
+	}
+
+	suspend_signal(slave_thread, &oset);
+	retval = writev(fd, iovp, iovcnt);
+	errnum = errno;
+	resume_signal(slave_thread, &oset);
+	return_int(slave_thread, WRITEV_RETURN, retval, errnum);
+}
+
 static int
 mainloop(struct slave_thread *slave_thread)
 {
@@ -2280,6 +2433,9 @@ mainloop(struct slave_thread *slave_thread)
 				break;
 			case ACCEPT4_CALL:
 				process_accept4(slave_thread);
+				break;
+			case COMPRESSED_WRITEV_CALL:
+				process_compressed_writev(slave_thread);
 				break;
 			case EXIT_CALL:
 				return process_exit(slave_thread);

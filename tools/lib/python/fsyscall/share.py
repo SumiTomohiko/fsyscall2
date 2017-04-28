@@ -222,8 +222,10 @@ SYSCALLS = {
         }
 
 FMASTER_SYSCALLS = SYSCALLS.copy()
-del FMASTER_SYSCALLS["fmaster_socket"]
-del FMASTER_SYSCALLS["fmaster_open"]
+HAND_IMPLEMENTED_IN_MASTER = [ "fmaster_socket", "fmaster_open",
+                               "fmaster_writev" ]
+for syscall in HAND_IMPLEMENTED_IN_MASTER:
+    del FMASTER_SYSCALLS[syscall]
 
 FSLAVE_SYSCALLS = SYSCALLS
 DUMMY_SYSCALLS = [

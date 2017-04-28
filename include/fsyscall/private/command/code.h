@@ -410,6 +410,8 @@
 #define	UTIMENSAT_CALL			448
 #define	UTIMENSAT_RETURN		449
 
+#define	COMPRESSED_WRITEV_CALL		500
+
 /* end command (do not remove this comment) */
 
 /* codes for kevent(2) */
