@@ -2,6 +2,7 @@ package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -162,6 +163,47 @@ class SlaveHelper {
                 size += data.length;
             }
             return size;
+        }
+    }
+
+    private static class CommandStatistics {
+
+        private long mNumberOfCalls;
+        private long mMaxElapsedTime;       // [usec]
+        private long mTotalElapsedTime;     // [usec]
+
+        public void addCall(long elapsedTime) {
+            mNumberOfCalls++;
+            mMaxElapsedTime = Math.max(mMaxElapsedTime, elapsedTime);
+            mTotalElapsedTime += elapsedTime;
+        }
+
+        public long getNumberOfCalls() {
+            return mNumberOfCalls;
+        }
+
+        public long getMaxElapsedTime() {
+            return mMaxElapsedTime;
+        }
+
+        public long getTotalElapsedTime() {
+            return mTotalElapsedTime;
+        }
+    }
+
+    private static class Statistics {
+
+        private Map<Command, CommandStatistics> mStats;
+
+        public Statistics(Collection<Command> commands) {
+            mStats = new HashMap<Command, CommandStatistics>();
+            for (Command command: commands) {
+                mStats.put(command, new CommandStatistics());
+            }
+        }
+
+        public CommandStatistics get(Command command) {
+            return mStats.get(command);
         }
     }
 
@@ -882,6 +924,7 @@ class SlaveHelper {
     private SyscallWritableChannel mOut;
 
     private CommandDispatcher mDispatcher;
+    private Statistics mStatistics;
 
     public SlaveHelper(Slave slave, SyscallReadableChannel in,
                        SyscallWritableChannel out) {
@@ -890,6 +933,7 @@ class SlaveHelper {
         mOut = out;
 
         mDispatcher = buildDispatcher();
+        mStatistics = new Statistics(mDispatcher.commandSet());
     }
 
     public void runSlave() throws IOException, SigkillException {
@@ -902,7 +946,31 @@ class SlaveHelper {
             throw new ProtocolError(String.format(fmt, command.toString()));
         }
 
+        long t0 = System.nanoTime();
+
         proc.call(command);
+
+        long t1 = System.nanoTime();
+        mStatistics.get(command).addCall((t1 - t0) / 1000);
+    }
+
+    public void printStatistics() {
+        String numericFormat = "%,d";
+        String fmt = String.format("statistics: command=%%s, number of calls=%1$s, total elapsed time=%1$s[usec], max elapsed time=%1$s[usec], average elapsed time=%%s[usec]", numericFormat);
+
+        Command[] ca = mDispatcher.commandSet().toArray(new Command[0]);
+        Arrays.sort(ca, Command.COMPARATOR);
+        for (Command command: ca) {
+            CommandStatistics stat = mStatistics.get(command);
+            long nCalls = stat.getNumberOfCalls();
+            long totalElapsedTime = stat.getTotalElapsedTime();
+            mLogger.info(fmt,
+                         command, nCalls, totalElapsedTime,
+                         stat.getMaxElapsedTime(),
+                         nCalls != 0 ? String.format(numericFormat,
+                                                     totalElapsedTime / nCalls)
+                                     : "-");
+        }
     }
 
     private CommandDispatcher buildDispatcher() {

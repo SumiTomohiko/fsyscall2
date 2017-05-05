@@ -2439,6 +2439,8 @@ public class Slave implements Runnable {
         }
         mProcess.remove(this);
         mApplication.onSlaveTerminated(mProcess);
+
+        mHelper.printStatistics();
     }
 
     public void terminate() {

@@ -3,6 +3,7 @@ package jp.gr.java_conf.neko_daisuki.fsyscall;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 public class CommandDispatcher {
 
@@ -20,6 +21,10 @@ public class CommandDispatcher {
 
     public Proc get(Command command) {
         return mTable.get(command);
+    }
+
+    public Set<Command> commandSet() {
+        return mTable.keySet();
     }
 
     public void addEntry(Command command, Proc proc) {
