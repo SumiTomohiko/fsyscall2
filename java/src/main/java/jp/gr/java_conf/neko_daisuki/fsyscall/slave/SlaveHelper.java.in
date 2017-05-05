@@ -628,6 +628,7 @@ class SlaveHelper {
         private byte[] decompress(byte[] compressed)
                                   throws DataFormatException {
             Buffer decompressed = new Buffer();
+            long t0 = System.nanoTime();
 
             Inflater i = new Inflater();
             i.setInput(compressed);
@@ -639,8 +640,10 @@ class SlaveHelper {
                 }
             }
             finally {
-                String fmt = "inflate: total_in=%d, total_out=%d";
-                mLogger.info(fmt, i.getBytesRead(), i.getBytesWritten());
+                long t1 = System.nanoTime();
+                String fmt = "inflate: total_in=%d[byte], total_out=%d[byte], elapsed time=%d[usec]";
+                long t = (t1 - t0) / 1000;
+                mLogger.info(fmt, i.getBytesRead(), i.getBytesWritten(), t);
                 i.end();
             }
 
