@@ -2,6 +2,8 @@ package jp.gr.java_conf.neko_daisuki.fsyscall.slave;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -9,6 +11,8 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.DataFormatException;
+import java.util.zip.Inflater;
 
 import jp.gr.java_conf.neko_daisuki.fsyscall.Command;
 import jp.gr.java_conf.neko_daisuki.fsyscall.CommandDispatcher;
@@ -533,18 +537,114 @@ class SlaveHelper {
         }
     }
 
-    private class WritevProc extends CommandDispatcher.Proc {
+    private abstract class WritevProcBase extends CommandDispatcher.Proc {
 
-        public void call(Command command) throws IOException {
-            PayloadSize payloadSize = mIn.readPayloadSize();
-            int fd = mIn.readInteger();
-            int iovcnt = mIn.readInteger();
+        protected void doWritev(SyscallReadableChannel in) throws IOException {
+            int fd = in.readInteger();
+            int iovcnt = in.readInteger();
             Unix.IoVec[] iovec = new Unix.IoVec[iovcnt];
             for (int i = 0; i < iovcnt; i++) {
-                iovec[i] = mIn.readIoVec();
+                iovec[i] = in.readIoVec();
             }
             SyscallResult.Generic32 result = mSlave.doWritev(fd, iovec);
             writeResult(Command.WRITEV_RETURN, result);
+        }
+    }
+
+    private class WritevProc extends WritevProcBase {
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            doWritev(mIn);
+        }
+    }
+
+    private class CompressedWritevCall extends WritevProcBase {
+
+        private class Buffer {
+
+            private byte[] mBuffer = new byte[8192];
+            private int mPosition = 0;
+
+            public void put(byte[] source, int length) {
+                if (mBuffer.length < mPosition + length) {
+                    int n = ((mPosition + length) / 8192 + 1) * 8192;
+                    byte[] buffer = new byte[n];
+                    System.arraycopy(mBuffer, 0, buffer, 0, mPosition);
+                    mBuffer = buffer;
+                }
+
+                System.arraycopy(source, 0, mBuffer, mPosition, length);
+                mPosition += length;
+            }
+
+            public byte[] get() {
+                byte[] a = new byte[mPosition];
+                System.arraycopy(mBuffer, 0, a, 0, mPosition);
+                return a;
+            }
+        }
+
+        public void call(Command command) throws IOException {
+            PayloadSize payloadSize = mIn.readPayloadSize();
+            int len = payloadSize.toInteger();
+            byte[] compressed = mIn.read(len);
+
+            byte[] decompressed;
+            try {
+                decompressed = decompress(compressed);
+            }
+            catch (DataFormatException e) {
+                throw new IOException("cannot decompress writev payload", e);
+            }
+            logMd5("compressed", compressed);
+            logMd5("decompressed", decompressed);
+
+            doWritev(new SyscallReadableChannel(decompressed));
+        }
+
+        private void logMd5(String tag, byte[] data) throws IOException {
+            String algorithm = "MD5";
+            MessageDigest md;
+            try {
+                md = MessageDigest.getInstance(algorithm);
+            }
+            catch (NoSuchAlgorithmException e) {
+                String fmt = "algorithm %s not found";
+                throw new IOException(String.format(fmt, algorithm), e);
+            }
+            md.update(data);
+            byte[] digest = md.digest();
+
+            StringBuilder buffer = new StringBuilder();
+            int len = digest.length;
+            for (int i = 0; i < len; i++) {
+                buffer.append(String.format("%02x", digest[i]));
+            }
+
+            mLogger.info("%s md5=%s", tag, buffer.toString());
+        }
+
+        private byte[] decompress(byte[] compressed)
+                                  throws DataFormatException {
+            Buffer decompressed = new Buffer();
+
+            Inflater i = new Inflater();
+            i.setInput(compressed);
+            try {
+                byte[] buffer = new byte[8192];
+                while (!i.finished()) {
+                    int nBytes = i.inflate(buffer);
+                    decompressed.put(buffer, nBytes);
+                }
+            }
+            finally {
+                String fmt = "inflate: total_in=%d, total_out=%d";
+                mLogger.info(fmt, i.getBytesRead(), i.getBytesWritten());
+                i.end();
+            }
+
+            return decompressed.get();
         }
     }
 
@@ -1000,6 +1100,8 @@ class SlaveHelper {
         dispatcher.addEntry(Command.FCNTL_CALL, new FcntlProc());
         dispatcher.addEntry(Command.OPENAT_CALL, new OpenatProc());
         dispatcher.addEntry(Command.ACCEPT4_CALL, new Accept4Proc());
+        dispatcher.addEntry(Command.COMPRESSED_WRITEV_CALL,
+                            new CompressedWritevCall());
         @DISPATCHES@;
         return dispatcher;
     }

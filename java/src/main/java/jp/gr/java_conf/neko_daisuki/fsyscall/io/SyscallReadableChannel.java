@@ -1,6 +1,7 @@
 package jp.gr.java_conf.neko_daisuki.fsyscall.io;
 
 import java.io.IOException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.Pipe;
@@ -26,13 +27,155 @@ import jp.gr.java_conf.neko_daisuki.fsyscall.UnixException;
 
 public class SyscallReadableChannel {
 
-    private static final String DISCONNECTED_MESSAGE = "disconnected unexpectedly";
+    private interface Source {
+
+        public byte read() throws IOException;
+        public byte[] read(int len) throws IOException;
+        public SelectionKey register(Selector selector,
+                                     Object attachment)
+                                     throws ClosedChannelException;
+        public void close() throws IOException;
+        public boolean isReady() throws IOException;
+    }
+
+    private static class ChannelSource implements Source {
+
+        private static final String DISCONNECTED_MESSAGE = "disconnected unexpectedly";
+
+        private ReadableByteChannel mReadableChannel;
+        private SelectableChannel mSelectableChannel;
+        private Selector mSelector;
+        private ByteBuffer mBuffer;
+
+        public ChannelSource(ReadableByteChannel readableChannel,
+                             SelectableChannel selectableChannel)
+                             throws IOException {
+            mReadableChannel = readableChannel;
+            mSelectableChannel = selectableChannel;
+            mSelector = Selector.open();
+            mBuffer = ByteBuffer.allocate(1);
+
+            mSelectableChannel.configureBlocking(false);
+            mSelectableChannel.register(mSelector, SelectionKey.OP_READ);
+        }
+
+        public byte read() throws IOException {
+            mBuffer.clear();
+            read(mBuffer);
+            mBuffer.flip();
+            return mBuffer.get();
+        }
+
+        public byte[] read(int len) throws IOException {
+            ByteBuffer buffer = ByteBuffer.allocate(len);
+            read(buffer);
+            return buffer.array();
+        }
+
+        public SelectionKey register(Selector selector,
+                                     Object attachment)
+                                     throws ClosedChannelException {
+            return mSelectableChannel.register(selector, SelectionKey.OP_READ,
+                                               attachment);
+        }
+
+        public void close() throws IOException {
+            mSelector.close();
+            mReadableChannel.close();
+        }
+
+        public boolean isReady() throws IOException {
+            return mSelector.selectNow() == 1;
+        }
+
+        private void read(ByteBuffer buffer) throws IOException {
+            while (buffer.hasRemaining()) {
+                switch (mReadableChannel.read(buffer)) {
+                case -1:
+                    throw new IOException(DISCONNECTED_MESSAGE);
+                case 0:
+                    break;
+                default:
+                    continue;
+                }
+
+                mSelector.select();
+                Set<SelectionKey> keys = mSelector.selectedKeys();
+                int nChannels = keys.size();
+                switch (nChannels) {
+                case 0:
+                    throw new IOException("timeout");
+                case 1:
+                    break;
+                default:
+                    String fmt = "Selector.select() returned invalid value: %d";
+                    throw new Error(String.format(fmt, nChannels));
+                }
+                keys.clear();
+
+                switch (mReadableChannel.read(buffer)) {
+                case -1:
+                    throw new IOException(DISCONNECTED_MESSAGE);
+                case 0:
+                    throw new Error("cannot read channel");
+                default:
+                    continue;
+                }
+            }
+        }
+    }
+
+    private static class BufferSource implements Source {
+
+        private ByteBuffer mBuffer;
+
+        public BufferSource(byte[] buffer) {
+            mBuffer = ByteBuffer.allocate(buffer.length);
+            mBuffer.put(buffer);
+            mBuffer.flip();
+        }
+
+        public byte read() throws IOException {
+            try {
+                return mBuffer.get();
+            }
+            catch (BufferUnderflowException e) {
+                throw new IOException("no more data in buffer");
+            }
+        }
+
+        public byte[] read(int len) throws IOException {
+            byte[] buffer = new byte[len];
+            try {
+                mBuffer.get(buffer);
+            }
+            catch (BufferUnderflowException e) {
+                String fmt = "buffer does not have %d[byte] data, only %d[byte]";
+                int remaining = mBuffer.remaining();
+                throw new IOException(String.format(fmt, len, remaining));
+            }
+            return buffer;
+        }
+
+        public SelectionKey register(Selector selector,
+                                     Object attachment)
+                                     throws ClosedChannelException {
+            String message = "BufferSource does not work with Selector";
+            throw new UnsupportedOperationException(message);
+        }
+
+        public void close() throws IOException {
+            // does nothing
+        }
+
+        public boolean isReady() throws IOException {
+            return mBuffer.hasRemaining();
+        }
+    }
+
     //private static Logging.Logger mLogger;
 
-    private ReadableByteChannel mReadableChannel;
-    private SelectableChannel mSelectableChannel;
-    private Selector mSelector;
-    private ByteBuffer mBuffer;
+    private Source mSource;
 
     public SyscallReadableChannel(Pipe.SourceChannel pipe) throws IOException {
         this(pipe, pipe);
@@ -42,15 +185,13 @@ public class SyscallReadableChannel {
         this(socket, socket);
     }
 
+    public SyscallReadableChannel(byte[] buffer) throws IOException {
+        mSource = new BufferSource(buffer);
+    }
+
     private SyscallReadableChannel(ReadableByteChannel readableChannel,
                                    SelectableChannel selectableChannel) throws IOException {
-        mReadableChannel = readableChannel;
-        mSelectableChannel = selectableChannel;
-        mSelector = Selector.open();
-        mBuffer = ByteBuffer.allocate(1);
-
-        mSelectableChannel.configureBlocking(false);
-        mSelectableChannel.register(mSelector, SelectionKey.OP_READ);
+        mSource = new ChannelSource(readableChannel, selectableChannel);
     }
 
     public SelectionKey register(Selector selector) throws ClosedChannelException {
@@ -58,8 +199,7 @@ public class SyscallReadableChannel {
     }
 
     public SelectionKey register(Selector selector, Object attachment) throws ClosedChannelException {
-        return mSelectableChannel.register(selector, SelectionKey.OP_READ,
-                                           attachment);
+        return mSource.register(selector, attachment);
     }
 
     public PayloadSize readPayloadSize() throws IOException {
@@ -67,42 +207,7 @@ public class SyscallReadableChannel {
     }
 
     public byte[] read(int len) throws IOException {
-        ByteBuffer buffer = ByteBuffer.allocate(len);
-        while (buffer.hasRemaining()) {
-            switch (mReadableChannel.read(buffer)) {
-            case -1:
-                throw new IOException(DISCONNECTED_MESSAGE);
-            case 0:
-                break;
-            default:
-                continue;
-            }
-
-            mSelector.select();
-            Set<SelectionKey> keys = mSelector.selectedKeys();
-            int nChannels = keys.size();
-            switch (nChannels) {
-            case 0:
-                throw new IOException("timeout");
-            case 1:
-                break;
-            default:
-                String fmt = "Selector.select() returned invalid value: %d";
-                throw new Error(String.format(fmt, nChannels));
-            }
-            keys.clear();
-
-            switch (mReadableChannel.read(buffer)) {
-            case -1:
-                throw new IOException(DISCONNECTED_MESSAGE);
-            case 0:
-                throw new Error("cannot read channel");
-            default:
-                continue;
-            }
-        }
-
-        return buffer.array();
+        return mSource.read(len);
     }
 
     public byte[] read(PayloadSize len) throws IOException {
@@ -146,50 +251,7 @@ public class SyscallReadableChannel {
     }
 
     public byte readByte() throws IOException {
-        mBuffer.clear();
-
-        // First of all, try to read without Selector.select().
-        int nBytes = mReadableChannel.read(mBuffer);
-        switch (nBytes) {
-        case -1:
-            throw new IOException(DISCONNECTED_MESSAGE);
-        case 0:
-            break;
-        case 1:
-            mBuffer.rewind();
-            return mBuffer.get();
-        default:
-            String fmt = "ReadableByteChannel.read() returned invalid value %d";
-            throw new Error(String.format(fmt, nBytes));
-        }
-
-        // The channel did not return any data immediately. Wait.
-        mSelector.select();
-        Set<SelectionKey> keys = mSelector.selectedKeys();
-        int nChannels = keys.size();
-        switch (nChannels) {
-        case 0:
-            throw new IOException("timeout");
-        case 1:
-            break;
-        default:
-            String fmt = "Selector.select() returned invalid value: %d";
-            throw new Error(String.format(fmt, nChannels));
-        }
-        keys.clear();
-
-        // The channel is ready to read (or disconnected). Try again.
-        nBytes = mReadableChannel.read(mBuffer);
-        switch (nBytes) {
-        case -1:
-            throw new IOException(DISCONNECTED_MESSAGE);
-        case 1:
-            mBuffer.rewind();
-            return mBuffer.get();
-        default:
-            String fmt = "ReadableByteChannel is ready, but read() returned %d";
-            throw new Error(String.format(fmt, nBytes));
-        }
+        return mSource.read();
     }
 
     public PairId readPairId() throws IOException {
@@ -252,15 +314,14 @@ public class SyscallReadableChannel {
     }
 
     public void close() throws IOException {
-        mSelector.close();
-        mReadableChannel.close();
+        mSource.close();
     }
 
     /**
      * This method is not cool, but poll(2) needs this method.
      */
     public boolean isReady() throws IOException {
-        return mSelector.selectNow() == 1;
+        return mSource.isReady();
     }
 
     static {
