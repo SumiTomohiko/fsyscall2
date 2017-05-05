@@ -597,8 +597,8 @@ class SlaveHelper {
             catch (DataFormatException e) {
                 throw new IOException("cannot decompress writev payload", e);
             }
-            logMd5("compressed", compressed);
-            logMd5("decompressed", decompressed);
+            //logMd5("compressed", compressed);
+            //logMd5("decompressed", decompressed);
 
             doWritev(new SyscallReadableChannel(decompressed));
         }
