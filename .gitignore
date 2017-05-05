@@ -195,7 +195,6 @@ fmaster/sys/fmaster/fmaster_vfork.c
 fmaster/sys/fmaster/fmaster_wait4.c
 fmaster/sys/fmaster/fmaster_wait6.c
 fmaster/sys/fmaster/fmaster_write.c
-fmaster/sys/fmaster/fmaster_writev.c
 fmaster/x86
 fshub/dispatch_call.inc
 fshub/dispatch_ret.inc
