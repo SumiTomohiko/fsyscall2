@@ -191,10 +191,55 @@ public class Logging {
         }
     }
 
+    private static final Logger DEFAULT_LOGGER = new Logger("default");
     private static Destination mDestination;
 
     public static void setDestination(Destination destination) {
         mDestination = destination;
+    }
+
+    public static void verbose(String fmt, Object... args) {
+        DEFAULT_LOGGER.verbose(fmt, args);
+    }
+
+    public static void verbose(Throwable e, String fmt, Object... args) {
+        DEFAULT_LOGGER.verbose(e, fmt, args);
+    }
+
+    public static void debug(String fmt, Object... args) {
+        DEFAULT_LOGGER.debug(fmt, args);
+    }
+
+    public static void info(String fmt, Object... args) {
+        DEFAULT_LOGGER.info(fmt, args);
+    }
+
+    public static void info(Throwable e) {
+        DEFAULT_LOGGER.info(e);
+    }
+
+    public static void warn(String fmt, Object... args) {
+        DEFAULT_LOGGER.warn(fmt, args);
+    }
+
+    public static void err(String fmt, Object... args) {
+        DEFAULT_LOGGER.err(fmt, args);
+    }
+
+    public static void err(Throwable e, String fmt, Object... args) {
+        DEFAULT_LOGGER.err(e, fmt, args);
+    }
+
+    public static void trace(String fmt, Object... args) {
+        DEFAULT_LOGGER.trace(fmt, args);
+    }
+
+    public static void trace() {
+        DEFAULT_LOGGER.trace();
+    }
+
+    public static void stacktrace(String fmt, Object... args) {
+        DEFAULT_LOGGER.stacktrace(fmt, args);
     }
 
     private Logging() {
