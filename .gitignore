@@ -241,6 +241,7 @@ fslave/fslave_writev.c
 include/fsyscall/private/fslave/proto.h
 java/.gradle
 java/build
+java/fsyscall.iml
 java/local.properties
 java/src/main/java/jp/gr/java_conf/neko_daisuki/fsyscall/Command.java
 java/src/main/java/jp/gr/java_conf/neko_daisuki/fsyscall/SyscallResult.java
