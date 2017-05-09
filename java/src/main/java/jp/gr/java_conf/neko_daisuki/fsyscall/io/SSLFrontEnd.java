@@ -293,9 +293,12 @@ public class SSLFrontEnd {
                 }
 
                 SSLEngineResult result;
+                //long t0, t1;
                 switch (todo) {
                 case WRAP:
+                    //t0 = System.currentTimeMillis();
                     result = mEngine.wrap(mMyAppData, mMyNetData);
+                    //t1 = System.currentTimeMillis();
                     //log("wrap", result);
                     SSLEngineResult.Status status = result.getStatus();
                     switch (status) {
@@ -310,6 +313,11 @@ public class SSLFrontEnd {
                         closeSource();
                         // FALLTHROUGH
                     case OK:
+                        /*
+                        mLogger.debug("SSLEngine.wrap: t=%d[msec], bytesConsumed=%d, bytesProduced=%d",
+                                      t1 - t0, result.bytesConsumed(),
+                                      result.bytesProduced());
+                                      */
                         flush(mMyNetData, mSocket);
                         break;
                     default:
@@ -318,7 +326,9 @@ public class SSLFrontEnd {
                     }
                     break;
                 case UNWRAP:
+                    //t0 = System.currentTimeMillis();
                     result = mEngine.unwrap(mPeerNetData, mPeerAppData);
+                    //t1 = System.currentTimeMillis();
                     //log("unwrap", result);
                     status = result.getStatus();
                     switch (status) {
@@ -359,6 +369,11 @@ public class SSLFrontEnd {
                         mPeerNetDataAvailable = false;
                         // FALLTHROUGH
                     case OK:
+                        /*
+                        mLogger.debug("SSLEngine.unwrap: t=%d[msec], bytesConsumed=%d, bytesProduced=%d",
+                                      t1 - t0, result.bytesConsumed(),
+                                      result.bytesProduced());
+                                      */
                         flush(mPeerAppData, mSink);
                         mPeerNetDataAvailable = mPeerNetData.hasRemaining();
                         break;
