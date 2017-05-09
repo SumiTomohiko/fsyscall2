@@ -404,75 +404,98 @@ get_fd_ssl(const struct io *io)
 	return (SSL_get_fd(io->io_ssl));
 }
 
+static int
+wait_operation(struct io *io, const char *fname, const char *cause, int nfds,
+	       fd_set *rfds, fd_set *wfds)
+{
+	struct timeval timeout;
+	int e, n;
+
+	timeout.tv_sec = 120;
+	timeout.tv_usec = 0;
+	n = select(nfds, rfds, wfds, NULL, &timeout);
+	switch (n) {
+	case -1:
+		e = errno;
+		io->io_error = e;
+		log(io->io_vlog, LOG_ERR,
+		    "select(2) for %s on %s() failed: errno=%d (%s, %s)",
+		    cause, fname, e, get_error_name(e), strerror(e));
+		return (-1);
+	case 0:
+		log(io->io_vlog, LOG_ERR,
+		    "select(2) for %s on %s() timeouted", cause, fname);
+		return (-1);
+	case 1:
+		break;
+	default:
+		log(io->io_vlog, LOG_ERR,
+		    "select(2) for %s on %s()returned invalid value, %d",
+		    n, fname);
+		return (-1);
+	}
+
+	return (0);
+}
+
+static int
+handle_error_ssl(struct io *io, const char *fname, int ret)
+{
+	SSL *ssl;
+	fd_set fds;
+	int fd;
+	const char *cause;
+	char tag[256];
+
+	ssl = io->io_ssl;
+
+	switch (SSL_get_error(ssl, ret)) {
+	case SSL_ERROR_WANT_READ:
+		cause = "SSL_ERROR_WANT_READ";
+		fd = SSL_get_fd(ssl);
+		FD_ZERO(&fds);
+		FD_SET(fd, &fds);
+		if (wait_operation(io, fname, cause, fd + 1, &fds, NULL) == -1)
+			return (-1);
+		break;
+	case SSL_ERROR_WANT_WRITE:
+		cause = "SSL_ERROR_WANT_WRITE";
+		fd = SSL_get_fd(ssl);
+		FD_ZERO(&fds);
+		FD_SET(fd, &fds);
+		if (wait_operation(io, fname, cause, fd + 1, NULL, &fds) == -1)
+			return (-1);
+		break;
+	default:
+		io->io_error = EIO;
+		snprintf(tag, sizeof(tag), "%s: nbytes=%u", fname, ret);
+		log_error_ssl(io, ret, tag);
+		return (-1);
+	}
+
+	return (0);
+}
+
 static ssize_t
 read_ssl(struct io *io, void *buf, size_t nbytes)
 {
-	int n;
+	int ret;
 
-	n = SSL_read(io->io_ssl, buf, nbytes);
-	if (n < 0)
-		io->io_error = EIO;	/* FIXME */
+	while ((ret = SSL_read(io->io_ssl, buf, nbytes)) <= 0)
+		if (handle_error_ssl(io, "SSL_read", ret) == -1)
+			return (-1);
 
-	return (n);
+	return (ret);
 }
 
 static ssize_t
 write_ssl(struct io *io, void *buf, size_t nbytes)
 {
-	SSL *ssl;
-	fd_set fds;
-	struct timeval timeout;
-	int e, fd, nfds, ret;
-	char tag[256];
+	int ret;
 
-#define	LOG_ERROR	do {						\
-	io->io_error = EIO;						\
-	snprintf(tag, sizeof(tag), "SSL_write: nbytes=%zu", nbytes);	\
-	log_error_ssl(io, ret, tag);					\
-} while (0)
-
-	ssl = io->io_ssl;
-	ret = SSL_write(ssl, buf, nbytes);
-	if (ret <= 0) {
-		if (SSL_get_error(ssl, ret) == SSL_ERROR_WANT_WRITE) {
-			fd = SSL_get_fd(ssl);
-			FD_ZERO(&fds);
-			FD_SET(fd, &fds);
-			timeout.tv_sec = 120;
-			timeout.tv_usec = 0;
-			nfds = select(fd + 1, NULL, &fds, NULL, &timeout);
-			switch (nfds) {
-			case -1:
-				e = errno;
-				io->io_error = e;
-				log(io->io_vlog, LOG_ERR,
-				    "select(2) for SSL_ERROR_WANT_WRITE failed:"
-				    " errno=%d (%s, %s)",
-				    e, get_error_name(e), strerror(e));
-				break;
-			case 0:
-				log(io->io_vlog, LOG_ERR,
-				    "select(2) for SSL_ERROR_WANT_WRITE timeout"
-				    "ed");
-				break;
-			case 1:
-				ret = SSL_write(ssl, buf, nbytes);
-				if (ret <= 0)
-					LOG_ERROR;
-				break;
-			default:
-				log(io->io_vlog, LOG_ERR,
-				    "select(2) for SSL_ERROR_WANT_WRITE returne"
-				    "d invalid value, %d",
-				    nfds);
-				break;
-			}
-		}
-		else
-			LOG_ERROR;
-	}
-
-#undef	LOG_ERROR
+	while ((ret = SSL_write(io->io_ssl, buf, nbytes)) <= 0)
+		if (handle_error_ssl(io, "SSL_write", ret) == -1)
+			return (-1);
 
 	return (ret);
 }
