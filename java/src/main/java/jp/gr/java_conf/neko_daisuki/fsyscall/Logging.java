@@ -160,9 +160,21 @@ public class Logging {
             logStacktrace(VERBOSE_PROC, new Throwable().getStackTrace());
         }
 
+        private StackTraceElement findCaller(StackTraceElement[] stack) {
+            int len = stack.length;
+            int i;
+            for (i = len - 1; 0 <= i; i--) {
+                StackTraceElement elem = stack[i];
+                if (elem.getFileName().equals("Logging.java")) {
+                    break;
+                }
+            }
+            return stack[i + 1];
+        }
+
         private String getCallerPosition() {
             StackTraceElement[] stack = new Throwable().getStackTrace();
-            return 0 < stack.length ? stack[2].toString() : "unknown";
+            return 0 < stack.length ? findCaller(stack).toString() : "unknown";
         }
 
         private String formatMessage(String fmt, Object[] args) {
