@@ -24,6 +24,7 @@
 #include <sys/fmaster/fmaster_pre_post.h>
 #include <sys/fmaster/fmaster_proto.h>
 
+static bool compressed_call_enabled = true;
 static const char *sysname = "writev";
 
 #define	COMPRESSION_LEVEL	3
@@ -212,6 +213,7 @@ execute_call(struct thread *td, struct fmaster_writev_args *uap, int lfd)
 {
 	struct payload *payload;
 	struct iovec *iov, *iovp;
+	payload_size_t size;
 	size_t len;
 	u_int i, iovcnt;
 	bool success;
@@ -239,7 +241,8 @@ execute_call(struct thread *td, struct fmaster_writev_args *uap, int lfd)
 			goto exit;
 	}
 
-	if (fsyscall_payload_get_size(payload) < 1024) {
+	size = fsyscall_payload_get_size(payload);
+	if (!compressed_call_enabled || (size < 1024)) {
 		error = write_small_call(td, payload);
 		if (error != 0)
 			goto exit;
