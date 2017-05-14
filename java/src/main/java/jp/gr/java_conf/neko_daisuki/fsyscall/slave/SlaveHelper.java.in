@@ -641,7 +641,7 @@ class SlaveHelper {
             }
             finally {
                 long t1 = System.nanoTime();
-                String fmt = "inflate: total_in=%d[byte], total_out=%d[byte], elapsed time=%d[usec]";
+                String fmt = "inflate: total_in=%,d[byte], total_out=%,d[byte], elapsed time=%,d[usec]";
                 long t = (t1 - t0) / 1000;
                 mLogger.info(fmt, i.getBytesRead(), i.getBytesWritten(), t);
                 i.end();
